@@ -1,0 +1,3 @@
+curl.exe -s -X PATCH http://localhost:4000/api/v1/users/change-password -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwYjU5ODgyOC1hY2YwLTRjMTgtOTY4Zi1lMGUyZGRiYTYwYjMiLCJlbWFpbCI6InN0dWRlbnQudmVyaWZ5QHRlc3QuY29tIiwicm9sZSI6InN0dWRlbnQiLCJzZXNzaW9uSWQiOiIzYWU5NTk3Ni0zNDYzLTQ1MjUtYWZiMC01MzAwOGNmODBlN2QiLCJpYXQiOjE3ODI5OTcyNDEsImV4cCI6MTc4MzYwMjA0MX0.ILIkA5FSrLw2LPS2D04ZwtePkqWudu4B6O1W2Xgnr8c" -d "{\"currentPassword\":\"WrongOldPass\",\"newPassword\":\"NewPass123\"}" -o test2a_wrong.json -w "HTTP_STATUS:%{http_code}\n"
+echo ---RESPONSE---
+type test2a_wrong.json

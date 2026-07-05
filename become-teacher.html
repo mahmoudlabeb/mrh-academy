@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr.H Academy - كن مدرساً</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <meta name="description" content="سجل الآن كمدرس في منصة Mr.H Academy وابدأ رحلتك في التعليم عن بعد.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .teacher-portal {
+            padding: 60px 0;
+            background-color: var(--bg-light);
+            min-height: calc(100vh - 80px);
+        }
+        
+        .auth-toggle {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        /* Preply-style Wizard Styles */
+        .wizard-header-bar {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 0;
+            margin-bottom: 40px;
+            overflow-x: auto;
+        }
+        
+        .wizard-nav {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 0.95rem;
+            min-width: max-content;
+        }
+        
+        .wizard-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-main);
+        }
+        
+        .wizard-icon {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        
+        .wizard-icon.error {
+            background-color: transparent;
+            color: #e03131;
+            font-size: 1rem;
+        }
+        
+        .wizard-icon.done {
+            background-color: #212529;
+            color: white;
+        }
+        
+        .wizard-chevron {
+            color: #adb5bd;
+            font-size: 0.8rem;
+            margin-right: 8px; /* RTL spacing */
+        }
+
+        .wizard-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px 40px;
+            border-radius: 8px;
+            display: none; 
+        }
+        
+        .wizard-container.active {
+            display: block;
+        }
+
+        .alert-box {
+            background-color: #ffe3e3;
+            color: #212529;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 32px;
+            display: flex;
+            gap: 12px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .alert-box i {
+            margin-top: 4px;
+        }
+
+        .intro-text {
+            color: #495057;
+            font-size: 1rem;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .wizard-step {
+            display: none;
+        }
+
+        .wizard-step.active {
+            display: block;
+        }
+
+        .wizard-step h2 {
+            font-size: 2rem;
+            margin-bottom: 24px;
+            color: var(--text-main);
+            font-weight: 800;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+        
+        .form-control:focus {
+            border-color: var(--text-main);
+            outline: none;
+        }
+
+        select.form-control {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23212529' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 16px center; /* Distance from the left border */
+            background-size: 14px;
+            padding-left: 48px; /* Extra padding to prevent text from overlapping the arrow */
+        }
+
+        .wizard-actions {
+            display: flex;
+            justify-content: center; /* Center the buttons like Preply */
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn-pink {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: bold;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid #111;
+            box-shadow: 2px 2px 0 #111;
+            transition: all 0.2s;
+        }
+
+        .btn-pink:hover {
+            background-color: var(--primary-hover);
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #111;
+        }
+
+        .btn-outline {
+            background-color: white;
+            color: var(--text-main);
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--text-main);
+        }
+
+        /* Specific Component Styles */
+        .language-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .add-link {
+            color: var(--text-main);
+            font-weight: bold;
+            text-decoration: underline;
+            font-size: 0.95rem;
+            display: inline-block;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 24px;
+            font-weight: 600;
+        }
+
+        .checkbox-group input {
+            width: 18px;
+            height: 18px;
+        }
+
+        .photo-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .photo-card img {
+            width: 60px;
+            height: 60px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .guidelines-grid {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .guidelines-grid img {
+            width: 80px;
+            height: 80px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .guidelines-list {
+            padding-right: 20px; /* RTL */
+        }
+
+        .guidelines-list li {
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            position: relative;
+        }
+
+        .guidelines-list li::before {
+            content: '✓';
+            position: absolute;
+            right: -24px;
+            color: var(--text-main);
+            font-weight: bold;
+        }
+
+        .certificate-block {
+            margin-bottom: 40px;
+        }
+
+        .info-box {
+            background-color: #e7f5ff;
+            border: 1px solid #74c0fc;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            display: flex;
+            gap: 12px;
+            font-size: 0.9rem;
+        }
+
+        .upload-box {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        /* Dashboard Styles */
+        .dashboard-container {
+            display: none; /* hidden by default */
+        }
+        
+        .dashboard-container.active {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 32px;
+        }
+
+        .dashboard-sidebar {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .dashboard-sidebar ul li {
+            margin-bottom: 16px;
+        }
+
+        .dashboard-sidebar ul li a {
+            color: var(--text-main);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .dashboard-sidebar ul li a:hover,
+        .dashboard-sidebar ul li a.active {
+            color: var(--primary-color);
+        }
+
+        .dashboard-content {
+            background: white;
+            border-radius: var(--radius-md);
+            padding: 32px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: var(--radius-sm);
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-card h4 {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .action-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+            color: white; 
+            padding: 40px; 
+            border-radius: 12px; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: transform 0.2s, box-shadow 0.2s; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
+        }
+
+        .action-card.live-lesson {
+            background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-container.active {
+                grid-template-columns: 1fr;
+            }
+            .step-dot {
+                width: 24px;
+                height: 24px;
+                font-size: 0.8rem;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr !important;
+                gap: 16px !important;
+            }
+            .form-row, .grid-2 {
+                grid-template-columns: 1fr !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+            }
+            .dashboard-header {
+                padding: 16px 20px !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+                align-items: flex-start !important;
+            }
+            .wizard-container {
+                padding: 16px !important;
+            }
+        }
+    </style>
+</head>
+<body class="dark-theme">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.body.classList.remove('dark-theme');
+            }
+        })();
+    </script>
+
+    <!-- Header Navigation -->
+    <header class="navbar">
+        <div class="container nav-container">
+            <a href="index.html" class="logo">Mr.H Academy</a>
+            
+            <nav class="nav-links">
+                <a href="#">ابحث عن مدرس</a>
+                <a href="#">تدريب الشركات</a>
+                <a href="become-teacher.html" style="color: var(--primary-color);">كن مدرساً</a>
+            </nav>
+            
+            <div class="nav-actions">
+                <a href="en.html" class="lang-selector"><i class="fa-solid fa-globe"></i> English</a>
+                <a href="login.html" class="login-btn">تسجيل الدخول</a>
+            </div>
+
+            <button class="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
+        </div>
+    </header>
+
+    <section class="teacher-portal">
+        <div class="container">
+            
+            <!-- Development Toggle Switch (For testing views) -->
+            <div class="auth-toggle">
+                <p style="margin-bottom: 10px; color: var(--text-muted); font-size: 0.9rem;">أزرار للمعاينة فقط (تحديد حالة المستخدم):</p>
+                <button class="btn-secondary" id="show-wizard-btn">عرض نموذج التسجيل (غير مسجل)</button>
+                <button class="btn-primary" id="show-dashboard-btn">عرض لوحة التحكم (مدرس مسجل)</button>
+            </div>
+
+            <!-- Preply Style Wizard Header -->
+            <div class="wizard-header-bar" id="wizard-header">
+                <div class="container">
+                    <div class="wizard-nav">
+                        <div class="wizard-nav-item active" data-step="1">
+                            <span class="wizard-icon error"><i class="fa-solid fa-xmark"></i></span>
+                            حول <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="2">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            الصورة <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="3">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            الشهادات <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="4">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            التعليم <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="5">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            الوصف <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="6">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            الفيديو <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="7">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            التوافر <i class="fa-solid fa-chevron-left wizard-chevron"></i>
+                        </div>
+                        <div class="wizard-nav-item" data-step="8">
+                            <span class="wizard-icon done"><i class="fa-solid fa-check"></i></span>
+                            التسعير
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7-Step Registration Wizard -->
+            <div class="wizard-container active" id="wizard-view">
+
+                <form id="teacher-application-form" action="https://formsubmit.co/mester.h011@gmail.com" method="POST">
+                    <!-- Formsubmit configurations -->
+                    <input type="hidden" name="_subject" value="طلب انضمام مدرس جديد - Mr.H Academy">
+                    <input type="hidden" name="_captcha" value="false">
+                    <input type="hidden" name="_template" value="table">
+                    
+                    <!-- Step 1: Basic Info -->
+                    <div class="wizard-step active" id="step-1">
+                        <h2>حول</h2>
+                        
+                        <div class="alert-box">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <div>
+                                مرحباً هاني، شكراً لتقديمك للتدريس على Mr.H Academy! لكي يتم قبولك، يرجى التأكد من تقديمك بلد الميلاد الصحيح. يرجى الملاحظة أن "بلد الميلاد" يشير إلى البلد الذي ولدت فيه، وليس البلد الذي تعيش فيه حالياً. ندعوك لتحديثه في صفحة "حول".<br><br>
+                                أطيب التحيات،<br>
+                                فريق Mr.H Academy
+                            </div>
+                        </div>
+                        
+                        <p class="intro-text">
+                            ابدأ بإنشاء ملف المدرس العام الخاص بك. سيتم حفظ تقدمك تلقائياً عند إكمالك لكل قسم. يمكنك العودة في أي وقت لإنهاء عملية التسجيل.
+                        </p>
+
+                        <div class="form-group">
+                            <label>الاسم الأول<span class="req-star" id="star-fname" style="color: #e03131; font-weight: bold; display: none;"> *</span></label>
+                            <input type="text" class="form-control" id="fname-input" placeholder="مثال: هاني" maxlength="50" pattern="[A-Za-z\u0600-\u06FF\s]+">
+                            <span id="fname-error" style="color: #e03131; font-size: 0.85rem; display: none; margin-top: 4px;">يجب أن يحتوي الاسم على أحرف فقط ولا يُسمح بالرموز الخاصة</span>
+                        </div>
+                        <div class="form-group">
+                            <label>الاسم الأخير<span class="req-star" id="star-lname" style="color: #e03131; font-weight: bold; display: none;"> *</span></label>
+                            <input type="text" class="form-control" id="lname-input" placeholder="مثال: خليل" maxlength="50" pattern="[A-Za-z\u0600-\u06FF\s]+">
+                            <span id="lname-error" style="color: #e03131; font-size: 0.85rem; display: none; margin-top: 4px;">يجب أن يحتوي الاسم على أحرف فقط ولا يُسمح بالرموز الخاصة</span>
+                        </div>
+                        <div class="form-group">
+                            <label>البريد الإلكتروني<span class="req-star" id="star-email" style="color: #e03131; font-weight: bold; display: none;"> *</span></label>
+                            <input type="email" class="form-control" id="email-input" placeholder="example@email.com" maxlength="100">
+                            <span id="email-error" style="color: #e03131; font-size: 0.85rem; display: none; margin-top: 4px;"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>بلد الميلاد<span class="req-star" id="star-country" style="color: #e03131; font-weight: bold; display: none;"> *</span></label>
+                            <select class="form-control" id="country-select">
+                                <option value="" selected disabled>اختر بلد الميلاد</option>
+                                <option value="Norway">Norway</option>
+                                <option value="Egypt">Egypt</option>
+                                <option value="Saudi Arabia">Saudi Arabia</option>
+                                <option value="United Arab Emirates">United Arab Emirates</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>المادة التي تدرسها<span class="req-star" id="star-subject" style="color: #e03131; font-weight: bold; display: none;"> *</span></label>
+                            <select class="form-control" id="subject-select">
+                                <option value="" selected disabled>اختر المادة</option>
+                                <option value="Arabic">Arabic</option>
+                                <option value="English">English</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; justify-content: space-between;">
+                                <span>اللغات التي تتحدثها</span>
+                                <span>المستوى</span>
+                            </label>
+                            <div class="language-row">
+                                <select class="form-control"><option selected>English</option></select>
+                                <select class="form-control"><option selected>C1</option></select>
+                                <i class="fa-regular fa-trash-can" style="cursor: pointer;"></i>
+                            </div>
+                            <div class="language-row">
+                                <select class="form-control"><option selected>Arabic</option></select>
+                                <select class="form-control"><option selected>Native</option></select>
+                                <i class="fa-regular fa-trash-can" style="cursor: pointer;"></i>
+                            </div>
+                            <a class="add-link">أضف لغة أخرى</a>
+                        </div>
+                        <div class="form-group">
+                            <label>رقم الهاتف (اختياري)</label>
+                            <div style="display: flex; gap: 8px;">
+                                <select class="form-control" style="width: 100px;">
+                                    <option selected>🇳🇴 +47</option>
+                                </select>
+                                <input type="tel" class="form-control">
+                            </div>
+                        </div>
+                        <label class="checkbox-group">
+                            <input type="checkbox" id="age-checkbox"> أؤكد أن عمري يتجاوز 18 عاماً <span class="req-star" id="star-age" style="color: #e03131; font-weight: bold; display: none;">* (مطلوب)</span>
+                        </label>
+                    </div>
+
+                    <!-- Step 2: Profile Photo -->
+                    <div class="wizard-step" id="step-2">
+                        <h2>صورة الملف الشخصي</h2>
+                        <p class="intro-text" style="margin-bottom: 20px;">اختر صورة تساعد المتعلمين في التعرف عليك.</p>
+                        
+                        <div class="photo-card">
+                            <img src="assets/tutor_1.png" alt="Profile">
+                            <div>
+                                <strong>Hani K. 🇳🇴</strong><br>
+                                <small style="color: var(--text-muted);"><i class="fa-solid fa-graduation-cap"></i> يدرس دروس اللغة العربية</small><br>
+                                <small style="color: var(--text-muted);"><i class="fa-solid fa-language"></i> يتحدث الإنجليزية (C1)، العربية (لغة أم)</small>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn-outline" style="width: 100%; margin-bottom: 40px;">رفع صورة جديدة</button>
+
+                        <h3>ما تحتاجه صورتك</h3>
+                        <div class="guidelines-grid">
+                            <img src="assets/tutor_1.png" alt="Good">
+                            <img src="assets/tutor_2.png" alt="Good">
+                            <img src="assets/tutor_1.png" style="opacity: 0.5;" alt="Bad">
+                            <img src="assets/tutor_2.png" style="opacity: 0.5;" alt="Bad">
+                        </div>
+                        <ul class="guidelines-list">
+                            <li>يجب أن تكون مواجهاً للكاميرا</li>
+                            <li>تأطير رأسك وكتفيك</li>
+                            <li>يجب أن تكون في المنتصف ومستقيماً</li>
+                            <li>يجب أن يكون وجهك وعيناك مرئيين (إلا لأسباب دينية)</li>
+                            <li>يجب أن تكون الشخص الوحيد في الصورة</li>
+                            <li>استخدم صورة ملونة بدقة عالية وبدون فلاتر</li>
+                            <li>تجنب الشعارات أو معلومات الاتصال</li>
+                        </ul>
+                    </div>
+
+                    <!-- Step 3: Certification -->
+                    <div class="wizard-step" id="step-3">
+                        <h2>الشهادات المهنية</h2>
+                        <p class="intro-text">هل لديك شهادات تدريس؟ إذا كان الأمر كذلك، صفها لتعزيز مصداقية ملفك الشخصي وجذب المزيد من الطلاب.</p>
+                        
+                        <label class="checkbox-group" style="margin-top: 0; margin-bottom: 24px;">
+                            <input type="checkbox"> ليس لدي شهادة تدريس
+                        </label>
+
+                        <!-- Certificate 1 -->
+                        <div class="certificate-block">
+                            <div class="form-group">
+                                <label>المادة <i class="fa-regular fa-trash-can" style="float: left; cursor: pointer;"></i></label>
+                                <select class="form-control"><option selected>English</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>الشهادة</label>
+                                <select class="form-control"><option selected>Bridge EDU - 20-Hour Teaching English as a Global La...</option></select>
+                                <small style="color: var(--text-muted);">اكتب الاسم تماماً كما يظهر في شهادتك.</small>
+                            </div>
+                            <label class="checkbox-group" style="margin-top: 8px; margin-bottom: 16px;">
+                                <input type="checkbox"> شهادتي غير موجودة في القائمة
+                            </label>
+                            <div class="form-group" style="display: flex; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <label>سنوات الدراسة</label>
+                                    <select class="form-control"><option selected>2024</option></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>&nbsp;</label>
+                                    <select class="form-control"><option selected>2025</option></select>
+                                </div>
+                            </div>
+                            <div class="info-box">
+                                <i class="fa-solid fa-circle-info" style="color: #339af0; margin-top: 2px;"></i>
+                                <div>
+                                    <strong>نحن نقوم بمراجعة مستنداتك</strong><br>
+                                    قد يستغرق هذا ما يصل إلى يومي عمل.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Certificate 2 -->
+                        <div class="certificate-block">
+                            <div class="form-group">
+                                <label>المادة <i class="fa-regular fa-trash-can" style="float: left; cursor: pointer;"></i></label>
+                                <select class="form-control"><option selected>Arabic</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>الشهادة</label>
+                                <select class="form-control"><option selected>Other</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>الاسم</label>
+                                <input type="text" class="form-control" value="IT">
+                            </div>
+                            <div class="form-group">
+                                <label>الوصف</label>
+                                <input type="text" class="form-control" value="IT Diploma">
+                            </div>
+                            <div class="form-group">
+                                <label>صادرة عن</label>
+                                <input type="text" class="form-control" value="Molde HighSchool">
+                            </div>
+                            <div class="form-group" style="display: flex; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <label>سنوات الدراسة</label>
+                                    <select class="form-control"><option selected>2023</option></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>&nbsp;</label>
+                                    <select class="form-control"><option selected>2024</option></select>
+                                </div>
+                            </div>
+                            <div class="upload-box">
+                                <h4 style="margin-bottom: 8px;">احصل على شارة "شهادة معتمدة"</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">ارفع شهادتك لتعزيز مصداقيتك! سيقوم فريقنا بمراجعتها وإضافة الشارة إلى ملفك الشخصي. بمجرد المراجعة، سيتم حذف ملفاتك.</p>
+                                <p style="font-size: 0.8rem; margin-bottom: 16px;">بتنسيق JPG أو PNG؛ الحد الأقصى للحجم 20 ميغابايت.</p>
+                                <button type="button" class="btn-outline">رفع صورة</button>
+                            </div>
+                        </div>
+
+                        <!-- Certificate 3 -->
+                        <div class="certificate-block">
+                            <div class="form-group">
+                                <label>المادة <i class="fa-regular fa-trash-can" style="float: left; cursor: pointer;"></i></label>
+                                <select class="form-control"><option selected>Business & Management</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>الشهادة</label>
+                                <input type="text" class="form-control" value="Diploma in Business Management">
+                            </div>
+                            <div class="form-group">
+                                <label>الاسم</label>
+                                <input type="text" class="form-control" value="Diploma in Business Management">
+                            </div>
+                            <div class="form-group">
+                                <label>الوصف</label>
+                                <input type="text" class="form-control" value="Diploma in Business Management">
+                            </div>
+                            <div class="form-group">
+                                <label>صادرة عن</label>
+                                <input type="text" class="form-control" value="Salaham">
+                            </div>
+                            <div class="form-group" style="display: flex; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <label>سنوات الدراسة</label>
+                                    <select class="form-control"><option selected>2011</option></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>&nbsp;</label>
+                                    <select class="form-control"><option selected>2012</option></select>
+                                </div>
+                            </div>
+                            <div class="upload-box">
+                                <h4 style="margin-bottom: 8px;">احصل على شارة "شهادة معتمدة"</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">ارفع شهادتك لتعزيز مصداقيتك! سيقوم فريقنا بمراجعتها وإضافة الشارة إلى ملفك الشخصي. بمجرد المراجعة، سيتم حذف ملفاتك.</p>
+                                <p style="font-size: 0.8rem; margin-bottom: 16px;">بتنسيق JPG أو PNG؛ الحد الأقصى للحجم 20 ميغابايت.</p>
+                                <button type="button" class="btn-outline">رفع صورة</button>
+                            </div>
+                        </div>
+
+                        <a class="add-link">أضف شهادة أخرى</a>
+                    </div>
+
+                    <!-- Step 4: Education -->
+                    <div class="wizard-step" id="step-4">
+                        <h2>التعليم</h2>
+                        <p class="intro-text">أخبر الطلاب المزيد عن التعليم العالي الذي أكملته أو تعمل عليه.</p>
+                        
+                        <label class="checkbox-group" style="margin-top: 0; margin-bottom: 24px;">
+                            <input type="checkbox"> ليس لدي درجة في التعليم العالي
+                        </label>
+
+                        <!-- Education 1 -->
+                        <div class="certificate-block">
+                            <div class="form-group">
+                                <label>الجامعة <i class="fa-regular fa-trash-can" style="float: left; cursor: pointer;"></i></label>
+                                <input type="text" class="form-control" value="Nord">
+                            </div>
+                            <div class="form-group">
+                                <label>الدرجة العلمية</label>
+                                <input type="text" class="form-control" value="Diploma in English Language">
+                            </div>
+                            <div class="form-group">
+                                <label>نوع الدرجة</label>
+                                <select class="form-control"><option selected>Degree in the subject you teach</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>التخصص</label>
+                                <input type="text" class="form-control" value="English Leturature">
+                            </div>
+                            <div class="form-group" style="display: flex; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <label>سنوات الدراسة</label>
+                                    <select class="form-control"><option selected>2024</option></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>&nbsp;</label>
+                                    <select class="form-control"><option selected>2025</option></select>
+                                </div>
+                            </div>
+                            <div class="upload-box">
+                                <h4 style="margin-bottom: 8px;">احصل على شارة "شهادة معتمدة"</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">ارفع شهادتك لتعزيز مصداقيتك! سيقوم فريقنا بمراجعتها وإضافة الشارة إلى ملفك الشخصي. بمجرد المراجعة، سيتم حذف ملفاتك.</p>
+                                <p style="font-size: 0.8rem; margin-bottom: 16px;">بتنسيق JPG أو PNG؛ الحد الأقصى للحجم 20 ميغابايت.</p>
+                                <button type="button" class="btn-outline">رفع صورة</button>
+                            </div>
+                        </div>
+
+                        <!-- Education 2 -->
+                        <div class="certificate-block">
+                            <div class="form-group">
+                                <label>الجامعة <i class="fa-regular fa-trash-can" style="float: left; cursor: pointer;"></i></label>
+                                <input type="text" class="form-control" value="Molde HighSchool">
+                            </div>
+                            <div class="form-group">
+                                <label>الدرجة العلمية</label>
+                                <input type="text" class="form-control" value="Diploma in IT">
+                            </div>
+                            <div class="form-group">
+                                <label>نوع الدرجة</label>
+                                <select class="form-control"><option selected>Other degree</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>التخصص</label>
+                                <input type="text" class="form-control" value="IT">
+                            </div>
+                            <div class="form-group" style="display: flex; gap: 16px;">
+                                <div style="flex: 1;">
+                                    <label>سنوات الدراسة</label>
+                                    <select class="form-control"><option selected>2023</option></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label>&nbsp;</label>
+                                    <select class="form-control"><option selected>2024</option></select>
+                                </div>
+                            </div>
+                            <div class="upload-box">
+                                <h4 style="margin-bottom: 8px;">احصل على شارة "شهادة معتمدة"</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">ارفع شهادتك لتعزيز مصداقيتك! سيقوم فريقنا بمراجعتها وإضافة الشارة إلى ملفك الشخصي. بمجرد المراجعة، سيتم حذف ملفاتك.</p>
+                                <p style="font-size: 0.8rem; margin-bottom: 16px;">بتنسيق JPG أو PNG؛ الحد الأقصى للحجم 20 ميغابايت.</p>
+                                <button type="button" class="btn-outline">رفع صورة</button>
+                            </div>
+                        </div>
+
+                        <a class="add-link">أضف تعليم آخر</a>
+                    </div>
+
+                    <!-- Step 5: Description -->
+                    <div class="wizard-step" id="step-5">
+                        <h2>وصف الملف الشخصي</h2>
+                        <p class="intro-text">ستظهر هذه المعلومات في ملفك الشخصي العام. اكتبها باللغة التي ستقوم بتدريسها وتأكد من اتباع إرشاداتنا للحصول على الموافقة.</p>
+                        
+                        <div class="form-group" style="margin-bottom: 40px;">
+                            <label style="font-size: 1.1rem;">1. عرّف عن نفسك <i class="fa-solid fa-check" style="float: left;"></i></label>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">أخبر الطلاب المحتملين عن نفسك. شارك خبرتك التعليمية وشغفك بالتعليم واذكر بإيجاز اهتماماتك وهواياتك.</p>
+                            <textarea class="form-control" rows="4">اسمي هاني، وأنا من عشاق اللغة العربية. استوطنتها منذ الصغر، ولدي خبرة أكثر من 8 سنوات في تعليم اللغات لغير الناطقين، حاصل على شهادة في الأدب الإنجليزي من جامعة نورد. وسأكون مدربك على اللغة لتتعلمها بكفاءة عالية.</textarea>
+                            <div class="info-box" style="background-color: #e7f5ff; border: none; margin: 8px 0 16px;">
+                                <i class="fa-solid fa-circle-info" style="color: #339af0;"></i> Don't include your last name or present your information in a CV format
+                            </div>
+                            <button type="button" class="btn-outline" style="padding: 8px 16px;">Continue</button>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 40px;">
+                            <label style="font-size: 1.1rem;">2. خبرتك بالتعليم <i class="fa-solid fa-check" style="float: left;"></i></label>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">قدم وصفاً تفصيلياً لخبراتك التعليمية ذات الصلة. قم بتضمين الشهادات ومنهجية التعليم وخبرتك في المادة.</p>
+                            <textarea class="form-control" rows="4">لدي خبرة أكثر من 8 سنوات في تعليم اللغات وإقامة الدروس أونلاين</textarea>
+                            <div style="margin: 16px 0;">
+                                <button type="button" class="btn-outline" style="padding: 8px 16px;">Continue</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 40px;">
+                            <label style="font-size: 1.1rem;">3. تحفيز الطالب المحتمل <i class="fa-solid fa-check" style="float: left;"></i></label>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">شجع الطلاب على حجز درسهم الأول. سلط الضوء على فوائد الدراسة معك.</p>
+                            <textarea class="form-control" rows="4">مدرس معتمد للإنجليزية والعربية بخبرة أكثر من 8 سنوات - دروس تفاعلية عبر الإنترنت تساعدك على تحسين المحادثة، الكتابة، والاستماع بثقة</textarea>
+                            <div class="info-box" style="background-color: #e7f5ff; border: none; margin: 8px 0 16px;">
+                                <i class="fa-solid fa-circle-info" style="color: #339af0;"></i> Do not include any information regarding free trial lessons or discounts, or any of your personal contact details
+                            </div>
+                            <button type="button" class="btn-outline" style="padding: 8px 16px;">Continue</button>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 24px;">
+                            <label style="font-size: 1.1rem;">4. اكتب عنواناً جذاباً <i class="fa-solid fa-check" style="float: left;"></i></label>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">عنوانك هو أول ما يراه الطالب عنك. اجعله ملفتاً للانتباه، واذكر لغة التدريس المحددة الخاصة بك وشجع الطلاب على قراءة الوصف الكامل.</p>
+                            <textarea class="form-control" rows="4">مدرس معتمد لتعليم العربية بخبرة تزيد عن 8 سنوات - أقدم دروساً تفاعلية عبر الإنترنت لمساعدتك على تحسين المحادثة، الكتابة، والاستماع بثقة وبطرق حديثة وممتعة تناسب أهدافك.</textarea>
+                            <div style="text-align: left; margin-top: 8px; color: #12b886; font-weight: bold; font-size: 0.9rem;">418 / 400</div>
+                        </div>
+                    </div>
+
+                    <!-- Step 6: Video Intro -->
+                    <div class="wizard-step" id="step-6">
+                        <h2>فيديو تعريفي</h2>
+                        
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 32px;">
+                            <div>
+                                <h3 style="font-size: 1.1rem; margin-bottom: 8px;">أضف فيديو أفقي لا تتجاوز مدته دقيقتين</h3>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">عرّف الطلاب بنفسك في نفس اللغة المكتوبة في وصفك. إذا كنت تدرس لغة مختلفة، قم بتضمين عينة قصيرة.</p>
+                                
+                                <div style="background-color: #000; border-radius: 8px; overflow: hidden; margin-bottom: 16px; position: relative;">
+                                    <img src="assets/tutor_1.png" style="width: 100%; height: 250px; object-fit: cover; opacity: 0.8;" alt="Video thumbnail">
+                                    <div style="position: absolute; bottom: 10px; left: 10px; color: white;"><i class="fa-solid fa-play"></i> 00:00</div>
+                                </div>
+                                
+                                <button type="button" class="btn-outline" style="width: 100%; margin-bottom: 16px;"><i class="fa-solid fa-video"></i> إعادة التسجيل</button>
+                                
+                                <p style="font-size: 0.9rem;">هل لديك فيديو مسجل مسبقاً على Youtube أو Vimeo؟ <br><a class="add-link">إدراج رابط</a></p>
+                                
+                                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 32px 0;">
+                                
+                                <h3 style="font-size: 1.1rem; margin-bottom: 8px;">إضافة صورة مصغرة (اختياري)</h3>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">لا تقلق إذا لم يكن لديك صورة مصغرة جاهزة، سنستخدم المعاينة أعلاه.</p>
+                                <a class="add-link" style="font-weight: normal; color: var(--text-muted);">إظهار المزيد</a>
+                            </div>
+                            
+                            <div style="background-color: var(--bg-light); padding: 24px; border-radius: 8px;">
+                                <h3 style="font-size: 1rem; margin-bottom: 8px;">متطلبات الفيديو</h3>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">تأكد من أن الفيديو الخاص بك يفي بالمتطلبات ليتم الموافقة عليه.</p>
+                                
+                                <h4 style="font-size: 0.9rem; color: #0ca678; margin-bottom: 12px;"><i class="fa-solid fa-check"></i> افعل</h4>
+                                <ul style="font-size: 0.85rem; padding-right: 16px; margin-bottom: 24px; color: var(--text-main);">
+                                    <li style="margin-bottom: 8px;">يجب أن تتراوح مدة الفيديو بين 30 ثانية ودقيقتين</li>
+                                    <li style="margin-bottom: 8px;">سجل بوضع أفقي وعلى مستوى العين</li>
+                                    <li style="margin-bottom: 8px;">استخدم إضاءة جيدة وخلفية محايدة</li>
+                                    <li style="margin-bottom: 8px;">استخدم سطحاً ثابتاً حتى لا يبدو الفيديو مهتزاً</li>
+                                    <li style="margin-bottom: 8px;">تأكد من أن وجهك وعيناك مرئيان بالكامل (إلا لأسباب دينية)</li>
+                                    <li style="margin-bottom: 8px;">سلط الضوء على خبرتك في التدريس وأي شهادات تدريس ذات صلة!</li>
+                                    <li style="margin-bottom: 8px;">رحب بطلابك بحرارة وادعهم لحجز درس</li>
+                                </ul>
+                                
+                                <h4 style="font-size: 0.9rem; color: #fa5252; margin-bottom: 12px;"><i class="fa-solid fa-xmark"></i> لا تفعل</h4>
+                                <ul style="font-size: 0.85rem; padding-right: 16px; color: var(--text-main);">
+                                    <li style="margin-bottom: 8px;">تضمين لقبك أو أي تفاصيل اتصال</li>
+                                    <li style="margin-bottom: 8px;">تضمين شعارات أو روابط</li>
+                                    <li style="margin-bottom: 8px;">استخدام عروض تقديمية</li>
+                                    <li style="margin-bottom: 8px;">إظهار أي أشخاص آخرين في الفيديو الخاص بك</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 7: Availability -->
+                    <div class="wizard-step" id="step-7">
+                        <h2>التوافر</h2>
+                        
+                        <!-- Timezone Confirmation View -->
+                        <div id="timezone-confirmation">
+                            <p style="font-weight: 600; font-size: 1.1rem; text-align: center; margin-bottom: 24px;">هل هذه هي منطقتك الزمنية الحالية؟</p>
+                            
+                            <div style="background-color: var(--bg-light); border-radius: 8px; padding: 32px; text-align: center; max-width: 500px; margin: 0 auto 40px;">
+                                <p id="browser-timezone-display" style="font-weight: 500; margin-bottom: 24px;">جاري تحميل المنطقة الزمنية...</p>
+                                <div style="display: flex; justify-content: center; gap: 16px;">
+                                    <button type="button" class="btn-outline" style="min-width: 120px;">لا</button>
+                                    <button type="button" class="btn-outline" id="confirm-timezone-btn" style="min-width: 120px;">نعم</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Availability Schedule View -->
+                        <div id="availability-schedule" style="display: none;">
+                            <h3 style="font-size: 1.2rem; margin-bottom: 8px;">تحديد منطقتك الزمنية</h3>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">المنطقة الزمنية الصحيحة ضرورية لتنسيق الدروس مع الطلاب الدوليين.</p>
+                            
+                            <div class="form-group" style="margin-bottom: 40px;">
+                                <label>اختر منطقتك الزمنية</label>
+                                <select class="form-control" id="timezone-select">
+                                    <!-- Timezone will be populated by JS -->
+                                </select>
+                            </div>
+
+                            <h3 style="font-size: 1.2rem; margin-bottom: 8px;">تحديد أوقات التوافر</h3>
+                            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">تُظهر أوقات التوافر ساعات عملك المحتملة. يمكن للطلاب حجز دروس في هذه الأوقات.</p>
+                            
+                            <div class="info-box" style="background-color: #e7f5ff; border: none; margin-bottom: 32px;">
+                                <i class="fa-solid fa-circle-info" style="color: #339af0; margin-top: 2px;"></i>
+                                <div>
+                                    <strong>أضف الساعات الشائعة للحصول على المزيد من الطلاب</strong><br>
+                                    يحجز معظم الطلاب الدروس بين الساعة 13:00 و 19:00 (الساعات الشائعة). أضف فترات زمنية خلال هذه الساعات لمضاعفة فرصك في الحصول على حجوزات.
+                                </div>
+                            </div>
+
+                            <!-- Days schedule generator -->
+                            <div id="days-schedule-container">
+                                <!-- JS will populate this to save lines, but let's just do a few hardcoded for visual match -->
+                                <div class="day-schedule" style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border-color);">
+                                    <label class="checkbox-group" style="margin-bottom: 16px; margin-top: 0;">
+                                        <input type="checkbox" checked> <strong>الاثنين</strong>
+                                    </label>
+                                    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 8px;">
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 0.85rem; color: var(--text-muted);">من</label>
+                                            <select class="form-control"><option>13:30</option></select>
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 0.85rem; color: var(--text-muted);">إلى</label>
+                                            <select class="form-control"><option>15:00</option></select>
+                                        </div>
+                                    </div>
+                                    <a class="add-link">أضف فترة زمنية أخرى</a>
+                                </div>
+
+                                <div class="day-schedule" style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border-color);">
+                                    <label class="checkbox-group" style="margin-bottom: 16px; margin-top: 0;">
+                                        <input type="checkbox" checked> <strong>الثلاثاء</strong>
+                                    </label>
+                                    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 8px;">
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 0.85rem; color: var(--text-muted);">من</label>
+                                            <select class="form-control"><option>13:30</option></select>
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 0.85rem; color: var(--text-muted);">إلى</label>
+                                            <select class="form-control"><option>15:00</option></select>
+                                        </div>
+                                    </div>
+                                    <a class="add-link">أضف فترة زمنية أخرى</a>
+                                </div>
+
+                                <div class="day-schedule" style="margin-bottom: 24px;">
+                                    <label class="checkbox-group" style="margin-bottom: 16px; margin-top: 0;">
+                                        <input type="checkbox" checked> <strong>الأربعاء</strong>
+                                    </label>
+                                    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 8px;">
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 0.85rem; color: var(--text-muted);">من</label>
+                                            <select class="form-control"><option>13:30</option></select>
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 0.85rem; color: var(--text-muted);">إلى</label>
+                                            <select class="form-control"><option>15:00</option></select>
+                                        </div>
+                                    </div>
+                                    <a class="add-link">أضف فترة زمنية أخرى</a>
+                                </div>
+                                <!-- User can imagine the rest of the days are generated the same way -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 8: Pricing -->
+                    <div class="wizard-step" id="step-8" style="text-align: center;">
+                        <h2 style="margin-bottom: 40px;">تحديد سعر الدرس لمدة 50 دقيقة</h2>
+                        
+                        <div class="form-group" style="max-width: 400px; margin: 0 auto 10px; text-align: right;">
+                            <div style="position: relative;">
+                                <input type="number" class="form-control" value="30" style="font-size: 1.2rem; font-weight: bold; text-align: left; padding-right: 40px;" dir="ltr">
+                                <div style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--text-main); font-weight: bold; background-color: var(--bg-light); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-color);">
+                                    <i class="fa-solid fa-dollar-sign" style="font-size: 0.9rem;"></i>
+                                </div>
+                            </div>
+                            <small style="color: var(--text-muted); display: block; margin-top: 8px;">السعر بالدولار الأمريكي فقط</small>
+                        </div>
+                        
+                        <div style="max-width: 400px; margin: 40px auto; border-bottom: 1px solid var(--border-color); padding-bottom: 24px; text-align: right;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-weight: 600;">
+                                <span>عمولة المنصة</span>
+                                <i class="fa-solid fa-chevron-down" style="color: var(--text-muted); font-size: 0.9rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="wizard-actions">
+                        <button type="button" class="btn-outline" id="prev-btn" style="display: none;">السابق</button>
+                        <button type="button" class="btn-pink" id="next-btn">حفظ ومتابعة</button>
+                        <button type="submit" class="btn-pink" id="submit-btn" style="display: none;">إكمال التسجيل</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Dashboard View (For Registered Teachers) -->
+            <div class="dashboard-container" id="dashboard-view">
+                <aside class="dashboard-sidebar">
+                    <ul>
+                        <li><a href="#" class="active"><i class="fa-solid fa-chart-pie"></i> لوحة التحكم</a></li>
+                        <li><a href="#"><i class="fa-solid fa-calendar-days"></i> جدولي</a></li>
+                        <li><a href="#"><i class="fa-solid fa-users"></i> طلابي</a></li>
+                        <li><a href="#"><i class="fa-solid fa-wallet"></i> الأرباح</a></li>
+                        <li><a href="#"><i class="fa-solid fa-gear"></i> إعدادات الحساب</a></li>
+                    </ul>
+                </aside>
+                <div class="dashboard-content">
+                    <h2>مرحباً بك، هاني! 👋</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 32px;">إليك نظرة عامة على أدائك هذا الأسبوع.</p>
+                    
+                    <!-- Main Dashboard Choices -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 40px;">
+                        <!-- Create Course Card -->
+                        <div class="action-card" onclick="alert('سيتم تحويلك إلى لوحة صناعة الكورسات المسجلة (شبيهة بـ Udemy)');">
+                            <i class="fa-solid fa-video" style="font-size: 3rem; margin-bottom: 16px;"></i>
+                            <h3 style="font-size: 1.5rem; margin-bottom: 8px; color: white;">صنع كورس مسجل</h3>
+                            <p style="opacity: 0.9; font-size: 0.95rem;">قم بإنشاء دورتك الخاصة خطوة بخطوة وإدارتها كما في Udemy</p>
+                        </div>
+                        
+                        <!-- Live Lesson Card -->
+                        <div class="action-card live-lesson" onclick="window.location.href='tutor-dashboard.html';">
+                            <i class="fa-solid fa-chalkboard-user" style="font-size: 3rem; margin-bottom: 16px;"></i>
+                            <h3 style="font-size: 1.5rem; margin-bottom: 8px; color: white;">درس مباشر</h3>
+                            <p style="opacity: 0.9; font-size: 0.95rem;">إدارة الدروس المباشرة، جداول المواعيد والطلاب</p>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h4>12</h4>
+                            <p>الدروس القادمة</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>45</h4>
+                            <p>ساعات التدريس</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4>$320</h4>
+                            <p>أرباح الأسبوع</p>
+                        </div>
+                    </div>
+
+                    <h3>الدروس القادمة اليوم</h3>
+                    <div style="margin-top: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>سارة محمد</strong> (لغة إنجليزية - محادثة)
+                                <br>
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">اليوم، 5:00 مساءً - 5:50 مساءً</span>
+                            </div>
+                            <button class="btn-primary">انضم للدرس</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom" style="border: none; padding-top: 0;">
+                <p>&copy; 2026 Mr.H Academy. جميع الحقوق محفوظة.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // View Toggle Logic
+            const wizardView = document.getElementById('wizard-view');
+            const dashboardView = document.getElementById('dashboard-view');
+            const showWizardBtn = document.getElementById('show-wizard-btn');
+            const showDashboardBtn = document.getElementById('show-dashboard-btn');
+
+            showWizardBtn.addEventListener('click', () => {
+                wizardView.classList.add('active');
+                dashboardView.classList.remove('active');
+            });
+
+            showDashboardBtn.addEventListener('click', () => {
+                dashboardView.classList.add('active');
+                wizardView.classList.remove('active');
+            });
+
+            // Wizard Logic
+            let currentStep = 1;
+            const totalSteps = 8;
+            const nextBtn = document.getElementById('next-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const steps = document.querySelectorAll('.wizard-step');
+            const navItems = document.querySelectorAll('.wizard-nav-item');
+
+            function updateWizard() {
+                // Update Steps visibility
+                steps.forEach((step, index) => {
+                    if(index + 1 === currentStep) {
+                        step.classList.add('active');
+                    } else {
+                        step.classList.remove('active');
+                    }
+                });
+
+                // Update Nav Items
+                navItems.forEach((navItem, index) => {
+                    const icon = navItem.querySelector('.wizard-icon');
+                    if(index + 1 === currentStep) {
+                        navItem.classList.add('active');
+                        icon.className = 'wizard-icon error';
+                        icon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    } else {
+                        navItem.classList.remove('active');
+                        icon.className = 'wizard-icon done';
+                        icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                    }
+                });
+
+                // Update Buttons
+                prevBtn.style.display = currentStep > 1 ? 'block' : 'none';
+                
+                if(currentStep === totalSteps) {
+                    nextBtn.style.display = 'none';
+                    submitBtn.style.display = 'block';
+                } else {
+                    nextBtn.style.display = 'block';
+                    submitBtn.style.display = 'none';
+                    
+                    // Button is always enabled now to allow clicking and showing errors
+                    nextBtn.style.opacity = '1';
+                    nextBtn.style.cursor = 'pointer';
+                    nextBtn.disabled = false;
+                }
+            }
+
+            updateWizard(); // Initialize wizard state and validation
+
+            nextBtn.addEventListener('click', () => {
+                if(currentStep === 1) {
+                    if (!isStep1Valid()) {
+                        showStep1Errors();
+                        return; // Prevent going next if invalid
+                    } else {
+                        hideStep1Errors();
+                    }
+                }
+
+                if(currentStep < totalSteps) {
+                    currentStep++;
+                    updateWizard();
+                }
+            });
+
+            // Step 1 Validation Logic
+            const fnameInput = document.getElementById('fname-input');
+            const lnameInput = document.getElementById('lname-input');
+            const emailInput = document.getElementById('email-input');
+            const countrySelect = document.getElementById('country-select');
+            const subjectSelect = document.getElementById('subject-select');
+            const ageCheckbox = document.getElementById('age-checkbox');
+            
+            const emailError = document.getElementById('email-error');
+            const fnameError = document.getElementById('fname-error');
+            const lnameError = document.getElementById('lname-error');
+
+            // Simulated Database for existing emails
+            const registeredEmails = ['admin@mrh.com', 'teacher@gmail.com', 'test@test.com'];
+
+            // Strict Email Validator
+            function isValidEmail(email) {
+                const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+                return emailRegex.test(email);
+            }
+
+            // Name Validator (Only Arabic/English letters and spaces, prevents XSS/symbols)
+            function isValidName(name) {
+                const nameRegex = /^[A-Za-z\u0600-\u06FF\s]+$/;
+                return nameRegex.test(name.trim());
+            }
+
+            function isStep1Valid() {
+                // Email Validation
+                const email = emailInput.value.trim().toLowerCase();
+                let emailValid = false;
+                
+                if (email === '') {
+                    emailError.style.display = 'none';
+                    emailValid = false;
+                } else if (!isValidEmail(email)) {
+                    emailError.textContent = 'صيغة البريد الإلكتروني غير صحيحة';
+                    emailError.style.display = 'block';
+                    emailValid = false;
+                } else if (registeredEmails.includes(email)) {
+                    emailError.textContent = 'هذا البريد الإلكتروني مسجل مسبقاً، لا يمكنك التسجيل به مرة أخرى';
+                    emailError.style.display = 'block';
+                    emailValid = false;
+                } else {
+                    emailError.style.display = 'none';
+                    emailValid = true;
+                }
+
+                // Name Validation
+                const fnameVal = fnameInput.value.trim();
+                let fnameValid = false;
+                if (fnameVal !== '' && !isValidName(fnameVal)) {
+                    fnameError.style.display = 'block';
+                } else {
+                    fnameError.style.display = 'none';
+                    fnameValid = fnameVal !== '';
+                }
+
+                const lnameVal = lnameInput.value.trim();
+                let lnameValid = false;
+                if (lnameVal !== '' && !isValidName(lnameVal)) {
+                    lnameError.style.display = 'block';
+                } else {
+                    lnameError.style.display = 'none';
+                    lnameValid = lnameVal !== '';
+                }
+
+                return fnameValid &&
+                       lnameValid &&
+                       emailValid &&
+                       countrySelect.value !== '' &&
+                       subjectSelect.value !== '' &&
+                       ageCheckbox.checked;
+            }
+
+            function showStep1Errors() {
+                // Show stars for empty required fields
+                document.getElementById('star-fname').style.display = fnameInput.value.trim() === '' ? 'inline' : 'none';
+                document.getElementById('star-lname').style.display = lnameInput.value.trim() === '' ? 'inline' : 'none';
+                document.getElementById('star-email').style.display = emailInput.value.trim() === '' ? 'inline' : 'none';
+                document.getElementById('star-country').style.display = countrySelect.value === '' ? 'inline' : 'none';
+                document.getElementById('star-subject').style.display = subjectSelect.value === '' ? 'inline' : 'none';
+                document.getElementById('star-age').style.display = !ageCheckbox.checked ? 'inline' : 'none';
+                
+                // Also trigger validation to show specific error text if needed
+                isStep1Valid();
+            }
+
+            function hideStep1Errors() {
+                document.querySelectorAll('.req-star').forEach(star => star.style.display = 'none');
+            }
+
+            function validateStep1() {
+                // Real-time checking: if the user starts fixing fields, remove the star dynamically
+                if (currentStep !== 1) return;
+                if (document.getElementById('star-fname').style.display === 'inline' && fnameInput.value.trim() !== '') {
+                    document.getElementById('star-fname').style.display = 'none';
+                }
+                if (document.getElementById('star-lname').style.display === 'inline' && lnameInput.value.trim() !== '') {
+                    document.getElementById('star-lname').style.display = 'none';
+                }
+                if (document.getElementById('star-email').style.display === 'inline' && emailInput.value.trim() !== '') {
+                    document.getElementById('star-email').style.display = 'none';
+                }
+                if (document.getElementById('star-country').style.display === 'inline' && countrySelect.value !== '') {
+                    document.getElementById('star-country').style.display = 'none';
+                }
+                if (document.getElementById('star-subject').style.display === 'inline' && subjectSelect.value !== '') {
+                    document.getElementById('star-subject').style.display = 'none';
+                }
+                if (document.getElementById('star-age').style.display === 'inline' && ageCheckbox.checked) {
+                    document.getElementById('star-age').style.display = 'none';
+                }
+                
+                // Re-run the main validation to update text errors
+                isStep1Valid();
+            }
+
+            // Hook up validation events for real-time clearing of stars and text errors
+            [fnameInput, lnameInput, emailInput].forEach(el => el.addEventListener('input', validateStep1));
+            [countrySelect, subjectSelect].forEach(el => el.addEventListener('change', validateStep1));
+            ageCheckbox.addEventListener('change', validateStep1);
+
+            prevBtn.addEventListener('click', () => {
+                if(currentStep > 1) {
+                    currentStep--;
+                    updateWizard();
+                }
+            });
+
+            // --- Step 7 Timezone Logic ---
+            const confirmTimezoneBtn = document.getElementById('confirm-timezone-btn');
+            const timezoneConfirmation = document.getElementById('timezone-confirmation');
+            const availabilitySchedule = document.getElementById('availability-schedule');
+            const browserTimezoneDisplay = document.getElementById('browser-timezone-display');
+            const timezoneSelect = document.getElementById('timezone-select');
+
+            // Detect Timezone
+            function detectTimezone() {
+                try {
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    const now = new Date();
+                    const timeString = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+                    
+                    const offset = -now.getTimezoneOffset() / 60;
+                    const sign = offset >= 0 ? '+' : '';
+                    const gmtOffset = `GMT${sign}${offset}`;
+
+                    const displayStr = `${timeString} (${gmtOffset}) - ${tz}`;
+                    
+                    if(browserTimezoneDisplay) {
+                        browserTimezoneDisplay.innerText = displayStr;
+                    }
+                    if(timezoneSelect) {
+                        timezoneSelect.innerHTML = `<option selected>${displayStr}</option>`;
+                    }
+                } catch (e) {
+                    console.error("Could not detect timezone automatically.", e);
+                }
+            }
+
+            // Initialize Timezone detection
+            detectTimezone();
+
+            if (confirmTimezoneBtn) {
+                confirmTimezoneBtn.addEventListener('click', () => {
+                    timezoneConfirmation.style.display = 'none';
+                    availabilitySchedule.style.display = 'block';
+                });
+            }
+
+            document.getElementById('teacher-application-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const fname = document.getElementById('fname-input').value.trim();
+                const lname = document.getElementById('lname-input').value.trim();
+                const email = document.getElementById('email-input').value.trim();
+                const country = document.getElementById('country-select').value;
+                const subject = document.getElementById('subject-select').value;
+                
+                // Phone
+                const phoneCodeEl = document.querySelector('#step-1 select[style*="width: 100px"]');
+                const phoneNumEl = document.querySelector('#step-1 input[type="tel"]');
+                const phone = (phoneCodeEl ? phoneCodeEl.value : '') + ' ' + (phoneNumEl ? phoneNumEl.value : '');
+                
+                // Languages
+                let languages = "";
+                const langGroup = document.querySelector('#step-1 div[style*="display: grid"]');
+                if (langGroup) {
+                    const selects = langGroup.querySelectorAll('select');
+                    if (selects.length >= 2) {
+                        languages = `${selects[0].value} (${selects[1].value})`;
+                    }
+                }
+                
+                // Timezone
+                const tzEl = document.getElementById('timezone-select');
+                const timezone = tzEl ? tzEl.value : '';
+                
+                // Bio sections
+                const textareas = document.querySelectorAll('#step-5 textarea');
+                const bio_intro = textareas.length > 0 ? textareas[0].value : '';
+                const bio_experience = textareas.length > 1 ? textareas[1].value : '';
+                const bio_motivation = textareas.length > 2 ? textareas[2].value : '';
+                const bio_title = textareas.length > 3 ? textareas[3].value : '';
+                
+                // Video
+                const videoInputEl = document.querySelector('#step-6 input');
+                const video_link = videoInputEl ? videoInputEl.value : '';
+                
+                // Price
+                const priceEl = document.querySelector('#step-8 input[type="number"]');
+                const price = priceEl ? parseFloat(priceEl.value) : 30.0;
+                
+                // Certifications
+                const certificates = [];
+                document.querySelectorAll('#step-3 .certificate-block').forEach(block => {
+                    const selects = block.querySelectorAll('select');
+                    const inputs = block.querySelectorAll('input[type="text"]');
+                    if (selects.length >= 3) {
+                        certificates.push({
+                            subject: selects[0].value,
+                            name: inputs.length > 0 ? inputs[0].value : (selects[1] ? selects[1].value : ''),
+                            from: selects[selects.length - 2] ? selects[selects.length - 2].value : '',
+                            to: selects[selects.length - 1] ? selects[selects.length - 1].value : ''
+                        });
+                    }
+                });
+                
+                // Education
+                const education = [];
+                document.querySelectorAll('#step-4 .certificate-block').forEach(block => {
+                    const inputs = block.querySelectorAll('input[type="text"]');
+                    const selects = block.querySelectorAll('select');
+                    if (inputs.length >= 2 && selects.length >= 2) {
+                        education.push({
+                            university: inputs[0].value,
+                            degree: inputs[1].value,
+                            degree_type: selects[0] ? selects[0].value : '',
+                            major: inputs[2] ? inputs[2].value : '',
+                            from: selects[selects.length - 2] ? selects[selects.length - 2].value : '',
+                            to: selects[selects.length - 1] ? selects[selects.length - 1].value : ''
+                        });
+                    }
+                });
+                
+                const applicationData = {
+                    fname, lname, email, country, subject, phone, languages, timezone,
+                    bio_intro, bio_experience, bio_motivation, bio_title, price, video_link,
+                    certificates: JSON.stringify(certificates),
+                    education: JSON.stringify(education)
+                };
+                
+                try {
+                    const res = await fetch('/api/tutors/apply', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(applicationData)
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        // Show premium glassmorphic success overlay
+                        const overlay = document.createElement('div');
+                        overlay.style.position = 'fixed';
+                        overlay.style.top = '0';
+                        overlay.style.left = '0';
+                        overlay.style.width = '100vw';
+                        overlay.style.height = '100vh';
+                        overlay.style.background = 'rgba(10, 10, 30, 0.7)';
+                        overlay.style.backdropFilter = 'blur(12px)';
+                        overlay.style.display = 'flex';
+                        overlay.style.justifyContent = 'center';
+                        overlay.style.alignItems = 'center';
+                        overlay.style.zIndex = '9999';
+                        
+                        overlay.innerHTML = `
+                            <div style="background: rgba(255, 255, 255, 0.95); padding: 48px; border-radius: 24px; text-align: center; max-width: 500px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.4); animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                                <div style="width: 80px; height: 80px; background: #e6fcf5; color: #0ca678; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 24px;">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                                <h2 style="font-family: 'Tajawal', sans-serif; font-size: 1.8rem; font-weight: 800; color: #111; margin-bottom: 16px;">تم تقديم طلبك بنجاح!</h2>
+                                <p style="font-family: 'Tajawal', sans-serif; color: #555; font-size: 1.05rem; line-height: 1.6; margin-bottom: 32px;">لقد تم حفظ تفاصيل ملفك الشخصي. سيقوم المدير العام بمراجعة طلبك والموافقة عليه قريباً لكي يظهر ملفك في صفحة المدرسين.</p>
+                                <button onclick="window.location.href='index.html'" style="background: var(--primary-color); color: white; border: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--primary-hover)'" onmouseout="this.style.background='var(--primary-color)'">العودة للرئيسية</button>
+                            </div>
+                            <style>
+                                @keyframes scaleUp {
+                                    from { transform: scale(0.8); opacity: 0; }
+                                    to { transform: scale(1); opacity: 1; }
+                                }
+                            </style>
+                        `;
+                        document.body.appendChild(overlay);
+                    } else {
+                        alert('حدث خطأ أثناء تقديم الطلب: ' + data.error);
+                    }
+                } catch (err) {
+                    console.error("Application submit error:", err);
+                    alert('فشل تقديم الطلب. يرجى المحاولة مرة أخرى.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

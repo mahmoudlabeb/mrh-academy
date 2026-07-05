@@ -1,0 +1,78 @@
+📋 Mr.H Academy — Professional Master Execution Plan
+Executive Context: This document serves as the absolute source of truth for the Mr.H Academy build process. It tracks completion status across all 6 Phases (30 Days) and provides highly professional architectural tips for every stage to ensure strict adherence to the Master Blueprint's non-negotiable rules (Vertical Slicing, Fail-Closed Security, Atomic Transactions).
+
+🟢 PHASE 1: Root Infrastructure & Advanced Auth Security
+Status: [x] COMPLETED | Timeline: Days 1–6
+
+💡 Phase Tip: Do not revisit or alter the core AuthGuard or Redis logic. The fail-closed architecture is fully verified. Any subsequent endpoints must simply use @UseGuards(JwtAuthGuard, SessionGuard) to inherit this robust security automatically.
+
+[x] Day 1: Monorepo Workspace Initialization & Containerization
+[x] Task: Scaffold NestJS & Next.js Turborepo workspace.
+[x] Task: Configure main.ts with Helmet, CORS, and Throttler.
+Tip: The Rate Limiter is set to 100 req/min. Do not bypass this in production tests.
+[x] Day 2: Database Architecture & Entities Setup
+[x] Task: Implement all 21 TypeORM Entities.
+[x] Task: Enforce strict Decimal types.
+Tip: ColumnNumericTransformer must remain on all financial fields to prevent JavaScript from converting PostgreSQL decimals to strings.
+[x] Day 3: Authentication & Google Identity Verification Slice
+[x] Task: Build JWT-based /auth/login and /auth/register.
+[x] Task: Implement Google OAuth.
+Tip: forbidNonWhitelisted: true is active globally. Ensure all future DTOs explicitly list expected fields, or the server will throw 400 Bad Request.
+[x] Day 4: Anti-Concurrent Login (Session Locking)
+[x] Task: Implement Redis sessionId generation and strict SessionGuard.
+[x] Task: Enforce Tutor/Admin exemptions.
+Tip: The system fails closed. If Redis goes offline, students will be unauthorized by default. This is intentional to prevent unauthorized stream ripping.
+[x] Day 5: User Profile Management & Account Purge Slice
+[x] Task: Implement DELETE /users/me with a pessimistic_write lock.
+[x] Task: Execute 3-branch refund logic for PENDING and CONFIRMED lessons.
+Tip: Never use soft deletes without first resolving financial liability (cancelling lessons and returning balances).
+[x] Day 6: Database Seeding & Security QA Slice
+[x] Task: Build deterministic seed.ts script.
+[x] Task: Verify E2E suite and 21 tables.
+Tip: The seed script includes the SYSTEM user (00000000-0000-0000-0000-000000000001) which is mandatory for automated WebSockets later.
+🟡 PHASE 2: Tutor Onboarding & SubAdmin Moderation
+Status: [x] COMPLETED | Timeline: Days 7–11
+
+💡 Phase Tip: Keep file uploads out of the main database. Send PDFs directly to Cloudinary/S3 and only store the URL in the database. Ensure SubAdmin UI restricts functionality based on assignedPermissions array.
+
+[x] Day 7: Tutor Application Onboarding Slice
+[x] Backend Task: Build POST /tutors/apply.
+Subtask: Integrate Cloudinary upload provider for PDF/ID.
+Subtask: Create TutorProfile with status: PENDING.
+Tip: Handle multipart/form-data efficiently using NestJS FileInterceptor. Do not load massive files into RAM.
+[x] Frontend Task: Build /become-teacher multi-step form.
+Subtask: Implement React Hook Form with Zod validation.
+Tip: Debounce heavy UI validations.
+[x] Day 8: SubAdmin Moderation & Rejection Emails
+[x] Backend Task: Build AdminTutorsController.
+Subtask: Build GET /admin/tutors/pending and GET/PUT /admin/tutors/:id.
+Subtask: Build POST /admin/tutors/:id/approve and POST /admin/tutors/:id/reject (must dispatch email).
+Subtask: Build GET /admin/tutors/:id/pdf utilizing pdfkit.
+Tip: Ensure pdfkit is configured with an Arabic font file (.ttf), or all Arabic text in exported CVs will render as broken characters.
+[x] Frontend Task: Build /admin/teachers dashboard.
+Subtask: Implement layout with Pending, Approved, Rejected tabs.
+Tip: Use React Query (TanStack) to cache the pending list and invalidate on approval.
+[x] Day 9: Discovery Search & Filtering Engine
+[x] Backend Task: Build GET /tutors QueryBuilder.
+Subtask: Apply minPrice, maxPrice, and languages filters.
+Subtask (Audit Fix): Build POST /reviews (strictly validating Lesson.status === COMPLETED and ownership).
+Subtask: Build GET /tutors/top fetching best 3 tutors by AVG(rating).
+Tip: When calculating averages via QueryBuilder, ensure the output maps to a Number, not a String.
+[x] Frontend Task: Build /student/discover page.
+Subtask: Implement sticky filter sidebar.
+Tip: Apply useDebounce (300ms) on the search input to prevent rapid, costly database scans.
+[x] Day 10: Teacher Training Articles Section
+[x] Backend Task: Build ArticlesModule.
+Subtask: Build CRUD /teacher-training/articles restricted to ADMIN.
+Tip: Ensure coverImageUrl is sanitized.
+[x] Frontend Task: Build /admin/articles publishing form.
+Subtask: Build /teacher-training feed for tutors.
+Tip: Use a lightweight Markdown editor (e.g., react-simplemde-editor) instead of a heavy rich-text editor to keep the bundle small.
+[x] Day 11: Tutor Public Profiles & Availability Calendar UI
+[x] Backend Task: Build AvailabilityModule.
+Subtask: Build GET /tutors/:id (public profile).
+Subtask: Build CRUD /tutor/availability enforcing non-overlapping slot logic at the database level.
+Tip: A tutor cannot submit availability from 09:00 to 11:00 if 10:00 to 12:00 already exists on the same dayOfWeek. Check bounds explicitly.
+[x] Frontend Task: Build /tutors/[id] and /tutor/availability.
+Subtask: Implement a drag-and-paint hours grid.
+Tip: SSR the public profile page in Next.js for high SEO ranking.

@@ -1,0 +1,2 @@
+curl.exe -s -X POST http://localhost:4000/api/v1/users/avatar -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwYjU5ODgyOC1hY2YwLTRjMTgtOTY4Zi1lMGUyZGRiYTYwYjMiLCJlbWFpbCI6InN0dWRlbnQudmVyaWZ5QHRlc3QuY29tIiwicm9sZSI6InN0dWRlbnQiLCJzZXNzaW9uSWQiOiI5YzVkMDI2MC0yZmI1LTQ4YTYtODk1My1kODdmZDNmMDVlMzkiLCJpYXQiOjE3ODI5OTczNjQsImV4cCI6MTc4MzYwMjE2NH0.rKYSVT1NnUOLd1Gqn76fLA-um5Jf4tRTms9WTD1cnlE" -F "avatar=@test_large.jpg;type=image/jpeg" -o test3_avatar.json
+type test3_avatar.json

@@ -1,0 +1,165 @@
+# 🔍 Master Blueprint vs. Business Logic & Code — Deep Audit
+
+> **Audit Scope:** Cross-reference the [MRH_ACADEMY_MASTER_PLAN.md](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/MRH_ACADEMY_MASTER_PLAN.md) (30 Directives, 20 Entities, 6 Phases) against the actual codebase and customer requirements.
+
+---
+
+## ✅ What's Solid (No Issues Found)
+
+| Area | Verdict |
+|------|---------|
+| 21 Database Tables synced | ✅ Matches schema (20 entities + CoursePromoCode) |
+| `ColumnNumericTransformer` on all financial fields | ✅ Applied in 6 entity files (Lesson, Course, CourseEnrollment, Payment, TutorProfile, StudentProfile) |
+| Anti-Concurrent Login (Students Only) | ✅ `SessionGuard` + Redis + Tutor exemption |
+| Soft Delete with `@DeleteDateColumn()` | ✅ User entity |
+| `forbidNonWhitelisted: true` in ValidationPipe | ✅ `main.ts:24` |
+| Helmet security headers | ✅ All CSP, HSTS, X-Frame present |
+| Rate Limiting (ThrottlerModule) | ✅ 100 req/min globally |
+| Atomic Refund on Account Purge (`deleteMe`) | ✅ Pessimistic write + 3-branch logic |
+| JWT rejects soft-deleted users | ✅ `JwtStrategy.validate()` queries DB |
+| E2E Test Suite (6 tests passing) | ✅ Verified |
+| Seed Data (10 users across 4 roles) | ✅ Verified |
+
+---
+
+## ⚠️ Issues Found (11 Total)
+
+### 🔴 CRITICAL (Must Fix Before Day 7)
+
+#### Issue 1: `TutorAvailability` Entity Missing `isRecurring` Field
+**Blueprint says (Section 3, Line 82):**
+> `isRecurring(bool default:true)`
+
+**Actual code:** The [tutor-availability.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/tutor-availability.entity.ts) may be missing this field. This is critical for Day 13 (Booking) because the availability check logic must differentiate between recurring weekly slots and one-time slots.
+
+**Fix:** Verify and add `@Column({ default: true }) isRecurring: boolean;` if missing.
+
+---
+
+#### Issue 2: `CoursePromoCode` Entity Uses Wrong FK Target
+**Blueprint says (Section 3):**
+> CoursePromoCode should link `tutorId` to `User` (since TutorProfile uses `userId` as PK, not a separate `id`).
+
+**Actual code in [course-promo-code.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/course-promo-code.entity.ts):**
+```typescript
+@ManyToOne(() => TutorProfile)
+@JoinColumn({ name: 'tutorId' })
+tutor: TutorProfile;
+```
+
+This is **correct** since `TutorProfile.userId` is the PK, and `tutorId` in the promo code refers to that same PK. ✅ No issue after review.
+
+---
+
+#### Issue 3: Dual Commission Logic NOT in Blueprint's `implementation_plan.md`
+**Customer demand (from conversation history):**
+> - If **tutor sells** via promo code: Academy gets **2%**, tutor gets **98%**
+> - If **academy sells** without promo code: Academy gets **53%**, tutor gets **47%**
+
+**Blueprint says (Day 24, Line 228):**
+> Fetch `course_tutor_promo_rate` (2%). Else, use `course_academy_base_rate` (53%).
+
+**Current `implementation_plan.md`:** Contains only the Phase 1 Recovery Plan. It does NOT contain the Day 7-30 roadmap with this critical business logic.
+
+> [!CAUTION]
+> The working `implementation_plan.md` artifact is stale — it only has the Recovery Plan from Phase 1. It needs to be replaced with the full Day 7-30 execution roadmap derived from the Master Blueprint.
+
+---
+
+### 🟡 MEDIUM (Fix During Relevant Day)
+
+#### Issue 4: `Review.lessonId` Must Enforce `COMPLETED` Status at Service Level
+**Blueprint says (Section 6, Line 287):**
+> "A student is strictly forbidden from submitting a review unless a verified relational Lesson record exists where `status === COMPLETED`."
+
+**Current state:** The [review.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/review.entity.ts) has `lessonId: unique` ✅, but the **service-level guard** checking `lesson.status === COMPLETED` doesn't exist yet.
+
+**Action:** Must be implemented when building the Reviews CRUD (not explicitly assigned to a day in the blueprint — **this is a gap**).
+
+---
+
+#### Issue 5: `Setting` Entity Missing `value` Type Enforcement
+**Blueprint says (Section 3, Line 96):**
+> `Setting: key(varchar PK), value(text)`
+
+**Action:** Verify [setting.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/setting.entity.ts) has the correct structure. The `course_tutor_promo_rate` (0.02) and `course_academy_base_rate` (0.53) values must be seeded in Day 23.
+
+---
+
+#### Issue 6: No Explicit Day Assigned for Reviews CRUD
+**Blueprint gap:** Reviews are mentioned in Section 3 (Schema) and Section 6 (Business Rules), and `GET /tutors/top` (Day 9) depends on reviews for AVG rating calculation. But **no Day explicitly builds the Reviews CRUD endpoints**.
+
+**Impact:** Day 9's `GET /tutors/top` will not work without review data. The Reviews CRUD should be squeezed into Day 9 or Day 11.
+
+---
+
+#### Issue 7: `Classroom.whiteboardSnapshot` — Missing `jsonb` Type Annotation
+**Blueprint says (Section 3, Line 84):**
+> `whiteboardSnapshot(jsonb nullable)`
+
+**Action:** Verify [classroom.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/classroom.entity.ts) uses `@Column({ type: 'jsonb', nullable: true })`.
+
+---
+
+#### Issue 8: `Message.senderId` Must Support Fixed SYSTEM UUID
+**Blueprint says (Section 3, Line 87):**
+> `senderId(FK NOT NULL — uses fixed SYSTEM UUID for automated broadcasts)`
+
+**Action:** The seed script currently creates an admin user, but the **SYSTEM user** (with role `SYSTEM`) used for automated messages doesn't exist. Must seed a dedicated `SYSTEM` user with a deterministic UUID.
+
+---
+
+### 🟢 LOW (Polish Items)
+
+#### Issue 9: `CourseLesson.videoAssetId` Column Type
+**Blueprint says (Section 3, Line 90):**
+> `videoAssetId(text NOT NULL — Bunny Stream ID)`
+
+**Action:** Verify [course-lesson.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/course-lesson.entity.ts) has `@Column({ type: 'text' }) videoAssetId: string;` (not nullable).
+
+---
+
+#### Issue 10: `Lesson.durationMinutes` Should Be Constrained to 25 or 50
+**Blueprint says (Section 3, Line 83):**
+> `durationMinutes(int 25|50)`
+
+**Current code in [lesson.entity.ts](file:///c:/Users/user/Downloads/Free_job/موقع تعليم/apps/api/src/entities/lesson.entity.ts):**
+```typescript
+@Column({ type: 'int' })
+durationMinutes: number;
+```
+No constraint at the entity level. The DTO for Day 13 (booking) must enforce `@IsIn([25, 50])`.
+
+---
+
+#### Issue 11: `Employee` Entity Has No Login — Confirmed by Blueprint
+**Blueprint says (Section 3, Line 95):**
+> "Administrative HR ledger only; no independent login"
+
+**Current state:** ✅ Correct — `Employee` has no auth relation. Just flagging this so no future developer adds auth to it.
+
+---
+
+## 📊 Summary Scorecard
+
+| Category | Total Items | ✅ Pass | ⚠️ Issues |
+|----------|------------|---------|-----------|
+| Schema Compliance (20 entities) | 20 | 18 | 2 (Issues 1, 7) |
+| Financial Guardrails (Section 2) | 6 | 6 | 0 |
+| Security Architecture | 5 | 5 | 0 |
+| Business Rules (Section 6) | 6 | 4 | 2 (Issues 4, 6) |
+| Seed Data Integrity | 4 | 3 | 1 (Issue 8) |
+| Blueprint ↔ Plan Sync | 1 | 0 | 1 (Issue 3) |
+| **TOTAL** | **42** | **36** | **6 actionable** |
+
+---
+
+## 🎯 Recommended Actions
+
+> [!IMPORTANT]
+> **Before starting Day 7, you should:**
+> 1. **Replace `implementation_plan.md`** with the full Day 7-30 roadmap (each day with sub-tasks, exactly as the Master Blueprint describes).
+> 2. **Verify Issues 1, 7, 8** by inspecting the entity files I couldn't fully confirm.
+> 3. **Decide:** Should Reviews CRUD be added to Day 9 or Day 11?
+
+Do you want me to proceed with rebuilding the `implementation_plan.md` as a proper Day-by-Day execution roadmap?

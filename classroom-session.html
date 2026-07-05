@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"> <!-- Changing to LTR since the screenshot content is in English to match exactly -->
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>قاعة الدرس - Mr.H Academy</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <!-- Fonts and Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1f1f28;
+            /* Slightly darker to match image */
+            color: white;
+            font-family: 'Tajawal', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Top Left Panel (Student Switcher) */
+        .top-left-panel {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: white;
+            color: #1a1b26;
+            border-radius: 8px;
+            width: 250px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .student-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .student-list li {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #f1f3f5;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .student-list li:hover {
+            background: #f8f9fa;
+        }
+
+        .student-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: white;
+            object-fit: cover;
+        }
+
+        /* Top Right Video & Icons */
+        .top-right-icons {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 50;
+            transition: right 0.3s ease;
+        }
+
+        .top-right-icons.shifted {
+            right: 370px;
+        }
+
+        .top-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #adb5bd;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .top-icon:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .mini-video {
+            position: absolute;
+            top: 60px;
+            /* Below top icons */
+            right: 16px;
+            width: 160px;
+            height: 120px;
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid #495057;
+            display: flex;
+            align-items: flex-end;
+            padding: 8px;
+            box-sizing: border-box;
+            z-index: 5;
+            transition: right 0.3s ease;
+        }
+
+        .mini-video.shifted {
+            right: 370px;
+        }
+
+        /* Center Content */
+        .center-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: opacity 0.3s;
+        }
+
+        .center-icon {
+            width: 64px;
+            height: 64px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .center-icon i {
+            font-size: 2rem;
+            color: #2b2b36;
+        }
+
+        /* Bottom Toolbar */
+        .bottom-toolbar {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            background: #1a1b26;
+            padding: 8px;
+            border-radius: 12px;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .bottom-toolbar.shifted {
+            transform: translateX(calc(-50% - 175px));
+        }
+
+        .tool-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            background: transparent;
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Tajawal', sans-serif;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .tool-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tool-btn.active {
+            background: white;
+            color: #1a1b26;
+        }
+
+        .tool-btn i {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .tool-btn span {
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+
+        .tool-btn.leave {
+            background: #fa5252;
+            color: white;
+        }
+
+        .tool-btn.leave:hover {
+            background: #e03131;
+        }
+
+        /* CANVAS PANEL */
+        .canvas-panel {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            bottom: 100px;
+            /* above toolbar */
+            width: calc(100% - 390px);
+            /* Leave room for chat */
+            background: white;
+            border-radius: 12px;
+            display: none;
+            /* hidden by default */
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 20;
+            color: #212529;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: width 0.3s ease;
+        }
+
+        .canvas-panel.full-width {
+            width: calc(100% - 32px);
+        }
+
+        .canvas-header {
+            background: #2b2b36;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .canvas-body {
+            flex: 1;
+            display: flex;
+            background: #f8f9fa;
+        }
+
+        .canvas-sidebar {
+            width: 70px;
+            background: #343a40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 0;
+            gap: 16px;
+        }
+
+        .slide-thumb {
+            width: 50px;
+            height: 36px;
+            background: white;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .slide-thumb.active {
+            border-color: var(--primary-color);
+            /* brand green border */
+        }
+
+        .slide-thumb span {
+            position: absolute;
+            bottom: 2px;
+            left: 4px;
+            font-size: 0.6rem;
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .canvas-btn-square {
+            width: 40px;
+            height: 40px;
+            background: #495057;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .canvas-btn-square:hover {
+            background: #868e96;
+        }
+
+        .canvas-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+            margin: 4px 4px 4px 0;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .canvas-toolbar {
+            padding: 12px 24px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #495057;
+        }
+
+        .canvas-toolbar i {
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+        }
+
+        .canvas-toolbar i:hover {
+            background: #f1f3f5;
+        }
+
+        .canvas-content {
+            flex: 1;
+            padding: 40px 60px;
+            outline: none;
+            overflow-y: auto;
+        }
+
+        .canvas-content h3 {
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .canvas-content p {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: #868e96;
+        }
+
+        /* CHAT PANEL */
+        .chat-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 350px;
+            background: white;
+            color: #212529;
+            display: none;
+            flex-direction: column;
+            z-index: 30;
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
+            transition: width 0.3s ease;
+        }
+
+        .chat-header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .chat-header strong {
+            font-size: 1.2rem;
+        }
+
+        .chat-search {
+            padding: 16px;
+            position: relative;
+        }
+
+        .chat-search input {
+            width: 100%;
+            padding: 10px 10px 10px 36px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            box-sizing: border-box;
+            background: #f8f9fa;
+        }
+
+        .chat-search i {
+            position: absolute;
+            left: 28px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #adb5bd;
+        }
+
+        .chat-tabs {
+            display: flex;
+            padding: 0 16px;
+            border-bottom: 1px solid #e9ecef;
+            gap: 24px;
+        }
+
+        .chat-tabs span {
+            padding: 12px 0;
+            font-size: 0.9rem;
+            color: #868e96;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .chat-tabs span.active {
+            color: #212529;
+            border-bottom: 2px solid #ff6b6b;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* Reused from live-dashboard */
+        .chat-item {
+            display: flex;
+            padding: 16px;
+            border-bottom: 1px solid #f1f3f5;
+            cursor: pointer;
+            gap: 12px;
+        }
+
+        .chat-item:hover {
+            background: #f8f9fa;
+        }
+
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .chat-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .chat-item-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .chat-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .chat-time {
+            font-size: 0.75rem;
+            color: #adb5bd;
+        }
+
+        .chat-snippet {
+            font-size: 0.8rem;
+            color: #868e96;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-balance {
+            font-size: 0.7rem;
+            color: #fa5252;
+            margin-top: 4px;
+        }
+
+        /* Bottom Left Icon */
+        .bottom-left-icon {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #adb5bd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .bottom-left-icon:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        /* More Menu */
+        .more-menu {
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            color: #212529;
+            border-radius: 8px;
+            padding: 8px 0;
+            width: 220px;
+            display: none;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 200;
+        }
+
+        .more-menu-item {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .more-menu-item:hover {
+            background: #f8f9fa;
+        }
+
+        .more-menu-item i {
+            width: 20px;
+            text-align: center;
+            color: #495057;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            width: 450px;
+            border-radius: 12px;
+            color: #212529;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+
+        .modal-header i {
+            cursor: pointer;
+            color: #868e96;
+            font-size: 1.2rem;
+        }
+
+        .modal-header i:hover {
+            color: #212529;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-body label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #212529;
+        }
+
+        .modal-body select,
+        .modal-body textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-family: inherit;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+        }
+
+        .modal-body select:focus,
+        .modal-body textarea:focus {
+            outline: none;
+            border-color: #212529;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .checkbox-container input {
+            margin-top: 4px;
+            width: 16px;
+            height: 16px;
+            accent-color: #212529;
+            cursor: pointer;
+        }
+
+        .checkbox-container span {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #495057;
+        }
+
+        .btn-send {
+            background: #1971c2;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .btn-send:hover {
+            background: #1864ab;
+        }
+
+        /* INFO PANEL */
+        .info-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 350px;
+            background: white;
+            color: #212529;
+            display: none;
+            flex-direction: column;
+            z-index: 40;
+            /* Above chat */
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
+            transition: width 0.3s ease;
+        }
+
+        .info-tabs {
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #e9ecef;
+            gap: 24px;
+            height: 60px;
+        }
+
+        .info-tabs span {
+            padding: 18px 0;
+            font-size: 0.9rem;
+            color: #868e96;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .info-tabs span.active {
+            color: #212529;
+            border-bottom: 2px solid #ff6b6b;
+        }
+
+        .info-content {
+            padding: 24px 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+
+        .chat-input-area {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid #e9ecef;
+            gap: 8px;
+            background: white;
+            align-items: center;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        .chat-input-area button {
+            background: #1a1b26;
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .chat-panel, .info-panel {
+                width: 100% !important;
+                right: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                top: 0 !important;
+            }
+            .canvas-panel {
+                width: calc(100% - 32px) !important;
+                left: 16px !important;
+                right: 16px !important;
+                bottom: 120px !important;
+            }
+            #self-view, #mini-video {
+                right: 16px !important;
+                top: 80px !important;
+            }
+            .top-right-icons {
+                right: 16px !important;
+            }
+            .bottom-toolbar {
+                transform: translateX(-50%) !important;
+                left: 50% !important;
+                width: calc(100% - 32px) !important;
+                gap: 8px !important;
+            }
+            .tool-btn {
+                padding: 6px !important;
+                font-size: 0.8rem !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Default Center Content -->
+    <div class="center-content" id="default-view">
+        <div id="default-placeholder"
+            style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border-radius: 8px;">
+            <video id="student-video" autoplay playsinline muted
+                style="width: 100%; height: 100%; object-fit: cover;"></video>
+
+            <div id="welcome-text"
+                style="position: absolute; display: flex; flex-direction: column; align-items: center;">
+                <div class="center-icon">
+                    <i class="fa-solid fa-user" style="color: #2b2b36;"></i>
+                </div>
+                <h2
+                    style="margin: 0 0 8px; font-size: 1.4rem; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">
+                    Meet Simona here for the next lesson</h2>
+                <p
+                    style="color: white; font-size: 0.9rem; margin: 0; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
+                    Scheduled for Friday, June 5 at 7:30 PM</p>
+            </div>
+        </div>
+        <video id="shared-screen-video" autoplay playsinline muted
+            style="display: none; width: 100%; height: 100%; object-fit: contain; max-height: calc(100vh - 100px); border-radius: 8px;"></video>
+    </div>
+
+    <!-- Student Switcher (Hidden when Canvas is open, or can stay behind) -->
+    <div style="position: absolute; top: 16px; left: 16px; background: #2b2b36; color: white; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; z-index: 50;"
+        id="student-switcher" onclick="toggleStudentSwitcherDropdown(event)">
+        <i class="fa-solid fa-user"></i> <span id="current-student-name-display">Simona</span> <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;"></i>
+    </div>
+
+    <!-- Student Switcher Dropdown Menu -->
+    <div id="student-switcher-dropdown" class="top-left-panel" style="display: none; position: absolute; top: 52px; left: 16px; z-index: 100; font-family: 'Tajawal', sans-serif;">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span id="switcher-panel-title">الطلاب المتاحون</span>
+            <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="toggleStudentSwitcherDropdown(event)"></i>
+        </div>
+        <ul class="student-list" id="student-switcher-list">
+            <!-- Populated dynamically via JS -->
+        </ul>
+    </div>
+
+    <!-- Top Right Icons -->
+    <div class="top-right-icons shifted" id="top-icons" style="position: relative;">
+        <div class="top-icon" onclick="toggleTopInfoMenu()" title="More Info" id="btn-top-info"><i
+                class="fa-solid fa-circle-exclamation"></i></div>
+
+        <div class="more-menu" id="top-info-menu"
+            style="display: none; position: absolute; top: 40px; right: 0; background: #2b2b36; border: 1px solid #495057; border-radius: 8px; padding: 8px 0; min-width: 180px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 100;">
+            <div class="more-menu-item" onclick="toggleInfoPanel(); toggleTopInfoMenu()"><i
+                    class="fa-solid fa-circle-info"></i> Lesson Info</div>
+            <div class="more-menu-item" onclick="toggleTopInfoMenu()"><i class="fa-solid fa-signal"></i> Network Status
+            </div>
+            <div class="more-menu-item" onclick="toggleTopInfoMenu()"><i class="fa-solid fa-wand-magic-sparkles"></i>
+                Insights</div>
+        </div>
+    </div>
+
+    <!-- Mini Video Preview -->
+    <div class="mini-video shifted" id="mini-video"
+        style="display: none; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+        <!-- student-video will be moved here during screen share -->
+        <i class="fa-solid fa-microphone-slash"
+            style="position: absolute; bottom: 8px; left: 8px; font-size: 0.8rem; background: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; color: white; z-index: 2;"></i>
+    </div>
+
+    <!-- Self View (Local Camera) -->
+    <div id="self-view" class="shifted"
+        style="position: absolute; top: 72px; right: 24px; width: 140px; height: 105px; background: #000; border-radius: 8px; border: 2px solid #495057; overflow: hidden; z-index: 40; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: right 0.3s ease; display: none;">
+        <i id="self-view-placeholder" class="fa-solid fa-user"
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ffffff; font-size: 2rem;"></i>
+        <video id="local-video" autoplay playsinline muted
+            style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); position: relative; z-index: 2;"></video>
+        <div id="self-mic-muted"
+            style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.6); padding: 4px 6px; border-radius: 4px; z-index: 3; display: none;">
+            <i class="fa-solid fa-microphone-slash" style="color: white; font-size: 0.75rem;"></i>
+        </div>
+    </div>
+
+    <!-- WHITEBOARD PANEL -->
+    <div class="canvas-panel" id="canvas-panel">
+        <div class="canvas-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-pen-nib"></i>
+                <strong style="font-size: 1rem;">Whiteboard</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <span style="font-size: 0.85rem; color: #ced4da;"><i class="fa-solid fa-user-group"
+                        style="margin-right: 4px;"></i> Shared</span>
+                <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 1.1rem;"
+                    onclick="toggleTool('canvas')"></i>
+            </div>
+        </div>
+        <div class="canvas-body">
+            <div class="canvas-sidebar">
+                <div class="slide-thumb active">
+                    <span>1</span>
+                </div>
+                <div style="flex: 1;"></div>
+                <button class="canvas-btn-square" onclick="createNewWhiteboardPage()" title="صفحة جديدة"><i
+                        class="fa-solid fa-plus"></i></button>
+                <button class="canvas-btn-square" onclick="toggleWhiteboardSidebar()" title="طي القائمة"><i
+                        class="fa-solid fa-angles-left" id="wb-sidebar-icon"></i></button>
+            </div>
+            <div class="canvas-main">
+                <div class="canvas-toolbar">
+                    <i class="fa-solid fa-rotate-left" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('undo', false, null)"
+                        title="تراجع"></i>
+                    <i class="fa-solid fa-rotate-right" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('redo', false, null)"
+                        title="إعادة"></i>
+                    <div
+                        style="position: relative; margin: 0 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; user-select: none;">
+                        <div
+                            onmousedown="event.preventDefault(); document.getElementById('heading-dropdown').style.display = document.getElementById('heading-dropdown').style.display === 'flex' ? 'none' : 'flex';">
+                            <span id="heading-label">Heading</span> <i class="fa-solid fa-chevron-down"
+                                style="font-size: 0.7rem; margin-left: 4px;"></i>
+                        </div>
+                        <div id="heading-dropdown"
+                            style="display: none; position: absolute; top: 30px; left: 0; background: white; border: 1px solid #ced4da; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); flex-direction: column; width: 150px; z-index: 100; overflow: hidden; font-weight: normal;">
+                            <div onmouseover="this.style.background='#f1f3f5'"
+                                onmouseout="this.style.background='white'"
+                                onmousedown="event.preventDefault(); document.execCommand('formatBlock', false, 'H1'); document.getElementById('heading-label').innerText = 'Large'; document.getElementById('heading-dropdown').style.display='none';"
+                                style="padding: 10px 16px; font-size: 1.1rem; font-weight: bold;">Large</div>
+                            <div onmouseover="this.style.background='#f1f3f5'"
+                                onmouseout="this.style.background='white'"
+                                onmousedown="event.preventDefault(); document.execCommand('formatBlock', false, 'H3'); document.getElementById('heading-label').innerText = 'Medium'; document.getElementById('heading-dropdown').style.display='none';"
+                                style="padding: 10px 16px; font-size: 1rem; font-weight: 600;">Medium</div>
+                            <div onmouseover="this.style.background='#f1f3f5'"
+                                onmouseout="this.style.background='white'"
+                                onmousedown="event.preventDefault(); document.execCommand('formatBlock', false, 'P'); document.getElementById('heading-label').innerText = 'Normal'; document.getElementById('heading-dropdown').style.display='none';"
+                                style="padding: 10px 16px; font-size: 0.9rem;">Normal</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-bold" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('bold', false, null)"
+                        title="عريض"></i>
+                    <i class="fa-solid fa-italic" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('italic', false, null)"
+                        title="مائل"></i>
+                    <i class="fa-solid fa-underline" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('underline', false, null)"
+                        title="تسطير"></i>
+                    <i class="fa-solid fa-strikethrough" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('strikeThrough', false, null)"
+                        title="شطب"></i>
+                    <i class="fa-solid fa-list-ul" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('insertUnorderedList', false, null)"
+                        title="قائمة نقطية"></i>
+                    <i class="fa-solid fa-list-ol" style="cursor: pointer;"
+                        onmousedown="event.preventDefault(); document.execCommand('insertOrderedList', false, null)"
+                        title="قائمة رقمية"></i>
+                    <i class="fa-solid fa-image" style="cursor: pointer;"
+                        onclick="document.getElementById('wb-image-input').click()" title="إدراج صورة"></i>
+                    <input type="file" id="wb-image-input" style="display:none;" accept="image/*"
+                        onchange="insertWhiteboardImage(event)">
+                    <div style="flex: 1;"></div>
+                </div>
+                <div class="canvas-content" id="canvas-content" contenteditable="true">
+                    <h3>Start writing—together</h3>
+                    <p>Create examples, add exercises, edit, or review—everything is saved automatically and ready in
+                        the classroom when you need it.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- CURRICULUM PANEL -->
+    <div class="canvas-panel" id="curriculum-panel" style="z-index: 25; background: #f8f9fa;">
+        <div class="canvas-header" style="background: #0f172a;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-book-open"></i>
+                <strong style="font-size: 1rem;">Curriculum / Book</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <select id="classroomLevelSelect" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px 8px; font-family: 'Tajawal';" onchange="loadClassroomCurriculum()">
+                    <option value="A1" style="color: black;">A1</option>
+                    <option value="A2" style="color: black;">A2</option>
+                    <option value="B1" style="color: black;">B1</option>
+                    <option value="B2" style="color: black;">B2</option>
+                    <option value="C1" style="color: black;">C1</option>
+                    <option value="C2" style="color: black;">C2</option>
+                </select>
+                <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 1.1rem;" onclick="toggleTool('curriculum')"></i>
+            </div>
+        </div>
+        <div class="canvas-body" style="flex-direction: column; padding: 24px; overflow-y: auto; background: white;">
+            <div id="classroomCurriculumList" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Dynamically loaded -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- CLASSROOM BOOK VIEWER MODAL -->
+    <div id="classroomBookModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; justify-content: center; align-items: center;">
+        <div style="width: 90%; height: 90%; background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 16px 24px; background: #1e293b; color: white; display: flex; justify-content: space-between; align-items: center;">
+                <h3 id="classroomBookTitle" style="margin: 0; font-family: 'Tajawal';">Book Viewer</h3>
+                <button onclick="document.getElementById('classroomBookModal').style.display='none'" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="flex: 1; position: relative;">
+                <iframe id="classroomBookFrame" style="width: 100%; height: 100%; border: none;"></iframe>
+                <div style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 10;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAT PANEL -->
+    <div class="chat-panel" id="chat-panel">
+        <div class="chat-header" style="border-bottom: 1px solid #e9ecef; padding-bottom: 16px;">
+            <div style="display: flex; flex-direction: column;">
+                <strong style="font-size: 1.1rem; color: #212529;">Simona</strong>
+                <span style="font-size: 0.75rem; color: #868e96;">It's 03:57 for student</span>
+            </div>
+            <div style="display: flex; gap: 16px; color: #868e96; font-size: 1.1rem; align-items: center;">
+                <i class="fa-regular fa-folder" style="cursor: pointer;"></i>
+                <i class="fa-solid fa-wand-magic-sparkles"
+                    style="cursor: pointer; color: #20c997; border: 1px solid #ced4da; padding: 4px; border-radius: 4px;"></i>
+                <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="toggleTool('chat')"></i>
+            </div>
+        </div>
+        <div class="chat-list" style="padding: 24px 16px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="font-size: 0.95rem; color: #495057;">uvær og storm</div>
+            <div style="font-size: 0.95rem; color: #495057;">strøm</div>
+            <div style="font-size: 0.95rem; color: #495057;">jeg er skuffet</div>
+            <div style="font-size: 0.95rem; color: #495057;">å gi henne frihet</div>
+            <div style="font-size: 0.95rem; color: #495057;">å hjelpe henne med å bli selvstendig</div>
+            <div style="font-size: 0.95rem; color: #495057;">fornuftig</div>
+            <div style="font-size: 0.95rem; color: #495057;">de slipper å betale for husleie og strøm</div>
+            <div style="font-size: 0.95rem; color: #495057;">ulemper</div>
+            <div style="font-size: 0.95rem; color: #495057;">en fordel</div>
+            <div style="font-size: 0.95rem; color: #495057;">du har ikke ansvar</div>
+            <div style="font-size: 0.95rem; color: #495057;">strenge</div>
+            <div style="font-size: 0.95rem; color: #495057;">kan du fortelle om fordeler og ulemper?</div>
+            <div style="font-size: 0.95rem; color: #495057;">døde</div>
+            <div style="font-size: 0.95rem; color: #495057;">gjeld</div>
+            <div style="font-size: 0.95rem; color: #495057;">å legge inn et bud</div>
+            <div style="margin-top: 32px; display: flex; gap: 12px; align-items: flex-start;">
+                <img src="assets/tutor_1.png" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;"
+                    onerror="this.src='https://via.placeholder.com/32'">
+                <div>
+                    <div style="font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; color: #212529;">Hani Akram
+                        K. <span
+                            style="font-weight: normal; color: #adb5bd; font-size: 0.75rem; margin-left: 4px;">18:59</span>
+                    </div>
+                    <div style="font-size: 0.95rem; color: #495057;">Neste time: Repeter K.5<br>82</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Emoji Picker -->
+        <div id="emoji-picker"
+            style="display: none; position: absolute; bottom: 120px; left: 16px; right: 16px; background: white; border: 1px solid #ced4da; border-radius: 8px; padding: 12px; box-shadow: 0 -4px 12px rgba(0,0,0,0.1); z-index: 100;">
+            <div style="font-size: 0.85rem; color: #868e96; margin-bottom: 8px; font-weight: bold;">رموز تعبيرية</div>
+            <div id="emoji-grid"
+                style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; font-size: 1.5rem; text-align: center; cursor: pointer; max-height: 150px; overflow-y: auto;">
+                <!-- Emojis injected by JS -->
+            </div>
+        </div>
+
+        <div class="chat-input-area"
+            style="padding: 16px; border-top: 1px solid #e9ecef; flex-direction: column; align-items: stretch; gap: 0;">
+            <div
+                style="border: 1px solid #212529; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 12px; background: white;">
+                <input type="text" id="chat-input-text" placeholder="Your message"
+                    style="border: none; padding: 0; font-size: 0.95rem; background: transparent; outline: none; width: 100%;">
+                <div style="display: flex; gap: 16px; color: #212529; font-size: 1.1rem; align-items: center;">
+                    <i class="fa-solid fa-paperclip" style="cursor: pointer;"
+                        onclick="document.getElementById('chat-file-input').click()" title="إرفاق ملف"></i>
+                    <i class="fa-regular fa-face-smile" style="cursor: pointer;" onclick="toggleEmojiPicker()"
+                        title="ايموجي"></i>
+                    <i class="fa-regular fa-thumbs-up" style="cursor: pointer;" onclick="sendLike()" title="إعجاب"></i>
+                    <div style="flex: 1;"></div>
+                    <i class="fa-solid fa-microphone" id="chat-mic-btn" style="cursor: pointer;"
+                        onclick="toggleVoiceRecord()" title="رسالة صوتية"></i>
+                    <button id="chat-send-btn" onclick="sendChatMessage()"
+                        style="display: none; background: #f06595; color: #212529; border: 1px solid #212529; border-radius: 8px; width: 36px; height: 36px; cursor: pointer; align-items: center; justify-content: center; padding: 0;">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <input type="file" id="chat-file-input" style="display: none;" onchange="handleChatFileUpload(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO PANEL -->
+    <div class="info-panel" id="info-panel">
+        <div class="info-tabs">
+            <span class="active">Info</span>
+            <span>Network</span>
+            <span>Insights</span>
+            <div style="flex: 1;"></div>
+            <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 1.2rem; color: #495057;"
+                onclick="toggleInfoPanel()"></i>
+        </div>
+
+        <div class="info-content">
+            <h3 style="margin: 0 0 16px; font-size: 1.1rem; color: #212529;">English with</h3>
+
+            <div style="margin-bottom: 24px;">
+                <div style="font-weight: 600; font-size: 0.9rem; margin-bottom: 4px;">Classroom link</div>
+                <div style="font-size: 0.85rem; color: #868e96; margin-bottom: 12px; word-break: break-all;">
+                    https://mrhacademy.com/edu/arabic/classroom-v2/demo?source=menu
+                </div>
+                <button
+                    style="background: white; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 4px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; color: #212529; font-family: 'Tajawal', sans-serif;">
+                    <i class="fa-solid fa-link"></i> Send link to
+                </button>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 1.1rem; color: #212529;">Next lessons with</h3>
+                <span
+                    style="background: #fff3bf; color: #212529; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">No
+                    lessons to schedule</span>
+            </div>
+
+            <div
+                style="border: 1px solid #e9ecef; border-radius: 8px; padding: 32px 16px; text-align: center; color: #495057;">
+                <i class="fa-regular fa-calendar" style="font-size: 1.5rem; margin-bottom: 12px; color: #868e96;"></i>
+                <div style="font-weight: bold; margin-bottom: 4px; color: #212529;">No upcoming lessons</div>
+                <div style="font-size: 0.85rem; color: #868e96;">Find a suitable time together with your student.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Toolbar -->
+    <div class="bottom-toolbar">
+        <button class="tool-btn" id="btn-mic" onclick="toggleMic()"><i
+                class="fa-solid fa-microphone-slash"></i><span>Mic</span></button>
+
+        <div style="position: relative; display: flex;">
+            <button class="tool-btn" id="btn-camera" onclick="toggleCamera()"
+                style="border-top-right-radius: 0; border-bottom-right-radius: 0;"><i
+                    class="fa-solid fa-video-slash"></i><span>Camera</span></button>
+            <button class="tool-btn"
+                style="width: 20px; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0; border-left: 1px solid rgba(255,255,255,0.1);"
+                onclick="toggleCameraMenu()"><i class="fa-solid fa-chevron-up"
+                    style="font-size: 0.6rem; transform: translateY(-8px);"></i></button>
+
+            <div class="more-menu" id="camera-menu"
+                style="display: none; position: absolute; bottom: calc(100% + 10px); left: 0; min-width: 250px; padding: 8px 0; z-index: 100;">
+                <div
+                    style="padding: 4px 16px 8px; font-size: 0.75rem; color: #868e96; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #495057; margin-bottom: 4px;">
+                    Select Camera</div>
+                <div id="camera-list">
+                    <div style="padding: 8px 16px; color: #adb5bd; font-size: 0.85rem;">Loading cameras...</div>
+                </div>
+            </div>
+        </div>
+        <button class="tool-btn" id="btn-canvas" onclick="toggleTool('canvas')"><i
+                class="fa-solid fa-pen-nib"></i><span>Whiteboard</span></button>
+        <button class="tool-btn" id="btn-curriculum" onclick="toggleTool('curriculum')"><i class="fa-solid fa-book"></i><span>Book</span></button>
+        <button class="tool-btn" id="btn-share" title="مشاركة الشاشة"><i
+                class="fa-solid fa-display"></i><span>Share</span></button>
+        <button class="tool-btn" id="btn-chat" onclick="toggleTool('chat')"><i
+                class="fa-regular fa-message"></i><span>Chat</span></button>
+
+        <div style="position: relative;">
+            <button class="tool-btn" id="btn-more" onclick="toggleMoreMenu()"><i
+                    class="fa-solid fa-ellipsis"></i><span>More</span></button>
+            <div class="more-menu" id="more-menu">
+                <div class="more-menu-item" onclick="openReportModal()"><i class="fa-regular fa-flag"></i> Report an
+                    issue</div>
+                <div class="more-menu-item"><i class="fa-solid fa-circle-exclamation"></i> Get help</div>
+                <div class="more-menu-item"><i class="fa-regular fa-compass"></i> Take a tour</div>
+                <div class="more-menu-item"><i class="fa-solid fa-gear"></i> Settings</div>
+            </div>
+        </div>
+
+        <button class="tool-btn leave" onclick="leaveClassroom()"><i
+                class="fa-solid fa-arrow-right-from-bracket"></i><span>Leave</span></button>
+    </div>
+
+    <!-- Bottom Left Flag Icon -->
+    <div class="bottom-left-icon" onclick="openReportModal()" title="Report an issue">
+        <i class="fa-regular fa-flag"></i>
+    </div>
+
+    <!-- REPORT ISSUE MODAL -->
+    <div class="modal-overlay" id="report-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Report an issue</h3>
+                <i class="fa-solid fa-xmark" onclick="closeReportModal()"></i>
+            </div>
+            <div class="modal-body">
+                <label>What type of issue did you have?</label>
+                <select id="issue-type">
+                    <option value="" disabled selected>Select an option</option>
+                    <option value="joining">Issues joining classroom</option>
+                    <option value="see_student">Could not see student</option>
+                    <option value="hear_student">Could not hear student</option>
+                    <option value="mic_cam">My mic or camera was not working</option>
+                    <option value="tools">Issues with tools (chat, whiteboard, screen share, etc.)</option>
+                    <option value="absent">Student was absent</option>
+                    <option value="other">Other</option>
+                </select>
+
+                <label style="margin-top: 8px;">Describe your issue</label>
+                <textarea rows="4" placeholder="Share your experience..."></textarea>
+
+                <label class="checkbox-container">
+                    <input type="checkbox" checked>
+                    <span>I agree to be contacted by email to provide more details about my report.</span>
+                </label>
+
+                <div style="text-align: right; margin-top: 24px;">
+                    <button class="btn-send" onclick="submitReport()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room_id') || 'default-room';
+        const socket = typeof io !== 'undefined' ? io() : null;
+        
+        let isCurriculumOpen = false;
+
+        function loadClassroomCurriculum() {
+            const listContainer = document.getElementById('classroomCurriculumList');
+            if (!listContainer) return;
+            
+            const level = document.getElementById('classroomLevelSelect').value;
+            const allData = JSON.parse(localStorage.getItem('curriculumData') || '{}');
+            const lessons = allData[level] || [];
+            const studentId = '1'; // Mock ID for current classroom student (Simona)
+            const unlocked = (JSON.parse(localStorage.getItem('unlockedLessonsByStudent') || '{}')[studentId] || {})[level] || [];
+            
+            // Check if current user is tutor
+            const isTutor = (window.userRole === 'tutor' || localStorage.getItem('currentUser')?.includes('tutor'));
+            
+            listContainer.innerHTML = '';
+            
+            if (lessons.length === 0) {
+                listContainer.innerHTML = '<div style="text-align: center; color: #777; padding: 2rem;">No curriculum available for this level yet.</div>';
+                return;
+            }
+            
+            lessons.forEach(lesson => {
+                const isUnlocked = unlocked.includes(lesson.id);
+                const hasPdf = !!lesson.pdfUrl;
+                
+                const card = document.createElement('div');
+                card.style.cssText = `display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid ${isUnlocked ? '#10b981' : '#e2e8f0'}; border-radius: 8px; background: ${isUnlocked ? '#f0fdf4' : '#fff'}; transition: all 0.2s;`;
+                
+                let lockAction = '';
+                if (isTutor) {
+                    lockAction = `
+                    <button onclick="toggleClassroomLock('${level}', ${lesson.id}); event.stopPropagation();" style="background: ${isUnlocked ? '#ef4444' : '#10b981'}; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: 'Tajawal'; font-size: 0.9rem;">
+                        ${isUnlocked ? '<i class="fas fa-lock"></i> اقفل' : '<i class="fas fa-lock-open"></i> افتح'}
+                    </button>`;
+                }
+                
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+                        <div style="width: 40px; height: 40px; border-radius: 8px; background: ${isUnlocked ? '#10b981' : '#f1f5f9'}; color: ${isUnlocked ? '#fff' : '#64748b'}; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1.1rem;">
+                            ${isUnlocked ? '<i class="fas fa-lock-open"></i>' : '<i class="fas fa-lock"></i>'}
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; font-size: 1.05rem; color: #0f172a; font-family: 'Tajawal';">${lesson.title}</div>
+                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px; font-family: 'Tajawal';">${hasPdf ? 'PDF Ready' : 'No PDF'}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button onclick="viewClassroomBook('${lesson.pdfUrl}', '${lesson.title}', ${isUnlocked}, ${isTutor})" style="background: white; border: 1px solid #0f172a; color: #0f172a; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-family: 'Tajawal'; font-size: 0.9rem; ${(!hasPdf || (!isUnlocked && !isTutor)) ? 'opacity:0.5; pointer-events:none;' : ''}">
+                            <i class="fas fa-eye"></i> عرض
+                        </button>
+                        ${lockAction}
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        window.toggleClassroomLock = function(level, lessonId) {
+            const unlocked = JSON.parse(localStorage.getItem('unlockedLessonsByStudent') || '{}');
+            const studentId = '1'; // Mock ID
+            
+            if (!unlocked[studentId]) unlocked[studentId] = {};
+            if (!unlocked[studentId][level]) unlocked[studentId][level] = [];
+            
+            const index = unlocked[studentId][level].indexOf(lessonId);
+            if (index > -1) {
+                unlocked[studentId][level].splice(index, 1); // Lock
+            } else {
+                unlocked[studentId][level].push(lessonId); // Unlock
+            }
+            
+            localStorage.setItem('unlockedLessonsByStudent', JSON.stringify(unlocked));
+            loadClassroomCurriculum();
+        }
+
+        window.viewClassroomBook = function(url, title, isUnlocked, isTutor) {
+            if (!url || url === 'null') return;
+            if (!isUnlocked && !isTutor) return; // Student cannot view locked
+            
+            document.getElementById('classroomBookTitle').innerText = title;
+            document.getElementById('classroomBookFrame').src = url + '#toolbar=0&navpanes=0&scrollbar=0';
+            document.getElementById('classroomBookModal').style.display = 'flex';
+        }
+
+        function leaveClassroom() {
+            let role = window.userRole;
+            if (!role) {
+                try {
+                    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                    role = user.role;
+                } catch(e) {}
+            }
+            
+            if (role === 'tutor') {
+                window.location.href = 'tutor-dashboard.html';
+            } else {
+                window.location.href = 'student-dashboard.html';
+            }
+        }
+
+        let isCanvasOpen = false;
+        let isChatOpen = false;
+        let isInfoOpen = false;
+        let isMoreMenuOpen = false;
+
+        function toggleMoreMenu() {
+            isMoreMenuOpen = !isMoreMenuOpen;
+            document.getElementById('more-menu').style.display = isMoreMenuOpen ? 'flex' : 'none';
+        }
+
+        // Close more menu when clicking outside
+        document.addEventListener('click', function (event) {
+            const moreMenu = document.getElementById('more-menu');
+            const btnMore = document.getElementById('btn-more');
+            if (isMoreMenuOpen && !moreMenu.contains(event.target) && !btnMore.contains(event.target)) {
+                isMoreMenuOpen = false;
+                moreMenu.style.display = 'none';
+            }
+        });
+
+        function openReportModal() {
+            if (isMoreMenuOpen) toggleMoreMenu(); // Close menu if open
+            document.getElementById('report-modal').style.display = 'flex';
+        }
+
+        function closeReportModal() {
+            document.getElementById('report-modal').style.display = 'none';
+        }
+
+        async function submitReport() {
+            const issueType = document.getElementById('issue-type').value;
+            const description = document.querySelector('.modal-body textarea').value;
+
+            if (!issueType) {
+                alert("Please select an issue type.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        issue_type: issueType,
+                        description: description,
+                        room_id: roomId
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert("تم إرسال بلاغك بنجاح للوحة التحكم!");
+                } else {
+                    alert("حدث خطأ أثناء إرسال البلاغ: " + result.error);
+                }
+            } catch (err) {
+                console.error("Error submitting report", err);
+                alert("حدث خطأ في الاتصال بالخادم.");
+            }
+
+            closeReportModal();
+        }
+
+        function toggleInfoPanel() {
+            isInfoOpen = !isInfoOpen;
+            if (isInfoOpen) isChatOpen = false; // Close chat if info opens to prevent overlap
+            updateLayout();
+        }
+
+        function updateLayout() {
+            const canvasPanel = document.getElementById('canvas-panel');
+            const chatPanel = document.getElementById('chat-panel');
+            const infoPanel = document.getElementById('info-panel');
+            const miniVideo = document.getElementById('mini-video');
+            const topIcons = document.getElementById('top-icons');
+            const studentSwitcher = document.getElementById('student-switcher');
+            const defaultView = document.getElementById('default-view');
+            const bottomToolbar = document.querySelector('.bottom-toolbar');
+
+            // Buttons
+            document.getElementById('btn-canvas').classList.toggle('active', isCanvasOpen);
+            document.getElementById('btn-chat').classList.toggle('active', isChatOpen);
+
+            // Visibility
+            canvasPanel.style.display = isCanvasOpen ? 'flex' : 'none';
+            chatPanel.style.display = isChatOpen ? 'flex' : 'none';
+            infoPanel.style.display = isInfoOpen ? 'flex' : 'none';
+
+            // Background / center content logic
+            if (isCanvasOpen) {
+                defaultView.style.opacity = '0';
+                setTimeout(() => defaultView.style.display = 'none', 300);
+            } else {
+                defaultView.style.display = 'flex';
+                setTimeout(() => defaultView.style.opacity = '1', 10);
+            }
+
+            // Hide switch students if canvas is open
+            if (studentSwitcher) {
+                studentSwitcher.style.display = isCanvasOpen ? 'none' : 'flex';
+            }
+
+            const selfView = document.getElementById('self-view');
+
+            // Handle Right panel shifting
+            if (isCanvasOpen && (isChatOpen || isInfoOpen)) {
+                // BOTH are open: Make chat narrower, canvas narrower, put cameras between them
+                chatPanel.style.width = '300px';
+                if (infoPanel) infoPanel.style.width = '300px';
+
+                // Gap is 192px total (492px from right edge)
+                canvasPanel.style.width = 'calc(100% - 508px)';
+                canvasPanel.classList.remove('full-width');
+
+                if (selfView) {
+                    selfView.style.width = '160px';
+                    selfView.style.height = '120px';
+                    selfView.style.right = '316px'; // 300px (chat) + 16px (margin)
+                    selfView.style.top = '72px';
+                    selfView.style.transition = 'all 0.3s ease';
+                }
+                if (miniVideo) {
+                    miniVideo.style.width = '160px';
+                    miniVideo.style.height = '120px';
+                    miniVideo.style.right = '316px'; // perfectly aligned with selfView
+                    miniVideo.style.top = '208px'; // 72px (top) + 120px (height) + 16px (margin)
+                    miniVideo.style.transition = 'all 0.3s ease';
+                }
+
+                topIcons.style.right = '316px';
+                topIcons.style.transition = 'all 0.3s ease';
+                if (bottomToolbar) bottomToolbar.classList.add('shifted');
+            } else if (isChatOpen || isInfoOpen) {
+                // ONLY Chat/Info open
+                chatPanel.style.width = '350px';
+                if (infoPanel) infoPanel.style.width = '350px';
+
+                canvasPanel.style.width = 'calc(100% - 390px)';
+                canvasPanel.classList.remove('full-width');
+
+                if (selfView) {
+                    selfView.style.width = '140px';
+                    selfView.style.height = '105px';
+                    selfView.style.right = '374px';
+                    selfView.style.top = '72px';
+                    selfView.style.transition = 'all 0.3s ease';
+                }
+                if (miniVideo) {
+                    miniVideo.style.width = '160px';
+                    miniVideo.style.height = '120px';
+                    miniVideo.style.right = '370px';
+                    miniVideo.style.top = '60px';
+                    miniVideo.style.transition = 'all 0.3s ease';
+                }
+
+                topIcons.style.right = '370px';
+                topIcons.style.transition = 'all 0.3s ease';
+                if (bottomToolbar) bottomToolbar.classList.add('shifted');
+            } else {
+                // NEITHER Chat nor Info is open
+                chatPanel.style.width = '350px';
+                if (infoPanel) infoPanel.style.width = '350px';
+
+                canvasPanel.style.width = '';
+                canvasPanel.classList.add('full-width');
+
+                if (selfView) {
+                    selfView.style.width = '140px';
+                    selfView.style.height = '105px';
+                    selfView.style.right = '24px';
+                    selfView.style.top = '72px';
+                    selfView.style.transition = 'all 0.3s ease';
+                }
+                if (miniVideo) {
+                    miniVideo.style.width = '160px';
+                    miniVideo.style.height = '120px';
+                    miniVideo.style.right = '16px';
+                    miniVideo.style.top = '60px';
+                    miniVideo.style.transition = 'all 0.3s ease';
+                }
+
+                topIcons.style.right = '16px';
+                topIcons.style.transition = 'all 0.3s ease';
+                if (bottomToolbar) bottomToolbar.classList.remove('shifted');
+            }
+        }
+
+        
+        function toggleTool(tool) {
+            const canvasPanel = document.getElementById('canvas-panel');
+            const curriculumPanel = document.getElementById('curriculum-panel');
+            const btnCanvas = document.getElementById('btn-canvas');
+            const btnCurriculum = document.getElementById('btn-curriculum');
+
+            if (tool === 'chat') {
+                isChatOpen = !isChatOpen;
+                if (isChatOpen) isInfoOpen = false;
+            } else if (tool === 'canvas') {
+                isCanvasOpen = !isCanvasOpen;
+                if (isCanvasOpen) {
+                    isCurriculumOpen = false;
+                    if(curriculumPanel) curriculumPanel.style.display = 'none';
+                    if(btnCurriculum) btnCurriculum.classList.remove('active');
+                    btnCanvas.classList.add('active');
+                } else {
+                    btnCanvas.classList.remove('active');
+                }
+            } else if (tool === 'curriculum') {
+                isCurriculumOpen = !isCurriculumOpen;
+                if (isCurriculumOpen) {
+                    isCanvasOpen = false;
+                    canvasPanel.style.display = 'none';
+                    btnCanvas.classList.remove('active');
+                    if(btnCurriculum) btnCurriculum.classList.add('active');
+                    loadClassroomCurriculum();
+                } else {
+                    if(btnCurriculum) btnCurriculum.classList.remove('active');
+                }
+            }
+
+            updateLayout();
+        }
+
+        function updateLayout() {
+            const canvasPanel = document.getElementById('canvas-panel');
+            const curriculumPanel = document.getElementById('curriculum-panel');
+            const chatPanel = document.getElementById('chat-panel');
+            const infoPanel = document.getElementById('info-panel');
+            const topIcons = document.getElementById('top-icons');
+            const miniVideo = document.getElementById('mini-video');
+            const selfView = document.getElementById('self-view');
+            const bottomToolbar = document.querySelector('.bottom-toolbar');
+
+            if (isChatOpen || isInfoOpen) {
+                if (isChatOpen) {
+                    chatPanel.style.display = 'flex';
+                    infoPanel.style.display = 'none';
+                } else {
+                    infoPanel.style.display = 'flex';
+                    chatPanel.style.display = 'none';
+                }
+                topIcons.classList.add('shifted');
+                miniVideo.classList.add('shifted');
+                selfView.classList.add('shifted');
+                bottomToolbar.classList.add('shifted');
+                
+                if (isCanvasOpen) {
+                    canvasPanel.style.display = 'flex';
+                    canvasPanel.classList.remove('full-width');
+                    if(curriculumPanel) curriculumPanel.style.display = 'none';
+                } else if (isCurriculumOpen) {
+                    if(curriculumPanel) {
+                        curriculumPanel.style.display = 'flex';
+                        curriculumPanel.classList.remove('full-width');
+                    }
+                    canvasPanel.style.display = 'none';
+                } else {
+                    canvasPanel.style.display = 'none';
+                    if(curriculumPanel) curriculumPanel.style.display = 'none';
+                }
+            } else {
+                chatPanel.style.display = 'none';
+                infoPanel.style.display = 'none';
+                topIcons.classList.remove('shifted');
+                miniVideo.classList.remove('shifted');
+                selfView.classList.remove('shifted');
+                bottomToolbar.classList.remove('shifted');
+                
+                if (isCanvasOpen) {
+                    canvasPanel.style.display = 'flex';
+                    canvasPanel.classList.add('full-width');
+                    if(curriculumPanel) curriculumPanel.style.display = 'none';
+                } else if (isCurriculumOpen) {
+                    if(curriculumPanel) {
+                        curriculumPanel.style.display = 'flex';
+                        curriculumPanel.classList.add('full-width');
+                    }
+                    canvasPanel.style.display = 'none';
+                } else {
+                    canvasPanel.style.display = 'none';
+                    if(curriculumPanel) curriculumPanel.style.display = 'none';
+                }
+            }
+        }
+
+        function toggleMic() {
+            if (!localStream) {
+                initCamera();
+                return;
+            }
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                const micBtn = document.getElementById('btn-mic');
+                const selfMutedIcon = document.getElementById('self-mic-muted');
+                if (audioTrack.enabled) {
+                    micBtn.innerHTML = '<i class="fa-solid fa-microphone"></i><span>Mic</span>';
+                    micBtn.style.color = '#fff';
+                    if (selfMutedIcon) selfMutedIcon.style.display = 'none';
+                } else {
+                    micBtn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i><span>Mic</span>';
+                    micBtn.style.color = '#ff6b6b';
+                    if (selfMutedIcon) selfMutedIcon.style.display = 'block';
+                }
+            }
+        }
+
+        function toggleCamera() {
+            if (!localStream) {
+                initCamera();
+                return;
+            }
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = !videoTrack.enabled;
+                const camBtn = document.getElementById('btn-camera');
+                const localVid = document.getElementById('local-video');
+                const placeholder = document.getElementById('self-view-placeholder');
+
+                if (videoTrack.enabled) {
+                    camBtn.innerHTML = '<i class="fa-solid fa-video"></i><span>Camera</span>';
+                    camBtn.style.color = '#fff';
+                    localVid.style.opacity = '1';
+                    if (placeholder) placeholder.style.display = 'none';
+                } else {
+                    camBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i><span>Camera</span>';
+                    camBtn.style.color = '#ff6b6b';
+                    localVid.style.opacity = '0';
+                    if (placeholder) {
+                        placeholder.className = 'fa-solid fa-video-slash';
+                        placeholder.style.display = 'block';
+                    }
+                }
+            }
+        }
+
+        // --- WebRTC Camera Logic ---
+        let localStream;
+        let cameraPeerConnection;
+        let pendingCameraCandidates = [];
+
+        let currentDeviceId = null;
+
+        async function initCamera(deviceId = null) {
+            document.getElementById('self-view').style.display = 'block';
+            try {
+                const videoConstraints = {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                };
+                if (deviceId) {
+                    videoConstraints.deviceId = { exact: deviceId };
+                }
+                const constraints = { video: videoConstraints, audio: true };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentDeviceId = deviceId;
+                const localVid = document.getElementById('local-video');
+                localVid.srcObject = localStream;
+                localVid.play().catch(e => console.error(e));
+
+                document.getElementById('self-view-placeholder').style.display = 'none';
+
+                // Update toolbar buttons
+                const micBtn = document.getElementById('btn-mic');
+                const camBtn = document.getElementById('btn-camera');
+                if (micBtn) {
+                    micBtn.innerHTML = '<i class="fa-solid fa-microphone"></i><span>Mic</span>';
+                    micBtn.style.color = '#fff';
+                }
+                if (camBtn) {
+                    camBtn.innerHTML = '<i class="fa-solid fa-video"></i><span>Camera</span>';
+                    camBtn.style.color = '#fff';
+                }
+
+            } catch (err) {
+                console.error("Camera access denied or error:", err);
+                let errorMsg = "حدث خطأ غير معروف أثناء تشغيل الكاميرا.";
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    errorMsg = "تم رفض صلاحية الكاميرا! يرجى السماح للمتصفح بالوصول للكاميرا من إعدادات المتصفح (أيقونة القفل بجانب الرابط).";
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    errorMsg = "الكاميرا مستخدمة حالياً من تطبيق آخر (مثل Zoom) أو تبويب آخر. يرجى إغلاقها ثم تحديث الصفحة.";
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMsg = "لم يتم العثور على أي كاميرا متصلة بجهازك.";
+                }
+                alert("تنبيه: " + errorMsg + "\n\n(سنستمر في الدخول للقاعة لكي تتمكن من رؤية الطرف الآخر، لكن صورتك لن تظهر لديه).");
+            } finally {
+                isCameraInitialized = true;
+                if (pendingOfferData) {
+                    processCameraOffer(pendingOfferData);
+                    pendingOfferData = null;
+                } else if (shouldInitiateCall) {
+                    initiateCameraCall();
+                }
+            }
+        }
+
+        let isCameraInitialized = false;
+        let shouldInitiateCall = false;
+        let pendingOfferData = null;
+
+        async function initiateCameraCall() {
+            if (cameraPeerConnection && cameraPeerConnection.signalingState !== 'stable') return;
+            await createCameraPeerConnection();
+            const offer = await cameraPeerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
+            await cameraPeerConnection.setLocalDescription(offer);
+            socket.emit('camera_offer', { room_id: roomId, offer: cameraPeerConnection.localDescription });
+        }
+
+        async function createCameraPeerConnection() {
+            cameraPeerConnection = new RTCPeerConnection(configuration);
+            if (localStream) {
+                localStream.getTracks().forEach(track => cameraPeerConnection.addTrack(track, localStream));
+            }
+            cameraPeerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('camera_ice_candidate', { room_id: roomId, candidate: event.candidate });
+                }
+            };
+            cameraPeerConnection.ontrack = event => {
+                if (studentVideo) {
+                    studentVideo.srcObject = event.streams[0];
+                    studentVideo.play().catch(e => console.error(e));
+                }
+                const wt = document.getElementById('welcome-text');
+                if (wt) wt.style.display = 'none';
+            };
+            return cameraPeerConnection;
+        }
+
+        socket.on('peer_joined', () => {
+            if (isCameraInitialized) {
+                initiateCameraCall();
+            } else {
+                shouldInitiateCall = true;
+            }
+        });
+
+        socket.on('camera_offer', async (data) => {
+            if (!isCameraInitialized) {
+                pendingOfferData = data;
+                return;
+            }
+            processCameraOffer(data);
+        });
+
+        async function processCameraOffer(data) {
+            if (!cameraPeerConnection) await createCameraPeerConnection();
+            try {
+                await cameraPeerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                while (pendingCameraCandidates.length > 0) {
+                    await cameraPeerConnection.addIceCandidate(pendingCameraCandidates.shift());
+                }
+                const answer = await cameraPeerConnection.createAnswer();
+                await cameraPeerConnection.setLocalDescription(answer);
+                socket.emit('camera_answer', { room_id: roomId, answer: cameraPeerConnection.localDescription });
+            } catch (e) { console.error("Error processing offer", e); }
+        }
+
+        socket.on('camera_answer', async (data) => {
+            if (cameraPeerConnection) {
+                await cameraPeerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                while (pendingCameraCandidates.length > 0) {
+                    await cameraPeerConnection.addIceCandidate(pendingCameraCandidates.shift());
+                }
+            }
+        });
+
+        socket.on('camera_ice_candidate', async (data) => {
+            const candidate = new RTCIceCandidate(data.candidate);
+            if (!cameraPeerConnection || !cameraPeerConnection.remoteDescription || !cameraPeerConnection.remoteDescription.type) {
+                pendingCameraCandidates.push(candidate);
+            } else {
+                try {
+                    await cameraPeerConnection.addIceCandidate(candidate);
+                } catch (e) {
+                    console.error("Error adding ice candidate", e);
+                }
+            }
+        });
+
+        async function toggleCameraMenu() {
+            const menu = document.getElementById('camera-menu');
+            if (menu.style.display === 'block') {
+                menu.style.display = 'none';
+                return;
+            }
+            menu.style.display = 'block';
+            document.getElementById('more-menu').style.display = 'none';
+
+            const list = document.getElementById('camera-list');
+            try {
+                // Request permission first to get actual labels instead of empty strings
+                await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+                    stream.getTracks().forEach(track => track.stop());
+                }).catch(e => console.warn('Caught media err to get labels', e));
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                list.innerHTML = '';
+                if (videoDevices.length === 0) {
+                    list.innerHTML = '<div style="padding: 8px 16px; color: #adb5bd; font-size: 0.85rem;">No cameras found</div>';
+                    return;
+                }
+
+                videoDevices.forEach((device, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'more-menu-item';
+                    item.style.display = 'flex';
+                    item.style.alignItems = 'center';
+                    item.style.gap = '8px';
+                    const isSelected = currentDeviceId === device.deviceId;
+                    item.innerHTML = `<i class="fa-solid fa-camera"></i> <span style="flex: 1; text-align: left;">${device.label || `Camera ${index + 1}`}</span> ${isSelected ? '<i class="fa-solid fa-check" style="color: #20c997;"></i>' : ''}`;
+                    item.onclick = async () => {
+                        menu.style.display = 'none';
+                        if (localStream) {
+                            localStream.getTracks().forEach(track => track.stop());
+                        }
+                        await initCamera(device.deviceId);
+
+                        // Dynamically update track in active call
+                        if (cameraPeerConnection && localStream) {
+                            const newVideoTrack = localStream.getVideoTracks()[0];
+                            const sender = cameraPeerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                            if (sender && newVideoTrack) {
+                                sender.replaceTrack(newVideoTrack);
+                            } else if (newVideoTrack) {
+                                // If no sender exists (e.g., initial call had no camera), add the track
+                                cameraPeerConnection.addTrack(newVideoTrack, localStream);
+                            }
+                        }
+                    };
+                    list.appendChild(item);
+                });
+            } catch (err) {
+                console.error('Error fetching cameras', err);
+                list.innerHTML = '<div style="padding: 8px 16px; color: #adb5bd; font-size: 0.85rem;">Error loading cameras</div>';
+            }
+        }
+
+        function startScreenShare(stream) {
+            pendingCandidates = [];
+            // Show local stream
+            sharedVideo.srcObject = stream;
+            sharedVideo.style.display = 'block';
+            defaultPlaceholder.style.display = 'none';
+
+            // Move student video to floating mini-video
+            const welcomeText = document.getElementById('welcome-text');
+            if (studentVideo && miniVideoEl) {
+                miniVideoEl.insertBefore(studentVideo, miniVideoEl.firstChild);
+                miniVideoEl.style.display = 'flex';
+            }
+            if (welcomeText) welcomeText.style.display = 'none';
+
+            isScreenSharingActive = true;
+            if (miniVideoEl) miniVideoEl.style.cursor = 'grab';
+
+            peerConnection = new RTCPeerConnection(configuration);
+            stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('webrtc_ice_candidate', { room_id: roomId, candidate: event.candidate });
+                }
+            };
+
+            peerConnection.createOffer()
+                .then(offer => peerConnection.setLocalDescription(offer))
+                .then(() => {
+                    socket.emit('webrtc_offer', { room_id: roomId, offer: peerConnection.localDescription });
+                });
+
+            stream.getVideoTracks()[0].onended = () => {
+                sharedVideo.style.display = 'none';
+                defaultPlaceholder.style.display = 'flex';
+                socket.emit('webrtc_end', { room_id: roomId });
+                if (peerConnection) peerConnection.close();
+
+                isScreenSharingActive = false;
+                if (miniVideoEl) {
+                    miniVideoEl.style.cursor = 'default';
+                    miniVideoEl.style.transform = 'translate3d(0px, 0px, 0)';
+                    miniVideoEl.style.display = 'none';
+                    currentX = 0; currentY = 0; xOffset = 0; yOffset = 0;
+                }
+
+                // Move student video back to center
+                const welcomeText = document.getElementById('welcome-text');
+                if (studentVideo && defaultPlaceholder) {
+                    defaultPlaceholder.insertBefore(studentVideo, defaultPlaceholder.firstChild);
+                }
+                if (welcomeText) welcomeText.style.display = 'flex';
+            };
+        }
+
+        socket.on('webrtc_offer', async (data) => {
+            pendingCandidates = []; // reset
+            peerConnection = new RTCPeerConnection(configuration);
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    socket.emit('webrtc_ice_candidate', { room_id: roomId, candidate: event.candidate });
+                }
+            };
+
+            peerConnection.ontrack = event => {
+                sharedVideo.srcObject = event.streams[0];
+                sharedVideo.style.display = 'block';
+                defaultPlaceholder.style.display = 'none';
+                sharedVideo.play().catch(e => console.log('Autoplay blocked', e));
+
+                // Move student video to floating mini-video
+                const welcomeText = document.getElementById('welcome-text');
+                if (studentVideo && miniVideoEl) {
+                    miniVideoEl.insertBefore(studentVideo, miniVideoEl.firstChild);
+                    miniVideoEl.style.display = 'flex';
+                }
+                if (welcomeText) welcomeText.style.display = 'none';
+
+                isScreenSharingActive = true;
+                if (miniVideoEl) miniVideoEl.style.cursor = 'grab';
+            };
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+
+            // Add any candidates that arrived early
+            while (pendingCandidates.length > 0) {
+                await peerConnection.addIceCandidate(pendingCandidates.shift());
+            }
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('webrtc_answer', { room_id: roomId, answer: peerConnection.localDescription });
+        });
+
+        socket.on('webrtc_answer', async (data) => {
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                while (pendingCandidates.length > 0) {
+                    await peerConnection.addIceCandidate(pendingCandidates.shift());
+                }
+            }
+        });
+
+        socket.on('webrtc_ice_candidate', async (data) => {
+            if (peerConnection) {
+                if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } else {
+                    pendingCandidates.push(new RTCIceCandidate(data.candidate));
+                }
+            }
+        });
+
+        socket.on('webrtc_end', () => {
+            sharedVideo.style.display = 'none';
+            defaultPlaceholder.style.display = 'flex';
+            if (peerConnection) peerConnection.close();
+
+            isScreenSharingActive = false;
+            if (miniVideoEl) {
+                miniVideoEl.style.cursor = 'default';
+                miniVideoEl.style.transform = 'translate3d(0px, 0px, 0)';
+                miniVideoEl.style.display = 'none';
+                currentX = 0; currentY = 0; xOffset = 0; yOffset = 0;
+            }
+
+            // Move student video back to center
+            const welcomeText = document.getElementById('welcome-text');
+            if (studentVideo && defaultPlaceholder) {
+                defaultPlaceholder.insertBefore(studentVideo, defaultPlaceholder.firstChild);
+            }
+            if (welcomeText) welcomeText.style.display = 'flex';
+        });
+
+        // Hide menus when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#btn-more') && !e.target.closest('#more-menu')) {
+                const moreMenu = document.getElementById('more-menu');
+                if (moreMenu) moreMenu.style.display = 'none';
+            }
+            if (!e.target.closest('.tool-btn') && !e.target.closest('#camera-menu') && e.target.id !== 'camera-list') {
+                const cm = document.getElementById('camera-menu');
+                if (cm) cm.style.display = 'none';
+            }
+            if (!e.target.closest('#btn-top-info') && !e.target.closest('#top-info-menu')) {
+                const tm = document.getElementById('top-info-menu');
+                if (tm) tm.style.display = 'none';
+            }
+        });
+
+        function toggleTopInfoMenu() {
+            const menu = document.getElementById('top-info-menu');
+            if (menu) {
+                menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+            }
+        }
+
+        // --- STUDENT SWITCHER DROPDOWN LOGIC ---
+        function toggleStudentSwitcherDropdown(event) {
+            if (event) event.stopPropagation();
+            const dropdown = document.getElementById('student-switcher-dropdown');
+            if (dropdown) {
+                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+
+        async function loadStudentSwitcherData() {
+            const isTutor = (window.userRole === 'tutor' || localStorage.getItem('currentUser')?.includes('tutor'));
+            const studentSwitcherBtn = document.getElementById('student-switcher');
+            
+            if (!isTutor) {
+                if (studentSwitcherBtn) studentSwitcherBtn.style.display = 'none';
+                return;
+            }
+
+            const lang = localStorage.getItem('lang_pref') === 'en' || localStorage.getItem('user_selected_lang') === 'en' ? 'en' : 'ar';
+            const panelTitle = document.getElementById('switcher-panel-title');
+            if (panelTitle) {
+                panelTitle.innerText = lang === 'en' ? 'Available Students' : 'الطلاب المتاحون';
+            }
+
+            try {
+                const res = await fetch('/api/lessons');
+                const data = await res.json();
+                
+                if (!data.success || !data.lessons) return;
+
+                const studentsMap = {};
+                data.lessons.forEach(l => {
+                    const sId = l.student_id;
+                    if (!studentsMap[sId]) {
+                        studentsMap[sId] = {
+                            id: sId,
+                            name: l.other_name,
+                            avatar: l.other_avatar,
+                            room_id: l.room_id,
+                            status: l.status,
+                            lessons: []
+                        };
+                    }
+                    studentsMap[sId].lessons.push(l);
+                });
+
+                const studentsList = Object.values(studentsMap);
+
+                let currentStudentName = 'Student';
+                const currentLesson = data.lessons.find(l => l.room_id === roomId);
+                if (currentLesson) {
+                    currentStudentName = currentLesson.other_name;
+                    
+                    const welcomeHeader = document.querySelector('h2[style*="font-size: 1.4rem"]');
+                    if (welcomeHeader) {
+                        welcomeHeader.innerText = lang === 'en' ? `Meet ${currentStudentName} here for the next lesson` : `التقِ بـ ${currentStudentName} هنا للدرس القادم`;
+                    }
+                }
+
+                const displayNameSpan = document.getElementById('current-student-name-display');
+                if (displayNameSpan) {
+                    displayNameSpan.innerText = currentStudentName;
+                }
+
+                const listContainer = document.getElementById('student-switcher-list');
+                if (listContainer) {
+                    listContainer.innerHTML = '';
+                    
+                    const activeStudents = studentsList.filter(s => {
+                        const activeLessonsCount = s.lessons.filter(l => l.status === 'completed' || l.status === 'scheduled').length;
+                        return activeLessonsCount > 0;
+                    });
+
+                    if (activeStudents.length === 0) {
+                        listContainer.innerHTML = `<li style="color: #adb5bd; cursor: default; justify-content: center;">${lang === 'en' ? 'No students found' : 'لا يوجد طلاب'}</li>`;
+                        return;
+                    }
+
+                    activeStudents.forEach(student => {
+                        const li = document.createElement('li');
+                        
+                        let avatarHTML = '';
+                        if (student.avatar) {
+                            avatarHTML = `<img src="${student.avatar}" class="student-avatar">`;
+                        } else {
+                            avatarHTML = `
+                                <div class="student-avatar" style="background: #495057; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fa-solid fa-user" style="font-size: 0.65rem; color: #fff;"></i>
+                                </div>
+                            `;
+                        }
+
+                        li.innerHTML = `
+                            ${avatarHTML}
+                            <span style="font-weight: 600;">${student.name}</span>
+                        `;
+                        
+                        li.onclick = () => {
+                            const scheduled = student.lessons.filter(l => l.status === 'scheduled');
+                            const targetRoomId = scheduled.length > 0 ? scheduled[0].room_id : student.room_id;
+                            window.location.href = `classroom-session.html?room_id=${targetRoomId}`;
+                        };
+
+                        listContainer.appendChild(li);
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Close switcher dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('student-switcher-dropdown');
+            const switcher = document.getElementById('student-switcher');
+            if (dropdown && switcher && dropdown.style.display === 'block') {
+                if (!dropdown.contains(e.target) && !switcher.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            }
+        });
+
+        loadStudentSwitcherData();
+
+    </script>
+</body>
+
+</html>

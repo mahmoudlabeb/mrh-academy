@@ -1,0 +1,752 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:13px;direction:rtl}
+.root{padding:10px 0;display:flex;flex-direction:column;gap:6px}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);padding-bottom:0;margin-bottom:8px}
+.tab{padding:6px 14px;font-size:11px;font-weight:500;color:var(--text-secondary);cursor:pointer;border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;transition:all .15s}
+.tab.active{background:var(--surface-1);border-color:var(--border);color:var(--text-primary);margin-bottom:-1px;border-bottom:1px solid var(--surface-1)}
+.panel{display:none}.panel.active{display:flex;flex-direction:column;gap:6px}
+
+/* ===== DECISIONS PANEL ===== */
+.dec-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dec{border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.dec-h{font-size:11px;font-weight:500;color:var(--text-primary);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.dec-b{font-size:10px;color:var(--text-secondary);line-height:1.55}
+.ic{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600}
+.ic-r{background:#FAECE7;color:#993C1D}
+.ic-b{background:#DBEAFE;color:#1E40AF}
+.ic-g{background:#D1FAE5;color:#065F46}
+.ic-p{background:#EDE9FE;color:#534AB7}
+@media(prefers-color-scheme:dark){.ic-r{background:#4A1B0C;color:#F5C4B3}.ic-b{background:#1E3A5F;color:#93C5FD}.ic-g{background:#064E3B;color:#6EE7B7}.ic-p{background:#2E1065;color:#C4B5FD}}
+.cd{font-family:var(--font-mono);font-size:9px;background:var(--surface-0);border:1px solid var(--border);padding:0 3px;border-radius:2px;color:var(--text-secondary)}
+
+/* ===== ENTITIES PANEL ===== */
+.ent-grid{display:flex;flex-direction:column;gap:4px}
+.ent-row{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px}
+.ent-name{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--text-primary);min-width:140px;flex-shrink:0}
+.ent-fields{font-size:10px;color:var(--text-secondary);line-height:1.55;flex:1}
+.ent-tag{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:500;flex-shrink:0}
+.et-new{background:#EDE9FE;color:#534AB7}
+.et-fix{background:#FAECE7;color:#993C1D}
+.et-del{background:#F1F5F9;color:#64748B;text-decoration:line-through}
+@media(prefers-color-scheme:dark){.et-new{background:#2E1065;color:#C4B5FD}.et-fix{background:#4A1B0C;color:#F5C4B3}.et-del{background:#1E293B;color:#94A3B8}}
+
+/* ===== FEATURES PANEL ===== */
+.feat{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.fh{display:flex;align-items:stretch;cursor:pointer}
+.fh:hover .fm{background:var(--surface-0)}
+.dc{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:64px;padding:10px 4px;border-left:1px solid var(--border)}
+.dn{font-size:11px;font-weight:700;color:#fff;line-height:1;text-align:center}
+.dl{font-size:9px;color:rgba(255,255,255,.7);margin-top:2px}
+.fm{flex:1;padding:10px 13px;transition:background .12s;border-left:1px solid var(--border)}
+.fn{font-size:13px;font-weight:500;color:var(--text-primary)}
+.fp{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.p{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.p-r{background:#FAECE7;color:#993C1D}
+.p-b{background:#DBEAFE;color:#1E40AF}
+.p-g{background:#D1FAE5;color:#065F46}
+.p-a{background:#FAEEDA;color:#854F0B}
+.p-p{background:#EDE9FE;color:#534AB7}
+@media(prefers-color-scheme:dark){.p-r{background:#4A1B0C;color:#F5C4B3}.p-b{background:#1E3A5F;color:#93C5FD}.p-g{background:#064E3B;color:#6EE7B7}.p-a{background:#412402;color:#FAC775}.p-p{background:#2E1065;color:#C4B5FD}}
+.fe2{padding:10px 12px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;justify-content:center}
+.ai{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:500}
+.ai-e{background:#E1F5EE;color:#0F6E56}
+.ai-g{background:#E6F1FB;color:#185FA5}
+.ai-d{background:#EAF3DE;color:#3B6D11}
+.ai-k{background:#FAEEDA;color:#854F0B}
+.ai-gm{background:#EDE9FE;color:#534AB7}
+@media(prefers-color-scheme:dark){.ai-e{background:#04342C;color:#9FE1CB}.ai-g{background:#042C53;color:#B5D4F4}.ai-d{background:#173404;color:#C0DD97}.ai-k{background:#412402;color:#FAC775}.ai-gm{background:#26215C;color:#CECBF6}}
+.cv{font-size:10px;color:var(--text-muted);transition:transform .2s}
+.feat.open .cv{transform:rotate(180deg)}
+.fb{display:none;border-top:1px solid var(--border)}
+.feat.open .fb{display:block}
+
+/* sections */
+.sec{border-bottom:1px solid var(--border)}
+.sec:last-child{border-bottom:none}
+.sh{display:flex;align-items:center;gap:7px;padding:8px 13px;cursor:pointer}
+.sh:hover{background:var(--surface-0)}
+.si{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;flex-shrink:0}
+.si-be{background:#DBEAFE;color:#1E40AF}
+.si-fe{background:#D1FAE5;color:#065F46}
+.si-ws{background:#EDE9FE;color:#534AB7}
+.si-tst{background:#FEF3C7;color:#92400E}
+@media(prefers-color-scheme:dark){.si-be{background:#1E3A5F;color:#93C5FD}.si-fe{background:#064E3B;color:#6EE7B7}.si-ws{background:#2E1065;color:#C4B5FD}.si-tst{background:#451A03;color:#FCD34D}}
+.sn{font-size:11px;font-weight:500;color:var(--text-primary);flex:1}
+.sch{font-size:9px;color:var(--text-muted);transition:transform .2s}
+.sec.so .sch{transform:rotate(180deg)}
+.sb{display:none;padding:6px 13px 10px}
+.sec.so .sb{display:block}
+
+/* tasks */
+.task{margin-bottom:6px}
+.task:last-child{margin-bottom:0}
+.tr{display:flex;align-items:flex-start;gap:6px;margin-bottom:3px;padding-top:2px}
+.tnum{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);min-width:30px;flex-shrink:0;padding-top:1px}
+.tname{font-size:12px;font-weight:500;color:var(--text-primary);flex:1;line-height:1.35}
+.rb{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;background:#FAECE7;color:#993C1D;flex-shrink:0}
+.rb-new{background:#EDE9FE;color:#534AB7}
+@media(prefers-color-scheme:dark){.rb{background:#4A1B0C;color:#F5C4B3}.rb-new{background:#2E1065;color:#C4B5FD}}
+.subs{list-style:none;display:flex;flex-direction:column;gap:2px;padding-right:36px}
+.subs li{font-size:11px;color:var(--text-secondary);display:flex;align-items:flex-start;gap:5px;line-height:1.45}
+.d{width:4px;height:4px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.db{background:#3B82F6}.dg{background:#10B981}.dr{background:#E24B4A}.dt{background:#F59E0B}.dp{background:#7C3AED}
+
+/* test bar */
+.tbar{padding:9px 13px;background:var(--surface-0)}
+.tbar-h{font-size:10px;font-weight:600;color:#F59E0B;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+@media(prefers-color-scheme:dark){.tbar-h{color:#FCD34D}}
+.ti{font-size:11px;color:var(--text-secondary);display:flex;align-items:flex-start;gap:5px;margin-bottom:2px}
+
+/* day col colors */
+.d0 .dc{background:#0F6E56}
+.d1 .dc{background:#185FA5}
+.d2 .dc{background:#3B6D11}
+.d3 .dc{background:#854F0B}
+.d4 .dc{background:#B45309}
+.d5 .dc{background:#185FA5}
+.d6 .dc{background:#534AB7}
+.d7 .dc{background:#0F6E56}
+.d8 .dc{background:#993C1D}
+.d9 .dc{background:#7C3AED}
+.d10 .dc{background:#374151}
+</style>
+
+<div class="root">
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('plan')">📋 الخطة (F0→F10)</div>
+  <div class="tab" onclick="switchTab('decisions')">⚙️ القرارات المعمارية</div>
+  <div class="tab" onclick="switchTab('entities')">🗄️ الـ 19 Entity</div>
+</div>
+
+<!-- ======= PANEL: PLAN ======= -->
+<div id="tab-plan" class="panel active">
+
+<!-- F0 -->
+<div class="feat d0" id="f0">
+<div class="fh" onclick="T('f0')">
+<div class="dc"><div class="dn">F0</div><div class="dl">يوم 1-2</div></div>
+<div class="fm"><div class="fn">Foundation — NestJS + 19 Entity + Next.js</div>
+<div class="fp"><span class="p p-r">⚠️ ColumnNumericTransformer</span><span class="p p-r">⚠️ timezone field</span><span class="p p-b">19 Entities</span><span class="p p-g">Next.js scaffold</span></div></div>
+<div class="fe2"><span class="ai ai-e">Eigent</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s0b">
+<div class="sh" onclick="TS('s0b')"><span class="si si-be">BE</span><span class="sn">Backend Setup</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">0.1</span><span class="tname">NestJS Init + Config</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">nest new mrh-api</span> + docker-compose (PostgreSQL 16 + pgAdmin) + كل الحزم: typeorm, jwt, passport, throttler, mailer, googleapis, multer, socket.io, pdfkit</li>
+<li><span class="d db"></span>ConfigModule + Joi validation (DB, JWT, GOOGLE_CLIENT_ID/SECRET, GOOGLE_SERVICE_ACCOUNT_KEY_PATH, SMTP_*, CLOUDINARY_*, TURN_*) — ★ لا OAuthToken</li>
+<li><span class="d db"></span><span class="cd">app.setGlobalPrefix('api/v1')</span> + Swagger على <span class="cd">/api/docs</span> + ValidationPipe(whitelist,transform) + GlobalExceptionFilter + Helmet + CORS + Throttler</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">0.2</span><span class="tname">ColumnNumericTransformer — إلزامي لكل decimal</span><span class="rb">⚠️ Fix #17</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>إنشاء <span class="cd">utils/numeric.transformer.ts</span>: <span class="cd">{ to: (v) => v, from: (v) => parseFloat(v) }</span></li>
+<li><span class="d dr"></span>يُطبَّق على كل حقل <span class="cd">@Column('decimal')</span> في كل entity — بدونه Postgres يرجع String وتحصل String Concatenation Bug في حسابات الـ JS</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">0.3</span><span class="tname">19 Entity كاملة + Seed</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>UserRole enum: <span class="cd">student|tutor|admin|subadmin|system</span></li>
+<li><span class="d dr"></span>User — يشمل: <span class="cd">timezone(string, default:'UTC')</span> ★ Fix #18 — لمنع Timezone Blindspot في الحجز</li>
+<li><span class="d dr"></span>TutorProfile — يشمل: <span class="cd">balance(decimal, default:0)</span> ★ Fix #12 — كان مفقوداً في الكود القديم</li>
+<li><span class="d dr"></span>Lesson — يشمل: <span class="cd">platformFee(decimal, nullable)</span> + <span class="cd">endTime</span> (يُحسب عند الإنشاء)</li>
+<li><span class="d db"></span>ClassroomMessage entity منفصل ★ Fix #20 — لمنع JSON Bloat في Classroom</li>
+<li><span class="d db"></span>CourseLessonCompletion junction table ★ Fix #21 — لمنع Lost Update Paradox</li>
+<li><span class="d db"></span>Employee + Setting + Report ★ مُستعادة (Fix #11)</li>
+<li><span class="d dr"></span>Seed: System User(role:SYSTEM, isActive:false) + Admin(bcrypt, لا 123456) + 3 tutors + 5 students</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sec" id="s0f">
+<div class="sh" onclick="TS('s0f')"><span class="si si-fe">FE</span><span class="sn">Next.js Scaffold</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span><span class="cd">create-next-app</span> + TypeScript + Tailwind + App Router + TanStack Query Provider</li>
+<li><span class="d dg"></span>API client (axios + JWT interceptor + 401→logout) + AuthContext + useAuth + withAuth HOC</li>
+<li><span class="d dg"></span>Layout (Header+Bell+Avatar) + Footer + Language Switcher (RTL تلقائي)</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span><span class="cd">psql \dt</span> → 19 جدول بالضبط</div>
+<div class="ti"><span class="d dr"></span>Lesson.platformFee + TutorProfile.balance أعمدة موجودة فعلاً + ColumnNumericTransformer مطبق</div>
+<div class="ti"><span class="d dt"></span>System User + Admin + Demo data في DB</div>
+</div>
+</div>
+</div>
+
+<!-- F1 -->
+<div class="feat d1" id="f1">
+<div class="fh" onclick="T('f1')">
+<div class="dc"><div class="dn">F1</div><div class="dl">يوم 3-4</div></div>
+<div class="fm"><div class="fn">Auth — Register + Login + Google + Reset + Account Deletion</div>
+<div class="fp"><span class="p p-r">★ DELETE /users/me</span><span class="p p-b">JWT + Guards</span><span class="p p-g">Login/Register pages</span></div></div>
+<div class="fe2"><span class="ai ai-d">DeepSeek v4</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s1b">
+<div class="sh" onclick="TS('s1b')"><span class="si si-be">BE</span><span class="sn">Auth Module</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">1.1</span><span class="tname">Register / Login / JWT</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">POST /auth/register</span> (role: student|tutor فقط — لا admin/subadmin/system) → ينشئ Profile تلقائياً</li>
+<li><span class="d db"></span><span class="cd">POST /auth/login</span> + <span class="cd">GET /auth/me</span> + JwtStrategy + Guards (@Public / @Roles / @CurrentUser)</li>
+<li><span class="d db"></span>GoogleStrategy (هوية فقط، لا Calendar scope) → <span class="cd">GET /auth/google</span> + callback → JWT</li>
+<li><span class="d db"></span><span class="cd">POST /auth/forgot-password</span> (reset token uuid+1h+email) + <span class="cd">POST /auth/reset-password</span></li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">1.2</span><span class="tname">Profile + ★ Account Deletion</span><span class="rb-new rb">★ مُستعاد</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">PATCH /users/profile</span> + <span class="cd">POST /users/avatar</span> (Multer→Cloudinary) + <span class="cd">PATCH /users/change-password</span></li>
+<li><span class="d dr"></span><span class="cd">DELETE /users/me</span> — Soft delete + إلغاء كل PENDING Lessons للمستخدم + <span class="cd">manager.increment(StudentProfile, {userId}, 'balance', lesson.price)</span> لكل درس ملغى</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sec" id="s1f">
+<div class="sh" onclick="TS('s1f')"><span class="si si-fe">FE</span><span class="sn">Auth Pages</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span>/login + /register (role selector) + /forgot-password + /reset-password?token=</li>
+<li><span class="d dg"></span>Google login button + Protected route + Auto-redirect (student→/student / tutor→/tutor / admin→/admin)</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>Register student/tutor + Google login يعمل + Forgot password يصل فعلاً</div>
+<div class="ti"><span class="d dr"></span>حذف حساب فيه PENDING lesson → الدرس يُلغى + الرصيد يرجع (Atomic)</div>
+</div>
+</div>
+</div>
+
+<!-- F2 -->
+<div class="feat d2" id="f2">
+<div class="fh" onclick="T('f2')">
+<div class="dc"><div class="dn">F2</div><div class="dl">يوم 5-7</div></div>
+<div class="fm"><div class="fn">Teachers — Browse + Top + Profile + Apply + Approve/Reject + PDF</div>
+<div class="fp"><span class="p p-r">★ GET /tutors/top</span><span class="p p-r">★ PDF (pdfkit)</span><span class="p p-b">Admin approval</span><span class="p p-g">Discover + Profile</span></div></div>
+<div class="fe2"><span class="ai ai-d">opencode</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s2b">
+<div class="sh" onclick="TS('s2b')"><span class="si si-be">BE</span><span class="sn">Teachers Module</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">2.1</span><span class="tname">Browse + Top + Profile APIs</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">GET /tutors</span> (approved, filter+search+pagination) + ★ <span class="cd">GET /tutors/top</span> (أفضل 3 بـ AVG rating — مُستعاد)</li>
+<li><span class="d db"></span><span class="cd">GET /tutors/:id</span> + <span class="cd">PATCH /tutors/profile</span> + <span class="cd">GET /tutors/my/stats</span> + <span class="cd">GET /tutors/my/application</span></li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">2.2</span><span class="tname">Apply + Admin CRUD + PDF</span><span class="rb-new rb">★ Fix + مُستعاد</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">POST /tutors/apply</span> (Multer→Cloudinary) + <span class="cd">GET /admin/tutors/pending</span></li>
+<li><span class="d db"></span><span class="cd">POST /admin/tutors/:id/approve</span> + email / <span class="cd">POST /admin/tutors/:id/reject</span> ({reason} + email + لا حذف ملفات)</li>
+<li><span class="d dr"></span>★ <span class="cd">PUT /admin/tutors/:id</span> (تعديل بيانات — مُستعاد) + <span class="cd">GET /admin/tutors/:id/pdf</span> (pdfkit + خط Arabic مرفق مع المشروع، لا مسار Windows)</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sec" id="s2f">
+<div class="sh" onclick="TS('s2f')"><span class="si si-fe">FE</span><span class="sn">Teacher Pages</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span>/discover + /tutors/:id + /become-teacher (multi-step + file upload)</li>
+<li><span class="d dg"></span>/admin/teachers (tabs: pending/approved/rejected + approve/reject modal + Edit + تحميل PDF)</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>تقديم→pending→approve→يظهر في /discover و /tutors/top</div>
+<div class="ti"><span class="d dt"></span>PDF يفتح صحيح على Linux / رفض مع سبب + الملفات في DB</div>
+</div>
+</div>
+</div>
+
+<!-- F3 CRITICAL -->
+<div class="feat d3" id="f3">
+<div class="fh" onclick="T('f3')">
+<div class="dc"><div class="dn">F3</div><div class="dl">يوم 8-12</div></div>
+<div class="fm"><div class="fn">Booking ⚠️ الأهم — Availability + Book + Schedule + Commission + Complete + Cancel</div>
+<div class="fp"><span class="p p-r">⚠️ Advisory Lock</span><span class="p p-r">⚠️ Timezone Check</span><span class="p p-r">⚠️ Atomic Increment</span><span class="p p-r">★ /tutor/schedule</span><span class="p p-r">Cancel Policy</span></div></div>
+<div class="fe2"><span class="ai ai-g">GPT-5.5</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s3b">
+<div class="sh" onclick="TS('s3b')"><span class="si si-be">BE</span><span class="sn">Booking — كل التفاصيل</span><span class="sch">▼</span></div>
+<div class="sb">
+
+<div class="task"><div class="tr"><span class="tnum">3.1</span><span class="tname">Availability APIs</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">POST /tutor/availability</span> {dayOfWeek, startTime, endTime} + تحقق عدم تعارض</li>
+<li><span class="d db"></span><span class="cd">GET /tutors/:id/availability</span> (@Public) + <span class="cd">DELETE /tutor/availability/:id</span></li>
+</ul>
+</div>
+
+<div class="task"><div class="tr"><span class="tnum">3.2</span><span class="tname">Commission util — ملف مستقل</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">utils/commission.util.ts</span>: ≤20h→30% / ≤50h→24% / ≤200h→20% / ≤400h→18% / +→12%</li>
+<li><span class="d db"></span>اختبار الحدود: 20h بالضبط→30% / 20.01h→24%</li>
+</ul>
+</div>
+
+<div class="task"><div class="tr"><span class="tnum">3.3</span><span class="tname">POST /lessons/book — Transaction كاملة</span><span class="rb">⚠️ 6 steps</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>Step 0: <span class="cd">pg_advisory_xact_lock(hashtext('tutor:'+tutorId))</span> — يسلسل الحجوزات المتزامنة ★ Fix #3</li>
+<li><span class="d dr"></span>Step 1: <span class="cd">manager.findOne(StudentProfile, {lock:'pessimistic_write'})</span> — يحمي رصيد الطالب ★ Fix #8 (v3.2)</li>
+<li><span class="d dr"></span>Step 2: ★ Availability Check — <span class="cd">moment(dto.scheduledTime).tz(tutor.user.timezone)</span> → استخراج dayOfWeek بتوقيت المدرس → تحقق من TutorAvailability → 400 لو خارج ★ Fix #5 + Fix #18</li>
+<li><span class="d dr"></span>Step 3: Range Overlap — <span class="cd">(l.tutorId=:t OR l.studentId=:s)</span> + status NOT IN cancelled + <span class="cd">scheduledTime &lt; newEnd AND endTime &gt; newStart</span> ★ Fix #4</li>
+<li><span class="d dr"></span>Step 4: <span class="cd">if (studentProfile.balance &lt; lessonPrice) throw 400</span></li>
+<li><span class="d dr"></span>Step 5: <span class="cd">studentProfile.balance -= lessonPrice</span> + save + create Lesson(status:PENDING)</li>
+</ul>
+</div>
+
+<div class="task"><div class="tr"><span class="tnum">3.4</span><span class="tname">★ POST /tutor/schedule — نسخ Transaction بالضبط</span><span class="rb-new rb">★ Fix #10</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>نفس Transaction بالضبط كـ book() بفرقين فقط: status:CONFIRMED مباشرة + استدعاء GoogleMeetService.createMeeting() فوراً</li>
+<li><span class="d dr"></span>⚠️ لا تكتب منطقاً مختلفاً — انسخ book() Transaction واعدّل هذين السطرين فقط</li>
+</ul>
+</div>
+
+<div class="task"><div class="tr"><span class="tnum">3.5</span><span class="tname">Accept / Reject — Atomic Increment</span><span class="rb">⚠️ Fix #2</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">POST /lessons/:id/accept</span> (tutor) → CONFIRMED + GoogleMeetService.createMeeting() (fallback لو فشلت)</li>
+<li><span class="d dr"></span><span class="cd">POST /lessons/:id/reject</span> → CANCELLED + <strong><span class="cd">manager.increment(StudentProfile, {userId:studentId}, 'balance', lesson.price)</span></strong> — لا <span class="cd">balance += x</span> ★ Fix #2</li>
+</ul>
+</div>
+
+<div class="task"><div class="tr"><span class="tnum">3.6</span><span class="tname">POST /lessons/:id/complete — Transaction مع Pessimistic Write</span><span class="rb">⚠️ Fix #6 + #7</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>قفل صف المدرس: <span class="cd">manager.findOne(TutorProfile, {lock:'pessimistic_write'})</span> — يمنع Lost Update على totalHoursTaught ★ Fix #7</li>
+<li><span class="d dr"></span><span class="cd">rate = getPlatformRate(tutor.totalHoursTaught)</span> — قبل الزيادة</li>
+<li><span class="d dr"></span><span class="cd">lesson.platformFee = lesson.price * rate</span> + <span class="cd">lesson.status = COMPLETED</span> ★ Fix #6</li>
+<li><span class="d db"></span><span class="cd">tutor.balance += (lesson.price - fee)</span> (مقبول — الصف مقفول) + <span class="cd">tutor.totalHoursTaught += durationMinutes/60</span> — بعد الحساب</li>
+</ul>
+</div>
+
+<div class="task"><div class="tr"><span class="tnum">3.7</span><span class="tname">Cancel Policy الكاملة</span><span class="rb">⚠️ Fix #14</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>status === PENDING → استرجاع كامل دائماً (<span class="cd">manager.increment</span> على الطالب)</li>
+<li><span class="d dr"></span>status === CONFIRMED + &gt;24h → استرجاع كامل (<span class="cd">manager.increment</span> على الطالب)</li>
+<li><span class="d dr"></span>status === CONFIRMED + &lt;24h → 50% للطالب (<span class="cd">manager.increment</span>) + ★ 50% للمدرس كتعويض (<span class="cd">manager.increment(TutorProfile, {userId:tutorId}, 'balance', fee50)</span>) — لا عمولة منصة على هذا الجزء</li>
+<li><span class="d db"></span><span class="cd">GET /lessons/my</span> + <span class="cd">GET /lessons/upcoming</span> + ★ <span class="cd">GET /admin/lessons</span> (مُستعاد)</li>
+</ul>
+</div>
+
+</div>
+</div>
+<div class="sec" id="s3f">
+<div class="sh" onclick="TS('s3f')"><span class="si si-fe">FE</span><span class="sn">Booking Pages</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span>/tutor/availability (Calendar UI: add/remove slots) + /book/:tutorId (calendar+timeslots+confirm)</li>
+<li><span class="d dg"></span>/tutor/schedule (نفس UI الحجز + status:confirmed مباشرة)</li>
+<li><span class="d dg"></span>/student/lessons (tabs: Upcoming/Past/Pending + Cancel button) + /tutor/lessons (Accept/Reject)</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ التحقق الإلزامي (Jest + Supertest — لا manual فقط)</div>
+<div class="ti"><span class="d dr"></span>lesson.platformFee محفوظ بعد complete (غير null) — getPlatformRate قبل زيادة totalHoursTaught</div>
+<div class="ti"><span class="d dr"></span>Tutor overlap → 409 / Student overlap (مدرسين مختلفين) → 409 / Adjacent → 201 / Cancelled → 201</div>
+<div class="ti"><span class="d dr"></span>حجزين متزامنين نفس المدرس → واحد 201 واحد 409 (Advisory Lock)</div>
+<div class="ti"><span class="d dr"></span>حجز خارج Availability → 400 / Reject → Atomic increment صحيح</div>
+<div class="ti"><span class="d dr"></span>Cancel PENDING→كامل / CONFIRMED+&gt;24h→كامل / CONFIRMED+&lt;24h→50%+50%</div>
+<div class="ti"><span class="d dr"></span>العمولة عند الحدود: 20h بالضبط→30% / 20.01h→24%</div>
+<div class="ti"><span class="d dr"></span>Reject + Payment-approve متزامنين لنفس الطالب → الرصيد صحيح بالضبط (Atomic)</div>
+</div>
+</div>
+</div>
+
+<!-- F4 -->
+<div class="feat d4" id="f4">
+<div class="fh" onclick="T('f4')">
+<div class="dc"><div class="dn">F4</div><div class="dl">يوم 13-15</div></div>
+<div class="fm"><div class="fn">Admin — Stats + Users + SubAdmin + Impersonate + Reports</div>
+<div class="fp"><span class="p p-r">⚠️ SUM(platformFee)</span><span class="p p-r">★ unimpersonate fix</span><span class="p p-b">SubAdmin permissions</span></div></div>
+<div class="fe2"><span class="ai ai-d">opencode</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s4b">
+<div class="sh" onclick="TS('s4b')"><span class="si si-be">BE</span><span class="sn">Admin Module</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">4.1</span><span class="tname">Stats — من platformFee فقط</span><span class="rb">⚠️ Fix #6</span></div>
+<ul class="subs">
+<li><span class="d dr"></span><span class="cd">SELECT COALESCE(SUM(l."platformFee"),0) FROM lesson WHERE status='completed'</span></li>
+<li><span class="d dr"></span>ممنوع: <span class="cd">SUM(price * currentRate)</span> — غلط تاريخياً</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">4.2</span><span class="tname">Users + Impersonate + SubAdmin</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">GET /admin/students</span> + <span class="cd">GET /admin/tutors</span> + <span class="cd">PATCH /admin/users/:id/toggle-status</span></li>
+<li><span class="d dr"></span><span class="cd">POST /admin/impersonate</span> (+log) + ★ <span class="cd">POST /admin/unimpersonate</span> مع <span class="cd">return</span> صريح (إصلاح bug الكود القديم)</li>
+<li><span class="d db"></span><span class="cd">POST /admin/subadmins</span> (messages+payments review فقط — لا approve tutors/حذف/financial)</li>
+<li><span class="d db"></span>★ CRUD <span class="cd">/admin/employees</span> (سجل HR فقط، بلا login) + <span class="cd">GET/PATCH /admin/settings</span></li>
+<li><span class="d dr"></span>★ <span class="cd">GET /admin/lessons</span> + <span class="cd">GET /admin/reports</span> (مُستعادان)</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sec" id="s4f">
+<div class="sh" onclick="TS('s4f')"><span class="si si-fe">FE</span><span class="sn">Admin Pages</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span>/admin (Overview+stats) + /admin/teachers + /admin/students (+impersonate) + /admin/employees + /admin/settings + /admin/lessons</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>totalPlatformRevenue = SUM(platformFee) دقيق تاريخياً</div>
+<div class="ti"><span class="d dt"></span>Impersonate→unimpersonate → /auth/me يرجع Admin</div>
+<div class="ti"><span class="d dt"></span>SubAdmin → 403 على /admin/stats و /admin/tutors/:id/approve</div>
+</div>
+</div>
+</div>
+
+<!-- F5 -->
+<div class="feat d5" id="f5">
+<div class="fh" onclick="T('f5')">
+<div class="dc"><div class="dn">F5</div><div class="dl">يوم 16-17</div></div>
+<div class="fm"><div class="fn">Payments — Upload + Approve + Earnings + Withdraw</div>
+<div class="fp"><span class="p p-r">⚠️ Atomic increment</span><span class="p p-r">⚠️ Double-approve guard</span><span class="p p-b">Manual payments</span></div></div>
+<div class="fe2"><span class="ai ai-d">DeepSeek v4</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s5b">
+<div class="sh" onclick="TS('s5b')"><span class="si si-be">BE</span><span class="sn">Payments Module</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">5.1</span><span class="tname">Submit + Approve — Atomic</span><span class="rb">⚠️ Fix #2</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">POST /payments/submit</span> {method:vodafone|instapay|bank|paypal, amount, receiptUrl} → status:pending</li>
+<li><span class="d dr"></span><span class="cd">POST /admin/payments/:id/approve</span>: تحقق status===pending أولاً (منع double-approve) → <span class="cd">manager.increment(StudentProfile, {userId}, 'balance', amount)</span> ★ Fix #2</li>
+<li><span class="d db"></span><span class="cd">POST /admin/payments/:id/reject</span> + <span class="cd">GET /payments/history</span> + <span class="cd">GET /student/balance</span></li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">5.2</span><span class="tname">Tutor Earnings + Withdraw</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">GET /tutor/earnings</span>: balance + breakdown (tutorShare = lesson.price - lesson.platformFee لكل completed lesson)</li>
+<li><span class="d db"></span><span class="cd">POST /tutor/withdraw</span> → notification للـ Admin</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>رفع إيصال → موافقة → رصيد بالضبط + Double-approve → رفض</div>
+<div class="ti"><span class="d dt"></span>موافقة دفعة + حجز متزامنين → الرصيد صحيح (Atomic)</div>
+</div>
+</div>
+</div>
+
+<!-- F6 -->
+<div class="feat d6" id="f6">
+<div class="fh" onclick="T('f6')">
+<div class="dc"><div class="dn">F6</div><div class="dl">يوم 18-20</div></div>
+<div class="fm"><div class="fn">Content — Messages + Reviews + Courses + Enrollment + Articles + Reports</div>
+<div class="fp"><span class="p p-r">★ CourseLessonCompletion</span><span class="p p-r">★ Reports</span><span class="p p-b">Courses approval</span><span class="p p-g">Content pages</span></div></div>
+<div class="fe2"><span class="ai ai-e">Eigent</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s6b">
+<div class="sh" onclick="TS('s6b')"><span class="si si-be">BE</span><span class="sn">Content Modules</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">6.1</span><span class="tname">Messages</span></div>
+<ul class="subs">
+<li><span class="d db"></span><span class="cd">POST /messages</span> + conversations + history + read + unread-count + Broadcast (SubAdmin)</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">6.2</span><span class="tname">Reviews + Courses + Enrollment</span></div>
+<ul class="subs">
+<li><span class="d db"></span>Reviews: <span class="cd">POST /reviews</span> (يتطلب lesson.status===COMPLETED + unique(lessonId)) + Admin approve</li>
+<li><span class="d db"></span>Courses CRUD + <span class="cd">POST /admin/courses/:id/approve</span> + <span class="cd">GET /courses</span> (public, approved فقط)</li>
+<li><span class="d db"></span><span class="cd">POST /courses/:id/enroll</span>: pessimistic_write على StudentProfile + خصم الرصيد (نفس نمط الحجز)</li>
+<li><span class="d dr"></span>★ <span class="cd">PATCH /courses/:courseId/lessons/:lessonId/complete</span> — يضيف سجل في CourseLessonCompletion + يعيد حساب progress (Fix #21 — لمنع Lost Update)</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">6.3</span><span class="tname">★ Articles + Reports</span><span class="rb-new rb">★ مُستعادان</span></div>
+<ul class="subs">
+<li><span class="d db"></span>Articles: CRUD (admin/subadmin) + <span class="cd">GET /articles</span> (tutors, published)</li>
+<li><span class="d dr"></span>★ Reports: <span class="cd">POST /reports</span> {lessonId?, issueType, description} — userId من JWT (مُستعاد)</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>Course لا يظهر قبل approve / Review بدون completed → رفض</div>
+<div class="ti"><span class="d dt"></span>إكمال درس كورس → progress يتحدث بدون Lost Update</div>
+</div>
+</div>
+</div>
+
+<!-- F7 -->
+<div class="feat d7" id="f7">
+<div class="fh" onclick="T('f7')">
+<div class="dc"><div class="dn">F7</div><div class="dl">يوم 21-22</div></div>
+<div class="fm"><div class="fn">Integrations — Email + Google Meet (Service Account) + Notifications</div>
+<div class="fp"><span class="p p-r">★ Service Account فقط</span><span class="p p-r">★ Domain-Wide Delegation</span><span class="p p-b">Email templates</span><span class="p p-g">Notification bell</span></div></div>
+<div class="fe2"><span class="ai ai-k">Kimi 2.6</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s7b">
+<div class="sh" onclick="TS('s7b')"><span class="si si-be">BE</span><span class="sn">Integrations</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">7.1</span><span class="tname">Mail Module</span></div>
+<ul class="subs">
+<li><span class="d db"></span>Handlebars templates: booking-confirmation, tutor-approved/rejected, payment-confirmed, password-reset, lesson-reminder</li>
+<li><span class="d db"></span>Cron: تذكير 24h قبل كل lesson CONFIRMED</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">7.2</span><span class="tname">★ Google Meet — Service Account</span><span class="rb">⚠️ Fix #13 + #19</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>Service Account واحد للمنصة (GOOGLE_SERVICE_ACCOUNT_KEY_PATH في .env) — لا OAuth per-user، لا OAuthToken entity ★ Fix #13</li>
+<li><span class="d dr"></span>★ Domain-Wide Delegation: ينتحل صفة المدرس → يصبح Host الحقيقي → لا Waiting Room للطلاب ★ Fix #19</li>
+<li><span class="d db"></span>GoogleMeetService.createMeeting({lesson}) → Calendar event + conferenceData — Fallback: فشل لا يوقف accept()/schedule()</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">7.3</span><span class="tname">Notifications Service</span></div>
+<ul class="subs">
+<li><span class="d db"></span>NotificationsService.create(userId, type, title, body) + <span class="cd">GET /notifications</span> + read/read-all + unread-count</li>
+<li><span class="d db"></span>مربوط في: LessonsService, PaymentsService, AdminService, ReviewsService, MessagesService</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>Accept → email + Meet link حقيقي (Service Account، لا OAuth dance)</div>
+<div class="ti"><span class="d dr"></span>Tutor هو Host الفعلي → لا Waiting Room (Domain-Wide Delegation)</div>
+<div class="ti"><span class="d dt"></span>فشل Google API → lesson يُقبل بدون link + لا crash</div>
+</div>
+</div>
+</div>
+
+<!-- F8 -->
+<div class="feat d8" id="f8">
+<div class="fh" onclick="T('f8')">
+<div class="dc"><div class="dn">F8</div><div class="dl">يوم 23-26</div></div>
+<div class="fm"><div class="fn">Classroom — Socket.IO + ClassroomMessage + Whiteboard + WebRTC</div>
+<div class="fp"><span class="p p-r">★ ClassroomMessage table</span><span class="p p-p">WebSocket Gateway</span><span class="p p-p">WebRTC signaling</span><span class="p p-g">3-panel UI</span></div></div>
+<div class="fe2"><span class="ai ai-g">GPT-5.5</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s8b">
+<div class="sh" onclick="TS('s8b')"><span class="si si-ws">WS</span><span class="sn">Gateway + Events</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">8.1</span><span class="tname">Gateway + Rooms + Chat</span></div>
+<ul class="subs">
+<li><span class="d dp"></span>JWT auth في handleConnection + <span class="cd">join-classroom</span> (تحقق membership + status:CONFIRMED) + user-joined/left/classroom-status</li>
+<li><span class="d dr"></span>★ Chat: <span class="cd">send-message</span> → يحفظ في <strong>ClassroomMessage</strong> table (لا JSON في Classroom) ★ Fix #20</li>
+<li><span class="d dp"></span><span class="cd">get-chat-history</span> → query من ClassroomMessage</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">8.2</span><span class="tname">Whiteboard + WebRTC + REST</span></div>
+<ul class="subs">
+<li><span class="d dp"></span>whiteboard-draw → broadcast / whiteboard-sync → snapshot / whiteboard-clear + حفظ كل 30s</li>
+<li><span class="d dp"></span>webrtc-offer/answer/ice-candidate → forward / toggle-video/audio → broadcast state</li>
+<li><span class="d db"></span><span class="cd">POST /classroom/:id/start</span> + <span class="cd">/end</span> (→ complete()) + <span class="cd">GET /classroom/:id/config</span> (TURN config)</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sec" id="s8f">
+<div class="sh" onclick="TS('s8f')"><span class="si si-fe">FE</span><span class="sn">Classroom UI</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span>/classroom/:lessonId — 3-panel (Video+Whiteboard+Chat) + socket.io-client (auth+join) ← تيست join أولاً</li>
+<li><span class="d dg"></span>Chat: بعد اتأكدت join → Chat UI / Whiteboard: Canvas + draw + sync ← تيست كل واحد على حدة</li>
+<li><span class="d dg"></span>WebRTC: getUserMedia + RTCPeerConnection + ICE + Local/Remote video + Controls + Meet fallback</li>
+<li><span class="d dg"></span>on classroom-ended → redirect لـ Review page</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ تحقق</div>
+<div class="ti"><span class="d dt"></span>Chat + Whiteboard + Video real-time بين طرفين / دخول بـ lessonId لست طرفاً → رفض</div>
+</div>
+</div>
+</div>
+
+<!-- F9 -->
+<div class="feat d9" id="f9">
+<div class="fh" onclick="T('f9')">
+<div class="dc"><div class="dn">F9</div><div class="dl">يوم 27-28</div></div>
+<div class="fm"><div class="fn">QA + Security + Maintenance Mode + Legal Pages + Polish</div>
+<div class="fp"><span class="p p-r">⚠️ Jest+Supertest إلزامي</span><span class="p p-r">★ Maintenance Middleware</span><span class="p p-r">★ Legal pages</span><span class="p p-g">Responsive+RTL</span></div></div>
+<div class="fe2"><span class="ai ai-k">Kimi 2.6</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s9b">
+<div class="sh" onclick="TS('s9b')"><span class="si si-be">BE</span><span class="sn">QA + Security</span><span class="sch">▼</span></div>
+<div class="sb">
+<div class="task"><div class="tr"><span class="tnum">9.1</span><span class="tname">كل اختبارات F3 كـ Jest+Supertest — لا Manual</span><span class="rb">⚠️ إلزامي</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>npm run test:e2e: overlap tutor/student / advisory lock / platformFee / cancel policy / commission boundaries / Atomic increment</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">9.2</span><span class="tname">★ Maintenance Mode — حقيقي هذه المرة</span><span class="rb">⚠️ Fix #15</span></div>
+<ul class="subs">
+<li><span class="d dr"></span>Middleware يقرأ <span class="cd">Setting('maintenance_mode')</span> → 503 لغير الأدمن (كانت fake في الكود القديم)</li>
+</ul>
+</div>
+<div class="task"><div class="tr"><span class="tnum">9.3</span><span class="tname">Security + Migrations</span></div>
+<ul class="subs">
+<li><span class="d db"></span>synchronize:false → migration:generate + migration:run / تدوير كل كلمات سر Seed (لا 123456)</li>
+<li><span class="d db"></span>مراجعة: N+1 queries / Authorization gaps / كل Admin endpoints بـ @Roles('admin') الصحيح</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sec" id="s9f">
+<div class="sh" onclick="TS('s9f')"><span class="si si-fe">FE</span><span class="sn">Polish + Legal</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d dg"></span>E2E journeys: Student / Tutor / Admin / Responsive (375/768/1280) / RTL / Loading+Error+Empty states</li>
+<li><span class="d dr"></span>★ صفحات قانونية (Privacy/Terms/FAQ) — محتوى مبدئي، يحتاج مراجعة العميل</li>
+<li><span class="d dr"></span>★ إصلاح قائمة الموبايل (كانت alert() في الكود القديم) + حذف رابط "تدريب الشركات"</li>
+</ul>
+</div>
+</div>
+<div class="tbar"><div class="tbar-h">✅ Definition of Done</div>
+<div class="ti"><span class="d dr"></span>كل اختبارات F3 الآلية ناجحة + 3 E2E journeys + Maintenance Mode شغال فعلاً</div>
+</div>
+</div>
+</div>
+
+<!-- F10 -->
+<div class="feat d10" id="f10">
+<div class="fh" onclick="T('f10')">
+<div class="dc"><div class="dn">F10</div><div class="dl">يوم 29-30</div></div>
+<div class="fm"><div class="fn">Docker + Migrations + Docs + تسليم</div>
+<div class="fp"><span class="p p-b">Dockerfiles</span><span class="p p-b">BUSINESS_RULES.md</span><span class="p p-g">فيديو توضيحي</span></div></div>
+<div class="fe2"><span class="ai ai-gm">Antigravity</span><span class="cv">▼</span></div>
+</div>
+<div class="fb">
+<div class="sec" id="s10b">
+<div class="sh" onclick="TS('s10b')"><span class="si si-be">BE</span><span class="sn">Delivery</span><span class="sch">▼</span></div>
+<div class="sb">
+<ul class="subs" style="padding-right:0">
+<li><span class="d db"></span>Dockerfiles (multi-stage) + docker-compose.production.yml + .env.example</li>
+<li><span class="d db"></span>README.md + API_REFERENCE.md + SOCKET_EVENTS.md + BUSINESS_RULES.md (عمولة + Overlap + Refund policy + 50%+50%)</li>
+<li><span class="d dg"></span>فيديو توضيحي + جلسة تسليم مع العميل</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+</div><!-- end plan panel -->
+
+<!-- ======= PANEL: DECISIONS ======= -->
+<div id="tab-decisions" class="panel">
+<div class="dec-grid">
+
+<div class="dec"><div class="dec-h"><span class="ic ic-r">⚠️ Fix #17</span> ColumnNumericTransformer</div>
+<div class="dec-b">إلزامي على كل <span class="cd">@Column('decimal')</span> — Postgres يرجع String بدونه وتنكسر حسابات JS بالكامل</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-r">⚠️ Fix #18</span> Timezone في User</div>
+<div class="dec-b"><span class="cd">timezone(string, default:'UTC')</span> في User entity — يُستخدم في الحجز لتحويل الوقت لتوقيت المدرس قبل استخراج dayOfWeek</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-r">⚠️ Fix #2</span> Atomic Increment فعلي</div>
+<div class="dec-b">كل تعديل رصيد = <span class="cd">manager.increment()</span> حرفياً — لا <span class="cd">balance += x</span> خارج transaction مقفولة</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-r">⚠️ Fix #3</span> Advisory Lock</div>
+<div class="dec-b"><span class="cd">pg_advisory_xact_lock(hashtext('tutor:'+tutorId))</span> أول سطر في كل booking transaction</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-r">⚠️ Fix #7</span> Pessimistic Write — Complete</div>
+<div class="dec-b">قفل صف المدرس في complete() — يمنع Lost Update على totalHoursTaught لو درسان أكتملوا في نفس الوقت</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-r">⚠️ Fix #13+#19</span> Google Meet = Service Account</div>
+<div class="dec-b">Service Account واحد للمنصة + Domain-Wide Delegation → tutor هو Host الحقيقي → لا Waiting Room. لا OAuthToken entity.</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-b">Fix #20</span> ClassroomMessage منفصل</div>
+<div class="dec-b">رسائل الكلاس روم في جدولها الخاص (لا JSON في Classroom) — يمنع JSON Bloat والـ Row-level Locks المستمرة</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-b">Fix #21</span> CourseLessonCompletion</div>
+<div class="dec-b">Junction table منفصل بدل array في CourseEnrollment — يمنع Lost Update Paradox لو طالبين يكملوا في نفس اللحظة</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-g">Fix #14</span> Cancel Policy</div>
+<div class="dec-b">PENDING=كامل / CONFIRMED+&gt;24h=كامل / CONFIRMED+&lt;24h=50% للطالب + 50% للمدرس كتعويض (لا عمولة منصة)</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-g">Fix #10</span> /tutor/schedule</div>
+<div class="dec-b">نفس Transaction بالضبط كـ book() — لا منطق مختلف. فرق وحيد: status:CONFIRMED + createMeeting() فوراً</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-p">Fix #15</span> Maintenance Mode حقيقي</div>
+<div class="dec-b">Middleware يقرأ Setting('maintenance_mode') → 503. كانت alert() فقط في الكود القديم.</div></div>
+
+<div class="dec"><div class="dec-h"><span class="ic ic-p">خارج النطاق</span> قرارات تحتاج العميل</div>
+<div class="dec-b">Binance (غير مفعّل افتراضياً) / عمولة الكورسات (20% مؤقتاً في Setting) / AI مفردات + .ics (Phase 2)</div></div>
+
+</div>
+</div><!-- end decisions panel -->
+
+<!-- ======= PANEL: ENTITIES ======= -->
+<div id="tab-entities" class="panel">
+<div class="ent-grid">
+
+<div class="ent-row"><span class="ent-name">User</span><span class="ent-fields">email(unique), passwordHash(select:false), role, firstName, lastName, avatar?, googleId?, isVerified, isActive, resetToken?, resetTokenExpiry?, deletedAt, <strong>timezone(default:'UTC')</strong></span><span class="ent-tag et-fix">★ Fix #18</span></div>
+
+<div class="ent-row"><span class="ent-name">TutorProfile</span><span class="ent-fields">userId(FK,1-1), bio, specialization, languages[], hourlyRate(decimal+transformer), <strong>balance(decimal+transformer, default:0)</strong>, totalHoursTaught(decimal, default:0), status, rejectionReason?, documents[]</span><span class="ent-tag et-fix">★ Fix #12</span></div>
+
+<div class="ent-row"><span class="ent-name">StudentProfile</span><span class="ent-fields">userId(FK,1-1), balance(decimal+transformer, default:0), preferredLanguage?</span></div>
+
+<div class="ent-row"><span class="ent-name">TutorAvailability</span><span class="ent-fields">tutorId(FK indexed), dayOfWeek(0-6), startTime(time), endTime(time), isRecurring</span></div>
+
+<div class="ent-row"><span class="ent-name">Lesson</span><span class="ent-fields">studentId(FK), tutorId(FK), scheduledTime, <strong>endTime</strong>(يُحسب عند الإنشاء), durationMinutes, price(decimal+transformer), <strong>platformFee(decimal+transformer, nullable)</strong>, status(LessonStatus), meetUrl?, notes? — lessonId = roomId</span><span class="ent-tag et-fix">★ Fix #6</span></div>
+
+<div class="ent-row"><span class="ent-name">LessonStatus</span><span class="ent-fields">PENDING | CONFIRMED | COMPLETED | CANCELLED</span></div>
+
+<div class="ent-row"><span class="ent-name">Classroom</span><span class="ent-fields">lessonId(FK,1-1,unique), isActive, startedAt?, endedAt?, whiteboardSnapshot(json, nullable) — بدون chatMessages هنا</span></div>
+
+<div class="ent-row"><span class="ent-name">ClassroomMessage</span><span class="ent-fields">lessonId(FK indexed), senderId(FK), content, createdAt — جدول منفصل لمنع JSON Bloat</span><span class="ent-tag et-fix">★ Fix #20</span></div>
+
+<div class="ent-row"><span class="ent-name">Payment</span><span class="ent-fields">userId(FK), amount(decimal+transformer), method(vodafone|instapay|bank|paypal|binance★), status(pending|approved|rejected), receiptUrl?, adminNote?, createdAt</span></div>
+
+<div class="ent-row"><span class="ent-name">Message</span><span class="ent-fields">senderId(FK NOT NULL — System User للرسائل النظامية), receiverId(FK), content, isRead(false), isSystemMessage(false), createdAt</span></div>
+
+<div class="ent-row"><span class="ent-name">Notification</span><span class="ent-fields">userId(FK), type(NotificationType), title, body, isRead(false), createdAt</span></div>
+
+<div class="ent-row"><span class="ent-name">Course</span><span class="ent-fields">tutorId(FK), title, description, thumbnail?, price(decimal+transformer), category?, language?, level?, status(pending|approved|rejected)</span></div>
+
+<div class="ent-row"><span class="ent-name">CourseLesson</span><span class="ent-fields">courseId(FK), title, videoUrl?, duration?, order(int)</span></div>
+
+<div class="ent-row"><span class="ent-name">CourseEnrollment</span><span class="ent-fields">studentId(FK), courseId(FK), enrolledAt, progress(int, default:0) — unique(studentId, courseId)</span></div>
+
+<div class="ent-row"><span class="ent-name">CourseLessonCompletion</span><span class="ent-fields">enrollmentId(FK), lessonId(FK), completedAt — Junction table لمنع Lost Update عند إكمال متزامن</span><span class="ent-tag et-fix">★ Fix #21</span></div>
+
+<div class="ent-row"><span class="ent-name">Review</span><span class="ent-fields">studentId(FK), tutorId(FK), lessonId(FK, unique), rating(1-5), comment?, status(pending|approved)</span></div>
+
+<div class="ent-row"><span class="ent-name">TeacherArticle</span><span class="ent-fields">title, thumbnail?, content(text), authorId(FK), isPublished(bool), createdAt</span></div>
+
+<div class="ent-row"><span class="ent-name">Employee</span><span class="ent-fields">name, email(unique), role, permissions — سجل HR فقط، بلا login (مختلف عن SubAdmin)</span><span class="ent-tag et-new">★ مُستعاد</span></div>
+
+<div class="ent-row"><span class="ent-name">Setting</span><span class="ent-fields">key(PK), value — شامل: maintenance_mode, default_lesson_price, course_commission_rate</span><span class="ent-tag et-new">★ مُستعاد</span></div>
+
+<div class="ent-row"><span class="ent-name">Report</span><span class="ent-fields">userId(FK — من JWT), lessonId(FK, nullable), issueType, description?, createdAt</span><span class="ent-tag et-new">★ مُستعاد</span></div>
+
+<div class="ent-row" style="opacity:.6"><span class="ent-name" style="text-decoration:line-through">OAuthToken</span><span class="ent-fields">محذوف عمداً — Google Meet يستخدم Service Account. User.googleId كافٍ لتسجيل الدخول.</span><span class="ent-tag et-del">❌ محذوف</span></div>
+
+</div>
+</div><!-- end entities panel -->
+
+</div>
+
+<script>
+function T(id){const el=document.getElementById(id);el.classList.toggle('open')}
+function TS(id){document.getElementById(id).classList.toggle('so')}
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const names=['plan','decisions','entities'];
+    t.classList.toggle('active',names[i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>{
+    p.classList.toggle('active',p.id==='tab-'+name);
+  });
+}
+// open F0 and F3 by default
+['f0','f3'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el){el.classList.add('open');el.querySelectorAll('.sec').forEach(s=>s.classList.add('so'))}
+});
+</script>
