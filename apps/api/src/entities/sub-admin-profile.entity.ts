@@ -11,7 +11,7 @@ import { User } from './user.entity.js';
 
 @Entity('sub_admin_profiles')
 export class SubAdminProfile {
-  @PrimaryColumn()
+  @PrimaryColumn('uuid')
   userId: string;
 
   @Column('text', { array: true })

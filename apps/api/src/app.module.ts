@@ -55,7 +55,7 @@ import * as dbEntities from './entities/index.js';
         ssl: true,
         autoLoadEntities: true,
         entities: Object.values(dbEntities),
-        synchronize: true, // For development/testing
+        synchronize: configService.get<string>('NODE_ENV') !== 'production',
       }),
     }),
     ThrottlerModule.forRoot([

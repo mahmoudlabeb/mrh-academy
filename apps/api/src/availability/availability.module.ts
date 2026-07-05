@@ -8,5 +8,6 @@ import { AvailabilityService } from './availability.service.js';
   imports: [TypeOrmModule.forFeature([TutorAvailability])],
   controllers: [AvailabilityController],
   providers: [AvailabilityService],
+  exports: [AvailabilityService],
 })
 export class AvailabilityModule {}

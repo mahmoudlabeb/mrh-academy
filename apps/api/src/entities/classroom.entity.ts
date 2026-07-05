@@ -11,7 +11,7 @@ import { Lesson } from './lesson.entity.js';
 
 @Entity('classrooms')
 export class Classroom {
-  @PrimaryColumn()
+  @PrimaryColumn('uuid')
   lessonId: string;
 
   @Column({ default: false })

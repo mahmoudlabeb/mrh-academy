@@ -256,18 +256,30 @@ describe('Days 1-7 business logic (e2e)', () => {
   it('rejects overlapping tutor availability slots', async () => {
     const email = `availability-${Date.now()}@test.com`;
 
-    const tutorResponse = await request(app.getHttpServer())
+    // Register as student first (register DTO only accepts 'student')
+    const studentResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email,
         password,
         firstName: 'Available',
         lastName: 'Tutor',
-        role: UserRole.TUTOR,
+        role: UserRole.STUDENT,
       })
       .expect(201);
 
-    const tutor = tutorResponse.body as AuthResponse;
+    const student = studentResponse.body as AuthResponse;
+
+    // Upgrade user to TUTOR role directly so availability guard passes
+    await userRepository.update(student.user.id, { role: UserRole.TUTOR });
+
+    // Log in again to get a fresh token with the updated role
+    const tutorLogin = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(200);
+
+    const tutor = tutorLogin.body as AuthResponse;
 
     await request(app.getHttpServer())
       .post('/api/v1/tutor/availability')

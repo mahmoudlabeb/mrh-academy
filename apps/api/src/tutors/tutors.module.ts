@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TutorsService } from './tutors.service.js';
 import { TutorsController } from './tutors.controller.js';
+import { AvailabilityModule } from '../availability/availability.module.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { User } from '../entities/user.entity.js';
 import { Review } from '../entities/review.entity.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TutorProfile, User, Review])],
+  imports: [TypeOrmModule.forFeature([TutorProfile, User, Review]), AvailabilityModule],
   providers: [TutorsService],
   controllers: [TutorsController],
   exports: [TutorsService],

@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile, Get, Param, Put, Query } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TutorsService } from './tutors.service.js';
+import { AvailabilityService } from '../availability/availability.service.js';
 import { ApplyTutorDto } from './dto/index.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
@@ -11,7 +12,10 @@ import { UserRole } from '@mrh/types';
 
 @Controller('tutors')
 export class TutorsController {
-  constructor(private readonly tutorsService: TutorsService) {}
+  constructor(
+    private readonly tutorsService: TutorsService,
+    private readonly availabilityService: AvailabilityService,
+  ) {}
 
   @Public()
   @Get()
@@ -53,6 +57,12 @@ export class TutorsController {
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
   async getPendingTutors() {
     return this.tutorsService.findAllPending();
+  }
+
+  @Public()
+  @Get(':id/availability')
+  getPublicAvailability(@Param('id') id: string) {
+    return this.availabilityService.findByTutor(id);
   }
 
   @Public()

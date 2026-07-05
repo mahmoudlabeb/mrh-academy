@@ -24,8 +24,13 @@ export class AvailabilityService {
     }
   }
 
+  private toMinutes(time: string): number {
+    const parts = time.split(':');
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+
   private timesOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
-    return start1 < end2 && start2 < end1;
+    return this.toMinutes(start1) < this.toMinutes(end2) && this.toMinutes(start2) < this.toMinutes(end1);
   }
 
   async create(tutorId: string, dto: CreateAvailabilityDto) {

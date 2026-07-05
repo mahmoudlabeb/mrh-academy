@@ -13,7 +13,7 @@ import { User } from './user.entity.js';
 
 @Entity('tutor_profiles')
 export class TutorProfile {
-  @PrimaryColumn()
+  @PrimaryColumn('uuid')
   userId: string;
 
   @Column()

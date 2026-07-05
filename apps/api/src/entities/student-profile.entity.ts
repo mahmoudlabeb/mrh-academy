@@ -12,7 +12,7 @@ import { User } from './user.entity.js';
 
 @Entity('student_profiles')
 export class StudentProfile {
-  @PrimaryColumn()
+  @PrimaryColumn('uuid')
   userId: string;
 
   @Column({
