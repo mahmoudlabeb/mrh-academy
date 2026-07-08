@@ -143,11 +143,11 @@ function HeroSection() {
                 
                 {/* Dynamic CSS Bar Chart */}
                 <div className="flex items-end h-14 gap-2 w-full px-2 mt-2 border-b border-[#D4A353]/30 pb-1">
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.2s', height: '0%', '--target-height': '40%' } as any}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.4s', height: '0%', '--target-height': '70%' } as any}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.6s', height: '0%', '--target-height': '50%' } as any}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.8s', height: '0%', '--target-height': '90%' } as any}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar relative" style={{ animationDelay: '1.0s', height: '0%', '--target-height': '100%' } as any}>
+                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.2s', height: '0%', '--target-height': '40%' } as React.CSSProperties}></div>
+                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.4s', height: '0%', '--target-height': '70%' } as React.CSSProperties}></div>
+                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.6s', height: '0%', '--target-height': '50%' } as React.CSSProperties}></div>
+                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.8s', height: '0%', '--target-height': '90%' } as React.CSSProperties}></div>
+                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar relative" style={{ animationDelay: '1.0s', height: '0%', '--target-height': '100%' } as React.CSSProperties}>
                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#0F3A40] text-[#D4A353] border border-[#D4A353] text-[10px] px-1.5 py-0.5 rounded font-bold animate-fade-in" style={{ animationDelay: '2.5s', opacity: 0 }}>اليوم</div>
                   </div>
                 </div>
