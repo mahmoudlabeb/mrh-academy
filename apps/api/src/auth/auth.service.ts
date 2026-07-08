@@ -280,4 +280,11 @@ export class AuthService {
   async logout(userId: string) {
     await this.redisService.del(`user_session:${userId}`);
   }
+
+  async deleteAccount(userId: string) {
+    // Soft delete the user
+    await this.userRepository.softDelete({ id: userId });
+    // Also delete their session
+    await this.logout(userId);
+  }
 }

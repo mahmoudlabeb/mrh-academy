@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Res,
   UseGuards,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import type { Response } from 'express';
 import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
@@ -46,6 +48,14 @@ export class AuthController {
   async logout(@CurrentUser() user: { id: string }) {
     await this.authService.logout(user.id);
     return { message: 'Logged out successfully' };
+  }
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async deleteAccount(@CurrentUser() user: { id: string }) {
+    await this.authService.deleteAccount(user.id);
+    return { message: 'Account deleted successfully' };
   }
 
   @Public()
