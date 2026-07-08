@@ -29,7 +29,7 @@ interface AuthContextType {
     password: string;
     firstName: string;
     lastName: string;
-    role: "student";
+    role: "student" | "tutor";
   }) => Promise<User>;
   logout: () => void;
 }

@@ -41,8 +41,6 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-
-
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser() user: { id: string }) {
@@ -84,15 +82,9 @@ export class AuthController {
   @Public()
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleCallback(
-    @CurrentUser() profile: any,
-    @Res() res: Response,
-  ) {
+  async googleCallback(@CurrentUser() profile: any, @Res() res: Response) {
     const result = await this.authService.handleGoogleLogin(profile);
-    const frontendUrl =
-      process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(
-      `${frontendUrl}/auth/callback?token=${result.accessToken}`,
-    );
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/auth/callback?token=${result.accessToken}`);
   }
 }

@@ -8,7 +8,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UserRole } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -29,6 +30,8 @@ export class AdminPaymentsController {
     private readonly stripeService: StripeService,
     @InjectRepository(TutorProfile)
     private readonly tutorProfileRepository: Repository<TutorProfile>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   @Get()
@@ -64,19 +67,35 @@ export class AdminPaymentsController {
   }
 
   @Post('payout/:tutorId')
-  async payoutTutor(
-    @Param('tutorId') tutorId: string,
-  ) {
-    const profile = await this.tutorProfileRepository.findOne({ where: { userId: tutorId } });
-    if (!profile) throw new BadRequestException('Tutor profile not found');
-    if (!profile.stripeAccountId) throw new BadRequestException('Tutor has no Stripe Connect account');
-    if (!profile.stripeOnboardingComplete) throw new BadRequestException('Tutor has not completed Stripe onboarding');
-    if (profile.balance <= 0) throw new BadRequestException('Tutor has zero balance');
+  async payoutTutor(@Param('tutorId') tutorId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const profile = await manager.findOne(TutorProfile, {
+        where: { userId: tutorId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!profile) throw new BadRequestException('Tutor profile not found');
+      if (!profile.stripeAccountId)
+        throw new BadRequestException('Tutor has no Stripe Connect account');
+      if (!profile.stripeOnboardingComplete)
+        throw new BadRequestException(
+          'Tutor has not completed Stripe onboarding',
+        );
+      if (profile.balance <= 0)
+        throw new BadRequestException('Tutor has zero balance');
 
-    const amountCents = Math.round(profile.balance * 100);
-    await this.stripeService.createPayout(profile.stripeAccountId, amountCents);
-    await this.tutorProfileRepository.update(tutorId, { balance: 0 });
+      const payoutAmount = profile.balance;
+      const amountCents = Math.round(payoutAmount * 100);
+      const idempotencyKey = `payout-${tutorId}-${Date.now()}`;
 
-    return { message: 'Payout sent successfully', amount: profile.balance };
+      await this.stripeService.createPayout(
+        profile.stripeAccountId,
+        amountCents,
+        idempotencyKey,
+      );
+
+      await manager.update(TutorProfile, { userId: tutorId }, { balance: 0 });
+
+      return { message: 'Payout sent successfully', amount: payoutAmount };
+    });
   }
 }

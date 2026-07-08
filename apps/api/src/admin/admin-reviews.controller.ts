@@ -26,12 +26,24 @@ export class AdminReviewsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
   @RequirePermissions('manage_reviews')
-  async getPendingReviews() {
-    return this.reviewRepository.find({
-      where: { status: CourseStatus.PENDING },
+  async getAllReviews() {
+    const reviews = await this.reviewRepository.find({
       relations: { student: true, tutor: true, lesson: true },
       order: { createdAt: 'DESC' },
     });
+    return reviews.map((r) => ({
+      id: r.id,
+      studentName: r.student
+        ? `${r.student.firstName} ${r.student.lastName}`
+        : 'Unknown',
+      tutorName: r.tutor
+        ? `${r.tutor.firstName} ${r.tutor.lastName}`
+        : 'Unknown',
+      rating: r.rating,
+      comment: r.comment,
+      isApproved: r.status === CourseStatus.APPROVED,
+      createdAt: r.createdAt,
+    }));
   }
 
   @Post(':id/approve')

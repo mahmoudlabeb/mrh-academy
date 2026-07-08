@@ -74,20 +74,20 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--bg-main)' }}>
-      <aside className="w-64 shrink-0 h-screen overflow-y-auto flex flex-col" style={{ background: '#0F3A40', borderLeft: '1px solid #1D535B' }}>
+    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: 'var(--bg-main)' }}>
+      <aside className="w-full lg:w-64 shrink-0 lg:h-screen overflow-x-auto lg:overflow-y-auto flex flex-row lg:flex-col" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderLeft: 'none' }}>
         <div className="p-5 border-b border-[#1D535B]">
           <h2 className="text-lg font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</h2>
           <p className="text-xs mt-0.5" style={{ color: '#E4CC9C' }}>لوحة الإدارة</p>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 flex lg:flex-col gap-1 overflow-x-auto">
           {filteredTabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-right"
+                className="shrink-0 lg:w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-right"
                 style={{
                   background: isActive ? 'rgba(212, 163, 83,0.12)' : 'transparent',
                   color: isActive ? '#D4A353' : '#E4CC9C',
@@ -107,7 +107,7 @@ export default function AdminPage() {
 
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="sticky top-0 z-30" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B' }}>
-          <div className="flex items-center justify-between px-6 py-3">
+          <div className="flex items-center justify-between px-4 md:px-6 py-3">
             <div>
               <p className="text-sm" style={{ color: '#E4CC9C' }}>
                 {lang === 'ar' ? `مرحبًا بعودتك، ${user?.firstName}` : `Welcome back, ${user?.firstName}`}

@@ -14,8 +14,7 @@ import { User } from '../entities/user.entity.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
 import { StripeService } from './stripe/stripe.service.js';
 import { EmailService } from '../services/email.service.js';
-
-const AUTO_APPROVE_METHODS: PaymentMethod[] = [PaymentMethod.PAYPAL];
+import { CommissionService } from '../services/commission.service.js';
 
 @Injectable()
 export class PaymentsService {
@@ -31,6 +30,7 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     private readonly stripeService: StripeService,
     private readonly emailService: EmailService,
+    private readonly commissionService: CommissionService,
   ) {
     cloudinary.config({
       cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
@@ -54,7 +54,9 @@ export class PaymentsService {
         where: { idempotencyKey: dto.idempotencyKey },
       });
       if (existing) {
-        throw new BadRequestException('This payment has already been submitted');
+        throw new BadRequestException(
+          'This payment has already been submitted',
+        );
       }
     }
 
@@ -68,16 +70,23 @@ export class PaymentsService {
       receiptUrl = await this.uploadToCloudinary(screenshotFile.buffer);
     }
 
-    const isAutoApprove = AUTO_APPROVE_METHODS.includes(dto.method);
+    const receiptRequiredMethods: PaymentMethod[] = [
+      PaymentMethod.VODAFONE,
+      PaymentMethod.INSTAPAY,
+      PaymentMethod.BINANCE,
+      PaymentMethod.BANK,
+    ];
+    if (receiptRequiredMethods.includes(dto.method) && !screenshotFile) {
+      throw new BadRequestException(
+        'A receipt screenshot is required for this payment method',
+      );
+    }
 
     const payment = this.paymentRepository.create({
       userId,
       amount: dto.amount,
       method: dto.method,
-      status:
-        isAutoApprove && !isCardPayment
-          ? PaymentStatus.APPROVED
-          : PaymentStatus.PENDING,
+      status: PaymentStatus.PENDING,
       receiptUrl,
       adminNote: dto.adminNote ?? null,
       idempotencyKey: dto.idempotencyKey ?? null,
@@ -85,28 +94,13 @@ export class PaymentsService {
 
     await this.paymentRepository.save(payment);
 
-    if (isAutoApprove && !isCardPayment) {
-      const balanceToAdd = dto.amount / 15.0;
-      await this.studentProfileRepository.increment(
-        { userId },
-        'balance',
-        balanceToAdd,
-      );
-      if (user.email) {
-        this.emailService.sendEmail(
-          user.email,
-          'Payment Received — MRH Academy',
-          `<p>Your payment has been received and approved.</p>
-<p>Amount: $${dto.amount.toFixed(2)}</p>
-<p>Method: ${dto.method}</p>
-<p>Credits Added: ${balanceToAdd.toFixed(2)}</p>`,
-        ).catch(() => {});
-      }
-    }
-
     let checkoutUrl = undefined;
     if (dto.method === PaymentMethod.CARD) {
-      const session = await this.stripeService.createCheckoutSession(userId, dto.amount, payment.id);
+      const session = await this.stripeService.createCheckoutSession(
+        userId,
+        dto.amount,
+        payment.id,
+      );
       checkoutUrl = session.url;
     }
 
@@ -128,47 +122,55 @@ export class PaymentsService {
   }
 
   async approvePayment(paymentId: string, adminId: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const payment = await manager.findOne(Payment, {
-        where: { id: paymentId },
-        lock: { mode: 'pessimistic_write' },
-      });
+    return this.dataSource
+      .transaction(async (manager) => {
+        const payment = await manager.findOne(Payment, {
+          where: { id: paymentId },
+          lock: { mode: 'pessimistic_write' },
+        });
 
-      if (!payment) {
-        throw new NotFoundException('Payment not found');
-      }
+        if (!payment) {
+          throw new NotFoundException('Payment not found');
+        }
 
-      if (payment.status !== PaymentStatus.PENDING) {
-        throw new BadRequestException('Payment is already processed');
-      }
+        if (payment.status !== PaymentStatus.PENDING) {
+          throw new BadRequestException('Payment is already processed');
+        }
 
-      payment.status = PaymentStatus.APPROVED;
-      payment.adminNote = `Approved by admin ${adminId}`;
-      await manager.save(Payment, payment);
+        payment.status = PaymentStatus.APPROVED;
+        payment.adminNote = `Approved by admin ${adminId}`;
+        await manager.save(Payment, payment);
 
-      const balanceToAdd = payment.amount / 15.0;
-      await manager.increment(
-        StudentProfile,
-        { userId: payment.userId },
-        'balance',
-        balanceToAdd,
-      );
+        const balanceToAdd = await this.commissionService.amountToCredits(
+          payment.amount,
+        );
+        await manager.increment(
+          StudentProfile,
+          { userId: payment.userId },
+          'balance',
+          balanceToAdd,
+        );
 
-      return payment;
-    }).then(async (payment) => {
-      const user = await this.userRepository.findOne({ where: { id: payment.userId } });
-      if (user?.email) {
-        this.emailService.sendEmail(
-          user.email,
-          'Payment Approved — MRH Academy',
-          `<p>Your payment has been approved.</p>
+        return { payment, balanceToAdd };
+      })
+      .then(async ({ payment, balanceToAdd }) => {
+        const user = await this.userRepository.findOne({
+          where: { id: payment.userId },
+        });
+        if (user?.email) {
+          this.emailService
+            .sendEmail(
+              user.email,
+              'Payment Approved — MRH Academy',
+              `<p>Your payment has been approved.</p>
 <p>Amount: $${payment.amount.toFixed(2)}</p>
 <p>Method: ${payment.method}</p>
-<p>Credits Added: ${(payment.amount / 15.0).toFixed(2)}</p>`,
-        ).catch(() => {});
-      }
-      return payment;
-    });
+<p>Credits Added: ${balanceToAdd.toFixed(2)}</p>`,
+            )
+            .catch(() => {});
+        }
+        return payment;
+      });
   }
 
   async rejectPayment(paymentId: string, adminId: string, reason?: string) {
@@ -187,8 +189,7 @@ export class PaymentsService {
       }
 
       payment.status = PaymentStatus.REJECTED;
-      payment.adminNote =
-        reason ?? `Rejected by admin ${adminId}`;
+      payment.adminNote = reason ?? `Rejected by admin ${adminId}`;
       await manager.save(Payment, payment);
 
       return payment;

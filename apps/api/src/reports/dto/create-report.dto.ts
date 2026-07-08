@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsUUID, MinLength, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateReportDto {
   @IsOptional()

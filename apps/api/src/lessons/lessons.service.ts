@@ -41,9 +41,7 @@ export class LessonsService {
 
   async findUserLessons(userId: string, role: UserRole) {
     const where =
-      role === UserRole.TUTOR
-        ? { tutorId: userId }
-        : { studentId: userId };
+      role === UserRole.TUTOR ? { tutorId: userId } : { studentId: userId };
 
     return this.lessonRepository.find({
       where,
@@ -68,12 +66,18 @@ export class LessonsService {
       throw new BadRequestException('Tutor is not approved');
     }
 
-    const price = Math.round(
-      (tutorProfile.hourlyRate * (dto.durationMinutes / 60)) * 100,
-    ) / 100;
+    const price =
+      Math.round(tutorProfile.hourlyRate * (dto.durationMinutes / 60) * 100) /
+      100;
 
     const scheduledDate = new Date(dto.scheduledTime);
-    const endTime = new Date(scheduledDate.getTime() + dto.durationMinutes * 60000);
+    if (scheduledDate.getTime() <= Date.now()) {
+      throw new BadRequestException('Scheduled time must be in the future');
+    }
+
+    const endTime = new Date(
+      scheduledDate.getTime() + dto.durationMinutes * 60000,
+    );
 
     const lesson = await this.dataSource.transaction(async (manager) => {
       const studentProfile = await manager.findOne(StudentProfile, {
@@ -92,10 +96,9 @@ export class LessonsService {
       const overlapping = await manager
         .createQueryBuilder(Lesson, 'lesson')
         .setLock('pessimistic_write')
-        .where(
-          'lesson.status IN (:...activeStatuses)',
-          { activeStatuses: [LessonStatus.PENDING, LessonStatus.CONFIRMED] },
-        )
+        .where('lesson.status IN (:...activeStatuses)', {
+          activeStatuses: [LessonStatus.PENDING, LessonStatus.CONFIRMED],
+        })
         .andWhere(
           '(lesson.tutorId = :tutorId OR lesson.studentId = :studentId)',
           { tutorId: dto.tutorId, studentId },
@@ -105,7 +108,9 @@ export class LessonsService {
         .getCount();
 
       if (overlapping > 0) {
-        throw new BadRequestException('Time slot conflicts with an existing lesson');
+        throw new BadRequestException(
+          'Time slot conflicts with an existing lesson',
+        );
       }
 
       await manager.decrement(
@@ -147,33 +152,41 @@ export class LessonsService {
     });
 
     if (savedLesson?.tutor?.email) {
-      this.emailService.sendEmail(
-        savedLesson.tutor.email,
-        'New Lesson Booked — MRH Academy',
-        `<p>A new lesson has been booked with you.</p>
+      this.emailService
+        .sendEmail(
+          savedLesson.tutor.email,
+          'New Lesson Booked — MRH Academy',
+          `<p>A new lesson has been booked with you.</p>
 <p>Student: ${savedLesson.student?.firstName ?? 'Student'} ${savedLesson.student?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>`,
-      ).catch(() => {});
+        )
+        .catch(() => {});
     }
 
     if (savedLesson?.student?.email) {
-      this.emailService.sendEmail(
-        savedLesson.student.email,
-        'Lesson Booking Confirmed — MRH Academy',
-        `<p>Your lesson has been booked successfully.</p>
+      this.emailService
+        .sendEmail(
+          savedLesson.student.email,
+          'Lesson Booking Confirmed — MRH Academy',
+          `<p>Your lesson has been booked successfully.</p>
 <p>Tutor: ${savedLesson.tutor?.firstName ?? 'Tutor'} ${savedLesson.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>`,
-      ).catch(() => {});
+        )
+        .catch(() => {});
     }
 
     return savedLesson;
   }
 
-  async completeLesson(lessonId: string, userId: string, dto?: CompleteLessonDto) {
+  async completeLesson(
+    lessonId: string,
+    userId: string,
+    dto?: CompleteLessonDto,
+  ) {
     const lesson = await this.lessonRepository.findOne({
       where: { id: lessonId },
       relations: {
@@ -211,6 +224,17 @@ export class LessonsService {
     const hoursToAdd = lesson.durationMinutes / 60;
 
     await this.dataSource.transaction(async (manager) => {
+      const lockedLesson = await manager.findOne(Lesson, {
+        where: { id: lessonId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!lockedLesson || lockedLesson.status !== LessonStatus.CONFIRMED) {
+        throw new BadRequestException(
+          'Lesson is already completed or cancelled',
+        );
+      }
+
       await manager.update(
         Lesson,
         { id: lessonId },
@@ -234,6 +258,8 @@ export class LessonsService {
         'balance',
         tutorShare,
       );
+
+      await manager.update(Classroom, { lessonId }, { isActive: false });
     });
 
     await this.redisService.del(`lessons:user:${lesson.tutorId}`);
@@ -245,14 +271,16 @@ export class LessonsService {
     });
 
     if (completed?.student?.email) {
-      this.emailService.sendEmail(
-        completed.student.email,
-        'Lesson Completed — MRH Academy',
-        `<p>Your lesson has been marked as completed.</p>
+      this.emailService
+        .sendEmail(
+          completed.student.email,
+          'Lesson Completed — MRH Academy',
+          `<p>Your lesson has been marked as completed.</p>
 <p>Tutor: ${completed.tutor?.firstName ?? 'Tutor'} ${completed.tutor?.lastName ?? ''}</p>
 <p>Price: $${lesson.price.toFixed(2)}</p>
 <p>Platform Fee: $${platformFee.toFixed(2)}</p>`,
-      ).catch(() => {});
+        )
+        .catch(() => {});
     }
 
     return completed;
@@ -268,7 +296,10 @@ export class LessonsService {
     if (lesson.studentId !== userId && lesson.tutorId !== userId) {
       throw new ForbiddenException('You are not a participant of this lesson');
     }
-    if (lesson.status !== LessonStatus.CONFIRMED && lesson.status !== LessonStatus.PENDING) {
+    if (
+      lesson.status !== LessonStatus.CONFIRMED &&
+      lesson.status !== LessonStatus.PENDING
+    ) {
       throw new BadRequestException('Lesson cannot be cancelled');
     }
 
@@ -293,23 +324,50 @@ export class LessonsService {
     });
   }
 
-  async exportIcal(lessonId: string, calendarService: CalendarService) {
+  async exportIcal(
+    lessonId: string,
+    userId: string,
+    calendarService: CalendarService,
+  ) {
     const lesson = await this.lessonRepository.findOne({
       where: { id: lessonId },
       relations: { tutor: true, student: true },
     });
     if (!lesson) throw new NotFoundException('Lesson not found');
+    if (lesson.studentId !== userId && lesson.tutorId !== userId) {
+      throw new ForbiddenException('You are not a participant of this lesson');
+    }
 
-    const tutorName = lesson.tutor ? `${lesson.tutor.firstName} ${lesson.tutor.lastName}` : 'Tutor';
-    const studentName = lesson.student ? `${lesson.student.firstName} ${lesson.student.lastName}` : 'Student';
+    const tutorName = lesson.tutor
+      ? `${lesson.tutor.firstName} ${lesson.tutor.lastName}`
+      : 'Tutor';
+    const studentName = lesson.student
+      ? `${lesson.student.firstName} ${lesson.student.lastName}`
+      : 'Student';
 
     return calendarService.generateIcs({
       summary: `Lesson: ${tutorName} & ${studentName}`,
       description: `Language lesson between ${tutorName} (tutor) and ${studentName} (student).`,
       start: lesson.scheduledTime,
-      end: lesson.endTime || new Date(lesson.scheduledTime.getTime() + lesson.durationMinutes * 60000),
+      end:
+        lesson.endTime ||
+        new Date(
+          lesson.scheduledTime.getTime() + lesson.durationMinutes * 60000,
+        ),
       location: lesson.meetUrl || '',
       uid: `lesson-${lesson.id}`,
     });
+  }
+
+  async findByRoomId(roomId: string, userId: string) {
+    const lesson = await this.lessonRepository.findOne({
+      where: { meetUrl: roomId },
+      relations: { tutor: true, student: true },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+    if (lesson.studentId !== userId && lesson.tutorId !== userId) {
+      throw new ForbiddenException('You are not a participant of this lesson');
+    }
+    return lesson;
   }
 }

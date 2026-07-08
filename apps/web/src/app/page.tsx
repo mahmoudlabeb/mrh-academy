@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useQuery } from '@tanstack/react-query';
@@ -89,7 +90,7 @@ function HeroSection() {
                 {/* Avatar with pulsing rings */}
                 <div className="relative z-10 w-24 h-24">
                   <div className="absolute inset-0 rounded-full bg-[#D4A353] animate-ping-slow"></div>
-                  <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=800&q=100&fit=crop" className="relative w-24 h-24 rounded-full object-cover shadow-lg border-2 border-[#D4A353] animate-breathe" alt="Teacher" />
+                  <Image src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&q=100&fit=crop&h=200" width={96} height={96} className="relative w-24 h-24 rounded-full object-cover shadow-lg border-2 border-[#D4A353] animate-breathe" alt="Teacher" />
                 </div>
                 
                 <span className="absolute top-3 right-3 badge text-[10px] animate-fade-in" style={{ background: '#0F3A40', color: '#D4A353', border: '1px solid #D4A353', animationDelay: '1s', opacity: 0 }}>4.99 ★</span>
@@ -104,7 +105,7 @@ function HeroSection() {
               <div className="relative w-full h-40 mb-4 rounded-xl overflow-hidden border border-[rgba(212,163,83,0.3)] bg-black">
                 {/* Slow zooming image mimicking video pan */}
                 <div className="absolute inset-0 animate-breathe" style={{ animationDuration: '10s' }}>
-                  <img src="https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&q=100&fit=crop" className="w-full h-full object-cover opacity-80" alt="Video Call" />
+                  <Image src="https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&q=100&fit=crop" fill className="object-cover opacity-80" alt="Video Call" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
                 </div>
                 
@@ -260,9 +261,9 @@ function TopTutorsSection() {
             <Link key={tutor.userId} href={`/tutors/${tutor.userId}`} className="card-gold p-6 flex flex-col group animate-slide-up">
               <div className="flex items-start gap-4 mb-4">
                 {tutor.user.avatarUrl ? (
-                  <img src={tutor.user.avatarUrl} alt={tutor.user.firstName} className="w-14 h-14 rounded-full object-cover shadow-sm shrink-0 transition-transform group-hover:scale-110 border border-[#D4A353]" />
+                  <Image src={tutor.user.avatarUrl} alt={tutor.user.firstName} width={56} height={56} className="w-14 h-14 rounded-full object-cover shadow-sm shrink-0 transition-transform group-hover:scale-110 border border-[#D4A353]" />
                 ) : (
-                  <img src={`https://ui-avatars.com/api/?name=${tutor.user.firstName}&background=D4A353&color=fff&size=128`} alt={tutor.user.firstName} className="w-14 h-14 rounded-full object-cover shadow-sm shrink-0 transition-transform group-hover:scale-110 border border-[#D4A353]" />
+                  <Image src={`https://ui-avatars.com/api/?name=${tutor.user.firstName}&background=D4A353&color=fff&size=128`} alt={tutor.user.firstName} width={56} height={56} className="w-14 h-14 rounded-full object-cover shadow-sm shrink-0 transition-transform group-hover:scale-110 border border-[#D4A353]" />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">

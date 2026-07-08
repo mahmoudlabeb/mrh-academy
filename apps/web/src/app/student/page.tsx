@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useLanguage } from '@/contexts/language-context';
@@ -11,6 +12,7 @@ import MyLessons from './components/MyLessons';
 import MessagesView from './components/MessagesView';
 import SettingsView from './components/SettingsView';
 import PaymentModal from './components/PaymentModal';
+import NotificationsPanel from './components/NotificationsPanel';
 
 type Tab = 'discover' | 'lessons' | 'messages' | 'settings';
 
@@ -47,12 +49,19 @@ const tabIcons: Record<Tab, ReactNode> = {
 
 export const dynamic = 'force-dynamic';
 
-export default function StudentDashboard() {
+function StudentDashboardContent() {
+  const searchParams = useSearchParams();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { lang, toggleLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<Tab>('discover');
+  const initialTab = (searchParams.get('tab') as Tab) || 'discover';
+  const [activeTab, setActiveTab] = useState<Tab>(
+    ['discover', 'lessons', 'messages', 'settings'].includes(initialTab)
+      ? initialTab
+      : 'discover',
+  );
   const [showPayment, setShowPayment] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
@@ -147,19 +156,24 @@ export default function StudentDashboard() {
       <header className="dashboard-header">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="logo text-xl font-extrabold tracking-tight" style={{ color: '#D4A353', fontFamily: "'Inter', sans-serif" }}>MR.H</Link>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(212, 163, 83,0.12)' }}>
+            <div className="flex items-center gap-2 md:gap-3">
+              <Link href="/" className="logo text-lg md:text-xl font-extrabold tracking-tight" style={{ color: '#D4A353', fontFamily: "'Inter', sans-serif" }}>MR.H</Link>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(212, 163, 83,0.12)' }}>
                 <span className="text-sm font-bold" style={{ color: '#D4A353' }}>{balance?.balance ?? '0.00'}</span>
                 <span className="text-xs" style={{ color: '#E4CC9C' }}>{t('رصيد', 'Credits')}</span>
               </div>
-              <button onClick={() => setShowPayment(true)} className="btn-primary text-sm px-4 py-1.5">
+              <button onClick={() => setShowPayment(true)} className="btn-primary text-xs md:text-sm px-3 md:px-4 py-1.5">
                 {t('اشتراك', 'Subscribe')}
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <button className="relative p-2 rounded-lg hover:bg-white/5 transition-colors" title={t('الإشعارات', 'Notifications')}>
+            <div className="flex items-center gap-1 md:gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowNotifications(true)}
+                className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
+                title={t('الإشعارات', 'Notifications')}
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#FFFFF0">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                 </svg>
@@ -170,7 +184,12 @@ export default function StudentDashboard() {
                 )}
               </button>
 
-              <button className="relative p-2 rounded-lg hover:bg-white/5 transition-colors" title={t('الرسائل', 'Messages')}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('messages')}
+                className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
+                title={t('الرسائل', 'Messages')}
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#FFFFF0">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                 </svg>
@@ -267,8 +286,23 @@ export default function StudentDashboard() {
       </main>
 
       {showPayment && (
-        <PaymentModal onClose={() => setShowPayment(false)} currentBalance={balance?.balance ?? '0.00'} />
+        <PaymentModal
+          onClose={() => setShowPayment(false)}
+          currentBalance={String(balance?.balance ?? '0.00')}
+          creditPrice={balance?.creditPrice ?? 15}
+        />
+      )}
+      {showNotifications && (
+        <NotificationsPanel onClose={() => setShowNotifications(false)} />
       )}
     </div>
+  );
+}
+
+export default function StudentDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" style={{ background: 'var(--bg-main)' }} />}>
+      <StudentDashboardContent />
+    </Suspense>
   );
 }

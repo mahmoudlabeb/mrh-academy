@@ -18,7 +18,9 @@ export class CalendarService {
     location?: string;
     uid?: string;
   }): string {
-    const uid = event.uid || `${Date.now()}-${Math.random().toString(36).substring(2, 11)}@mrhacademy.com`;
+    const uid =
+      event.uid ||
+      `${Date.now()}-${Math.random().toString(36).substring(2, 11)}@mrhacademy.com`;
     const formatDate = (d: Date) =>
       d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const now = formatDate(new Date());
@@ -36,7 +38,9 @@ export class CalendarService {
       `DTEND:${formatDate(event.end)}`,
       `SUMMARY:${this.escapeIcsText(event.summary)}`,
       `DESCRIPTION:${this.escapeIcsText(event.description)}`,
-      ...(event.location ? [`LOCATION:${this.escapeIcsText(event.location)}`] : []),
+      ...(event.location
+        ? [`LOCATION:${this.escapeIcsText(event.location)}`]
+        : []),
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\r\n');

@@ -30,7 +30,7 @@ export default function Insights() {
   const { data: stats, isLoading } = useQuery<TutorStats>({
     queryKey: ['tutor', 'stats'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/tutor/stats');
+      const { data } = await apiClient.get('/tutors/me/stats');
       return data;
     },
   });

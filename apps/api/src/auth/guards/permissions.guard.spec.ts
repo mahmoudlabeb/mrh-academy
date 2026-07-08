@@ -28,13 +28,17 @@ describe('PermissionsGuard', () => {
   it('allows routes with no required permissions', () => {
     reflector.getAllAndOverride.mockReturnValue(undefined);
 
-    expect(guard.canActivate(createContext({ role: UserRole.SUBADMIN }))).toBe(true);
+    expect(guard.canActivate(createContext({ role: UserRole.SUBADMIN }))).toBe(
+      true,
+    );
   });
 
   it('allows admins regardless of assigned permissions', () => {
     reflector.getAllAndOverride.mockReturnValue(['manage_tutors']);
 
-    expect(guard.canActivate(createContext({ role: UserRole.ADMIN }))).toBe(true);
+    expect(guard.canActivate(createContext({ role: UserRole.ADMIN }))).toBe(
+      true,
+    );
   });
 
   it('allows subadmins with all required permissions', () => {

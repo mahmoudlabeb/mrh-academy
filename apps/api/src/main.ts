@@ -5,9 +5,12 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { checkSecurityEnvironment } from './common/security-check.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+  checkSecurityEnvironment(logger);
+
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.useGlobalFilters(new AllExceptionsFilter());
 
@@ -23,14 +26,27 @@ async function bootstrap() {
     }),
   );
 
-  // CORS Configuration — must precede helmet to avoid header conflicts
+  // CORS Configuration — strict lockdown in production
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = [
+    frontendUrl,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, origin?: boolean | string | RegExp | (string | RegExp)[]) => void) => {
-      const allowedOrigins = [
-        process.env.FRONTEND_URL || 'http://localhost:3000',
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
-      ];
+    origin: (
+      origin: string | undefined,
+      callback: (
+        err: Error | null,
+        origin?: boolean | string | RegExp | (string | RegExp)[],
+      ) => void,
+    ) => {
+      if (nodeEnv === 'production' && !origin) {
+        callback(new Error('Origin required in production'));
+        return;
+      }
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -38,20 +54,54 @@ async function bootstrap() {
       }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
   // Security Headers
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: {
+        policy: nodeEnv === 'production' ? 'same-origin' : 'cross-origin',
+      },
+      contentSecurityPolicy:
+        nodeEnv === 'production'
+          ? {
+              directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                styleSrc: [
+                  "'self'",
+                  "'unsafe-inline'",
+                  'https://fonts.googleapis.com',
+                ],
+                fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+                imgSrc: [
+                  "'self'",
+                  'data:',
+                  'https://res.cloudinary.com',
+                  'https://randomuser.me',
+                ],
+                connectSrc: ["'self'", frontendUrl],
+                mediaSrc: ["'self'", 'https://video.bunnycdn.com'],
+                frameSrc: ["'self'", 'https://hooks.stripe.com'],
+              },
+            }
+          : false,
+    }),
+  );
 
-  // Swagger OpenAPI Documentation
-  const config = new DocumentBuilder()
-    .setTitle('Mr.H Academy API')
-    .setDescription('The Definitive 30-Day Master API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // Swagger — disabled in production
+  if (nodeEnv !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('Mr.H Academy API')
+      .setDescription('The Definitive 30-Day Master API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   // Start Server
   const port = process.env.PORT || 4000;

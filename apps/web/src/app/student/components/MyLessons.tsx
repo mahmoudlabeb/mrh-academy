@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 
-type LessonStatus = 'scheduled' | 'completed' | 'cancelled';
+type LessonStatus = 'confirmed' | 'completed' | 'cancelled' | 'pending';
 
 interface Lesson {
   id: string;
@@ -15,6 +16,7 @@ interface Lesson {
   duration: number;
   price: number;
   status: LessonStatus;
+  roomId?: string;
 }
 
 interface FavoriteTutor {
@@ -28,14 +30,16 @@ interface FavoriteTutor {
 
 type SubTab = 'history' | 'calendar' | 'favorites';
 
-const statusConfig: Record<LessonStatus, { labelAr: string; labelEn: string; bg: string; color: string }> = {
-  scheduled: { labelAr: 'مؤكد', labelEn: 'Scheduled', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
+const statusConfig: Record<string, { labelAr: string; labelEn: string; bg: string; color: string }> = {
+  confirmed: { labelAr: 'مؤكد', labelEn: 'Confirmed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
+  pending: { labelAr: 'قيد الانتظار', labelEn: 'Pending', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
   completed: { labelAr: 'مكتمل', labelEn: 'Completed', bg: 'rgba(59,130,246,0.1)', color: '#3b82f6' },
   cancelled: { labelAr: 'ملغي', labelEn: 'Cancelled', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
 export default function MyLessons() {
   const { lang } = useLanguage();
+  const router = useRouter();
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
   const [subTab, setSubTab] = useState<SubTab>('history');
 
@@ -68,6 +72,13 @@ export default function MyLessons() {
     return acc;
   }, {});
 
+  const enterClassroom = (lesson: Lesson) => {
+    if (lesson.roomId) {
+      router.push(`/classroom/${lesson.roomId}`);
+    }
+  };
+
+  const isJoinable = (status: string) => status === 'confirmed' || status === 'pending';
   const today = new Date().toISOString().split('T')[0];
   const calendarDays = Object.keys(lessonsByDate).sort();
 
@@ -123,7 +134,7 @@ export default function MyLessons() {
           ) : (
             <div className="space-y-3">
               {lessons.map((lesson) => {
-                const cfg = statusConfig[lesson.status];
+                const cfg = statusConfig[lesson.status] ?? statusConfig.confirmed;
                 return (
                   <div key={lesson.id} className="card p-5 flex items-center justify-between gap-4 hover:translate-y-0">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -146,8 +157,12 @@ export default function MyLessons() {
                       <span className="badge text-xs font-semibold" style={{ background: cfg.bg, color: cfg.color }}>
                         {lang === 'ar' ? cfg.labelAr : cfg.labelEn}
                       </span>
-                      {lesson.status === 'scheduled' && (
-                        <button className="btn-primary text-xs px-4 py-2">
+                      {isJoinable(lesson.status) && lesson.roomId && (
+                        <button
+                          type="button"
+                          onClick={() => enterClassroom(lesson)}
+                          className="btn-primary text-xs px-4 py-2"
+                        >
                           {t('دخول الفصل', 'Enter Classroom')}
                         </button>
                       )}
@@ -201,7 +216,7 @@ export default function MyLessons() {
                         isToday ? 'ring-2 ring-[#D4A353]' : ''
                       }`}
                       style={{
-                        background: dayLessons.some((l) => l.status === 'scheduled') ? 'rgba(212, 163, 83,0.1)' : 'transparent',
+                        background: dayLessons.some((l) => isJoinable(l.status)) ? 'rgba(212, 163, 83,0.1)' : 'transparent',
                       }}
                     >
                       <span className={`font-semibold ${isToday ? 'text-[#D4A353]' : ''}`} style={{ color: isToday ? undefined : 'var(--text-main)' }}>
@@ -220,7 +235,7 @@ export default function MyLessons() {
                   {t('الدروس القادمة', 'Upcoming Lessons')}
                 </p>
                 {lessons
-                  .filter((l) => l.status === 'scheduled')
+                  .filter((l) => isJoinable(l.status))
                   .slice(0, 5)
                   .map((lesson) => (
                     <div key={lesson.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg-light)' }}>
@@ -235,9 +250,15 @@ export default function MyLessons() {
                           {lesson.duration} {t('دقيقة', 'min')}
                         </p>
                       </div>
-                      <button className="btn-primary text-xs px-3 py-1.5">
-                        {t('دخول', 'Join')}
-                      </button>
+                      {lesson.roomId && (
+                        <button
+                          type="button"
+                          onClick={() => enterClassroom(lesson)}
+                          className="btn-primary text-xs px-3 py-1.5"
+                        >
+                          {t('دخول', 'Join')}
+                        </button>
+                      )}
                     </div>
                   ))}
               </div>

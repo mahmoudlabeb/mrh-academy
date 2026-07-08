@@ -30,7 +30,9 @@ export class AdminSettingsController {
     return result;
   }
 
-  private async handleUpdate(dto: { key: string; value: string }[] | Record<string, string>) {
+  private async handleUpdate(
+    dto: { key: string; value: string }[] | Record<string, string>,
+  ) {
     if (Array.isArray(dto)) {
       for (const item of dto) {
         await this.settingRepository.upsert(

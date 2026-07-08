@@ -1,8 +1,4 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -22,7 +18,9 @@ export class AdminReportsController {
     const reports = await this.reportsService.findAll();
     return reports.map((r) => ({
       id: r.id,
-      reporterName: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
+      reporterName: r.user
+        ? `${r.user.firstName} ${r.user.lastName}`
+        : 'Unknown',
       reporterEmail: r.user?.email ?? '',
       issueType: r.issueType,
       description: r.description,

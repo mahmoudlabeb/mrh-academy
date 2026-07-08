@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/auth-context';
 
 interface TutorProfile {
   userId: string;
@@ -72,6 +73,7 @@ function BookLessonContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { lang } = useLanguage();
+  const { user } = useAuth();
 
   const tutorId = searchParams.get('tutorId');
 
@@ -173,8 +175,22 @@ function BookLessonContent() {
         slots.push(timeStr);
       }
     }
-    return slots;
-  }, [selectedDate, availability, duration]);
+
+    const isToday = formatDateToISO(selectedDate) === formatDateToISO(today);
+    if (!isToday) return slots;
+
+    const now = new Date();
+    return slots.filter((time) => {
+      const [h, m] = time.split(':').map(Number);
+      const slotDate = new Date(selectedDate);
+      slotDate.setHours(h, m, 0, 0);
+      return slotDate > now;
+    });
+  }, [selectedDate, availability, duration, today]);
+
+  const isViewingCurrentMonth =
+    calendarMonth.year === today.getFullYear() &&
+    calendarMonth.month === today.getMonth();
 
   const totalCost = tutor ? (tutor.hourlyRate * duration) / 60 : 0;
   const insufficientBalance = balance < totalCost;
@@ -207,6 +223,7 @@ function BookLessonContent() {
   const canBook = selectedDate && selectedTime && tutorId && !insufficientBalance;
 
   const prevMonth = () => {
+    if (isViewingCurrentMonth) return;
     setCalendarMonth((prev) => {
       if (prev.month === 0) return { year: prev.year - 1, month: 11 };
       return { year: prev.year, month: prev.month - 1 };
@@ -230,6 +247,24 @@ function BookLessonContent() {
     setSelectedTime(null);
     setErrorMsg(null);
   };
+
+  if (user && user.role !== 'student') {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+        <div className="text-center card p-12 max-w-md">
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
+            {t('الحجز للطلاب فقط', 'Booking is for students only')}
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+            {t('يجب تسجيل الدخول بحساب طالب لحجز درس.', 'You must be logged in as a student to book a lesson.')}
+          </p>
+          <Link href={user.role === 'tutor' ? '/tutor' : user.role === 'admin' || user.role === 'subadmin' ? '/admin' : '/student'} className="btn-primary">
+            {t('العودة للوحة التحكم', 'Back to Dashboard')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!tutorId) {
     return (
@@ -399,7 +434,12 @@ function BookLessonContent() {
                   {t('اختر التاريخ', 'Select Date')}
                 </h3>
                 <div className="flex items-center gap-2">
-                  <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                  <button
+                    onClick={prevMonth}
+                    disabled={isViewingCurrentMonth}
+                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7'} />
                     </svg>

@@ -15,7 +15,12 @@ import { EmailService } from '../services/email.service.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, StudentProfile, TutorProfile, SubAdminProfile]),
+    TypeOrmModule.forFeature([
+      User,
+      StudentProfile,
+      TutorProfile,
+      SubAdminProfile,
+    ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -30,12 +35,7 @@ import { EmailService } from '../services/email.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    GoogleStrategy,
-    EmailService,
-  ],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

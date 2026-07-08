@@ -40,7 +40,9 @@ export class AdminCoursesController {
       description: c.description,
       price: c.price,
       thumbnailUrl: c.thumbnailUrl,
-      tutorName: c.tutor ? `${c.tutor.firstName} ${c.tutor.lastName}` : 'Unknown',
+      tutorName: c.tutor
+        ? `${c.tutor.firstName} ${c.tutor.lastName}`
+        : 'Unknown',
       isApproved: c.status === CourseStatus.APPROVED,
       status: c.status,
       createdAt: c.createdAt,
@@ -78,7 +80,13 @@ export class AdminCoursesController {
   @RequirePermissions('manage_courses')
   async updateCourse(
     @Param('id') id: string,
-    @Body() dto: { title?: string; description?: string; price?: number; thumbnailUrl?: string },
+    @Body()
+    dto: {
+      title?: string;
+      description?: string;
+      price?: number;
+      thumbnailUrl?: string;
+    },
   ) {
     const course = await this.courseRepository.findOne({ where: { id } });
     if (!course) throw new NotFoundException('Course not found');

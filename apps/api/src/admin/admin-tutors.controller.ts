@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Post, Body, UseGuards, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Body,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -76,7 +84,10 @@ export class AdminTutorsController {
     const tutorProfile = await this.tutorsService.findOneByUserId(id);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="tutor-${id}.pdf"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="tutor-${id}.pdf"`,
+    );
 
     const doc = new PDFDocument({ margin: 50 });
     const arabicFontPath = resolveArabicFontPath();
@@ -91,7 +102,9 @@ export class AdminTutorsController {
 
     doc.fontSize(14).text('User Details:');
     doc.fontSize(12);
-    doc.text(`Name: ${tutorProfile.user.firstName} ${tutorProfile.user.lastName}`);
+    doc.text(
+      `Name: ${tutorProfile.user.firstName} ${tutorProfile.user.lastName}`,
+    );
     doc.text(`Email: ${tutorProfile.user.email}`);
     doc.text(`Phone: ${tutorProfile.user.phone || 'N/A'}`);
     doc.moveDown();

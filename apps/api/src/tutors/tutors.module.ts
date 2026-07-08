@@ -12,7 +12,17 @@ import { Payment } from '../entities/payment.entity.js';
 import { Report } from '../entities/report.entity.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TutorProfile, User, Review, Lesson, Payment, Report]), AvailabilityModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      TutorProfile,
+      User,
+      Review,
+      Lesson,
+      Payment,
+      Report,
+    ]),
+    AvailabilityModule,
+  ],
   providers: [TutorsService],
   controllers: [TutorsController, TutorDashboardController],
   exports: [TutorsService],

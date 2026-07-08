@@ -76,103 +76,120 @@ export class TutorsService {
     search?: string;
   }) {
     const cacheKey = `tutors:filters:${JSON.stringify(filters)}`;
-    return this.redisService.getOrSet(cacheKey, async () => {
-      const query = this.tutorProfileRepository
-        .createQueryBuilder('tutor')
-        .leftJoinAndSelect('tutor.user', 'user')
-        .where('tutor.status = :status', { status: CourseStatus.APPROVED });
+    return this.redisService.getOrSet(
+      cacheKey,
+      async () => {
+        const query = this.tutorProfileRepository
+          .createQueryBuilder('tutor')
+          .leftJoinAndSelect('tutor.user', 'user')
+          .where('tutor.status = :status', { status: CourseStatus.APPROVED });
 
-      if (filters.minPrice !== undefined) {
-        query.andWhere('tutor.hourlyRate >= :minPrice', {
-          minPrice: filters.minPrice,
-        });
-      }
-      if (filters.maxPrice !== undefined) {
-        query.andWhere('tutor.hourlyRate <= :maxPrice', {
-          maxPrice: filters.maxPrice,
-        });
-      }
-      if (filters.languages) {
-        const langs = filters.languages.split(',').map((l) => l.trim());
-        query.andWhere('tutor.languages && :languages', { languages: langs });
-      }
-      if (filters.search) {
-        query.andWhere(
-          '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR tutor.bio ILIKE :search OR tutor.specialization ILIKE :search)',
-          { search: `%${filters.search}%` },
+        if (filters.minPrice !== undefined) {
+          query.andWhere('tutor.hourlyRate >= :minPrice', {
+            minPrice: filters.minPrice,
+          });
+        }
+        if (filters.maxPrice !== undefined) {
+          query.andWhere('tutor.hourlyRate <= :maxPrice', {
+            maxPrice: filters.maxPrice,
+          });
+        }
+        if (filters.languages) {
+          const langs = filters.languages.split(',').map((l) => l.trim());
+          query.andWhere('tutor.languages && :languages', { languages: langs });
+        }
+        if (filters.search) {
+          query.andWhere(
+            '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR tutor.bio ILIKE :search OR tutor.specialization ILIKE :search)',
+            { search: `%${filters.search}%` },
+          );
+        }
+
+        query.orderBy(
+          'tutor.hourlyRate',
+          filters.sort === 'desc' ? 'DESC' : 'ASC',
         );
-      }
 
-      query.orderBy('tutor.hourlyRate', filters.sort === 'desc' ? 'DESC' : 'ASC');
-
-      return query.getMany();
-    }, 60); // 1 min cache
+        return query.getMany();
+      },
+      60,
+    ); // 1 min cache
   }
 
   async findTopRated(limit = 3) {
     const cacheKey = `tutors:top-rated:${limit}`;
-    return this.redisService.getOrSet(cacheKey, async () => {
-      const [tutors, ratings] = await Promise.all([
-        this.tutorProfileRepository
-          .createQueryBuilder('tutor')
-          .leftJoinAndSelect('tutor.user', 'user')
-          .where('tutor.status = :status', { status: CourseStatus.APPROVED })
-          .getMany(),
-        this.reviewRepository
-          .createQueryBuilder('review')
-          .select('review.tutorId', 'tutorId')
-          .addSelect('AVG(review.rating)', 'avg')
-          .where('review.status = :status', { status: CourseStatus.APPROVED })
-          .groupBy('review.tutorId')
-          .getRawMany() as Promise<{ tutorId: string; avg: string }[]>,
-      ]);
+    return this.redisService.getOrSet(
+      cacheKey,
+      async () => {
+        const [tutors, ratings] = await Promise.all([
+          this.tutorProfileRepository
+            .createQueryBuilder('tutor')
+            .leftJoinAndSelect('tutor.user', 'user')
+            .where('tutor.status = :status', { status: CourseStatus.APPROVED })
+            .getMany(),
+          this.reviewRepository
+            .createQueryBuilder('review')
+            .select('review.tutorId', 'tutorId')
+            .addSelect('AVG(review.rating)', 'avg')
+            .where('review.status = :status', { status: CourseStatus.APPROVED })
+            .groupBy('review.tutorId')
+            .getRawMany(),
+        ]);
 
-      const ratingMap = new Map(
-        ratings.map((r) => [r.tutorId, parseFloat(r.avg) || 0]),
-      );
+        const ratingMap = new Map(
+          ratings.map((r) => [r.tutorId, parseFloat(r.avg) || 0]),
+        );
 
-      return tutors
-        .map((tutor) => ({
-          ...tutor,
-          averageRating: ratingMap.get(tutor.userId) ?? 0,
-        }))
-        .sort((a, b) => b.averageRating - a.averageRating)
-        .slice(0, limit) as (TutorProfile & { averageRating: number })[];
-    }, 300); // 5 mins
+        return tutors
+          .map((tutor) => ({
+            ...tutor,
+            averageRating: ratingMap.get(tutor.userId) ?? 0,
+          }))
+          .sort((a, b) => b.averageRating - a.averageRating)
+          .slice(0, limit);
+      },
+      300,
+    ); // 5 mins
   }
 
   async findPublicProfile(userId: string) {
     const cacheKey = `tutors:public-profile:${userId}`;
-    return this.redisService.getOrSet(cacheKey, async () => {
-      const tutor = await this.tutorProfileRepository.findOne({
-        where: { userId, status: CourseStatus.APPROVED },
-        relations: { user: true },
-      });
-      if (!tutor) throw new NotFoundException('Tutor profile not found');
+    return this.redisService.getOrSet(
+      cacheKey,
+      async () => {
+        const tutor = await this.tutorProfileRepository.findOne({
+          where: { userId, status: CourseStatus.APPROVED },
+          relations: { user: true },
+        });
+        if (!tutor) throw new NotFoundException('Tutor profile not found');
 
-      const avg = await this.reviewRepository
-        .createQueryBuilder('review')
-        .where('review.tutorId = :tutorId', { tutorId: userId })
-        .andWhere('review.status = :status', { status: CourseStatus.APPROVED })
-        .select('AVG(review.rating)', 'avg')
-        .getRawOne<{ avg: string | null }>();
+        const avg = await this.reviewRepository
+          .createQueryBuilder('review')
+          .where('review.tutorId = :tutorId', { tutorId: userId })
+          .andWhere('review.status = :status', {
+            status: CourseStatus.APPROVED,
+          })
+          .select('AVG(review.rating)', 'avg')
+          .getRawOne<{ avg: string | null }>();
 
-      const reviewCount = await this.reviewRepository.count({
-        where: { tutorId: userId, status: CourseStatus.APPROVED },
-      });
+        const reviewCount = await this.reviewRepository.count({
+          where: { tutorId: userId, status: CourseStatus.APPROVED },
+        });
 
-      const { user } = tutor;
-      return {
-        ...tutor,
-        user: {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          avatarUrl: user.avatarUrl,
-        },
-        averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
-        reviewCount,
-      };
-    }, 300); // 5 mins
+        const { user } = tutor;
+        return {
+          ...tutor,
+          user: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            avatarUrl: user.avatarUrl,
+          },
+          averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
+          reviewCount,
+        };
+      },
+      300,
+    ); // 5 mins
   }
 
   async applyToBeTutor(
@@ -196,7 +213,11 @@ export class TutorsService {
 
     let documentUrl: string | undefined;
     if (documentFile) {
-      const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedMimes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ];
       if (!allowedMimes.includes(documentFile.mimetype)) {
         throw new BadRequestException('Document must be a PDF or Word file');
       }
@@ -285,34 +306,79 @@ export class TutorsService {
     averageRating: number;
   }> {
     const cacheKey = `tutors:stats:${userId}`;
-    return this.redisService.getOrSet(cacheKey, async () => {
-      const profile = await this.tutorProfileRepository.findOne({
-        where: { userId },
-      });
+    return this.redisService.getOrSet(
+      cacheKey,
+      async () => {
+        const profile = await this.tutorProfileRepository.findOne({
+          where: { userId },
+        });
 
-      const completedLessons = await this.lessonRepository.count({
-        where: { tutorId: userId, status: LessonStatus.COMPLETED },
-      });
+        const completedLessons = await this.lessonRepository.count({
+          where: { tutorId: userId, status: LessonStatus.COMPLETED },
+        });
 
-      const reviewCount = await this.reviewRepository.count({
-        where: { tutorId: userId, status: CourseStatus.APPROVED },
-      });
+        const reviewCount = await this.reviewRepository.count({
+          where: { tutorId: userId, status: CourseStatus.APPROVED },
+        });
 
-      const avg = await this.reviewRepository
-        .createQueryBuilder('review')
-        .where('review.tutorId = :tutorId', { tutorId: userId })
-        .andWhere('review.status = :status', { status: CourseStatus.APPROVED })
-        .select('AVG(review.rating)', 'avg')
-        .getRawOne<{ avg: string | null }>();
+        const avg = await this.reviewRepository
+          .createQueryBuilder('review')
+          .where('review.tutorId = :tutorId', { tutorId: userId })
+          .andWhere('review.status = :status', {
+            status: CourseStatus.APPROVED,
+          })
+          .select('AVG(review.rating)', 'avg')
+          .getRawOne<{ avg: string | null }>();
 
-      return {
-        completedLessons,
-        totalHoursTaught: profile?.totalHoursTaught ?? 0,
-        totalEarnings: profile?.balance ?? 0,
-        reviewCount,
-        averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
-      };
-    }, 120); // 2 min cache
+        return {
+          completedLessons,
+          totalHoursTaught: profile?.totalHoursTaught ?? 0,
+          totalEarnings: profile?.balance ?? 0,
+          reviewCount,
+          averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
+        };
+      },
+      120,
+    ); // 2 min cache
+  }
+
+  async getTutorStudents(tutorId: string) {
+    const lessons = await this.lessonRepository.find({
+      where: { tutorId },
+      relations: { student: true },
+    });
+
+    const studentMap = new Map<
+      string,
+      { user: User; lessonCount: number; totalHours: number }
+    >();
+
+    for (const lesson of lessons) {
+      if (!lesson.student) continue;
+      const existing = studentMap.get(lesson.studentId);
+      const hours = lesson.durationMinutes / 60;
+      if (existing) {
+        existing.lessonCount++;
+        existing.totalHours += hours;
+      } else {
+        studentMap.set(lesson.studentId, {
+          user: lesson.student,
+          lessonCount: 1,
+          totalHours: hours,
+        });
+      }
+    }
+
+    return Array.from(studentMap.values()).map((entry) => ({
+      user: {
+        id: entry.user.id,
+        firstName: entry.user.firstName,
+        lastName: entry.user.lastName,
+        avatarUrl: entry.user.avatarUrl,
+      },
+      lessonCount: entry.lessonCount,
+      totalHours: entry.totalHours,
+    }));
   }
 
   async approveTutor(userId: string) {
@@ -379,53 +445,57 @@ export class TutorsService {
     totalRevenue: number;
   }> {
     const cacheKey = 'admin:stats';
-    return this.redisService.getOrSet(cacheKey, async () => {
-      const totalUsers = await this.userRepository.count();
-      const totalTutors = await this.tutorProfileRepository.count({
-        where: { status: CourseStatus.APPROVED },
-      });
-      const studentUsers = await this.userRepository.count({
-        where: { role: UserRole.STUDENT },
-      });
-      const pendingApplications = await this.tutorProfileRepository.count({
-        where: { status: CourseStatus.PENDING },
-      });
-      const approvedTutors = await this.tutorProfileRepository.count({
-        where: { status: CourseStatus.APPROVED },
-      });
+    return this.redisService.getOrSet(
+      cacheKey,
+      async () => {
+        const totalUsers = await this.userRepository.count();
+        const totalTutors = await this.tutorProfileRepository.count({
+          where: { status: CourseStatus.APPROVED },
+        });
+        const studentUsers = await this.userRepository.count({
+          where: { role: UserRole.STUDENT },
+        });
+        const pendingApplications = await this.tutorProfileRepository.count({
+          where: { status: CourseStatus.PENDING },
+        });
+        const approvedTutors = await this.tutorProfileRepository.count({
+          where: { status: CourseStatus.APPROVED },
+        });
 
-      const completedLessons = await this.lessonRepository.count({
-        where: { status: LessonStatus.COMPLETED },
-      });
+        const completedLessons = await this.lessonRepository.count({
+          where: { status: LessonStatus.COMPLETED },
+        });
 
-      const totalEarnings = await this.lessonRepository
-        .createQueryBuilder('lesson')
-        .select('COALESCE(SUM(lesson.price), 0)', 'total')
-        .where('lesson.status = :status', { status: LessonStatus.COMPLETED })
-        .getRawOne<{ total: number }>()
-        .then(r => parseFloat(String(r?.total ?? '0')));
+        const totalEarnings = await this.lessonRepository
+          .createQueryBuilder('lesson')
+          .select('COALESCE(SUM(lesson.price), 0)', 'total')
+          .where('lesson.status = :status', { status: LessonStatus.COMPLETED })
+          .getRawOne<{ total: number }>()
+          .then((r) => parseFloat(String(r?.total ?? '0')));
 
-      const totalRevenue = await this.lessonRepository
-        .createQueryBuilder('lesson')
-        .select('COALESCE(SUM(lesson.platformFee), 0)', 'total')
-        .where('lesson.status = :status', { status: LessonStatus.COMPLETED })
-        .getRawOne<{ total: number }>()
-        .then(r => parseFloat(String(r?.total ?? '0')));
+        const totalRevenue = await this.lessonRepository
+          .createQueryBuilder('lesson')
+          .select('COALESCE(SUM(lesson.platformFee), 0)', 'total')
+          .where('lesson.status = :status', { status: LessonStatus.COMPLETED })
+          .getRawOne<{ total: number }>()
+          .then((r) => parseFloat(String(r?.total ?? '0')));
 
-      const openReports = await this.reportRepository.count();
+        const openReports = await this.reportRepository.count();
 
-      return {
-        totalUsers,
-        totalTutors,
-        totalStudents: studentUsers,
-        pendingApplications,
-        approvedTutors,
-        totalEarnings,
-        openReports,
-        completedLessons,
-        totalRevenue,
-      };
-    }, 60); // 1 min cache
+        return {
+          totalUsers,
+          totalTutors,
+          totalStudents: studentUsers,
+          pendingApplications,
+          approvedTutors,
+          totalEarnings,
+          openReports,
+          completedLessons,
+          totalRevenue,
+        };
+      },
+      60,
+    ); // 1 min cache
   }
 
   private async sendEmail(to: string, subject: string, text: string) {

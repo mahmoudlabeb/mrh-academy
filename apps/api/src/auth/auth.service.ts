@@ -10,14 +10,30 @@ import { DataSource, Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
+import { CourseStatus, UserRole } from '@mrh/types';
 import { User } from '../entities/user.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
+import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { RedisService } from '../redis/redis.service.js';
 import { EmailService } from '../services/email.service.js';
+
+function getAdminEmails(): string[] {
+  const raw = process.env.ADMIN_EMAILS;
+  if (!raw) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('ADMIN_EMAILS must be set in production');
+    }
+    return [];
+  }
+  return raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 @Injectable()
 export class AuthService {
@@ -40,9 +56,17 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
-
-    const adminEmails = (process.env.ADMIN_EMAILS || 'fekrah23451@gmail.com,admin@mrhacademy.com').split(',').map(e => e.trim().toLowerCase());
+    const adminEmails = getAdminEmails();
     const isOwner = adminEmails.includes(dto.email.toLowerCase());
+
+    let role: UserRole;
+    if (isOwner) {
+      role = UserRole.ADMIN;
+    } else if (dto.role === 'tutor') {
+      role = UserRole.TUTOR;
+    } else {
+      role = UserRole.STUDENT;
+    }
 
     try {
       const result = await this.dataSource.transaction(async (manager) => {
@@ -51,14 +75,28 @@ export class AuthService {
           passwordHash: hashedPassword,
           firstName: dto.firstName,
           lastName: dto.lastName,
-          role: (isOwner ? 'admin' : 'student') as any,
+          role,
         });
         const savedUser = await manager.save(user);
 
-        const profile = manager.create(StudentProfile, {
-          userId: savedUser.id,
-        });
-        await manager.save(profile);
+        if (role === UserRole.TUTOR) {
+          const tutorProfile = manager.create(TutorProfile, {
+            userId: savedUser.id,
+            bio: '',
+            specialization: '',
+            languages: [],
+            hourlyRate: 0,
+            balance: 0,
+            totalHoursTaught: 0,
+            status: CourseStatus.PENDING,
+          });
+          await manager.save(tutorProfile);
+        } else if (role === UserRole.STUDENT) {
+          const profile = manager.create(StudentProfile, {
+            userId: savedUser.id,
+          });
+          await manager.save(profile);
+        }
 
         return savedUser;
       });
@@ -68,7 +106,7 @@ export class AuthService {
         email: result.email,
         role: result.role,
       };
-      if (result.role === 'student') {
+      if (result.role === UserRole.STUDENT) {
         const sessionId = randomUUID();
         payload.sessionId = sessionId;
         await this.redisService.set(
@@ -84,7 +122,6 @@ export class AuthService {
       const { passwordHash, ...safeUser } = result;
       return { accessToken, user: safeUser };
     } catch (error: any) {
-      // Check for unique constraint violation on email
       if (error.code === '23505' || error.constraint?.includes('email')) {
         throw new ConflictException('Email is already registered');
       }
@@ -116,7 +153,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
     };
-    if (user.role === 'student') {
+    if (user.role === UserRole.STUDENT) {
       const sessionId = randomUUID();
       payload.sessionId = sessionId;
       await this.redisService.set(
@@ -158,37 +195,57 @@ export class AuthService {
     avatarUrl?: string;
   }) {
     let user = await this.userRepository.findOne({
-      where: [
-        { googleId: googleProfile.googleId },
-        { email: googleProfile.email },
-      ],
+      where: { googleId: googleProfile.googleId },
     });
 
     if (!user) {
-      const newUser = this.userRepository.create({
-        googleId: googleProfile.googleId,
-        email: googleProfile.email,
-        firstName: googleProfile.firstName,
-        lastName: googleProfile.lastName,
-        avatarUrl: googleProfile.avatarUrl,
-        role: 'student' as any,
-        isVerified: true,
-        passwordHash: await bcrypt.hash(randomUUID(), 12),
+      const existingByEmail = await this.userRepository.findOne({
+        where: { email: googleProfile.email },
       });
 
-      const savedUser = await this.dataSource.transaction(async (manager) => {
-        const s = await manager.save(newUser);
-        const profile = manager.create(StudentProfile, {
-          userId: s.id,
+      if (existingByEmail) {
+        if (
+          existingByEmail.googleId &&
+          existingByEmail.googleId !== googleProfile.googleId
+        ) {
+          throw new ConflictException(
+            'This email is linked to a different Google account',
+          );
+        }
+        if (!existingByEmail.isVerified && existingByEmail.passwordHash) {
+          throw new ConflictException(
+            'An account with this email already exists. Please log in with your password first to link Google.',
+          );
+        }
+        existingByEmail.googleId = googleProfile.googleId;
+        existingByEmail.isVerified = true;
+        if (googleProfile.avatarUrl && !existingByEmail.avatarUrl) {
+          existingByEmail.avatarUrl = googleProfile.avatarUrl;
+        }
+        user = await this.userRepository.save(existingByEmail);
+      } else {
+        const newUser = this.userRepository.create({
+          googleId: googleProfile.googleId,
+          email: googleProfile.email,
+          firstName: googleProfile.firstName,
+          lastName: googleProfile.lastName,
+          avatarUrl: googleProfile.avatarUrl,
+          role: UserRole.STUDENT,
+          isVerified: true,
+          passwordHash: await bcrypt.hash(randomUUID(), 12),
         });
-        await manager.save(profile);
-        return s;
-      });
 
-      user = savedUser;
-    } else if (!user.googleId) {
-      user.googleId = googleProfile.googleId;
-      user = await this.userRepository.save(user);
+        const savedUser = await this.dataSource.transaction(async (manager) => {
+          const s = await manager.save(newUser);
+          const profile = manager.create(StudentProfile, {
+            userId: s.id,
+          });
+          await manager.save(profile);
+          return s;
+        });
+
+        user = savedUser;
+      }
     }
 
     const payload: Record<string, string> = {
@@ -196,7 +253,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
     };
-    if (user.role === 'student') {
+    if (user.role === UserRole.STUDENT) {
       const sessionId = randomUUID();
       payload.sessionId = sessionId;
       await this.redisService.set(
@@ -225,15 +282,9 @@ export class AuthService {
     }
 
     const token = randomUUID();
-    await this.redisService.set(
-      `reset_token:${token}`,
-      dto.email,
-      'EX',
-      3600,
-    );
+    await this.redisService.set(`reset_token:${token}`, dto.email, 'EX', 3600);
 
-    const frontendUrl =
-      process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     await this.emailService.sendEmail(
@@ -251,9 +302,7 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const email = await this.redisService.get(
-      `reset_token:${dto.token}`,
-    );
+    const email = await this.redisService.get(`reset_token:${dto.token}`);
     if (!email) {
       throw new BadRequestException('Invalid or expired reset token');
     }
@@ -282,9 +331,7 @@ export class AuthService {
   }
 
   async deleteAccount(userId: string) {
-    // Soft delete the user
     await this.userRepository.softDelete({ id: userId });
-    // Also delete their session
     await this.logout(userId);
   }
 }

@@ -63,5 +63,44 @@ MRH Academy is a comprehensive, state-of-the-art online learning platform built 
 - **Tutors:** `Sarah.alazzeh87@gmail.com`, `yasmenaiman1@gmail.com`
 - **Students:** `student@demo.com`, `john.doe@gmail.com`
 
+## 🌐 Production Deployment
+
+| Service | URL |
+|---|---|
+| Frontend (Vercel) | https://mrh-academy-1.vercel.app |
+| API (Render) | https://mrh-academy.onrender.com |
+
+### Vercel environment variables
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `https://mrh-academy.onrender.com/api/v1` |
+
+### Render environment variables (required)
+
+| Variable | Example / notes |
+|---|---|
+| `NODE_ENV` | `production` |
+| `FRONTEND_URL` | `https://mrh-academy-1.vercel.app` |
+| `JWT_SECRET` | 32+ random characters (never use the default) |
+| `ADMIN_EMAILS` | `admin@mrhacademy.com` |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+
+### Verify deployment
+
+```bash
+# API health
+curl https://mrh-academy.onrender.com/api/v1/health
+
+# Login smoke test
+curl -X POST https://mrh-academy.onrender.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://mrh-academy-1.vercel.app" \
+  -d '{"email":"admin@mrhacademy.com","password":"123456"}'
+```
+
+After changing env vars on Vercel, **redeploy** so `NEXT_PUBLIC_*` values are baked into the build.
+
 ---
 *Built with ❤️ for MRH Academy.*

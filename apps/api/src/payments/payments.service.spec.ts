@@ -81,7 +81,7 @@ describe('PaymentsService', () => {
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
 
-  it('auto-approves PayPal payments and credits the student balance', async () => {
+  it('keeps PayPal payments pending until admin approval', async () => {
     await service.submitPayment('user-1', {
       method: PaymentMethod.PAYPAL,
       amount: 30,
@@ -90,13 +90,9 @@ describe('PaymentsService', () => {
     expect(paymentRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         method: PaymentMethod.PAYPAL,
-        status: PaymentStatus.APPROVED,
+        status: PaymentStatus.PENDING,
       }),
     );
-    expect(studentProfileRepository.increment).toHaveBeenCalledWith(
-      { userId: 'user-1' },
-      'balance',
-      2,
-    );
+    expect(studentProfileRepository.increment).not.toHaveBeenCalled();
   });
 });

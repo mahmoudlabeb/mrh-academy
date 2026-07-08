@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { CourseStatus } from '@mrh/types';
+import { CourseStatus, UserRole } from '@mrh/types';
 import { Course } from '../entities/course.entity.js';
 import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
 import { CourseLesson } from '../entities/course-lesson.entity.js';
+import { CourseLessonCompletion } from '../entities/course-lesson-completion.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { CommissionService } from '../services/commission.service.js';
@@ -18,6 +24,8 @@ export class CoursesService {
     private readonly enrollmentRepository: Repository<CourseEnrollment>,
     @InjectRepository(CourseLesson)
     private readonly lessonRepository: Repository<CourseLesson>,
+    @InjectRepository(CourseLessonCompletion)
+    private readonly completionRepository: Repository<CourseLessonCompletion>,
     @InjectRepository(TutorProfile)
     private readonly tutorProfileRepository: Repository<TutorProfile>,
     @InjectRepository(StudentProfile)
@@ -34,23 +42,93 @@ export class CoursesService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, viewerId?: string, viewerRole?: UserRole) {
     const course = await this.courseRepository.findOne({
       where: { id },
       relations: { tutor: true },
     });
     if (!course) throw new NotFoundException('Course not found');
+
+    const canBypass =
+      viewerRole === UserRole.ADMIN ||
+      viewerRole === UserRole.SUBADMIN ||
+      (viewerId && course.tutorId === viewerId);
+
+    if (course.status !== CourseStatus.APPROVED && !canBypass) {
+      throw new NotFoundException('Course not found');
+    }
+
     return course;
   }
 
-  async findLessons(courseId: string) {
-    return this.lessonRepository.find({
+  async isEnrolled(studentId: string, courseId: string): Promise<boolean> {
+    const enrollment = await this.enrollmentRepository.findOne({
+      where: { studentId, courseId },
+    });
+    return Boolean(enrollment);
+  }
+
+  async assertEnrollment(studentId: string, courseId: string) {
+    const enrolled = await this.isEnrolled(studentId, courseId);
+    if (!enrolled) {
+      throw new ForbiddenException(
+        'You must enroll in this course to access its content',
+      );
+    }
+  }
+
+  async findLessons(courseId: string, userId: string, role: UserRole) {
+    const course = await this.findOne(courseId, userId, role);
+    if (role === UserRole.STUDENT) {
+      await this.assertEnrollment(userId, courseId);
+    } else if (role === UserRole.TUTOR && course.tutorId !== userId) {
+      throw new ForbiddenException('You do not own this course');
+    }
+
+    const lessons = await this.lessonRepository.find({
       where: { courseId },
       order: { lessonOrder: 'ASC' },
     });
+
+    if (role !== UserRole.STUDENT) {
+      return lessons.map((lesson) => ({
+        ...lesson,
+        isCompleted: false,
+      }));
+    }
+
+    const enrollment = await this.enrollmentRepository.findOne({
+      where: { studentId: userId, courseId },
+    });
+    if (!enrollment) {
+      return lessons.map((lesson) => ({
+        ...lesson,
+        isCompleted: false,
+      }));
+    }
+
+    const completions = await this.completionRepository.find({
+      where: { enrollmentId: enrollment.id },
+      select: { courseLessonId: true },
+    });
+    const completedIds = new Set(completions.map((c) => c.courseLessonId));
+
+    return lessons.map((lesson) => ({
+      ...lesson,
+      isCompleted: completedIds.has(lesson.id),
+    }));
   }
 
-  async create(tutorId: string, dto: { title: string; description: string; price: number; thumbnailUrl?: string; tags?: string[] }) {
+  async create(
+    tutorId: string,
+    dto: {
+      title: string;
+      description: string;
+      price: number;
+      thumbnailUrl?: string;
+      tags?: string[];
+    },
+  ) {
     const course = this.courseRepository.create({
       tutorId,
       title: dto.title,
@@ -62,33 +140,59 @@ export class CoursesService {
     return this.courseRepository.save(course);
   }
 
-  async enroll(studentId: string, courseId: string, dto?: { promoCode?: string; referralCode?: string; soldBy?: 'tutor' | 'academy' }) {
+  async enroll(
+    studentId: string,
+    courseId: string,
+    dto?: {
+      promoCode?: string;
+      referralCode?: string;
+      soldBy?: 'tutor' | 'academy';
+    },
+  ) {
     const course = await this.courseRepository.findOne({
       where: { id: courseId, status: CourseStatus.APPROVED },
     });
-    if (!course) throw new NotFoundException('Course not found or not yet approved');
+    if (!course)
+      throw new NotFoundException('Course not found or not yet approved');
 
     const hasValidReferral = dto?.referralCode === course.tutorId;
     const soldBy = hasValidReferral ? 'tutor' : 'academy';
-    const { platformFee, tutorShare } = await this.commissionService.calculateCourseEarnings(course.price, soldBy);
+    const { platformFee, tutorShare } =
+      await this.commissionService.calculateCourseEarnings(
+        course.price,
+        soldBy,
+      );
 
     await this.dataSource.transaction(async (manager) => {
       const existing = await manager.findOne(CourseEnrollment, {
         where: { studentId, courseId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (existing) throw new BadRequestException('Already enrolled in this course');
+      if (existing)
+        throw new BadRequestException('Already enrolled in this course');
 
       const studentProfile = await manager.findOne(StudentProfile, {
         where: { userId: studentId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!studentProfile) throw new NotFoundException('Student profile not found');
-      if (studentProfile.balance < course.price) throw new BadRequestException('Insufficient balance');
+      if (!studentProfile)
+        throw new NotFoundException('Student profile not found');
+      if (studentProfile.balance < course.price)
+        throw new BadRequestException('Insufficient balance');
 
-      await manager.decrement(StudentProfile, { userId: studentId }, 'balance', course.price);
+      await manager.decrement(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        course.price,
+      );
 
-      await manager.increment(TutorProfile, { userId: course.tutorId }, 'balance', tutorShare);
+      await manager.increment(
+        TutorProfile,
+        { userId: course.tutorId },
+        'balance',
+        tutorShare,
+      );
 
       const enrollment = manager.create(CourseEnrollment, {
         studentId,
@@ -116,6 +220,63 @@ export class CoursesService {
     return this.courseRepository.find({
       where: { tutorId },
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  async markLessonComplete(
+    studentId: string,
+    courseId: string,
+    lessonId: string,
+  ) {
+    await this.assertEnrollment(studentId, courseId);
+
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, courseId },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+
+    const enrollment = await this.enrollmentRepository.findOne({
+      where: { studentId, courseId },
+    });
+    if (!enrollment) throw new NotFoundException('Enrollment not found');
+
+    return this.dataSource.transaction(async (manager) => {
+      const existing = await manager.findOne(CourseLessonCompletion, {
+        where: { enrollmentId: enrollment.id, courseLessonId: lessonId },
+      });
+
+      if (!existing) {
+        await manager.save(
+          CourseLessonCompletion,
+          manager.create(CourseLessonCompletion, {
+            enrollmentId: enrollment.id,
+            courseLessonId: lessonId,
+          }),
+        );
+      }
+
+      const totalLessons = await manager.count(CourseLesson, {
+        where: { courseId },
+      });
+      const completedCount = await manager.count(CourseLessonCompletion, {
+        where: { enrollmentId: enrollment.id },
+      });
+      const progressPercentage =
+        totalLessons > 0
+          ? Math.round((completedCount / totalLessons) * 100)
+          : 0;
+
+      await manager.update(
+        CourseEnrollment,
+        { id: enrollment.id },
+        { progressPercentage },
+      );
+
+      return {
+        lessonId,
+        progressPercentage,
+        isCompleted: true,
+      };
     });
   }
 }

@@ -15,10 +15,7 @@ export class ReviewsController {
 
   @Post()
   @Roles(UserRole.STUDENT)
-  create(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateReviewDto,
-  ) {
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateReviewDto) {
     return this.reviewsService.create(user.id, dto);
   }
 
@@ -36,10 +33,7 @@ export class ReviewsController {
 
   @Patch(':id/status')
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
-  updateStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateReviewStatusDto,
-  ) {
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateReviewStatusDto) {
     return this.reviewsService.updateStatus(id, dto);
   }
 }

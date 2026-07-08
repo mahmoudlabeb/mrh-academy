@@ -33,7 +33,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       relations: { subAdminProfile: true },
     });
     if (!user) {
-      throw new UnauthorizedException('User no longer exists or has been purged.');
+      throw new UnauthorizedException(
+        'User no longer exists or has been purged.',
+      );
     }
     return {
       id: payload.sub,

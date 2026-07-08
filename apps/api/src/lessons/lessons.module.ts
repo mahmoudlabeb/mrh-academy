@@ -13,7 +13,13 @@ import { LessonsService } from './lessons.service.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Lesson, TutorProfile, StudentProfile, Classroom, User]),
+    TypeOrmModule.forFeature([
+      Lesson,
+      TutorProfile,
+      StudentProfile,
+      Classroom,
+      User,
+    ]),
   ],
   controllers: [LessonsController],
   providers: [LessonsService, CalendarService, EmailService],

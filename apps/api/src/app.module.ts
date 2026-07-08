@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -32,6 +32,8 @@ import { CoursesModule } from './courses/courses.module.js';
 import { StudentsModule } from './students/students.module.js';
 import { SharedModule } from './shared/shared.module.js';
 import { VocabularyModule } from './vocabulary/vocabulary.module.js';
+import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
+import { XssCleanMiddleware } from './common/xss-clean.middleware.js';
 import * as dbEntities from './entities/index.js';
 
 @Module({
@@ -60,7 +62,9 @@ import * as dbEntities from './entities/index.js';
         BUNNY_API_KEY: Joi.string().optional().allow(''),
         BUNNY_LIBRARY_ID: Joi.string().optional().allow(''),
         GEMINI_API_KEY: Joi.string().optional().allow(''),
-        NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
+        NODE_ENV: Joi.string()
+          .valid('development', 'test', 'production')
+          .default('development'),
       }),
     }),
     TypeOrmModule.forRootAsync({
@@ -71,7 +75,7 @@ import * as dbEntities from './entities/index.js';
         return {
           type: 'postgres',
           ...(dbUrl
-            ? { url: dbUrl, ssl: true }
+            ? { url: dbUrl, ssl: { rejectUnauthorized: false } }
             : {
                 host: configService.get<string>('DATABASE_HOST'),
                 port: configService.get<number>('DATABASE_PORT'),
@@ -139,4 +143,8 @@ import * as dbEntities from './entities/index.js';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CsrfOriginMiddleware, XssCleanMiddleware).forRoutes('*');
+  }
+}

@@ -11,6 +11,7 @@ import { AdminReviewsController } from './admin-reviews.controller.js';
 import { AdminImpersonationController } from './admin-impersonation.controller.js';
 import { AdminPaymentsController } from './admin-payments.controller.js';
 import { AdminReportsController } from './admin-reports.controller.js';
+import { AdminEmployeesService } from './admin-employees.service.js';
 import { TutorsModule } from '../tutors/tutors.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
@@ -20,6 +21,7 @@ import { StudentProfile } from '../entities/student-profile.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { Lesson } from '../entities/lesson.entity.js';
 import { Employee } from '../entities/employee.entity.js';
+import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
 import { Setting } from '../entities/setting.entity.js';
 import { Course } from '../entities/course.entity.js';
 import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
@@ -39,6 +41,7 @@ import { Report } from '../entities/report.entity.js';
       TutorProfile,
       Lesson,
       Employee,
+      SubAdminProfile,
       Setting,
       Course,
       CourseEnrollment,
@@ -47,6 +50,7 @@ import { Report } from '../entities/report.entity.js';
       Report,
     ]),
   ],
+  providers: [AdminEmployeesService],
   controllers: [
     AdminTutorsController,
     AdminStatsController,

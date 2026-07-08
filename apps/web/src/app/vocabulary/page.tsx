@@ -42,7 +42,7 @@ export default function VocabularyPage() {
     mutationFn: async (word: string) => {
       const { data } = await apiClient.post<DefinitionResult>('/vocabulary/define', {
         word,
-        language: isAr ? 'en' : 'en',
+        language: isAr ? 'ar' : 'en',
       });
       return data;
     },

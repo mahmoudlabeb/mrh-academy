@@ -106,8 +106,35 @@ export default function TutorPage() {
   const coursesQuery = useQuery({
     queryKey: ['my-courses'],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ id: string; title: string; price: number }[]>('/courses/my');
+      const { data } = await apiClient.get<{ id: string; title: string; price: number }[]>('/courses/my/courses');
       return data;
+    },
+  });
+
+  const recentLessonsQuery = useQuery({
+    queryKey: ['tutor-recent-lessons'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Array<{
+        id: string;
+        status: string;
+        scheduledTime: string;
+        student?: { firstName?: string; lastName?: string };
+      }>>('/lessons');
+      return (data ?? []).slice(0, 5);
+    },
+  });
+
+  const activeLessonsQuery = useQuery({
+    queryKey: ['tutor-active-lessons'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Array<{
+        id: string;
+        status: string;
+        scheduledTime: string;
+        meetUrl?: string;
+        student?: { firstName?: string; lastName?: string };
+      }>>('/lessons');
+      return (data ?? []).filter((l) => l.status === 'confirmed' && l.meetUrl);
     },
   });
 
@@ -282,20 +309,36 @@ export default function TutorPage() {
             )}
 
             <div className="card-dark p-6">
-              <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('النشاط الأخير', 'Recent Activity')}</h3>
+              <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
+                {t('النشاط الأخير', 'Recent Activity')}
+              </h3>
               <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-4 py-3 border-b" style={{ borderColor: 'var(--border-color)' }}>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.12)', color: 'var(--primary-color)' }}>
-                      {`S${i}`}
+                {recentLessonsQuery.isLoading ? (
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري التحميل...', 'Loading...')}</p>
+                ) : (recentLessonsQuery.data ?? []).length === 0 ? (
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا يوجد نشاط حديث', 'No recent activity')}</p>
+                ) : (
+                  recentLessonsQuery.data?.map((lesson) => (
+                    <div key={lesson.id} className="flex items-center gap-4 py-3 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.12)', color: 'var(--primary-color)' }}>
+                        {lesson.student?.firstName?.[0] ?? 'S'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                          {lesson.student
+                            ? `${lesson.student.firstName ?? ''} ${lesson.student.lastName ?? ''}`.trim()
+                            : t('طالب', 'Student')}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {new Date(lesson.scheduledTime).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className="badge text-xs" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                        {lesson.status}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{t(`درس مع الطالب ${i}`, `Lesson with Student ${i}`)}</p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('تم ب منذ 3 ساعات', 'Completed 3 hours ago')}</p>
-                    </div>
-                    <span className="badge text-xs" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>{t('مكتمل', 'Done')}</span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -321,14 +364,40 @@ export default function TutorPage() {
         return <StudentsList />;
       case 'classroom':
         return (
-          <div className="card-dark p-8 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary-color)' }} strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5l4.5-4.5v12L15 13.5M3 6.75A2.25 2.25 0 015.25 4.5h7.5A2.25 2.25 0 0115 6.75v10.5A2.25 2.25 0 0112.75 19.5h-7.5A2.25 2.25 0 013 17.25V6.75z" />
-              </svg>
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{t('الفصل الدراسي', 'Classroom')}</h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {t('الدروس المؤكدة الجاهزة للدخول.', 'Confirmed lessons ready to join.')}
+              </p>
             </div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('الفصل الدراسي', 'Classroom')}</h3>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('بيئة الفصل الدراسي الافتراضي قريبًا.', 'Virtual classroom environment coming soon.')}</p>
+            {activeLessonsQuery.isLoading ? (
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري التحميل...', 'Loading...')}</p>
+            ) : (activeLessonsQuery.data ?? []).length === 0 ? (
+              <div className="card-dark p-8 text-center">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا توجد دروس نشطة', 'No active lessons')}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeLessonsQuery.data?.map((lesson) => (
+                  <div key={lesson.id} className="card-dark p-4 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold" style={{ color: 'var(--text-main)' }}>
+                        {lesson.student
+                          ? `${lesson.student.firstName ?? ''} ${lesson.student.lastName ?? ''}`.trim()
+                          : t('طالب', 'Student')}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                        {new Date(lesson.scheduledTime).toLocaleString()}
+                      </p>
+                    </div>
+                    <Link href={`/classroom/${lesson.meetUrl}`} className="btn-primary text-sm px-4 py-2">
+                      {t('دخول الفصل', 'Enter Classroom')}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       case 'insights':
@@ -354,22 +423,22 @@ export default function TutorPage() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--bg-main)' }}>
+    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: 'var(--bg-main)' }}>
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 min-h-screen" style={{ background: '#0F3A40', borderLeft: '1px solid #1D535B' }}>
+      <aside className="w-full lg:w-64 flex-shrink-0 lg:min-h-screen overflow-x-auto" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderLeft: 'none' }}>
         <div className="p-4 border-b" style={{ borderColor: '#1D535B' }}>
           <Link href="/" className="flex items-center gap-2">
             <span className="text-xl font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</span>
           </Link>
         </div>
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 flex lg:flex-col gap-1 overflow-x-auto">
           {SIDEBAR_ITEMS.map((item) => {
             const active = activeSection === item.key;
             return (
               <button
                 key={item.key}
                 onClick={() => setActiveSection(item.key)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
+                className="shrink-0 lg:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
                 style={{
                   background: active ? 'rgba(212, 163, 83,0.12)' : 'transparent',
                   color: active ? '#D4A353' : '#E4CC9C',

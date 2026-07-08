@@ -20,9 +20,6 @@ export class RegisterDto {
   @MinLength(2)
   lastName: string;
 
-  @IsIn(['student'], {
-    message:
-      'Public registration only creates student accounts. Use tutor onboarding to apply as a tutor.',
-  })
-  role: 'student';
+  @IsIn(['student', 'tutor'])
+  role: 'student' | 'tutor';
 }

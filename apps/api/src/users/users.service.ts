@@ -176,7 +176,9 @@ export class UsersService {
 
     if (user.role === 'student') {
       if (!user.tutorProfile) {
-        throw new BadRequestException('You need to apply and be approved as a tutor first');
+        throw new BadRequestException(
+          'You need to apply and be approved as a tutor first',
+        );
       }
       user.role = 'tutor' as any;
     } else if (user.role === 'tutor') {

@@ -14,6 +14,18 @@ type Employee = {
   permissions: string | string[];
 };
 
+const PERMISSION_OPTIONS = [
+  'manage_tutors',
+  'manage_students',
+  'manage_lessons',
+  'manage_courses',
+  'manage_reviews',
+  'manage_payments',
+  'manage_employees',
+  'manage_settings',
+  'view_reports',
+];
+
 const emptyForm = { firstName: '', lastName: '', email: '', roleTitle: '', permissions: '' };
 
 export default function EmployeesTab() {
@@ -39,9 +51,16 @@ export default function EmployeesTab() {
       });
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: { temporaryPassword?: string }) => {
       queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
       closeModal();
+      if (data?.temporaryPassword) {
+        alert(
+          lang === 'ar'
+            ? `تم إنشاء حساب الموظف. كلمة المرور المؤقتة: ${data.temporaryPassword}`
+            : `Employee account created. Temporary password: ${data.temporaryPassword}`,
+        );
+      }
     },
   });
 
@@ -202,7 +221,10 @@ export default function EmployeesTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الصلاحيات (مفصولة بفواصل)' : 'Permissions (comma separated)'}</label>
-                <input className="input-field" value={form.permissions} onChange={(e) => setForm(f => ({ ...f, permissions: e.target.value }))} placeholder={lang === 'ar' ? 'مثال: users.read, users.write' : 'e.g. users.read, users.write'} />
+                <input className="input-field" value={form.permissions} onChange={(e) => setForm(f => ({ ...f, permissions: e.target.value }))} placeholder="manage_tutors, manage_courses, view_reports" />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {PERMISSION_OPTIONS.join(', ')}
+                </p>
               </div>
             </form>
             <div className="px-6 py-4 border-t border-[var(--border-color)] flex justify-end gap-3">

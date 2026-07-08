@@ -94,8 +94,8 @@ export default function PaymentsTab() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="badge text-xs"
-                        style={payment.status === 'completed' ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' } : payment.status === 'pending' ? { background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' } : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                        {payment.status === 'completed' ? (lang === 'ar' ? 'مكتملة' : 'Completed') : payment.status === 'pending' ? (lang === 'ar' ? 'معلقة' : 'Pending') : (lang === 'ar' ? 'مرفوضة' : 'Rejected')}
+                        style={payment.status === 'approved' ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' } : payment.status === 'pending' ? { background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' } : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                        {payment.status === 'approved' ? (lang === 'ar' ? 'معتمدة' : 'Approved') : payment.status === 'pending' ? (lang === 'ar' ? 'معلقة' : 'Pending') : (lang === 'ar' ? 'مرفوضة' : 'Rejected')}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-left">

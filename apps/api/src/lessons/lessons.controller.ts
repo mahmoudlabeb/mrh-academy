@@ -42,12 +42,24 @@ export class LessonsController {
     return this.lessonsService.bookLesson(user.id, dto);
   }
 
+  @Get('by-room/:roomId')
+  @Roles(UserRole.STUDENT, UserRole.TUTOR)
+  getLessonByRoom(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.lessonsService.findByRoomId(roomId, user.id);
+  }
+
   @Get(':id/ical')
   @Header('Content-Type', 'text/calendar')
   @Header('Content-Disposition', 'attachment; filename="lesson.ics"')
   @Roles(UserRole.STUDENT, UserRole.TUTOR)
-  async exportIcal(@Param('id') id: string) {
-    return this.lessonsService.exportIcal(id, this.calendarService);
+  async exportIcal(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.lessonsService.exportIcal(id, user.id, this.calendarService);
   }
 
   @Post(':id/cancel')

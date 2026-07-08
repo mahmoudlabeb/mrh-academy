@@ -20,11 +20,13 @@ describe('ReviewsService', () => {
     saveError?: unknown;
   }) => {
     const lessonRepository = {
-      findOne: jest.fn().mockResolvedValue(
-        overrides?.lesson === null
-          ? null
-          : { ...lesson, ...(overrides?.lesson ?? {}) },
-      ),
+      findOne: jest
+        .fn()
+        .mockResolvedValue(
+          overrides?.lesson === null
+            ? null
+            : { ...lesson, ...(overrides?.lesson ?? {}) },
+        ),
     };
     const reviewRepository = {
       create: jest.fn((review) => review),
@@ -61,7 +63,10 @@ describe('ReviewsService', () => {
     });
 
     expect(reviewRepository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ lessonId: lesson.id, status: CourseStatus.PENDING }),
+      expect.objectContaining({
+        lessonId: lesson.id,
+        status: CourseStatus.PENDING,
+      }),
     );
   });
 

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { AvailabilityService } from './availability.service.js';
 import { CreateAvailabilityDto, UpdateAvailabilityDto } from './dto/index.js';
@@ -12,7 +22,10 @@ export class AvailabilityController {
 
   @Post('tutor/availability')
   @Roles(UserRole.TUTOR)
-  create(@CurrentUser() user: { id: string }, @Body() dto: CreateAvailabilityDto) {
+  create(
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreateAvailabilityDto,
+  ) {
     return this.availabilityService.create(user.id, dto);
   }
 

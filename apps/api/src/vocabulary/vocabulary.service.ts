@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GeminiService } from '../services/gemini.service.js';
@@ -13,6 +17,12 @@ export class VocabularyService {
   ) {}
 
   async defineWord(word: string, language = 'en') {
+    if (!this.geminiService.isConfigured()) {
+      throw new ServiceUnavailableException(
+        'AI vocabulary service is not configured',
+      );
+    }
+
     const prompt = `You are a vocabulary tutor. For the word/phrase "${word}" (language: ${language}), provide a JSON response with exactly these fields:
 {
   "word": "${word}",
@@ -26,7 +36,10 @@ Return ONLY valid JSON, no markdown formatting.`;
 
     const raw = await this.geminiService.generate(prompt);
     try {
-      const cleaned = raw.replace(/```json?/gi, '').replace(/```/g, '').trim();
+      const cleaned = raw
+        .replace(/```json?/gi, '')
+        .replace(/```/g, '')
+        .trim();
       return JSON.parse(cleaned);
     } catch {
       return {
@@ -40,14 +53,17 @@ Return ONLY valid JSON, no markdown formatting.`;
     }
   }
 
-  async saveWord(userId: string, data: {
-    word: string;
-    definition: string;
-    examples?: string;
-    translation?: string;
-    language?: string;
-    contextSentence?: string;
-  }) {
+  async saveWord(
+    userId: string,
+    data: {
+      word: string;
+      definition: string;
+      examples?: string;
+      translation?: string;
+      language?: string;
+      contextSentence?: string;
+    },
+  ) {
     const entry = this.vocabRepository.create({ userId, ...data });
     return this.vocabRepository.save(entry);
   }

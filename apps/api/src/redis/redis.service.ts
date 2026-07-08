@@ -48,7 +48,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const keys: string[] = [];
     let cursor = '0';
     do {
-      const result = await this.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      const result = await this.redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100,
+      );
       cursor = result[0];
       keys.push(...result[1]);
     } while (cursor !== '0');
@@ -70,7 +76,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       try {
         return JSON.parse(cached);
       } catch {
-          // ignore
+        // ignore
       }
     }
     const value = await factory();

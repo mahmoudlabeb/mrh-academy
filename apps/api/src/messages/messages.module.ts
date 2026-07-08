@@ -9,9 +9,7 @@ import { NotificationsController } from './notifications.controller.js';
 import { MessagesService } from './messages.service.js';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Message, Lesson, User, Notification]),
-  ],
+  imports: [TypeOrmModule.forFeature([Message, Lesson, User, Notification])],
   controllers: [MessagesController, NotificationsController],
   providers: [MessagesService],
 })

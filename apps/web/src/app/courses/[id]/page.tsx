@@ -26,6 +26,7 @@ type CourseLesson = {
   title: string;
   durationMinutes: number;
   lessonOrder: number;
+  isCompleted?: boolean;
 };
 
 export default function CourseDetailPage() {
@@ -44,11 +45,34 @@ export default function CourseDetailPage() {
     },
   });
 
+  const { data: enrollments } = useQuery({
+    queryKey: ['my-enrollments'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Array<{ courseId: string; progressPercentage: number }>>('/courses/my/enrollments');
+      return data;
+    },
+    enabled: !!user && user.role === 'student',
+  });
+
+  const enrollment = enrollments?.find((e) => e.courseId === params.id);
+
   const { data: lessons } = useQuery({
     queryKey: ['course-lessons', params.id],
     queryFn: async () => {
       const { data } = await apiClient.get<CourseLesson[]>(`/courses/${params.id}/lessons`);
       return data;
+    },
+    enabled: !!user && !!enrollment,
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      const { data } = await apiClient.post(`/courses/${params.id}/lessons/${lessonId}/complete`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['course-lessons', params.id] });
+      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
     },
   });
 
@@ -68,6 +92,7 @@ export default function CourseDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['course-lessons', params.id] });
       router.push('/student?tab=lessons');
     },
   });
@@ -135,6 +160,25 @@ export default function CourseDetailPage() {
             <h1 className="text-3xl font-bold" style={{ color: 'var(--text-main)' }}>{course.title}</h1>
             <p className="leading-relaxed" style={{ color: 'var(--text-muted)' }}>{course.description}</p>
 
+            {enrollment && (
+              <div className="card p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+                    {lang === 'ar' ? 'تقدمك في الكورس' : 'Your Progress'}
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
+                    {enrollment.progressPercentage}%
+                  </span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-light)' }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${enrollment.progressPercentage}%`, background: '#D4A353' }}
+                  />
+                </div>
+              </div>
+            )}
+
             {lessons && lessons.length > 0 && (
               <div>
                 <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-main)' }}>
@@ -142,16 +186,26 @@ export default function CourseDetailPage() {
                 </h2>
                 <div className="space-y-2">
                   {lessons.map((lesson) => (
-                    <div key={lesson.id} className="card p-4 flex items-center justify-between">
+                    <div key={lesson.id} className="card p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.15)', color: '#D4A353' }}>
-                          {lesson.lessonOrder}
+                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: lesson.isCompleted ? 'rgba(34,197,94,0.15)' : 'rgba(212, 163, 83,0.15)', color: lesson.isCompleted ? '#22c55e' : '#D4A353' }}>
+                          {lesson.isCompleted ? '✓' : lesson.lessonOrder}
                         </span>
                         <div>
                           <p className="font-medium text-sm" style={{ color: 'var(--text-main)' }}>{lesson.title}</p>
                           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lesson.durationMinutes} {lang === 'ar' ? 'دقيقة' : 'min'}</p>
                         </div>
                       </div>
+                      {enrollment && !lesson.isCompleted && (
+                        <button
+                          type="button"
+                          onClick={() => completeMutation.mutate(lesson.id)}
+                          disabled={completeMutation.isPending}
+                          className="btn-primary text-xs px-3 py-1.5 shrink-0"
+                        >
+                          {lang === 'ar' ? 'إكمال' : 'Complete'}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -170,19 +224,26 @@ export default function CourseDetailPage() {
                 <span className="font-medium" style={{ color: 'var(--text-main)' }}>{course.tutor.firstName} {course.tutor.lastName}</span>
               </p>
 
-              {user ? (
-                <button
-                  onClick={() => {
-                    if (!user) return router.push('/login');
-                    enrollMutation.mutate();
-                  }}
-                  disabled={enrollMutation.isPending}
-                  className="btn-primary w-full"
-                >
-                  {enrollMutation.isPending
-                    ? (lang === 'ar' ? 'جاري التسجيل...' : 'Enrolling...')
-                    : (lang === 'ar' ? 'سجل الآن' : 'Enroll Now')}
-                </button>
+              {user?.role === 'student' ? (
+                enrollment ? (
+                  <p className="text-sm text-center py-3" style={{ color: '#22c55e' }}>
+                    {lang === 'ar' ? 'أنت مسجل في هذا الكورس' : 'You are enrolled in this course'}
+                  </p>
+                ) : (
+                  <button
+                    onClick={() => enrollMutation.mutate()}
+                    disabled={enrollMutation.isPending}
+                    className="btn-primary w-full"
+                  >
+                    {enrollMutation.isPending
+                      ? (lang === 'ar' ? 'جاري التسجيل...' : 'Enrolling...')
+                      : (lang === 'ar' ? 'سجل الآن' : 'Enroll Now')}
+                  </button>
+                )
+              ) : user ? (
+                <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+                  {lang === 'ar' ? 'التسجيل متاح للطلاب فقط' : 'Enrollment is for students only'}
+                </p>
               ) : (
                 <Link href="/login" className="btn-primary w-full block text-center">
                   {lang === 'ar' ? 'سجل الدخول للتسجيل' : 'Login to Enroll'}

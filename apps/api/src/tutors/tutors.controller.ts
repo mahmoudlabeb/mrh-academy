@@ -1,4 +1,15 @@
-import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile, Get, Param, Put, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Get,
+  Param,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TutorsService } from './tutors.service.js';
 import { AvailabilityService } from '../availability/availability.service.js';
@@ -75,17 +86,26 @@ export class TutorsController {
   }
 
   @Get('me/stats')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
   getMyStats(@CurrentUser() user: { id: string }) {
     return this.tutorsService.getTutorStats(user.id);
+  }
+
+  @Get('me/students')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  getMyStudents(@CurrentUser() user: { id: string }) {
+    return this.tutorsService.getTutorStudents(user.id);
   }
 
   // --- APPLICATION ---
 
   @Post('apply')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('document', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('document', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async applyToBeTutor(
     @CurrentUser() user: { id: string },
     @Body() dto: ApplyTutorDto,

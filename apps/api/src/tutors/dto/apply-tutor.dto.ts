@@ -1,4 +1,15 @@
-import { IsString, IsNotEmpty, IsArray, ArrayNotEmpty, IsNumber, IsOptional, IsUrl, MinLength, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  ArrayNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsUrl,
+  MinLength,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class ApplyTutorDto {
   @IsString()

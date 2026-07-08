@@ -8,9 +8,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { VocabularyService } from './vocabulary.service.js';
+import { DefineWordDto } from './dto/define-word.dto.js';
 
 @Controller('vocabulary')
 @UseGuards(JwtAuthGuard)
@@ -18,9 +20,10 @@ export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
 
   @Post('define')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async defineWord(
     @CurrentUser() user: { id: string },
-    @Body() dto: { word: string; language?: string },
+    @Body() dto: DefineWordDto,
   ) {
     return this.vocabularyService.defineWord(dto.word, dto.language);
   }
@@ -28,7 +31,8 @@ export class VocabularyController {
   @Post('save')
   async saveWord(
     @CurrentUser() user: { id: string },
-    @Body() dto: {
+    @Body()
+    dto: {
       word: string;
       definition: string;
       examples?: string;

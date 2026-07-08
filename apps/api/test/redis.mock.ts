@@ -30,7 +30,11 @@ export class RedisServiceMock {
   ): Promise<T> {
     const cached = this.store.get(key);
     if (cached !== undefined) {
-      try { return JSON.parse(cached); } catch { /* ignore */ }
+      try {
+        return JSON.parse(cached);
+      } catch {
+        /* ignore */
+      }
     }
     const value = await factory();
     this.store.set(key, JSON.stringify(value));

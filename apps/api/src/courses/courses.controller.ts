@@ -1,4 +1,12 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -23,14 +31,30 @@ export class CoursesController {
     return this.coursesService.findAllApproved();
   }
 
+  @Get('my/enrollments')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  myEnrollments(@CurrentUser() user: AuthenticatedUser) {
+    return this.coursesService.getEnrollments(user.id);
+  }
+
+  @Get('my/courses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  myCourses(@CurrentUser() user: AuthenticatedUser) {
+    return this.coursesService.getMyCourses(user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.coursesService.findOne(id);
   }
 
   @Get(':id/lessons')
-  findLessons(@Param('id') id: string) {
-    return this.coursesService.findLessons(id);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN, UserRole.SUBADMIN)
+  findLessons(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.coursesService.findLessons(id, user.id, user.role);
   }
 
   @Post()
@@ -51,27 +75,37 @@ export class CoursesController {
     return this.coursesService.enroll(user.id, id, dto);
   }
 
+  @Post(':courseId/lessons/:lessonId/complete')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  completeLesson(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+  ) {
+    return this.coursesService.markLessonComplete(
+      user.id,
+      courseId,
+      lessonId,
+    );
+  }
+
   @Get(':id/stream-token')
-  @UseGuards(JwtAuthGuard)
-  async getStreamToken(@Param('id') id: string) {
-    const course = await this.coursesService.findOne(id);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN)
+  async getStreamToken(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const course = await this.coursesService.findOne(id, user.id, user.role);
+    if (user.role === UserRole.STUDENT) {
+      await this.coursesService.assertEnrollment(user.id, id);
+    } else if (user.role === UserRole.TUTOR && course.tutorId !== user.id) {
+      throw new NotFoundException('No video associated with this course');
+    }
     if (!course.bunnyVideoId) {
       throw new NotFoundException('No video associated with this course');
     }
     return { token: this.bunnyService.generateSignedUrl(course.bunnyVideoId) };
-  }
-
-  @Get('my/enrollments')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT)
-  myEnrollments(@CurrentUser() user: AuthenticatedUser) {
-    return this.coursesService.getEnrollments(user.id);
-  }
-
-  @Get('my/courses')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.TUTOR)
-  myCourses(@CurrentUser() user: AuthenticatedUser) {
-    return this.coursesService.getMyCourses(user.id);
   }
 }

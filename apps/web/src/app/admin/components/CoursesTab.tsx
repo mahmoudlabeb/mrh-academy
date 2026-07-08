@@ -19,7 +19,15 @@ export default function CoursesTab() {
   const { lang } = useLanguage();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', price: 0 });
+  const [form, setForm] = useState({ title: '', description: '', price: 0, tutorId: '' });
+
+  const tutorsQuery = useQuery({
+    queryKey: ['admin-tutors-list'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Array<{ userId: string; user?: { firstName: string; lastName: string } }>>('/admin/tutors');
+      return data;
+    },
+  });
 
   const coursesQuery = useQuery({
     queryKey: ['admin-courses'],
@@ -37,7 +45,7 @@ export default function CoursesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
       setShowAdd(false);
-      setForm({ title: '', description: '', price: 0 });
+      setForm({ title: '', description: '', price: 0, tutorId: '' });
     },
   });
 
@@ -149,6 +157,22 @@ export default function CoursesTab() {
             </div>
             <div className="p-6 space-y-4">
               <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'المعلم' : 'Tutor'}</label>
+                <select
+                  className="input-field"
+                  value={form.tutorId}
+                  onChange={(e) => setForm((f) => ({ ...f, tutorId: e.target.value }))}
+                  required
+                >
+                  <option value="">{lang === 'ar' ? 'اختر معلمًا' : 'Select a tutor'}</option>
+                  {tutorsQuery.data?.map((tutor) => (
+                    <option key={tutor.userId} value={tutor.userId}>
+                      {tutor.user ? `${tutor.user.firstName} ${tutor.user.lastName}` : tutor.userId}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'عنوان الكورس' : 'Course Title'}</label>
                 <input className="input-field" value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} required />
               </div>
@@ -165,7 +189,7 @@ export default function CoursesTab() {
               <button onClick={() => setShowAdd(false)} className="btn-secondary">{lang === 'ar' ? 'إلغاء' : 'Cancel'}</button>
               <button
                 onClick={() => createMutation.mutate(form)}
-                disabled={createMutation.isPending || !form.title}
+                disabled={createMutation.isPending || !form.title || !form.tutorId}
                 className="btn-primary"
               >
                 {createMutation.isPending ? (lang === 'ar' ? 'جاري الإنشاء...' : 'Creating...') : (lang === 'ar' ? 'إنشاء' : 'Create')}

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { Payment } from '../entities/payment.entity.js';
 import { Lesson } from '../entities/lesson.entity.js';
+import { CommissionService } from '../services/commission.service.js';
 
 @Injectable()
 export class StudentsService {
@@ -14,6 +15,7 @@ export class StudentsService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
+    private readonly commissionService: CommissionService,
   ) {}
 
   async getBalance(userId: string) {
@@ -21,7 +23,8 @@ export class StudentsService {
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Student profile not found');
-    return { balance: profile.balance };
+    const creditPrice = await this.commissionService.getCreditPrice();
+    return { balance: profile.balance, creditPrice };
   }
 
   async getPaymentHistory(userId: string) {

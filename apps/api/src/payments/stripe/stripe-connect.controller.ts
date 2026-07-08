@@ -21,15 +21,21 @@ export class StripeConnectController {
   @Post('onboarding')
   @Roles(UserRole.TUTOR)
   async startOnboarding(@CurrentUser() user: { id: string; email: string }) {
-    let profile = await this.tutorProfileRepository.findOne({ where: { userId: user.id } });
+    const profile = await this.tutorProfileRepository.findOne({
+      where: { userId: user.id },
+    });
     if (!profile) throw new Error('Tutor profile not found');
 
     let accountId = profile.stripeAccountId;
 
     if (!accountId) {
-      const account = await this.stripeService.createConnectedAccount(user.email);
+      const account = await this.stripeService.createConnectedAccount(
+        user.email,
+      );
       accountId = account.id;
-      await this.tutorProfileRepository.update(user.id, { stripeAccountId: accountId });
+      await this.tutorProfileRepository.update(user.id, {
+        stripeAccountId: accountId,
+      });
     }
 
     const url = await this.stripeService.generateOnboardingLink(accountId);
@@ -39,7 +45,9 @@ export class StripeConnectController {
   @Get('status')
   @Roles(UserRole.TUTOR)
   async getStatus(@CurrentUser() user: { id: string }) {
-    const profile = await this.tutorProfileRepository.findOne({ where: { userId: user.id } });
+    const profile = await this.tutorProfileRepository.findOne({
+      where: { userId: user.id },
+    });
     if (!profile) return { connected: false, onboardingComplete: false };
 
     return {

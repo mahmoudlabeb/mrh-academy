@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RedisService } from '../../redis/redis.service.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
@@ -22,7 +28,9 @@ export class SessionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     if (!user || !user.id) {
-      throw new UnauthorizedException('Session expired or logged in from another device');
+      throw new UnauthorizedException(
+        'Session expired or logged in from another device',
+      );
     }
 
     // Non-students (tutor, admin, subadmin) have no sessionId — skip Redis check
@@ -30,13 +38,19 @@ export class SessionGuard implements CanActivate {
       return true;
     }
 
-    const activeSession = await this.redisService.get(`user_session:${user.id}`);
+    const activeSession = await this.redisService.get(
+      `user_session:${user.id}`,
+    );
     // Redis unset/offline — DO NOT allow in dev or prod; it must fail closed
     if (activeSession === null && !this.redisService.connected) {
-      throw new Error('Redis is unavailable — Session enforcement failed.');
+      throw new ServiceUnavailableException(
+        'Session service temporarily unavailable',
+      );
     }
     if (activeSession !== user.sessionId) {
-      throw new UnauthorizedException('Session expired or logged in from another device');
+      throw new UnauthorizedException(
+        'Session expired or logged in from another device',
+      );
     }
 
     return true;

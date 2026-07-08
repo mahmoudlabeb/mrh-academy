@@ -4,7 +4,8 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class GeminiService {
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  private readonly baseUrl =
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY', '');
@@ -15,7 +16,8 @@ export class GeminiService {
   }
 
   async generate(prompt: string): Promise<string> {
-    if (!this.apiKey) return 'AI service not configured. Please set GEMINI_API_KEY.';
+    if (!this.apiKey)
+      return 'AI service not configured. Please set GEMINI_API_KEY.';
 
     const res = await fetch(`${this.baseUrl}?key=${this.apiKey}`, {
       method: 'POST',

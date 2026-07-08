@@ -20,7 +20,7 @@ export default function StudentsList() {
   const { data: students = [], isLoading } = useQuery<StudentInfo[]>({
     queryKey: ['tutor', 'students'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/tutor/students');
+      const { data } = await apiClient.get('/tutors/me/students');
       return data;
     },
   });

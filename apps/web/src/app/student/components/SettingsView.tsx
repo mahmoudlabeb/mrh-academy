@@ -255,11 +255,11 @@ export default function SettingsView() {
                       <span
                         className="badge text-[10px] mt-1"
                         style={{
-                          background: record.status === 'completed' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: record.status === 'completed' ? '#22c55e' : '#ef4444',
+                          background: record.status === 'approved' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: record.status === 'approved' ? '#22c55e' : '#ef4444',
                         }}
                       >
-                        {record.status === 'completed' ? t('مكتمل', 'Completed') : t('فشل', 'Failed')}
+                        {record.status === 'approved' ? t('مكتمل', 'Approved') : t('فشل', 'Failed')}
                       </span>
                     </div>
                   </div>

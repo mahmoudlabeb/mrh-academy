@@ -21,6 +21,12 @@ async function bootstrap() {
   console.log('Starting Database Seeding...');
 
   if (process.env.NODE_ENV !== 'production') {
+    if (process.env.CONFIRM_SEED !== 'yes') {
+      console.error(
+        'Refusing to run seed: set CONFIRM_SEED=yes to allow schema drop in non-production.',
+      );
+      process.exit(1);
+    }
     console.log('Dropping and recreating schema...');
     await dataSource.synchronize(true);
   }
@@ -203,14 +209,16 @@ async function bootstrap() {
     courseRepository.create({
       tutorId: yasmeenUser.id,
       title: 'العربية الفصحى لغير الناطقين بها',
-      description: 'دورة شاملة لتعليم اللغة العربية الفصحى للمبتدئين والمتقدمين.',
+      description:
+        'دورة شاملة لتعليم اللغة العربية الفصحى للمبتدئين والمتقدمين.',
       price: 120,
       status: CourseStatus.APPROVED,
     }),
     courseRepository.create({
       tutorId: sarahUser.id,
       title: 'English Conversation Masterclass',
-      description: 'Master everyday English conversation with a native-level instructor.',
+      description:
+        'Master everyday English conversation with a native-level instructor.',
       price: 150,
       status: CourseStatus.APPROVED,
     }),
@@ -227,11 +235,17 @@ async function bootstrap() {
   // 12. Settings
   await settingRepository.save([
     settingRepository.create({ key: 'platform_name', value: 'Mr.H Academy' }),
-    settingRepository.create({ key: 'contact_email', value: 'hello@mrhacademy.com' }),
+    settingRepository.create({
+      key: 'contact_email',
+      value: 'hello@mrhacademy.com',
+    }),
     settingRepository.create({ key: 'default_lesson_price', value: '15' }),
     settingRepository.create({ key: 'maintenance_mode', value: 'false' }),
     settingRepository.create({ key: 'course_tutor_promo_rate', value: '0.02' }),
-    settingRepository.create({ key: 'course_academy_base_rate', value: '0.53' }),
+    settingRepository.create({
+      key: 'course_academy_base_rate',
+      value: '0.53',
+    }),
   ]);
   console.log('System settings created.');
 

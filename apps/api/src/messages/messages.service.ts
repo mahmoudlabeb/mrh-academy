@@ -125,14 +125,35 @@ export class MessagesService {
   }
 
   async getNotifications(userId: string, unread?: boolean) {
-    const where: any = { userId };
-    if (unread !== undefined) {
-      where.isRead = !unread;
+    const where: { userId: string; isRead?: boolean } = { userId };
+    if (unread === true) {
+      where.isRead = false;
+    } else if (unread === false) {
+      where.isRead = true;
     }
     return this.notificationRepository.find({
       where,
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async markNotificationRead(userId: string, notificationId: string) {
+    const notification = await this.notificationRepository.findOne({
+      where: { id: notificationId, userId },
+    });
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+    notification.isRead = true;
+    return this.notificationRepository.save(notification);
+  }
+
+  async markAllNotificationsRead(userId: string) {
+    await this.notificationRepository.update(
+      { userId, isRead: false },
+      { isRead: true },
+    );
+    return { message: 'All notifications marked as read' };
   }
 
   async getConversation(

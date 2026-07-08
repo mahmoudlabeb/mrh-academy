@@ -1,6 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, VerifyCallback, StrategyOptions } from 'passport-google-oauth20';
+import {
+  Strategy,
+  VerifyCallback,
+  StrategyOptions,
+} from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -19,7 +23,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: clientSecret ?? 'missing',
       callbackURL: callbackURL ?? 'http://localhost/missing',
       scope: ['profile', 'email'],
-    } as StrategyOptions);
+    });
 
     this.googleEnabled = enabled;
   }
@@ -31,7 +35,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     _done: VerifyCallback,
   ) {
     if (!this.googleEnabled) {
-      throw new UnauthorizedException('Google authentication is not configured');
+      throw new UnauthorizedException(
+        'Google authentication is not configured',
+      );
     }
     const { id, emails, name, photos } = profile;
     return {

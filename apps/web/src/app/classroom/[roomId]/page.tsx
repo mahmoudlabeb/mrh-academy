@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { getSocket, disconnectSocket } from '@/lib/socket';
+import { useWebRTC } from '@/hooks/useWebRTC';
 
 interface ChatMessage {
   senderId: string;
@@ -82,6 +83,15 @@ export default function ClassroomPage() {
   });
 
   const lessonId = lesson?.id || roomId;
+  const peerUser = participants.find((p) => p.userId !== user?.id);
+  const {
+    activeCall,
+    remoteStreams,
+    localStreamRef,
+    isCallLoading,
+    startCall,
+    stopCall,
+  } = useWebRTC(lessonId, user?.id || '', peerUser?.userId || null);
 
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -413,17 +423,17 @@ export default function ClassroomPage() {
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-main)' }}>
       {/* Top Bar */}
       <header
-        className="flex items-center justify-between px-4 py-2 shrink-0"
+        className="flex items-center justify-between px-2 md:px-4 py-2 shrink-0 flex-wrap gap-2"
         style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B' }}
       >
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
+        <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+          <span className="text-xs md:text-sm font-bold" style={{ color: '#D4A353' }}>
             {lesson?.title || t('غرفة الدرس', 'Classroom')}
           </span>
-          <span className="text-xs font-mono" style={{ color: '#E4CC9C' }}>
+          <span className="text-[10px] md:text-xs font-mono" style={{ color: '#E4CC9C' }}>
             {formatTime(elapsed)}
           </span>
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: '#1D535B' }}>
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: '#1D535B' }}>
             <div
               className="w-2 h-2 rounded-full"
               style={{
@@ -438,7 +448,7 @@ export default function ClassroomPage() {
             <select
               value={focusedStudent || ''}
               onChange={(e) => setFocusedStudent(e.target.value || null)}
-              className="text-xs px-2 py-1 rounded-lg"
+              className="text-xs px-2 py-1 rounded-lg max-w-[120px]"
               style={{ background: '#1D535B', color: '#FFFFF0', border: '1px solid #1D535B' }}
             >
               <option value="">{t('كل الطلاب', 'All Students')}</option>
@@ -453,9 +463,9 @@ export default function ClassroomPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           <div
-            className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
+            className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
           />
           <a
             href="https://meet.google.com/new"
@@ -493,9 +503,9 @@ export default function ClassroomPage() {
       </header>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
         {/* Whiteboard Area */}
-        <div className="flex flex-col flex-1 min-w-0" style={{ background: 'var(--bg-main)' }}>
+        <div className="flex flex-col flex-1 min-w-0 order-2 lg:order-1" style={{ background: 'var(--bg-main)' }}>
           {/* Drawing Toolbar */}
           <div
             className="flex items-center gap-2 px-4 py-2 flex-wrap"
@@ -596,6 +606,33 @@ export default function ClassroomPage() {
               className="w-full h-full rounded-xl cursor-crosshair"
               style={{ background: '#ffffff', touchAction: 'none' }}
             />
+            {/* WebRTC Remote Video Overlay */}
+            {Object.entries(remoteStreams).map(([pid, stream]) => (
+              <div
+                key={pid}
+                className="absolute bottom-3 right-3 w-48 h-36 rounded-xl overflow-hidden shadow-xl border-2"
+                style={{ borderColor: '#D4A353', zIndex: 10 }}
+              >
+                <video
+                  ref={(el) => { if (el) el.srcObject = stream; }}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ))}
+            {activeCall && activeCall !== 'screen' && localStreamRef.current && (
+              <div className="absolute bottom-3 left-3 w-32 h-24 rounded-xl overflow-hidden shadow-lg border"
+                style={{ borderColor: 'var(--border-color)', zIndex: 10 }}>
+                <video
+                  ref={(el) => { if (el) el.srcObject = localStreamRef.current; }}
+                  muted
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
           </div>
 
           {/* WebRTC Buttons */}
@@ -603,46 +640,64 @@ export default function ClassroomPage() {
             className="flex items-center gap-2 px-4 py-2"
             style={{ background: 'var(--bg-light)', borderTop: '1px solid var(--border-color)' }}
           >
-            <button
-              className="btn-ghost text-xs px-3 py-1.5"
-              style={{ color: 'var(--text-muted)', opacity: 0.5 }}
-              disabled
-              title={t('قريبًا', 'Coming soon')}
-            >
-              <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-              </svg>
-              {t('مكالمة صوتية', 'Voice Call')}
-            </button>
-            <button
-              className="btn-ghost text-xs px-3 py-1.5"
-              style={{ color: 'var(--text-muted)', opacity: 0.5 }}
-              disabled
-              title={t('قريبًا', 'Coming soon')}
-            >
-              <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-              {t('الكاميرا', 'Camera')}
-            </button>
-            <button
-              className="btn-ghost text-xs px-3 py-1.5"
-              style={{ color: 'var(--text-muted)', opacity: 0.5 }}
-              disabled
-              title={t('قريبًا', 'Coming soon')}
-            >
-              <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
-              </svg>
-              {t('مشاركة الشاشة', 'Screen Share')}
-            </button>
+            {!peerUser ? (
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {t('انتظر حتى ينضم الطرف الآخر...', 'Waiting for the other participant to join...')}
+              </span>
+            ) : (
+              <>
+                <button
+                  onClick={() => activeCall === 'voice' ? stopCall('voice') : startCall('voice')}
+                  disabled={isCallLoading}
+                  className="btn-ghost text-xs px-3 py-1.5"
+                  style={{
+                    color: activeCall === 'voice' ? '#22c55e' : 'var(--text-muted)',
+                  }}
+                >
+                  <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    {activeCall === 'voice' ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                    )}
+                  </svg>
+                  {activeCall === 'voice' ? t('إنهاء المكالمة', 'End Call') : t('مكالمة صوتية', 'Voice Call')}
+                </button>
+                <button
+                  onClick={() => activeCall === 'camera' ? stopCall('camera') : startCall('camera')}
+                  disabled={isCallLoading}
+                  className="btn-ghost text-xs px-3 py-1.5"
+                  style={{
+                    color: activeCall === 'camera' ? '#22c55e' : 'var(--text-muted)',
+                  }}
+                >
+                  <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                  {activeCall === 'camera' ? t('إيقاف الكاميرا', 'Stop Camera') : t('الكاميرا', 'Camera')}
+                </button>
+                <button
+                  onClick={() => activeCall === 'screen' ? stopCall('screen') : startCall('screen')}
+                  disabled={isCallLoading}
+                  className="btn-ghost text-xs px-3 py-1.5"
+                  style={{
+                    color: activeCall === 'screen' ? '#22c55e' : 'var(--text-muted)',
+                  }}
+                >
+                  <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+                  </svg>
+                  {activeCall === 'screen' ? t('إيقاف المشاركة', 'Stop Share') : t('مشاركة الشاشة', 'Screen Share')}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
         {/* Side Panel */}
         <div
-          className="w-80 flex-shrink-0 flex flex-col"
-          style={{ background: 'var(--bg-light)', borderLeft: '1px solid var(--border-color)' }}
+          className="w-full lg:w-80 flex-shrink-0 flex flex-col order-1 lg:order-2 max-h-80 lg:max-h-none"
+          style={{ background: 'var(--bg-light)', borderBottom: '1px solid var(--border-color)', borderLeft: 'none' }}
         >
           {/* Tab Switcher */}
           <div className="flex" style={{ borderBottom: '1px solid var(--border-color)' }}>

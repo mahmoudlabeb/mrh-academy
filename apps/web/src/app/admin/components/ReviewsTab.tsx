@@ -38,8 +38,7 @@ export default function ReviewsTab() {
 
   const rejectMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await apiClient.post(`/admin/reviews/${id}/reject`);
-      return data;
+      await apiClient.delete(`/admin/reviews/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });

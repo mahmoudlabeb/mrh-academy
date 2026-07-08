@@ -5,7 +5,11 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  OnApplicationShutdown,
+} from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -31,20 +35,25 @@ interface HealthRecord {
 @WebSocketGateway({
   namespace: '/classroom',
   cors: {
-    origin:
-      process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
   },
 })
 export class ClassroomGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnApplicationShutdown
 {
+  private static readonly MAX_ACTIONS_PER_PAGE = 2000;
+  private static readonly MAX_CHAT_PER_MINUTE = 30;
   @WebSocketServer()
   server: Server;
 
   private connectedClients = new Map<string, ConnectedClient[]>();
   private healthRecords = new Map<string, HealthRecord>();
   private healthInterval: ReturnType<typeof setInterval> | null = null;
+  private chatRateLimits = new Map<
+    string,
+    { count: number; resetAt: number }
+  >();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -94,10 +103,7 @@ export class ClassroomGateway
   }
 
   @SubscribeMessage('join_lesson')
-  async handleJoinLesson(
-    socket: Socket,
-    payload: { lessonId: string },
-  ) {
+  async handleJoinLesson(socket: Socket, payload: { lessonId: string }) {
     const { lessonId } = payload;
 
     const lesson = await this.lessonRepository.findOne({
@@ -108,7 +114,11 @@ export class ClassroomGateway
       socket.emit('error_message', 'Lesson not found');
       return;
     }
-    if (lesson.studentId !== socket.data.userId && lesson.tutorId !== socket.data.userId && socket.data.role !== 'admin') {
+    if (
+      lesson.studentId !== socket.data.userId &&
+      lesson.tutorId !== socket.data.userId &&
+      socket.data.role !== 'admin'
+    ) {
       socket.emit('error_message', 'You are not a participant of this lesson');
       return;
     }
@@ -132,12 +142,37 @@ export class ClassroomGateway
     });
   }
 
+  onApplicationShutdown() {
+    if (this.healthInterval) {
+      clearInterval(this.healthInterval);
+      this.healthInterval = null;
+    }
+  }
+
+  private assertLessonMembership(socket: Socket, lessonId: string): boolean {
+    return socket.data.currentLesson === lessonId;
+  }
+
+  private checkChatRateLimit(socketId: string): boolean {
+    const now = Date.now();
+    const record = this.chatRateLimits.get(socketId);
+    if (!record || now > record.resetAt) {
+      this.chatRateLimits.set(socketId, { count: 1, resetAt: now + 60000 });
+      return true;
+    }
+    if (record.count >= ClassroomGateway.MAX_CHAT_PER_MINUTE) return false;
+    record.count++;
+    return true;
+  }
+
   @SubscribeMessage('send_chat')
   handleSendChat(
     socket: Socket,
     payload: { lessonId: string; content: string },
   ) {
     const { lessonId, content } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
+    if (!this.checkChatRateLimit(socket.id)) return;
     if (!content || typeof content !== 'string') return;
     if (content.length > 2000) return;
 
@@ -160,6 +195,7 @@ export class ClassroomGateway
     payload: { lessonId: string; page: number; data: unknown },
   ) {
     const { lessonId, page, data } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
     socket.to(lessonId).emit('canvas_update', {
       userId: socket.data.userId,
       page,
@@ -175,7 +211,11 @@ export class ClassroomGateway
         if (!parsed.pages[pageStr]) {
           parsed.pages[pageStr] = [];
         }
-        parsed.pages[pageStr].push(data);
+        if (
+          parsed.pages[pageStr].length < ClassroomGateway.MAX_ACTIONS_PER_PAGE
+        ) {
+          parsed.pages[pageStr].push(data);
+        }
         await this.redisService.set(
           whiteboardKey,
           JSON.stringify(parsed),
@@ -189,11 +229,9 @@ export class ClassroomGateway
   }
 
   @SubscribeMessage('whiteboard_sync')
-  async handleWhiteboardSync(
-    socket: Socket,
-    payload: { lessonId: string },
-  ) {
+  async handleWhiteboardSync(socket: Socket, payload: { lessonId: string }) {
     const { lessonId } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
     const whiteboardKey = `whiteboard:${lessonId}`;
     const state = await this.redisService.get(whiteboardKey);
     if (state) {
@@ -207,6 +245,7 @@ export class ClassroomGateway
     payload: { lessonId: string; page: number },
   ) {
     const { lessonId, page } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
     const whiteboardKey = `whiteboard:${lessonId}`;
     const existing = await this.redisService.get(whiteboardKey);
     if (existing) {
@@ -382,11 +421,17 @@ export class ClassroomGateway
 
   @SubscribeMessage('ping_health')
   handlePingHealth(socket: Socket, payload: { timestamp: number }) {
-    socket.emit('pong_health', { timestamp: payload.timestamp, serverTime: Date.now() });
+    socket.emit('pong_health', {
+      timestamp: payload.timestamp,
+      serverTime: Date.now(),
+    });
   }
 
   @SubscribeMessage('health_report')
-  handleHealthReport(socket: Socket, payload: { lessonId: string; rtt: number }) {
+  handleHealthReport(
+    socket: Socket,
+    payload: { lessonId: string; rtt: number },
+  ) {
     const { lessonId, rtt } = payload;
     const userId = socket.data.userId;
     if (!userId || !lessonId) return;
@@ -405,7 +450,9 @@ export class ClassroomGateway
       })
       .map((r) => ({ userId: r.userId, rtt: r.rtt }));
 
-    this.server.to(lessonId).emit('connection_health', { participants: roomHealth });
+    this.server
+      .to(lessonId)
+      .emit('connection_health', { participants: roomHealth });
   }
 
   private ensureHealthInterval() {

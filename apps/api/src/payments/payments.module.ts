@@ -15,7 +15,11 @@ import { EmailService } from '../services/email.service.js';
   imports: [
     TypeOrmModule.forFeature([Payment, StudentProfile, TutorProfile, User]),
   ],
-  controllers: [PaymentsController, StripeWebhookController, StripeConnectController],
+  controllers: [
+    PaymentsController,
+    StripeWebhookController,
+    StripeConnectController,
+  ],
   providers: [PaymentsService, StripeService, EmailService],
   exports: [PaymentsService, StripeService],
 })

@@ -19,9 +19,14 @@ export class StripeService {
     return Boolean(this.secret);
   }
 
-  async createCheckoutSession(userId: string, amount: number, paymentId: string) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    
+  async createCheckoutSession(
+    userId: string,
+    amount: number,
+    paymentId: string,
+  ) {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
     // Convert USD to cents
     const amountInCents = Math.round(amount * 100);
 
@@ -67,7 +72,8 @@ export class StripeService {
   }
 
   async generateOnboardingLink(accountId: string): Promise<string> {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const link = await this.stripe.accountLinks.create({
       account: accountId,
       refresh_url: `${frontendUrl}/tutor?connect_refresh=true`,
@@ -81,18 +87,27 @@ export class StripeService {
     return this.stripe.accounts.retrieve(accountId);
   }
 
-  async createPayout(accountId: string, amountCents: number): Promise<Stripe.Transfer> {
-    return this.stripe.transfers.create({
-      amount: amountCents,
-      currency: 'usd',
-      destination: accountId,
-    });
+  async createPayout(
+    accountId: string,
+    amountCents: number,
+    idempotencyKey?: string,
+  ): Promise<Stripe.Transfer> {
+    return this.stripe.transfers.create(
+      {
+        amount: amountCents,
+        currency: 'usd',
+        destination: accountId,
+      },
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
   }
 
   constructEvent(req: RawBodyRequest<Request>) {
     const signature = req.headers['stripe-signature'];
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
-    
+    const webhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET',
+    );
+
     if (!signature || !webhookSecret) {
       throw new Error('Missing stripe signature or webhook secret');
     }
@@ -104,7 +119,7 @@ export class StripeService {
     return this.stripe.webhooks.constructEvent(
       req.rawBody,
       signature,
-      webhookSecret
+      webhookSecret,
     );
   }
 }

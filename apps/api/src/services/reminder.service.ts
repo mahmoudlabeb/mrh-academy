@@ -37,25 +37,29 @@ export class ReminderService {
       this.reminded.add(key);
 
       if (lesson.student?.email) {
-        this.emailService.sendEmail(
-          lesson.student.email,
-          'Lesson Reminder — MRH Academy',
-          `<p>Your lesson is starting in 1 hour!</p>
+        this.emailService
+          .sendEmail(
+            lesson.student.email,
+            'Lesson Reminder — MRH Academy',
+            `<p>Your lesson is starting in 1 hour!</p>
 <p>Tutor: ${lesson.tutor?.firstName ?? 'Tutor'} ${lesson.tutor?.lastName ?? ''}</p>
 <p>Time: ${lesson.scheduledTime.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
-        ).catch(() => {});
+          )
+          .catch(() => {});
       }
 
       if (lesson.tutor?.email) {
-        this.emailService.sendEmail(
-          lesson.tutor.email,
-          'Lesson Reminder — MRH Academy',
-          `<p>Your lesson is starting in 1 hour!</p>
+        this.emailService
+          .sendEmail(
+            lesson.tutor.email,
+            'Lesson Reminder — MRH Academy',
+            `<p>Your lesson is starting in 1 hour!</p>
 <p>Student: ${lesson.student?.firstName ?? 'Student'} ${lesson.student?.lastName ?? ''}</p>
 <p>Time: ${lesson.scheduledTime.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
-        ).catch(() => {});
+          )
+          .catch(() => {});
       }
     }
 

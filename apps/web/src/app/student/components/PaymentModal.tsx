@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/language-context';
 interface PaymentModalProps {
   onClose: () => void;
   currentBalance: string;
+  creditPrice?: number;
 }
 
 const paymentMethods = [
@@ -23,7 +24,7 @@ type PaymentMethod = (typeof paymentMethods)[number]['key'];
 
 const MANUAL_METHODS: PaymentMethod[] = ['vodafone', 'instapay', 'binance', 'bank'];
 
-export default function PaymentModal({ onClose, currentBalance }: PaymentModalProps) {
+export default function PaymentModal({ onClose, currentBalance, creditPrice = 15 }: PaymentModalProps) {
   const { lang } = useLanguage();
   const queryClient = useQueryClient();
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
@@ -71,7 +72,9 @@ export default function PaymentModal({ onClose, currentBalance }: PaymentModalPr
     submitMutation.mutate(formData);
   };
 
-  const credits = amount ? (parseFloat(amount) / 15).toFixed(2) : '0.00';
+  const credits = amount && creditPrice > 0
+    ? (parseFloat(amount) / creditPrice).toFixed(2)
+    : '0.00';
   const currentBalanceNum = parseFloat(currentBalance) || 0;
 
   const methodLabels: Record<PaymentMethod, { name: string; details?: string }> = {
@@ -160,7 +163,7 @@ export default function PaymentModal({ onClose, currentBalance }: PaymentModalPr
               <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
                 {t('ستحصل على', 'You will get')} <span className="font-semibold text-[#D4A353]">{credits}</span> {t('رصيد', 'credits')}
                 <span className="mx-1">·</span>
-                {t('سعر الصرف', 'Rate')}: $15 = 1 {t('رصيد', 'credit')}
+                {t('سعر الصرف', 'Rate')}: ${creditPrice} = 1 {t('رصيد', 'credit')}
               </p>
             )}
           </div>

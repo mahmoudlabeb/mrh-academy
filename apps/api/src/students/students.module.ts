@@ -7,9 +7,19 @@ import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { Review } from '../entities/review.entity.js';
 import { StudentsController } from './students.controller.js';
 import { StudentsService } from './students.service.js';
+import { UsersModule } from '../users/users.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StudentProfile, Payment, Lesson, TutorProfile, Review])],
+  imports: [
+    TypeOrmModule.forFeature([
+      StudentProfile,
+      Payment,
+      Lesson,
+      TutorProfile,
+      Review,
+    ]),
+    UsersModule,
+  ],
   controllers: [StudentsController],
   providers: [StudentsService],
 })
