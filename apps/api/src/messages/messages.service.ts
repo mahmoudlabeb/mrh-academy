@@ -114,6 +114,27 @@ export class MessagesService {
     return contacts;
   }
 
+  async getUnreadCount(userId: string) {
+    const count = await this.messageRepository.count({
+      where: {
+        receiverId: userId,
+        isRead: false,
+      },
+    });
+    return { count };
+  }
+
+  async getNotifications(userId: string, unread?: boolean) {
+    const where: any = { userId };
+    if (unread !== undefined) {
+      where.isRead = !unread;
+    }
+    return this.notificationRepository.find({
+      where,
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async getConversation(
     userId: string,
     contactId: string,

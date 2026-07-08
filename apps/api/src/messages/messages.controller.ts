@@ -22,6 +22,13 @@ export class MessagesController {
     return this.messagesService.getContacts(user.id);
   }
 
+  @Get('unread-count')
+  @UseGuards(JwtAuthGuard)
+  getUnreadCount(@CurrentUser() user: { id: string }) {
+    return this.messagesService.getUnreadCount(user.id);
+  }
+
+
   @Get(':userId')
   @UseGuards(JwtAuthGuard)
   getConversation(
