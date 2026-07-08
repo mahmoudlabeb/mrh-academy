@@ -20,10 +20,12 @@ export enum PaymentStatus {
 }
 
 export enum PaymentMethod {
+  CARD = 'card',
+  PAYPAL = 'paypal',
   VODAFONE = 'vodafone',
   INSTAPAY = 'instapay',
+  BINANCE = 'binance',
   BANK = 'bank',
-  PAYPAL = 'paypal',
 }
 
 export enum CourseStatus {
@@ -186,6 +188,8 @@ export const CourseSchema = z.object({
   description: z.string(),
   thumbnailUrl: z.string().nullable(),
   price: z.number(),
+  bunnyVideoId: z.string().nullable(),
+  soldBy: z.string().default('academy'),
   status: z.nativeEnum(CourseStatus).default(CourseStatus.PENDING),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),

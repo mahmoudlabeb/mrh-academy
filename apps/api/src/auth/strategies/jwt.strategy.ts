@@ -11,6 +11,7 @@ interface JwtPayload {
   email: string;
   role: User['role'];
   sessionId: string;
+  originalAdminId?: string;
 }
 
 @Injectable()
@@ -39,6 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       role: user.role,
       sessionId: payload.sessionId,
+      originalAdminId: payload.originalAdminId,
       assignedPermissions: user.subAdminProfile?.assignedPermissions ?? [],
     };
   }

@@ -1,1 +1,0 @@
-{"statusCode":401,"message":"Current password is incorrect","error":"UnauthorizedException","timestamp":"2026-07-02T13:02:03.914Z","path":"/api/v1/users/change-password"}

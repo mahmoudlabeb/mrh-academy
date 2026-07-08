@@ -26,29 +26,28 @@ export default function TeacherTrainingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
         <div className="text-center">
-          <svg className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-3" viewBox="0 0 24 24" fill="none">
+          <svg className="w-8 h-8 animate-spin mx-auto mb-3" viewBox="0 0 24 24" fill="none" style={{ color: '#D4A353' }}>
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <p className="text-slate-500">Loading articles...</p>
+          <p style={{ color: 'var(--text-muted)' }}>جاري تحميل المقالات...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200">
+    <div className="min-h-screen" style={{ background: 'var(--bg-main)' }}>
+      <div className="dashboard-header">
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Teacher Training</h1>
-              <p className="text-slate-500 mt-1">Articles and resources to improve your teaching skills</p>
+              <h1 className="text-3xl font-bold" style={{ color: '#FFFFF0' }}>تدريب المعلمين</h1>
+              <p className="mt-1" style={{ color: '#E4CC9C' }}>مقالات وموارد لتحسين مهاراتك التدريسية</p>
             </div>
-            <Link href="/" className="btn-secondary px-4 py-2 text-sm">Home</Link>
+            <Link href="/" className="btn-secondary px-4 py-2 text-sm" style={{ borderColor: '#1D535B', color: '#FFFFF0' }}>الرئيسية</Link>
           </div>
         </div>
       </div>
@@ -60,18 +59,18 @@ export default function TeacherTrainingPage() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              Back to articles
+              العودة إلى المقالات
             </button>
-            <h2 className="text-3xl font-bold text-slate-900 mb-3">{selected.title}</h2>
-            <div className="flex items-center gap-2 text-sm text-slate-400 mb-8">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-cyan-400 flex items-center justify-center text-white text-xs font-bold">
-                {selected.author?.firstName?.[0] || 'A'}
+            <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--text-main)' }}>{selected.title}</h2>
+            <div className="flex items-center gap-2 text-sm mb-8" style={{ color: 'var(--text-muted)' }}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: '#D4A353' }}>
+                {selected.author?.firstName?.[0] || 'م'}
               </div>
               <span>{selected.author?.firstName} {selected.author?.lastName}</span>
               <span>&middot;</span>
-              <span>{new Date(selected.createdAt).toLocaleDateString()}</span>
+              <span>{new Date(selected.createdAt).toLocaleDateString('ar-EG')}</span>
             </div>
-            <div className="prose prose-sm max-w-none prose-headings:text-slate-900 prose-p:text-slate-600 prose-a:text-indigo-600">
+            <div className="prose prose-sm max-w-none" style={{ color: 'var(--text-main)' }}>
               <ReactMarkdown>{selected.content}</ReactMarkdown>
             </div>
           </article>
@@ -79,26 +78,26 @@ export default function TeacherTrainingPage() {
           <div className="space-y-3 stagger-children">
             {articles.length === 0 ? (
               <div className="card p-12 text-center">
-                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bg-light)' }}>
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--text-muted)' }}>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                   </svg>
                 </div>
-                <p className="text-slate-500 font-medium">No articles published yet</p>
-                <p className="text-slate-400 text-sm mt-1">Check back soon for new training resources</p>
+                <p className="font-medium" style={{ color: 'var(--text-muted)' }}>لم يتم نشر مقالات بعد</p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>تحقق مرة أخرى قريبًا للحصول على موارد تدريبية جديدة</p>
               </div>
             ) : (
               articles.map((article) => (
                 <button
                   key={article.id}
                   onClick={() => setSelected(article)}
-                  className="w-full text-left card p-5 hover:-translate-y-0.5 cursor-pointer"
+                  className="w-full text-right card p-5 cursor-pointer"
                 >
-                  <h3 className="font-semibold text-lg text-slate-900">{article.title}</h3>
-                  <p className="text-sm text-slate-400 mt-2 flex items-center gap-2">
+                  <h3 className="font-semibold text-lg" style={{ color: 'var(--text-main)' }}>{article.title}</h3>
+                  <p className="text-sm mt-2 flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                     <span>{article.author?.firstName} {article.author?.lastName}</span>
                     <span>&middot;</span>
-                    <span>{new Date(article.createdAt).toLocaleDateString()}</span>
+                    <span>{new Date(article.createdAt).toLocaleDateString('ar-EG')}</span>
                   </p>
                 </button>
               ))

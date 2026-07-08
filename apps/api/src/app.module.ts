@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import { AppController } from './app.controller.js';
@@ -12,14 +13,25 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 import { SessionGuard } from './auth/guards/session.guard.js';
+import { ReminderService } from './services/reminder.service.js';
+import { EmailService } from './services/email.service.js';
+import { Lesson } from './entities/lesson.entity.js';
 import { RedisModule } from './redis/redis.module.js';
-import { ReviewsModule } from './reviews/reviews.module.js';
 import { UsersModule } from './users/users.module.js';
 import { TutorsModule } from './tutors/tutors.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { ArticlesModule } from './articles/articles.module.js';
 import { AvailabilityModule } from './availability/availability.module.js';
-// import { PaymentsModule } from './payments/payments.module.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
+import { LessonsModule } from './lessons/lessons.module.js';
+import { MessagesModule } from './messages/messages.module.js';
+import { ReportsModule } from './reports/reports.module.js';
+import { ClassroomModule } from './gateway/classroom.module.js';
+import { CoursesModule } from './courses/courses.module.js';
+import { StudentsModule } from './students/students.module.js';
+import { SharedModule } from './shared/shared.module.js';
+import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import * as dbEntities from './entities/index.js';
 
 @Module({
@@ -43,20 +55,36 @@ import * as dbEntities from './entities/index.js';
         CLOUDINARY_CLOUD_NAME: Joi.string().optional().allow(''),
         CLOUDINARY_API_KEY: Joi.string().optional().allow(''),
         CLOUDINARY_API_SECRET: Joi.string().optional().allow(''),
+        STRIPE_SECRET_KEY: Joi.string().optional().allow(''),
+        STRIPE_WEBHOOK_SECRET: Joi.string().optional().allow(''),
+        BUNNY_API_KEY: Joi.string().optional().allow(''),
+        BUNNY_LIBRARY_ID: Joi.string().optional().allow(''),
+        GEMINI_API_KEY: Joi.string().optional().allow(''),
         NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
       }),
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('DATABASE_URL'),
-        ssl: true,
-        autoLoadEntities: true,
-        entities: Object.values(dbEntities),
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const dbUrl = configService.get<string>('DATABASE_URL');
+        return {
+          type: 'postgres',
+          ...(dbUrl
+            ? { url: dbUrl, ssl: true }
+            : {
+                host: configService.get<string>('DATABASE_HOST'),
+                port: configService.get<number>('DATABASE_PORT'),
+                username: configService.get<string>('DATABASE_USER'),
+                password: configService.get<string>('DATABASE_PASSWORD'),
+                database: configService.get<string>('DATABASE_NAME'),
+                ssl: false,
+              }),
+          autoLoadEntities: true,
+          entities: Object.values(dbEntities),
+          synchronize: configService.get<string>('NODE_ENV') !== 'production',
+        };
+      },
     }),
     ThrottlerModule.forRoot([
       {
@@ -64,6 +92,9 @@ import * as dbEntities from './entities/index.js';
         limit: 100,
       },
     ]),
+    ScheduleModule.forRoot(),
+    TypeOrmModule.forFeature([Lesson]),
+    SharedModule,
     RedisModule,
     AuthModule,
     UsersModule,
@@ -71,11 +102,21 @@ import * as dbEntities from './entities/index.js';
     AdminModule,
     ArticlesModule,
     AvailabilityModule,
-    // PaymentsModule,
+    ReviewsModule,
+    PaymentsModule,
+    LessonsModule,
+    MessagesModule,
+    ReportsModule,
+    ClassroomModule,
+    CoursesModule,
+    StudentsModule,
+    VocabularyModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    ReminderService,
+    EmailService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

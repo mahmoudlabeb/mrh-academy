@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile, Get, 
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TutorsService } from './tutors.service.js';
 import { AvailabilityService } from '../availability/availability.service.js';
-import { ApplyTutorDto } from './dto/index.js';
+import { ApplyTutorDto, UpdateTutorDto } from './dto/index.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -16,6 +16,8 @@ export class TutorsController {
     private readonly tutorsService: TutorsService,
     private readonly availabilityService: AvailabilityService,
   ) {}
+
+  // --- PUBLIC ---
 
   @Public()
   @Get()
@@ -41,6 +43,46 @@ export class TutorsController {
     return this.tutorsService.findTopRated(3);
   }
 
+  @Public()
+  @Get(':id/availability')
+  getPublicAvailability(@Param('id') id: string) {
+    return this.availabilityService.findByTutor(id);
+  }
+
+  @Public()
+  @Get(':id')
+  getPublicProfile(@Param('id') id: string) {
+    return this.tutorsService.findPublicProfile(id);
+  }
+
+  // --- TUTOR SELF-SERVICE ---
+
+  @Get('me/profile')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.TUTOR)
+  getMyProfile(@CurrentUser() user: { id: string }) {
+    return this.tutorsService.findOneByUserId(user.id);
+  }
+
+  @Put('me/profile')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.TUTOR)
+  updateMyProfile(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateTutorDto,
+  ) {
+    return this.tutorsService.updateTutorProfile(user.id, dto);
+  }
+
+  @Get('me/stats')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.TUTOR)
+  getMyStats(@CurrentUser() user: { id: string }) {
+    return this.tutorsService.getTutorStats(user.id);
+  }
+
+  // --- APPLICATION ---
+
   @Post('apply')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('document', { limits: { fileSize: 5 * 1024 * 1024 } }))
@@ -52,22 +94,12 @@ export class TutorsController {
     return this.tutorsService.applyToBeTutor(user.id, dto, file);
   }
 
+  // --- ADMIN ---
+
   @Get('pending')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
   async getPendingTutors() {
     return this.tutorsService.findAllPending();
-  }
-
-  @Public()
-  @Get(':id/availability')
-  getPublicAvailability(@Param('id') id: string) {
-    return this.availabilityService.findByTutor(id);
-  }
-
-  @Public()
-  @Get(':id')
-  getPublicProfile(@Param('id') id: string) {
-    return this.tutorsService.findPublicProfile(id);
   }
 }

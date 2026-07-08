@@ -10,10 +10,13 @@ import { Repository } from 'typeorm';
 import { v2 as cloudinary } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import { CourseStatus, UserRole } from '@mrh/types';
+import { CourseStatus, LessonStatus, UserRole } from '@mrh/types';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { User } from '../entities/user.entity.js';
 import { Review } from '../entities/review.entity.js';
+import { Lesson } from '../entities/lesson.entity.js';
+import { Payment } from '../entities/payment.entity.js';
+import { Report } from '../entities/report.entity.js';
 import { ApplyTutorDto, UpdateTutorDto } from './dto/index.js';
 import { RedisService } from '../redis/redis.service.js';
 
@@ -28,6 +31,12 @@ export class TutorsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,
+    @InjectRepository(Lesson)
+    private readonly lessonRepository: Repository<Lesson>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Report)
+    private readonly reportRepository: Repository<Report>,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
   ) {
@@ -103,31 +112,30 @@ export class TutorsService {
   async findTopRated(limit = 3) {
     const cacheKey = `tutors:top-rated:${limit}`;
     return this.redisService.getOrSet(cacheKey, async () => {
-      const tutors = await this.tutorProfileRepository
-        .createQueryBuilder('tutor')
-        .leftJoinAndSelect('tutor.user', 'user')
-        .where('tutor.status = :status', { status: CourseStatus.APPROVED })
-        .getMany();
+      const [tutors, ratings] = await Promise.all([
+        this.tutorProfileRepository
+          .createQueryBuilder('tutor')
+          .leftJoinAndSelect('tutor.user', 'user')
+          .where('tutor.status = :status', { status: CourseStatus.APPROVED })
+          .getMany(),
+        this.reviewRepository
+          .createQueryBuilder('review')
+          .select('review.tutorId', 'tutorId')
+          .addSelect('AVG(review.rating)', 'avg')
+          .where('review.status = :status', { status: CourseStatus.APPROVED })
+          .groupBy('review.tutorId')
+          .getRawMany() as Promise<{ tutorId: string; avg: string }[]>,
+      ]);
 
-      const withRatings: (TutorProfile & { averageRating: number })[] =
-        await Promise.all(
-          tutors.map(async (tutor: TutorProfile) => {
-            const avg = await this.reviewRepository
-              .createQueryBuilder('review')
-              .where('review.tutorId = :tutorId', { tutorId: tutor.userId })
-              .andWhere('review.status = :status', {
-                status: CourseStatus.APPROVED,
-              })
-              .select('AVG(review.rating)', 'avg')
-              .getRawOne<{ avg: string | null }>();
-            return {
-              ...tutor,
-              averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
-            };
-          }),
-        );
+      const ratingMap = new Map(
+        ratings.map((r) => [r.tutorId, parseFloat(r.avg) || 0]),
+      );
 
-      return withRatings
+      return tutors
+        .map((tutor) => ({
+          ...tutor,
+          averageRating: ratingMap.get(tutor.userId) ?? 0,
+        }))
         .sort((a, b) => b.averageRating - a.averageRating)
         .slice(0, limit) as (TutorProfile & { averageRating: number })[];
     }, 300); // 5 mins
@@ -153,8 +161,14 @@ export class TutorsService {
         where: { tutorId: userId, status: CourseStatus.APPROVED },
       });
 
+      const { user } = tutor;
       return {
         ...tutor,
+        user: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          avatarUrl: user.avatarUrl,
+        },
         averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
         reviewCount,
       };
@@ -176,8 +190,16 @@ export class TutorsService {
       throw new ConflictException('You have already applied to be a tutor');
     }
 
+    if (user.role !== UserRole.STUDENT) {
+      throw new BadRequestException('Only students can apply to become tutors');
+    }
+
     let documentUrl: string | undefined;
     if (documentFile) {
+      const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedMimes.includes(documentFile.mimetype)) {
+        throw new BadRequestException('Document must be a PDF or Word file');
+      }
       documentUrl = await this.uploadDocumentToCloudinary(documentFile.buffer);
     }
 
@@ -198,8 +220,8 @@ export class TutorsService {
 
     await this.sendEmail(
       user.email,
-      'Tutor Application Received',
-      `Hi ${user.firstName}, your tutor application has been received and is pending review.`,
+      'Tutor Application Received — MRH Academy',
+      `Dear ${user.firstName},\n\nThank you for applying to become a tutor at MRH Academy. Your application has been received and is currently pending review by our moderation team.\n\nSpecialization: ${dto.specialization}\nLanguages: ${dto.languages.join(', ')}\nHourly Rate: $${dto.hourlyRate.toFixed(2)}\n\nWe will review your application within 2-3 business days and notify you of the outcome via email.\n\nBest regards,\nMRH Academy Team`,
     );
 
     return savedProfile;
@@ -255,6 +277,44 @@ export class TutorsService {
     return saved;
   }
 
+  async getTutorStats(userId: string): Promise<{
+    completedLessons: number;
+    totalHoursTaught: number;
+    totalEarnings: number;
+    reviewCount: number;
+    averageRating: number;
+  }> {
+    const cacheKey = `tutors:stats:${userId}`;
+    return this.redisService.getOrSet(cacheKey, async () => {
+      const profile = await this.tutorProfileRepository.findOne({
+        where: { userId },
+      });
+
+      const completedLessons = await this.lessonRepository.count({
+        where: { tutorId: userId, status: LessonStatus.COMPLETED },
+      });
+
+      const reviewCount = await this.reviewRepository.count({
+        where: { tutorId: userId, status: CourseStatus.APPROVED },
+      });
+
+      const avg = await this.reviewRepository
+        .createQueryBuilder('review')
+        .where('review.tutorId = :tutorId', { tutorId: userId })
+        .andWhere('review.status = :status', { status: CourseStatus.APPROVED })
+        .select('AVG(review.rating)', 'avg')
+        .getRawOne<{ avg: string | null }>();
+
+      return {
+        completedLessons,
+        totalHoursTaught: profile?.totalHoursTaught ?? 0,
+        totalEarnings: profile?.balance ?? 0,
+        reviewCount,
+        averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
+      };
+    }, 120); // 2 min cache
+  }
+
   async approveTutor(userId: string) {
     const tutor = await this.findOneByUserId(userId);
     if (!tutor) throw new NotFoundException('Tutor profile not found');
@@ -305,6 +365,67 @@ export class TutorsService {
     );
 
     return tutor;
+  }
+
+  async getAdminStats(): Promise<{
+    totalUsers: number;
+    totalTutors: number;
+    totalStudents: number;
+    pendingApplications: number;
+    approvedTutors: number;
+    totalEarnings: number;
+    openReports: number;
+    completedLessons: number;
+    totalRevenue: number;
+  }> {
+    const cacheKey = 'admin:stats';
+    return this.redisService.getOrSet(cacheKey, async () => {
+      const totalUsers = await this.userRepository.count();
+      const totalTutors = await this.tutorProfileRepository.count({
+        where: { status: CourseStatus.APPROVED },
+      });
+      const studentUsers = await this.userRepository.count({
+        where: { role: UserRole.STUDENT },
+      });
+      const pendingApplications = await this.tutorProfileRepository.count({
+        where: { status: CourseStatus.PENDING },
+      });
+      const approvedTutors = await this.tutorProfileRepository.count({
+        where: { status: CourseStatus.APPROVED },
+      });
+
+      const completedLessons = await this.lessonRepository.count({
+        where: { status: LessonStatus.COMPLETED },
+      });
+
+      const totalEarnings = await this.lessonRepository
+        .createQueryBuilder('lesson')
+        .select('COALESCE(SUM(lesson.price), 0)', 'total')
+        .where('lesson.status = :status', { status: LessonStatus.COMPLETED })
+        .getRawOne<{ total: number }>()
+        .then(r => parseFloat(String(r?.total ?? '0')));
+
+      const totalRevenue = await this.lessonRepository
+        .createQueryBuilder('lesson')
+        .select('COALESCE(SUM(lesson.platformFee), 0)', 'total')
+        .where('lesson.status = :status', { status: LessonStatus.COMPLETED })
+        .getRawOne<{ total: number }>()
+        .then(r => parseFloat(String(r?.total ?? '0')));
+
+      const openReports = await this.reportRepository.count();
+
+      return {
+        totalUsers,
+        totalTutors,
+        totalStudents: studentUsers,
+        pendingApplications,
+        approvedTutors,
+        totalEarnings,
+        openReports,
+        completedLessons,
+        totalRevenue,
+      };
+    }, 60); // 1 min cache
   }
 
   private async sendEmail(to: string, subject: string, text: string) {

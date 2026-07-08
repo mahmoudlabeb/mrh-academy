@@ -1,13 +1,6 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Mr.H Academy',
@@ -18,10 +11,50 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30`}
-      >
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                var theme = localStorage.getItem('theme');
+                var lang = localStorage.getItem('lang_pref');
+                function applyBodyClasses() {
+                  if (!document.body) return;
+                  if (theme === 'light') {
+                    document.body.classList.remove('dark-theme');
+                  } else {
+                    document.body.classList.add('dark-theme');
+                  }
+                  if (lang === 'en') {
+                    document.body.classList.add('ltr');
+                  } else {
+                    document.body.classList.remove('ltr');
+                  }
+                }
+                if (theme === 'light') {
+                  document.documentElement.classList.remove('dark-theme');
+                } else {
+                  document.documentElement.classList.add('dark-theme');
+                }
+                if (lang === 'en') {
+                  document.documentElement.setAttribute('lang', 'en');
+                  document.documentElement.setAttribute('dir', 'ltr');
+                } else {
+                  document.documentElement.setAttribute('lang', 'ar');
+                  document.documentElement.setAttribute('dir', 'rtl');
+                }
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', applyBodyClasses, { once: true });
+                } else {
+                  applyBodyClasses();
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="antialiased min-h-screen dark-theme font-arabic">
         <Providers>{children}</Providers>
       </body>
     </html>

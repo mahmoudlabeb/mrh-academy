@@ -38,6 +38,12 @@ export class Course {
   })
   price: number;
 
+  @Column({ nullable: true })
+  bunnyVideoId: string;
+
+  @Column({ type: 'varchar', default: 'academy' })
+  soldBy: string;
+
   @Column({ type: 'enum', enum: CourseStatus, default: CourseStatus.PENDING })
   status: CourseStatus;
 

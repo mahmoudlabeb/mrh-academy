@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await apiClient.post("/auth/login", { email, password });
-    Cookies.set("mrh_token", data.accessToken);
+    Cookies.set("mrh_token", data.accessToken, { secure: true, sameSite: "strict" });
     setUser(data.user);
     return data.user;
   }, []);
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: "student" | "tutor";
     }) => {
       const { data } = await apiClient.post("/auth/register", input);
-      Cookies.set("mrh_token", data.accessToken);
+      Cookies.set("mrh_token", data.accessToken, { secure: true, sameSite: "strict" });
       setUser(data.user);
       return data.user;
     },

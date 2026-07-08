@@ -1,17 +1,27 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback, StrategyOptions } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+  private readonly googleEnabled: boolean;
+
   constructor(configService: ConfigService) {
+    const clientID = configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL');
+
+    const enabled = !!(clientID && clientSecret && callbackURL);
+
     super({
-      clientID: configService.get<string>('GOOGLE_CLIENT_ID')!,
-      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET')!,
-      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL')!,
+      clientID: clientID ?? 'missing',
+      clientSecret: clientSecret ?? 'missing',
+      callbackURL: callbackURL ?? 'http://localhost/missing',
       scope: ['profile', 'email'],
     } as StrategyOptions);
+
+    this.googleEnabled = enabled;
   }
 
   async validate(
@@ -20,6 +30,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: any,
     _done: VerifyCallback,
   ) {
+    if (!this.googleEnabled) {
+      throw new UnauthorizedException('Google authentication is not configured');
+    }
     const { id, emails, name, photos } = profile;
     return {
       googleId: id,

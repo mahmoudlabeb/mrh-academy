@@ -11,6 +11,7 @@ import { User } from '../entities/user.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
+import { EmailService } from '../services/email.service.js';
 
 @Module({
   imports: [
@@ -32,19 +33,8 @@ import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
   providers: [
     AuthService,
     JwtStrategy,
-    {
-      provide: GoogleStrategy,
-      useFactory: (configService: ConfigService): GoogleStrategy | null => {
-        const googleClientId = configService.get<string>('GOOGLE_CLIENT_ID');
-        const googleClientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
-        const googleCallbackUrl = configService.get<string>('GOOGLE_CALLBACK_URL');
-        if (googleClientId && googleClientSecret && googleCallbackUrl) {
-          return new GoogleStrategy(configService);
-        }
-        return null;
-      },
-      inject: [ConfigService],
-    },
+    GoogleStrategy,
+    EmailService,
   ],
   exports: [AuthService, JwtModule],
 })

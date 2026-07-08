@@ -1,1 +1,0 @@
-{"statusCode":401,"message":"Invalid email or password","error":"UnauthorizedException","timestamp":"2026-07-02T13:04:43.656Z","path":"/api/v1/auth/login"}

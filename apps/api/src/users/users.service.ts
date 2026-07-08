@@ -14,6 +14,7 @@ import { Lesson } from '../entities/lesson.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 
 import { User } from '../entities/user.entity.js';
+import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { RedisService } from '../redis/redis.service.js';
 import {
   ChangeEmailDto,
@@ -117,9 +118,24 @@ export class UsersService {
       throw new ConflictException('Email is already registered');
     }
 
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (user.passwordHash) {
+      const isPasswordValid = await bcrypt.compare(
+        dto.currentPassword,
+        user.passwordHash,
+      );
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
     }
 
     user.email = dto.newEmail;
@@ -149,6 +165,28 @@ export class UsersService {
     });
 
     return { avatarUrl: uploadResult.secure_url };
+  }
+
+  async switchRole(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: { tutorProfile: true, studentProfile: true },
+    });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (user.role === 'student') {
+      if (!user.tutorProfile) {
+        throw new BadRequestException('You need to apply and be approved as a tutor first');
+      }
+      user.role = 'tutor' as any;
+    } else if (user.role === 'tutor') {
+      user.role = 'student' as any;
+    } else {
+      throw new BadRequestException('Admins cannot switch roles');
+    }
+
+    const saved = await this.userRepository.save(user);
+    return this.sanitizeUser(saved);
   }
 
   async deleteMe(userId: string) {

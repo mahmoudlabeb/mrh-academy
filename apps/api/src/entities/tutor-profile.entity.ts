@@ -63,6 +63,12 @@ export class TutorProfile {
   @Column({ nullable: true })
   documentUrl: string;
 
+  @Column({ nullable: true })
+  stripeAccountId: string;
+
+  @Column({ default: false })
+  stripeOnboardingComplete: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

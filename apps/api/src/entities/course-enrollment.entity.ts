@@ -36,6 +36,21 @@ export class CourseEnrollment {
   })
   platformFee: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: new ColumnNumericTransformer(),
+  })
+  tutorShare: number;
+
+  @Column({ type: 'varchar', length: 10, default: 'academy' })
+  soldBy: 'tutor' | 'academy';
+
+  @Column({ type: 'varchar', nullable: true })
+  referralTutorId: string | null;
+
   @Column({ type: 'int', default: 0 })
   progressPercentage: number;
 

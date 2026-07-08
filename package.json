@@ -8,9 +8,12 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "protect": "node scripts/protect.js",
+    "client-start": "cd apps/api && npm run start:prod & cd apps/web && npm run start"
   },
   "devDependencies": {
+    "javascript-obfuscator": "^4.1.1",
     "prettier": "^3.2.5",
     "turbo": "^2.0.0"
   },

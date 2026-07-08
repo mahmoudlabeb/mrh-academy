@@ -17,7 +17,12 @@ function AuthCallbackContent() {
       return;
     }
 
-    Cookies.set("mrh_token", token);
+    window.history.replaceState({}, "", "/auth/callback");
+
+    Cookies.set("mrh_token", token, {
+      secure: true,
+      sameSite: "strict",
+    });
 
     apiClient
       .get("/users/me")

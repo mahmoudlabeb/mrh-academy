@@ -18,7 +18,7 @@ import {
 } from './dto/index.js';
 import { UsersService } from './users.service.js';
 
-type AuthenticatedUser = { id: string };
+type AuthenticatedUser = { id: string; role: string };
 type AvatarFile = {
   buffer: Buffer;
   mimetype: string;
@@ -78,6 +78,11 @@ export class UsersController {
     @UploadedFile() file: AvatarFile | undefined,
   ) {
     return this.usersService.updateAvatar(user.id, file);
+  }
+
+  @Post('switch-role')
+  async switchRole(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.switchRole(user.id);
   }
 
   @Delete('me')

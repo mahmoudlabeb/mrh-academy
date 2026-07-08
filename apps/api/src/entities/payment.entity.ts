@@ -38,6 +38,9 @@ export class Payment {
   @Column({ nullable: true })
   receiptUrl: string;
 
+  @Column({ nullable: true, unique: true })
+  idempotencyKey: string;
+
   @Column({ nullable: true })
   adminNote: string;
 

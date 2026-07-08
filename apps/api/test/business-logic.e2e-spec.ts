@@ -9,6 +9,7 @@ import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { Lesson } from '../src/entities/lesson.entity.js';
+import { Review } from '../src/entities/review.entity.js';
 import { StudentProfile } from '../src/entities/student-profile.entity.js';
 import { SubAdminProfile } from '../src/entities/sub-admin-profile.entity.js';
 import { TutorProfile } from '../src/entities/tutor-profile.entity.js';
@@ -333,5 +334,197 @@ describe('Days 1-7 business logic (e2e)', () => {
       .get('/api/v1/admin/tutors')
       .set('Authorization', `Bearer ${token}`)
       .expect(403);
+  });
+});
+
+describe('Day 11 — Reviews (e2e)', () => {
+  let app: INestApplication;
+  let userRepository: Repository<User>;
+  let tutorProfileRepository: Repository<TutorProfile>;
+  let lessonRepository: Repository<Lesson>;
+  let reviewRepository: Repository<Review>;
+  let jwtService: JwtService;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(RedisService)
+      .useClass(RedisServiceMock)
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.use(helmet());
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    await app.init();
+
+    userRepository = app.get(getRepositoryToken(User));
+    tutorProfileRepository = app.get(getRepositoryToken(TutorProfile));
+    lessonRepository = app.get(getRepositoryToken(Lesson));
+    reviewRepository = app.get(getRepositoryToken(Review));
+    jwtService = app.get(JwtService);
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  it('covers the full review lifecycle: create, read, approve, and role-gating', async () => {
+    const studentEmail = `review-student-${Date.now()}@test.com`;
+    const tutorEmail = `review-tutor-${Date.now()}@test.com`;
+    const adminEmail = `review-admin-${Date.now()}@test.com`;
+
+    // ── Register student ──
+    const studentRes = await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({
+        email: studentEmail,
+        password,
+        firstName: 'Review',
+        lastName: 'Student',
+        role: UserRole.STUDENT,
+      })
+      .expect(201);
+
+    const student = studentRes.body as AuthResponse;
+
+    // ── Create tutor directly in DB ──
+    const tutor = await createUser(userRepository, {
+      email: tutorEmail,
+      firstName: 'Review',
+      lastName: 'Tutor',
+      role: UserRole.TUTOR,
+    });
+
+    await tutorProfileRepository.save(
+      tutorProfileRepository.create({
+        userId: tutor.id,
+        bio: 'Tutor for review e2e test.',
+        specialization: 'English',
+        languages: ['English'],
+        hourlyRate: 25,
+        balance: 0,
+        totalHoursTaught: 0,
+        status: CourseStatus.APPROVED,
+      }),
+    );
+
+    // ── Create a COMPLETED lesson between them ──
+    const scheduledTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const endTime = new Date(scheduledTime.getTime() + 50 * 60 * 1000);
+    const lesson = await lessonRepository.save(
+      lessonRepository.create({
+        studentId: student.user.id,
+        tutorId: tutor.id,
+        scheduledTime,
+        endTime,
+        durationMinutes: 50,
+        price: 40,
+        status: LessonStatus.COMPLETED,
+      }),
+    );
+
+    // ── Student creates a review ──
+    const createRes = await request(app.getHttpServer())
+      .post('/api/v1/reviews')
+      .set('Authorization', `Bearer ${student.accessToken}`)
+      .send({
+        lessonId: lesson.id,
+        rating: 5,
+        comment: 'Great lesson!',
+      })
+      .expect(201);
+
+    const reviewId = (createRes.body as { id: string }).id;
+
+    // ── Tutor tries to create a review → 403 (student-only) ──
+    const tutorToken = jwtService.sign({
+      sub: tutor.id,
+      email: tutor.email,
+      role: UserRole.TUTOR,
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/reviews')
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .send({
+        lessonId: lesson.id,
+        rating: 4,
+        comment: 'Nope',
+      })
+      .expect(403);
+
+    // ── Public endpoint returns the review (still pending) ──
+    const publicRes = await request(app.getHttpServer())
+      .get(`/api/v1/reviews/tutor/${tutor.id}`)
+      .expect(200);
+
+    expect(Array.isArray(publicRes.body)).toBe(true);
+    // Pending reviews should NOT appear in public
+    expect((publicRes.body as unknown[]).length).toBe(0);
+
+    // ── Admin approves the review ──
+    const admin = await createUser(userRepository, {
+      email: adminEmail,
+      firstName: 'Review',
+      lastName: 'Admin',
+      role: UserRole.ADMIN,
+    });
+
+    const adminToken = jwtService.sign({
+      sub: admin.id,
+      email: admin.email,
+      role: UserRole.ADMIN,
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/reviews/${reviewId}/status`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: CourseStatus.APPROVED })
+      .expect(200);
+
+    // Verify review is now approved in DB
+    const approvedReview = await reviewRepository.findOneByOrFail({
+      id: reviewId,
+    });
+    expect(approvedReview.status).toBe(CourseStatus.APPROVED);
+
+    // ── Now the public endpoint returns the review ──
+    const publicRes2 = await request(app.getHttpServer())
+      .get(`/api/v1/reviews/tutor/${tutor.id}`)
+      .expect(200);
+
+    expect((publicRes2.body as unknown[]).length).toBe(1);
+
+    // ── Student tries to access pending reviews → 403 ──
+    await request(app.getHttpServer())
+      .get('/api/v1/reviews/pending')
+      .set('Authorization', `Bearer ${student.accessToken}`)
+      .expect(403);
+
+    // ── Admin can access pending reviews ──
+    const pendingRes = await request(app.getHttpServer())
+      .get('/api/v1/reviews/pending')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(Array.isArray(pendingRes.body)).toBe(true);
+
+    // ── Student cannot review the same lesson twice (conflict) ──
+    await request(app.getHttpServer())
+      .post('/api/v1/reviews')
+      .set('Authorization', `Bearer ${student.accessToken}`)
+      .send({
+        lessonId: lesson.id,
+        rating: 3,
+      })
+      .expect(409);
   });
 });
