@@ -43,10 +43,6 @@ async function bootstrap() {
         origin?: boolean | string | RegExp | (string | RegExp)[],
       ) => void,
     ) => {
-      if (nodeEnv === 'production' && !origin) {
-        callback(new Error('Origin required in production'));
-        return;
-      }
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -67,7 +63,7 @@ async function bootstrap() {
   app.use(
     helmet({
       crossOriginResourcePolicy: {
-        policy: nodeEnv === 'production' ? 'same-origin' : 'cross-origin',
+        policy: 'cross-origin',
       },
       contentSecurityPolicy:
         nodeEnv === 'production'
