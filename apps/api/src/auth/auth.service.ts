@@ -25,7 +25,7 @@ function getAdminEmails(): string[] {
   const raw = process.env.ADMIN_EMAILS;
   if (!raw) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('ADMIN_EMAILS must be set in production');
+      console.warn('ADMIN_EMAILS should be set in production');
     }
     return [];
   }
