@@ -81,7 +81,13 @@ export class TutorsService {
       async () => {
         const query = this.tutorProfileRepository
           .createQueryBuilder('tutor')
-          .leftJoinAndSelect('tutor.user', 'user')
+          .leftJoin('tutor.user', 'user')
+          .addSelect([
+            'user.id',
+            'user.firstName',
+            'user.lastName',
+            'user.avatarUrl',
+          ])
           .where('tutor.status = :status', { status: CourseStatus.APPROVED });
 
         if (filters.minPrice !== undefined) {
@@ -124,7 +130,13 @@ export class TutorsService {
         const [tutors, ratings] = await Promise.all([
           this.tutorProfileRepository
             .createQueryBuilder('tutor')
-            .leftJoinAndSelect('tutor.user', 'user')
+            .leftJoin('tutor.user', 'user')
+            .addSelect([
+              'user.id',
+              'user.firstName',
+              'user.lastName',
+              'user.avatarUrl',
+            ])
             .where('tutor.status = :status', { status: CourseStatus.APPROVED })
             .getMany(),
           this.reviewRepository

@@ -180,15 +180,51 @@ export class LessonsService {
     const savedLesson = await this.lessonRepository.findOne({
       where: { id: lesson.id },
       relations: { tutor: true, student: true },
+      select: {
+        id: true,
+        tutorId: true,
+        studentId: true,
+        scheduledTime: true,
+        durationMinutes: true,
+        status: true,
+        price: true,
+        meetUrl: true,
+        notes: true,
+        createdAt: true,
+        platformFee: true,
+        tutor: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+        student: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
     });
 
-    if (savedLesson?.tutor?.email) {
+    const [tutorUser, studentUser] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: dto.tutorId },
+        select: { id: true, email: true },
+      }),
+      this.userRepository.findOne({
+        where: { id: studentId },
+        select: { id: true, email: true },
+      }),
+    ]);
+
+    if (tutorUser?.email) {
       this.emailService
         .sendEmail(
-          savedLesson.tutor.email,
+          tutorUser.email,
           'New Lesson Booked — MRH Academy',
           `<p>A new lesson has been booked with you.</p>
-<p>Student: ${savedLesson.student?.firstName ?? 'Student'} ${savedLesson.student?.lastName ?? ''}</p>
+<p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>`,
@@ -196,13 +232,13 @@ export class LessonsService {
         .catch(() => {});
     }
 
-    if (savedLesson?.student?.email) {
+    if (studentUser?.email) {
       this.emailService
         .sendEmail(
-          savedLesson.student.email,
+          studentUser.email,
           'Lesson Booking Confirmed — MRH Academy',
           `<p>Your lesson has been booked successfully.</p>
-<p>Tutor: ${savedLesson.tutor?.firstName ?? 'Tutor'} ${savedLesson.tutor?.lastName ?? ''}</p>
+<p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>`,
@@ -299,15 +335,40 @@ export class LessonsService {
     const completed = await this.lessonRepository.findOne({
       where: { id: lessonId },
       relations: { tutor: true, student: true },
+      select: {
+        id: true,
+        tutorId: true,
+        studentId: true,
+        scheduledTime: true,
+        durationMinutes: true,
+        status: true,
+        price: true,
+        meetUrl: true,
+        notes: true,
+        createdAt: true,
+        platformFee: true,
+        tutor: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+        student: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
     });
 
-    if (completed?.student?.email) {
+    if (lesson.student?.email) {
       this.emailService
         .sendEmail(
-          completed.student.email,
+          lesson.student.email,
           'Lesson Completed — MRH Academy',
           `<p>Your lesson has been marked as completed.</p>
-<p>Tutor: ${completed.tutor?.firstName ?? 'Tutor'} ${completed.tutor?.lastName ?? ''}</p>
+<p>Tutor: ${completed?.tutor?.firstName ?? 'Tutor'} ${completed?.tutor?.lastName ?? ''}</p>
 <p>Price: $${lesson.price.toFixed(2)}</p>
 <p>Platform Fee: $${platformFee.toFixed(2)}</p>`,
         )
@@ -335,14 +396,27 @@ export class LessonsService {
     }
 
     await this.dataSource.transaction(async (manager) => {
-      lesson.status = LessonStatus.CANCELLED;
-      await manager.save(Lesson, lesson);
+      const lockedLesson = await manager.findOne(Lesson, {
+        where: { id: lessonId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (
+        !lockedLesson ||
+        (lockedLesson.status !== LessonStatus.CONFIRMED &&
+          lockedLesson.status !== LessonStatus.PENDING)
+      ) {
+        throw new BadRequestException('Lesson cannot be cancelled');
+      }
+
+      lockedLesson.status = LessonStatus.CANCELLED;
+      await manager.save(Lesson, lockedLesson);
 
       await manager.increment(
         StudentProfile,
-        { userId: lesson.studentId },
+        { userId: lockedLesson.studentId },
         'balance',
-        lesson.price,
+        lockedLesson.price,
       );
     });
 
@@ -352,6 +426,30 @@ export class LessonsService {
     return this.lessonRepository.findOne({
       where: { id: lessonId },
       relations: { tutor: true, student: true },
+      select: {
+        id: true,
+        tutorId: true,
+        studentId: true,
+        scheduledTime: true,
+        durationMinutes: true,
+        status: true,
+        price: true,
+        meetUrl: true,
+        notes: true,
+        createdAt: true,
+        tutor: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+        student: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
     });
   }
 
@@ -394,6 +492,30 @@ export class LessonsService {
     const lesson = await this.lessonRepository.findOne({
       where: { meetUrl: roomId },
       relations: { tutor: true, student: true },
+      select: {
+        id: true,
+        tutorId: true,
+        studentId: true,
+        scheduledTime: true,
+        durationMinutes: true,
+        status: true,
+        price: true,
+        meetUrl: true,
+        notes: true,
+        createdAt: true,
+        tutor: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+        student: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
     });
     if (!lesson) throw new NotFoundException('Lesson not found');
     if (lesson.studentId !== userId && lesson.tutorId !== userId) {
@@ -418,6 +540,30 @@ export class LessonsService {
     const lesson = await this.lessonRepository.findOne({
       where: { id: lessonId },
       relations: { tutor: true, student: true },
+      select: {
+        id: true,
+        tutorId: true,
+        studentId: true,
+        scheduledTime: true,
+        durationMinutes: true,
+        status: true,
+        price: true,
+        meetUrl: true,
+        notes: true,
+        createdAt: true,
+        tutor: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+        student: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+      },
     });
     if (!lesson) throw new NotFoundException('Lesson not found');
     if (lesson.studentId !== userId && lesson.tutorId !== userId) {

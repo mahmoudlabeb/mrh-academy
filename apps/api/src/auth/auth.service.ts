@@ -266,10 +266,11 @@ export class AuthService {
       );
     }
 
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
     const { passwordHash: _passwordHash, ...safeUser } = user;
-    return { accessToken, user: safeUser };
+    return { accessToken, refreshToken, user: safeUser };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
@@ -330,12 +331,19 @@ export class AuthService {
 
   async logout(userId: string) {
     await this.redisService.del(`user_session:${userId}`);
+    await this.redisService.set(
+      `refresh_blocklist:${userId}`,
+      'revoked',
+      'EX',
+      30 * 24 * 60 * 60,
+    );
   }
 
   async deleteAccount(userId: string) {
     await this.userRepository.softDelete({ id: userId });
     await this.logout(userId);
   }
+
   async refreshTokens(refreshToken: string) {
     try {
       const decoded = this.jwtService.verify(refreshToken);
@@ -347,6 +355,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
+      const blocklisted = await this.redisService.get(
+        `refresh_blocklist:${user.id}`,
+      );
+      if (blocklisted) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
       const payload: Record<string, string> = {
         sub: user.id,
         email: user.email,
@@ -354,8 +369,6 @@ export class AuthService {
       };
 
       if (user.role === UserRole.STUDENT) {
-        // Reuse session or generate new? We'll just generate new for simplicity,
-        // or re-use existing session logic.
         const sessionId = randomUUID();
         payload.sessionId = sessionId;
         await this.redisService.set(

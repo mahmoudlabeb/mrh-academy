@@ -21,11 +21,11 @@ export function checkSecurityEnvironment(logger: Logger) {
     }
 
     if (!process.env.ADMIN_EMAILS) {
-      warnings.push('ADMIN_EMAILS must be configured in production');
+      errors.push('ADMIN_EMAILS must be configured in production');
     }
 
     if (!process.env.STRIPE_SECRET_KEY) {
-      warnings.push(
+      errors.push(
         'STRIPE_SECRET_KEY not configured — Stripe payments will fail',
       );
     }
@@ -54,8 +54,8 @@ export function checkSecurityEnvironment(logger: Logger) {
       logger.error(`[SECURITY] ${err}`);
     }
     if (nodeEnv === 'production') {
-      logger.warn(`Security configuration errors:\n${errors.join('\n')}`);
-      // throw new Error(`Security configuration errors:\n${errors.join('\n')}`);
+      logger.error(`Security configuration errors:\n${errors.join('\n')}`);
+      throw new Error(`Security configuration errors:\n${errors.join('\n')}`);
     }
   }
 

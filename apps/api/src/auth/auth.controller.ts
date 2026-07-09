@@ -43,6 +43,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body('refreshToken') refreshToken: string) {
@@ -96,6 +97,18 @@ export class AuthController {
   async googleCallback(@CurrentUser() profile: any, @Res() res: Response) {
     const result = await this.authService.handleGoogleLogin(profile);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/auth/callback?token=${result.accessToken}`);
+    res.cookie('mrh_token', result.accessToken, {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
+    });
+    if (result.refreshToken) {
+      res.cookie('mrh_refresh', result.refreshToken, {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+    }
+    res.redirect(`${frontendUrl}/auth/callback`);
   }
 }

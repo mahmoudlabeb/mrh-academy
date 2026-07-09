@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -14,8 +14,14 @@ export class AdminReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get()
-  async getAllReports() {
-    const reports = await this.reportsService.findAll();
+  async getAllReports(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const reports = await this.reportsService.findAll(
+      limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
+      offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
+    );
     return reports.map((r) => ({
       id: r.id,
       reporterName: r.user

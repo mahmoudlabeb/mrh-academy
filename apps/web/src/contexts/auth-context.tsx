@@ -64,6 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await apiClient.post("/auth/login", { email, password });
     Cookies.set("mrh_token", data.accessToken, { secure: true, sameSite: "strict" });
+    if (data.refreshToken) {
+      Cookies.set("mrh_refresh", data.refreshToken, { secure: true, sameSite: "strict" });
+    }
     setUser(data.user);
     return data.user;
   }, []);
@@ -78,6 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }) => {
       const { data } = await apiClient.post("/auth/register", input);
       Cookies.set("mrh_token", data.accessToken, { secure: true, sameSite: "strict" });
+      if (data.refreshToken) {
+        Cookies.set("mrh_refresh", data.refreshToken, { secure: true, sameSite: "strict" });
+      }
       setUser(data.user);
       return data.user;
     },
@@ -91,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout API errors
     }
     Cookies.remove("mrh_token");
+    Cookies.remove("mrh_refresh");
     setUser(null);
     window.location.href = "/login";
   }, []);

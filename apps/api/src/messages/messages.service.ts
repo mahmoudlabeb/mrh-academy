@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import sanitizeHtml from 'sanitize-html';
@@ -194,6 +198,36 @@ export class MessagesService {
     });
     if (!receiver) {
       throw new NotFoundException('Receiver not found');
+    }
+
+    const existingConversation = await this.messageRepository.findOne({
+      where: [
+        { senderId, receiverId: dto.receiverId },
+        { senderId: dto.receiverId, receiverId: senderId },
+      ],
+    });
+
+    const sharedLesson = !existingConversation
+      ? await this.lessonRepository.findOne({
+          where: [
+            {
+              tutorId: senderId,
+              studentId: dto.receiverId,
+              status: In([LessonStatus.CONFIRMED, LessonStatus.COMPLETED]),
+            },
+            {
+              tutorId: dto.receiverId,
+              studentId: senderId,
+              status: In([LessonStatus.CONFIRMED, LessonStatus.COMPLETED]),
+            },
+          ],
+        })
+      : null;
+
+    if (!existingConversation && !sharedLesson) {
+      throw new ForbiddenException(
+        'You can only message users you have an active or completed lesson with',
+      );
     }
 
     const sanitizedContent = this.sanitizeHtml(dto.content);
