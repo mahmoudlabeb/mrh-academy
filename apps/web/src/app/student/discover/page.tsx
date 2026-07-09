@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useDebounce } from '@/hooks/use-debounce';
 import Link from 'next/link';
@@ -20,6 +20,7 @@ type TutorProfile = {
 function DiscoverContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   const search = searchParams.get('search') || '';
   const minPrice = searchParams.get('minPrice') || '';
@@ -70,6 +71,35 @@ function DiscoverContent() {
       return data;
     },
   });
+
+  const { data: favoriteTutors = [] } = useQuery({
+    queryKey: ['favorite-tutors'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ userId: string }[]>('/students/favorite-tutors');
+      return data;
+    },
+  });
+
+  const favoriteIds = new Set(favoriteTutors.map((t) => t.userId));
+
+  const favoriteMutation = useMutation({
+    mutationFn: async ({ tutorId, isFavorite }: { tutorId: string; isFavorite: boolean }) => {
+      if (isFavorite) {
+        await apiClient.delete(`/students/favorites/${tutorId}`);
+      } else {
+        await apiClient.post('/students/favorites', { tutorId });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['favorite-tutors'] });
+    },
+  });
+
+  const toggleFavorite = (e: React.MouseEvent, tutorId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    favoriteMutation.mutate({ tutorId, isFavorite: favoriteIds.has(tutorId) });
+  };
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -312,11 +342,17 @@ function DiscoverContent() {
                       </div>
                     </div>
                     <button
-                      onClick={(e) => { e.preventDefault(); /* TODO: Implement favorites API */ }}
-                      className="absolute top-4 left-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                      title="أضف للمفضلة"
+                      onClick={(e) => toggleFavorite(e, tutor.userId)}
+                      disabled={favoriteMutation.isPending}
+                      className="absolute top-4 left-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+                      title={favoriteIds.has(tutor.userId) ? 'إزالة من المفضلة' : 'أضف للمفضلة'}
                     >
-                      <svg className="w-5 h-5 text-gray-400 hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg
+                        className={`w-5 h-5 transition-colors ${favoriteIds.has(tutor.userId) ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}`}
+                        fill={favoriteIds.has(tutor.userId) ? 'currentColor' : 'none'}
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
                     </button>

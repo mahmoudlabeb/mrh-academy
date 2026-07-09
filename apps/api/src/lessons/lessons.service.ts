@@ -21,6 +21,8 @@ import { RedisService } from '../redis/redis.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
 
+const CANCELLATION_REFUND_HOURS = 24;
+
 @Injectable()
 export class LessonsService {
   constructor(
@@ -381,6 +383,7 @@ export class LessonsService {
   async cancelLesson(lessonId: string, userId: string) {
     const lesson = await this.lessonRepository.findOne({
       where: { id: lessonId },
+      relations: { tutor: true, student: true },
     });
     if (!lesson) {
       throw new NotFoundException('Lesson not found');
@@ -394,6 +397,21 @@ export class LessonsService {
     ) {
       throw new BadRequestException('Lesson cannot be cancelled');
     }
+
+    const hoursUntilLesson =
+      (lesson.scheduledTime.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    if (hoursUntilLesson < 0) {
+      throw new BadRequestException(
+        'Cannot cancel a lesson that has already started',
+      );
+    }
+
+    const isTutor = lesson.tutorId === userId;
+    const shouldRefund =
+      isTutor || hoursUntilLesson >= CANCELLATION_REFUND_HOURS;
+
+    let refundAmount = 0;
 
     await this.dataSource.transaction(async (manager) => {
       const lockedLesson = await manager.findOne(Lesson, {
@@ -412,18 +430,23 @@ export class LessonsService {
       lockedLesson.status = LessonStatus.CANCELLED;
       await manager.save(Lesson, lockedLesson);
 
-      await manager.increment(
-        StudentProfile,
-        { userId: lockedLesson.studentId },
-        'balance',
-        lockedLesson.price,
-      );
+      if (shouldRefund) {
+        await manager.increment(
+          StudentProfile,
+          { userId: lockedLesson.studentId },
+          'balance',
+          lockedLesson.price,
+        );
+        refundAmount = lockedLesson.price;
+      }
+
+      await manager.update(Classroom, { lessonId }, { isActive: false });
     });
 
     await this.redisService.del(`lessons:user:${lesson.tutorId}`);
     await this.redisService.del(`lessons:user:${lesson.studentId}`);
 
-    return this.lessonRepository.findOne({
+    const cancelled = await this.lessonRepository.findOne({
       where: { id: lessonId },
       relations: { tutor: true, student: true },
       select: {
@@ -442,15 +465,64 @@ export class LessonsService {
           firstName: true,
           lastName: true,
           avatarUrl: true,
+          email: true,
         },
         student: {
           id: true,
           firstName: true,
           lastName: true,
           avatarUrl: true,
+          email: true,
         },
       },
     });
+
+    const tutorName = cancelled?.tutor
+      ? `${cancelled.tutor.firstName} ${cancelled.tutor.lastName}`
+      : 'Tutor';
+    const studentName = cancelled?.student
+      ? `${cancelled.student.firstName} ${cancelled.student.lastName}`
+      : 'Student';
+    const scheduledLabel = lesson.scheduledTime.toLocaleString();
+    const refundNote = shouldRefund
+      ? `<p>A refund of $${refundAmount.toFixed(2)} has been credited to the student balance.</p>`
+      : `<p>No refund was issued (cancellation within ${CANCELLATION_REFUND_HOURS} hours of the lesson).</p>`;
+
+    if (lesson.tutor?.email) {
+      this.emailService
+        .sendEmail(
+          lesson.tutor.email,
+          'Lesson Cancelled — MRH Academy',
+          `<p>A lesson has been cancelled.</p>
+<p>Student: ${studentName}</p>
+<p>Scheduled: ${scheduledLabel}</p>
+${refundNote}`,
+        )
+        .catch(() => {});
+    }
+
+    if (lesson.student?.email) {
+      const studentRefundNote = shouldRefund
+        ? `<p>$${refundAmount.toFixed(2)} has been refunded to your balance.</p>`
+        : `<p>No refund was issued because the cancellation was within ${CANCELLATION_REFUND_HOURS} hours of the lesson start time.</p>`;
+
+      this.emailService
+        .sendEmail(
+          lesson.student.email,
+          'Lesson Cancelled — MRH Academy',
+          `<p>Your lesson has been cancelled.</p>
+<p>Tutor: ${tutorName}</p>
+<p>Scheduled: ${scheduledLabel}</p>
+${studentRefundNote}`,
+        )
+        .catch(() => {});
+    }
+
+    return {
+      ...cancelled,
+      refunded: shouldRefund,
+      refundAmount,
+    };
   }
 
   async exportIcal(

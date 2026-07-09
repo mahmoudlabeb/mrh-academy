@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 
@@ -37,11 +37,28 @@ const statusConfig: Record<string, { labelAr: string; labelEn: string; bg: strin
   cancelled: { labelAr: 'ملغي', labelEn: 'Cancelled', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
+const CANCELLATION_REFUND_HOURS = 24;
+
+function isCancellable(lesson: Lesson) {
+  return (
+    (lesson.status === 'confirmed' || lesson.status === 'pending') &&
+    new Date(lesson.date).getTime() > Date.now()
+  );
+}
+
+function willRefundOnCancel(lesson: Lesson) {
+  const hoursUntil =
+    (new Date(lesson.date).getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursUntil >= CANCELLATION_REFUND_HOURS;
+}
+
 export default function MyLessons() {
   const { lang } = useLanguage();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
   const [subTab, setSubTab] = useState<SubTab>('history');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const subTabs: { key: SubTab; labelAr: string; labelEn: string }[] = [
     { key: 'history', labelAr: 'سجل الدروس', labelEn: 'Lesson History' },
@@ -64,6 +81,54 @@ export default function MyLessons() {
       return data;
     },
   });
+
+  const cancelMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      const { data } = await apiClient.post<{ refunded: boolean; refundAmount: number }>(
+        `/lessons/${lessonId}/cancel`,
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['my-lessons'] });
+      queryClient.invalidateQueries({ queryKey: ['student-balance'] });
+      const msg = data.refunded
+        ? t(
+            `تم إلغاء الدرس واسترداد $${data.refundAmount.toFixed(2)} إلى رصيدك.`,
+            `Lesson cancelled. $${data.refundAmount.toFixed(2)} was refunded to your balance.`,
+          )
+        : t(
+            'تم إلغاء الدرس. لا يوجد استرداد لأن الإلغاء كان خلال 24 ساعة من موعد الدرس.',
+            'Lesson cancelled. No refund because cancellation was within 24 hours of the lesson.',
+          );
+      alert(msg);
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        t('تعذر إلغاء الدرس', 'Failed to cancel lesson');
+      alert(message);
+    },
+    onSettled: () => setCancellingId(null),
+  });
+
+  const handleCancelLesson = (lesson: Lesson) => {
+    const refund = willRefundOnCancel(lesson);
+    const confirmed = window.confirm(
+      refund
+        ? t(
+            `هل تريد إلغاء الدرس مع ${lesson.tutorName}؟ سيتم استرداد $${lesson.price.toFixed(2)} إلى رصيدك.`,
+            `Cancel your lesson with ${lesson.tutorName}? $${lesson.price.toFixed(2)} will be refunded to your balance.`,
+          )
+        : t(
+            `هل تريد إلغاء الدرس مع ${lesson.tutorName}؟ لن يتم استرداد المبلغ لأن الإلغاء خلال 24 ساعة من الموعد.`,
+            `Cancel your lesson with ${lesson.tutorName}? No refund will be issued because this is within 24 hours of the lesson.`,
+          ),
+    );
+    if (!confirmed) return;
+    setCancellingId(lesson.id);
+    cancelMutation.mutate(lesson.id);
+  };
 
   const lessonsByDate = lessons.reduce<Record<string, Lesson[]>>((acc, lesson) => {
     const day = lesson.date.split('T')[0];
@@ -153,10 +218,26 @@ export default function MyLessons() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className="badge text-xs font-semibold" style={{ background: cfg.bg, color: cfg.color }}>
                         {lang === 'ar' ? cfg.labelAr : cfg.labelEn}
                       </span>
+                      {isCancellable(lesson) && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelLesson(lesson)}
+                          disabled={cancellingId === lesson.id}
+                          className="text-xs px-3 py-2 rounded-lg border transition-colors disabled:opacity-50"
+                          style={{
+                            borderColor: 'rgba(239,68,68,0.3)',
+                            color: '#ef4444',
+                          }}
+                        >
+                          {cancellingId === lesson.id
+                            ? t('جاري الإلغاء...', 'Cancelling...')
+                            : t('إلغاء', 'Cancel')}
+                        </button>
+                      )}
                       {isJoinable(lesson.status) && lesson.roomId && (
                         <button
                           type="button"
@@ -257,6 +338,22 @@ export default function MyLessons() {
                           className="btn-primary text-xs px-3 py-1.5"
                         >
                           {t('دخول', 'Join')}
+                        </button>
+                      )}
+                      {isCancellable(lesson) && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelLesson(lesson)}
+                          disabled={cancellingId === lesson.id}
+                          className="text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                          style={{
+                            borderColor: 'rgba(239,68,68,0.3)',
+                            color: '#ef4444',
+                          }}
+                        >
+                          {cancellingId === lesson.id
+                            ? t('جاري الإلغاء...', 'Cancelling...')
+                            : t('إلغاء', 'Cancel')}
                         </button>
                       )}
                     </div>

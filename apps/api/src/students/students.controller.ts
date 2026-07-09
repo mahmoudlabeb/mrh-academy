@@ -1,7 +1,16 @@
-import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
-import { UserRole, CourseStatus } from '@mrh/types';
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
+import { UserRole } from '@mrh/types';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -9,9 +18,8 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { StudentsService } from './students.service.js';
 import { UsersService } from '../users/users.service.js';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
+import { AddFavoriteDto } from './dto/add-favorite.dto.js';
 import { Lesson } from '../entities/lesson.entity.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { Review } from '../entities/review.entity.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
 
@@ -24,10 +32,6 @@ export class StudentsController {
     private readonly usersService: UsersService,
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
-    @InjectRepository(TutorProfile)
-    private readonly tutorProfileRepository: Repository<TutorProfile>,
-    @InjectRepository(Review)
-    private readonly reviewRepository: Repository<Review>,
   ) {}
 
   @Get('balance')
@@ -80,43 +84,23 @@ export class StudentsController {
   }
 
   @Get('favorite-tutors')
-  async getFavoriteTutors(@CurrentUser() user: AuthenticatedUser) {
-    const lessons = await this.lessonRepository.find({
-      where: { studentId: user.id },
-      relations: { tutor: true },
-    });
-    const tutorIds = [
-      ...new Set(lessons.map((l) => l.tutorId).filter(Boolean)),
-    ];
+  getFavoriteTutors(@CurrentUser() user: AuthenticatedUser) {
+    return this.studentsService.getFavoriteTutors(user.id);
+  }
 
-    if (tutorIds.length === 0) return [];
+  @Post('favorites')
+  addFavorite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AddFavoriteDto,
+  ) {
+    return this.studentsService.addFavorite(user.id, dto.tutorId);
+  }
 
-    const tutors = await this.tutorProfileRepository.find({
-      where: { userId: In(tutorIds), status: CourseStatus.APPROVED },
-      relations: { user: true },
-    });
-
-    const result = await Promise.all(
-      tutors.map(async (t) => {
-        const avg = await this.reviewRepository
-          .createQueryBuilder('review')
-          .where('review.tutorId = :tutorId', { tutorId: t.userId })
-          .andWhere('review.status = :status', {
-            status: CourseStatus.APPROVED,
-          })
-          .select('AVG(review.rating)', 'avg')
-          .getRawOne<{ avg: string | null }>();
-        return {
-          userId: t.userId,
-          firstName: t.user?.firstName ?? '',
-          lastName: t.user?.lastName ?? '',
-          specialization: t.specialization,
-          hourlyRate: t.hourlyRate,
-          averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
-        };
-      }),
-    );
-
-    return result.sort((a, b) => b.averageRating - a.averageRating);
+  @Delete('favorites/:tutorId')
+  removeFavorite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('tutorId') tutorId: string,
+  ) {
+    return this.studentsService.removeFavorite(user.id, tutorId);
   }
 }

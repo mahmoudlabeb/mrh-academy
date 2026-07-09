@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useLanguage } from '@/contexts/language-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -162,6 +162,8 @@ function TutorPageContent() {
   });
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [cancellingLessonId, setCancellingLessonId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const connectQuery = useQuery({
     queryKey: ['stripe-connect-status'],
@@ -190,6 +192,39 @@ function TutorPageContent() {
   };
 
   const t = (ar: string, en: string) => isAr ? ar : en;
+
+  const cancelLessonMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      await apiClient.post(`/lessons/${lessonId}/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tutor-active-lessons'] });
+      queryClient.invalidateQueries({ queryKey: ['tutor-recent-lessons'] });
+      alert(t('تم إلغاء الدرس واسترداد المبلغ للطالب.', 'Lesson cancelled. The student has been refunded.'));
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        t('تعذر إلغاء الدرس', 'Failed to cancel lesson');
+      alert(message);
+    },
+    onSettled: () => setCancellingLessonId(null),
+  });
+
+  const handleCancelLesson = (lesson: { id: string; student?: { firstName?: string; lastName?: string } }) => {
+    const studentName = lesson.student
+      ? `${lesson.student.firstName ?? ''} ${lesson.student.lastName ?? ''}`.trim()
+      : t('الطالب', 'the student');
+    const confirmed = window.confirm(
+      t(
+        `هل تريد إلغاء الدرس مع ${studentName}؟ سيتم استرداد المبلغ للطالب.`,
+        `Cancel the lesson with ${studentName}? The student will receive a full refund.`,
+      ),
+    );
+    if (!confirmed) return;
+    setCancellingLessonId(lesson.id);
+    cancelLessonMutation.mutate(lesson.id);
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -414,9 +449,25 @@ function TutorPageContent() {
                         {new Date(lesson.scheduledTime).toLocaleString()}
                       </p>
                     </div>
-                    <Link href={`/classroom/${lesson.meetUrl}`} className="btn-primary text-sm px-4 py-2">
-                      {t('دخول الفصل', 'Enter Classroom')}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCancelLesson(lesson)}
+                        disabled={cancellingLessonId === lesson.id}
+                        className="text-sm px-3 py-2 rounded-lg border transition-colors disabled:opacity-50"
+                        style={{
+                          borderColor: 'rgba(239,68,68,0.3)',
+                          color: '#ef4444',
+                        }}
+                      >
+                        {cancellingLessonId === lesson.id
+                          ? t('جاري الإلغاء...', 'Cancelling...')
+                          : t('إلغاء', 'Cancel')}
+                      </button>
+                      <Link href={`/classroom/${lesson.meetUrl}`} className="btn-primary text-sm px-4 py-2">
+                        {t('دخول الفصل', 'Enter Classroom')}
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>

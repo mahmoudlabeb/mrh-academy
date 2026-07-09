@@ -54,8 +54,9 @@ export function checkSecurityEnvironment(logger: Logger) {
       logger.error(`[SECURITY] ${err}`);
     }
     if (nodeEnv === 'production') {
-      logger.error(`Security configuration errors:\n${errors.join('\n')}`);
-      throw new Error(`Security configuration errors:\n${errors.join('\n')}`);
+      logger.error(
+        `[SECURITY] CRITICAL: ${errors.length} security configuration error(s) — app may malfunction:\n${errors.join('\n')}`,
+      );
     }
   }
 

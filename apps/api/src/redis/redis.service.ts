@@ -9,7 +9,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   public connected = false;
 
   constructor() {
-    this.redis = new Redis(process.env.REDIS_URL!, {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    this.redis = new Redis(redisUrl, {
       lazyConnect: true,
       maxRetriesPerRequest: 0,
       retryStrategy: () => null,

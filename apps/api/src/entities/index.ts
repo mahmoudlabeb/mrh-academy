@@ -22,3 +22,4 @@ export { CoursePromoCode } from './course-promo-code.entity.js';
 export { Payout } from './payout.entity.js';
 export { VocabularyWord } from './vocabulary-word.entity.js';
 export { LessonBook } from './lesson-book.entity.js';
+export { StudentFavorite } from './student-favorite.entity.js';
