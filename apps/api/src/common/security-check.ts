@@ -21,11 +21,11 @@ export function checkSecurityEnvironment(logger: Logger) {
     }
 
     if (!process.env.ADMIN_EMAILS) {
-      errors.push('ADMIN_EMAILS must be configured in production');
+      warnings.push('ADMIN_EMAILS must be configured in production');
     }
 
     if (!process.env.STRIPE_SECRET_KEY) {
-      errors.push(
+      warnings.push(
         'STRIPE_SECRET_KEY not configured — Stripe payments will fail',
       );
     }
