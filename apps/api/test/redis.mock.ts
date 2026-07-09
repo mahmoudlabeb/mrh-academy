@@ -14,7 +14,7 @@ export class RedisServiceMock {
     this.store.delete(key);
   }
 
-  async delPattern(pattern: string) {
+  delPattern(pattern: string) {
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
     for (const key of this.store.keys()) {
       if (regex.test(key)) {
@@ -31,7 +31,7 @@ export class RedisServiceMock {
     const cached = this.store.get(key);
     if (cached !== undefined) {
       try {
-        return JSON.parse(cached);
+        return JSON.parse(cached) as T;
       } catch {
         /* ignore */
       }

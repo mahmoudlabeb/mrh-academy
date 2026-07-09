@@ -8,6 +8,7 @@ import {
   OneToOne,
 } from 'typeorm';
 import { UserRole } from '@mrh/types';
+import type { NotificationPreferences } from '../common/types/notification-preferences.js';
 import { TutorProfile } from './tutor-profile.entity.js';
 import { StudentProfile } from './student-profile.entity.js';
 import { SubAdminProfile } from './sub-admin-profile.entity.js';
@@ -49,6 +50,9 @@ export class User {
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  notificationPreferences: NotificationPreferences;
 
   @CreateDateColumn()
   createdAt: Date;

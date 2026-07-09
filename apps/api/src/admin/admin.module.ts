@@ -28,6 +28,7 @@ import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
 import { Review } from '../entities/review.entity.js';
 import { Payment } from '../entities/payment.entity.js';
 import { Report } from '../entities/report.entity.js';
+import { Payout } from '../entities/payout.entity.js';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { Report } from '../entities/report.entity.js';
       Review,
       Payment,
       Report,
+      Payout,
     ]),
   ],
   providers: [AdminEmployeesService],

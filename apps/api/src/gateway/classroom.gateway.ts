@@ -5,18 +5,21 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import {
-  Injectable,
-  BadRequestException,
-  OnApplicationShutdown,
-} from '@nestjs/common';
+import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
+import sanitizeHtml from 'sanitize-html';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { LessonStatus } from '@mrh/types';
 import { Lesson } from '../entities/lesson.entity.js';
+import { Classroom } from '../entities/classroom.entity.js';
 import { RedisService } from '../redis/redis.service.js';
+import {
+  getClassroomSocketData,
+  setClassroomSocketData,
+} from '../common/types/classroom-socket.js';
 
 interface ConnectedClient {
   socketId: string;
@@ -29,6 +32,11 @@ interface HealthRecord {
   socketId: string;
   rtt: number;
   lastSeen: number;
+}
+
+interface JwtHandshakePayload {
+  sub: string;
+  role: string;
 }
 
 @Injectable()
@@ -61,6 +69,8 @@ export class ClassroomGateway
     private readonly redisService: RedisService,
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
+    @InjectRepository(Classroom)
+    private readonly classroomRepository: Repository<Classroom>,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -74,15 +84,21 @@ export class ClassroomGateway
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync(token);
-      const { sub: userId, role } = payload;
+      const payload = await this.jwtService.verifyAsync<JwtHandshakePayload>(
+        String(token),
+      );
+      const userId = payload.sub;
+      const role = payload.role;
 
       const existing = this.connectedClients.get(userId) || [];
       existing.push({ socketId: socket.id, userId, role });
       this.connectedClients.set(userId, existing);
 
-      socket.data.userId = userId;
-      socket.data.role = role;
+      setClassroomSocketData(socket, {
+        userId,
+        role,
+        currentLesson: null,
+      });
       this.ensureHealthInterval();
     } catch {
       socket.disconnect(true);
@@ -90,7 +106,7 @@ export class ClassroomGateway
   }
 
   handleDisconnect(socket: Socket) {
-    const userId = socket.data.userId;
+    const { userId } = getClassroomSocketData(socket);
     if (!userId) return;
 
     const clients = this.connectedClients.get(userId) || [];
@@ -108,16 +124,30 @@ export class ClassroomGateway
 
     const lesson = await this.lessonRepository.findOne({
       where: { id: lessonId },
-      select: { id: true, studentId: true, tutorId: true },
+      select: { id: true, studentId: true, tutorId: true, status: true },
     });
     if (!lesson) {
       socket.emit('error_message', 'Lesson not found');
       return;
     }
     if (
-      lesson.studentId !== socket.data.userId &&
-      lesson.tutorId !== socket.data.userId &&
-      socket.data.role !== 'admin'
+      lesson.status === LessonStatus.COMPLETED ||
+      lesson.status === LessonStatus.CANCELLED
+    ) {
+      socket.emit('error_message', 'This lesson is no longer available');
+      return;
+    }
+    const classroom = await this.classroomRepository.findOne({
+      where: { lessonId },
+    });
+    if (classroom && !classroom.isActive) {
+      socket.emit('error_message', 'Classroom is closed');
+      return;
+    }
+    if (
+      lesson.studentId !== this.socketData(socket).userId &&
+      lesson.tutorId !== this.socketData(socket).userId &&
+      this.socketData(socket).role !== 'admin'
     ) {
       socket.emit('error_message', 'You are not a participant of this lesson');
       return;
@@ -125,7 +155,7 @@ export class ClassroomGateway
 
     socket.join(lessonId);
 
-    socket.data.currentLesson = lessonId;
+    setClassroomSocketData(socket, { currentLesson: lessonId });
 
     const whiteboardKey = `whiteboard:${lessonId}`;
     let whiteboardState = await this.redisService.get(whiteboardKey);
@@ -136,9 +166,19 @@ export class ClassroomGateway
 
     socket.emit('whiteboard_sync', JSON.parse(whiteboardState));
 
+    const bookKey = `book:${lessonId}`;
+    const bookState = await this.redisService.get(bookKey);
+    if (bookState) {
+      try {
+        socket.emit('book_sync', JSON.parse(bookState));
+      } catch {
+        // ignore invalid book state
+      }
+    }
+
     socket.to(lessonId).emit('peer_joined', {
-      userId: socket.data.userId,
-      role: socket.data.role,
+      userId: this.socketData(socket).userId,
+      role: this.socketData(socket).role,
     });
   }
 
@@ -149,8 +189,12 @@ export class ClassroomGateway
     }
   }
 
+  private socketData(socket: Socket) {
+    return getClassroomSocketData(socket);
+  }
+
   private assertLessonMembership(socket: Socket, lessonId: string): boolean {
-    return socket.data.currentLesson === lessonId;
+    return getClassroomSocketData(socket).currentLesson === lessonId;
   }
 
   private checkChatRateLimit(socketId: string): boolean {
@@ -176,14 +220,14 @@ export class ClassroomGateway
     if (!content || typeof content !== 'string') return;
     if (content.length > 2000) return;
 
-    const sanitized = content
-      .replace(/<[^>]*>/g, '')
-      .replace(/[<>]/g, '')
-      .trim();
+    const sanitized = sanitizeHtml(content, {
+      allowedTags: [], // Strip all tags in realtime chat
+      allowedAttributes: {},
+    }).trim();
     if (!sanitized) return;
 
     this.server.to(lessonId).emit('chat_message', {
-      senderId: socket.data.userId,
+      senderId: this.socketData(socket).userId,
       content: sanitized,
       timestamp: new Date().toISOString(),
     });
@@ -197,7 +241,7 @@ export class ClassroomGateway
     const { lessonId, page, data } = payload;
     if (!this.assertLessonMembership(socket, lessonId)) return;
     socket.to(lessonId).emit('canvas_update', {
-      userId: socket.data.userId,
+      userId: this.socketData(socket).userId,
       page,
       data,
     });
@@ -266,6 +310,75 @@ export class ClassroomGateway
     socket.to(lessonId).emit('whiteboard_page_change', { page });
   }
 
+  @SubscribeMessage('book_present')
+  async handleBookPresent(
+    socket: Socket,
+    payload: {
+      lessonId: string;
+      bookId: string;
+      title: string;
+      pageCount: number;
+      page?: number;
+    },
+  ) {
+    if (this.socketData(socket).role !== 'tutor') return;
+    if (!this.assertLessonMembership(socket, payload.lessonId)) return;
+    if (!payload.bookId || !payload.title || !payload.pageCount) return;
+
+    const page = Math.max(1, Math.min(payload.page ?? 1, payload.pageCount));
+    const state = {
+      active: true,
+      bookId: payload.bookId,
+      title: payload.title,
+      pageCount: payload.pageCount,
+      page,
+    };
+
+    const bookKey = `book:${payload.lessonId}`;
+    await this.redisService.set(bookKey, JSON.stringify(state), 'EX', 86400);
+    this.server.to(payload.lessonId).emit('book_sync', state);
+  }
+
+  @SubscribeMessage('book_page_change')
+  async handleBookPageChange(
+    socket: Socket,
+    payload: { lessonId: string; page: number },
+  ) {
+    if (this.socketData(socket).role !== 'tutor') return;
+    if (!this.assertLessonMembership(socket, payload.lessonId)) return;
+    if (!Number.isInteger(payload.page) || payload.page < 1) return;
+
+    const bookKey = `book:${payload.lessonId}`;
+    const existing = await this.redisService.get(bookKey);
+    if (!existing) return;
+
+    try {
+      const parsed = JSON.parse(existing) as {
+        active: boolean;
+        bookId: string;
+        title: string;
+        pageCount: number;
+        page: number;
+      };
+      const page = Math.min(payload.page, parsed.pageCount);
+      parsed.page = page;
+      await this.redisService.set(bookKey, JSON.stringify(parsed), 'EX', 86400);
+      this.server.to(payload.lessonId).emit('book_page_change', { page });
+    } catch {
+      // ignore
+    }
+  }
+
+  @SubscribeMessage('book_close')
+  async handleBookClose(socket: Socket, payload: { lessonId: string }) {
+    if (this.socketData(socket).role !== 'tutor') return;
+    if (!this.assertLessonMembership(socket, payload.lessonId)) return;
+
+    const bookKey = `book:${payload.lessonId}`;
+    await this.redisService.del(bookKey);
+    this.server.to(payload.lessonId).emit('book_close', {});
+  }
+
   private isInSameLesson(userId1: string, userId2: string): boolean {
     const clients1 = this.connectedClients.get(userId1);
     const clients2 = this.connectedClients.get(userId2);
@@ -295,13 +408,14 @@ export class ClassroomGateway
     payload: { lessonId: string; targetUserId: string; offer: unknown },
   ) {
     const { lessonId, targetUserId, offer } = payload;
-    if (socket.data.currentLesson !== lessonId) return;
-    if (!this.isInSameLesson(socket.data.userId, targetUserId)) return;
+    if (this.socketData(socket).currentLesson !== lessonId) return;
+    if (!this.isInSameLesson(this.socketData(socket).userId, targetUserId))
+      return;
     const targetClients = this.connectedClients.get(targetUserId);
     if (targetClients) {
       for (const client of targetClients) {
         this.server.to(client.socketId).emit('webrtc_offer', {
-          userId: socket.data.userId,
+          userId: this.socketData(socket).userId,
           offer,
         });
       }
@@ -314,13 +428,14 @@ export class ClassroomGateway
     payload: { lessonId: string; targetUserId: string; answer: unknown },
   ) {
     const { lessonId, targetUserId, answer } = payload;
-    if (socket.data.currentLesson !== lessonId) return;
-    if (!this.isInSameLesson(socket.data.userId, targetUserId)) return;
+    if (this.socketData(socket).currentLesson !== lessonId) return;
+    if (!this.isInSameLesson(this.socketData(socket).userId, targetUserId))
+      return;
     const targetClients = this.connectedClients.get(targetUserId);
     if (targetClients) {
       for (const client of targetClients) {
         this.server.to(client.socketId).emit('webrtc_answer', {
-          userId: socket.data.userId,
+          userId: this.socketData(socket).userId,
           answer,
         });
       }
@@ -333,13 +448,14 @@ export class ClassroomGateway
     payload: { lessonId: string; targetUserId: string; candidate: unknown },
   ) {
     const { lessonId, targetUserId, candidate } = payload;
-    if (socket.data.currentLesson !== lessonId) return;
-    if (!this.isInSameLesson(socket.data.userId, targetUserId)) return;
+    if (this.socketData(socket).currentLesson !== lessonId) return;
+    if (!this.isInSameLesson(this.socketData(socket).userId, targetUserId))
+      return;
     const targetClients = this.connectedClients.get(targetUserId);
     if (targetClients) {
       for (const client of targetClients) {
         this.server.to(client.socketId).emit('webrtc_ice_candidate', {
-          userId: socket.data.userId,
+          userId: this.socketData(socket).userId,
           candidate,
         });
       }
@@ -349,8 +465,9 @@ export class ClassroomGateway
   @SubscribeMessage('webrtc_end')
   handleWebrtcEnd(socket: Socket, payload: { lessonId: string }) {
     const { lessonId } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
     socket.to(lessonId).emit('webrtc_end', {
-      userId: socket.data.userId,
+      userId: this.socketData(socket).userId,
     });
   }
 
@@ -360,13 +477,14 @@ export class ClassroomGateway
     payload: { lessonId: string; targetUserId: string; offer: unknown },
   ) {
     const { lessonId, targetUserId, offer } = payload;
-    if (socket.data.currentLesson !== lessonId) return;
-    if (!this.isInSameLesson(socket.data.userId, targetUserId)) return;
+    if (this.socketData(socket).currentLesson !== lessonId) return;
+    if (!this.isInSameLesson(this.socketData(socket).userId, targetUserId))
+      return;
     const targetClients = this.connectedClients.get(targetUserId);
     if (targetClients) {
       for (const client of targetClients) {
         this.server.to(client.socketId).emit('camera_offer', {
-          userId: socket.data.userId,
+          userId: this.socketData(socket).userId,
           offer,
         });
       }
@@ -379,13 +497,14 @@ export class ClassroomGateway
     payload: { lessonId: string; targetUserId: string; answer: unknown },
   ) {
     const { lessonId, targetUserId, answer } = payload;
-    if (socket.data.currentLesson !== lessonId) return;
-    if (!this.isInSameLesson(socket.data.userId, targetUserId)) return;
+    if (this.socketData(socket).currentLesson !== lessonId) return;
+    if (!this.isInSameLesson(this.socketData(socket).userId, targetUserId))
+      return;
     const targetClients = this.connectedClients.get(targetUserId);
     if (targetClients) {
       for (const client of targetClients) {
         this.server.to(client.socketId).emit('camera_answer', {
-          userId: socket.data.userId,
+          userId: this.socketData(socket).userId,
           answer,
         });
       }
@@ -398,13 +517,14 @@ export class ClassroomGateway
     payload: { lessonId: string; targetUserId: string; candidate: unknown },
   ) {
     const { lessonId, targetUserId, candidate } = payload;
-    if (socket.data.currentLesson !== lessonId) return;
-    if (!this.isInSameLesson(socket.data.userId, targetUserId)) return;
+    if (this.socketData(socket).currentLesson !== lessonId) return;
+    if (!this.isInSameLesson(this.socketData(socket).userId, targetUserId))
+      return;
     const targetClients = this.connectedClients.get(targetUserId);
     if (targetClients) {
       for (const client of targetClients) {
         this.server.to(client.socketId).emit('camera_ice_candidate', {
-          userId: socket.data.userId,
+          userId: this.socketData(socket).userId,
           candidate,
         });
       }
@@ -414,8 +534,9 @@ export class ClassroomGateway
   @SubscribeMessage('camera_ready')
   handleCameraReady(socket: Socket, payload: { lessonId: string }) {
     const { lessonId } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
     socket.to(lessonId).emit('camera_ready', {
-      userId: socket.data.userId,
+      userId: this.socketData(socket).userId,
     });
   }
 
@@ -433,7 +554,8 @@ export class ClassroomGateway
     payload: { lessonId: string; rtt: number },
   ) {
     const { lessonId, rtt } = payload;
-    const userId = socket.data.userId;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
+    const userId = this.socketData(socket).userId;
     if (!userId || !lessonId) return;
 
     this.healthRecords.set(socket.id, {
@@ -470,11 +592,12 @@ export class ClassroomGateway
   @SubscribeMessage('leave_lesson')
   handleLeaveLesson(socket: Socket, payload: { lessonId: string }) {
     const { lessonId } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
     this.healthRecords.delete(socket.id);
     socket.to(lessonId).emit('peer_left', {
-      userId: socket.data.userId,
+      userId: this.socketData(socket).userId,
     });
     socket.leave(lessonId);
-    socket.data.currentLesson = null;
+    setClassroomSocketData(socket, { currentLesson: null });
   }
 }

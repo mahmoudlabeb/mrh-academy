@@ -8,7 +8,7 @@ import Image from 'next/image';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -18,6 +18,7 @@ type CourseDetail = {
   description: string;
   price: number;
   thumbnailUrl?: string;
+  bunnyVideoId?: string | null;
   tutor: { firstName: string; lastName: string; avatarUrl?: string };
 };
 
@@ -37,6 +38,8 @@ export default function CourseDetailPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const referralStorageKey = `course_ref_${params.id}`;
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState('');
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', params.id],
     queryFn: async () => {
@@ -75,6 +78,20 @@ export default function CourseDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
     },
   });
+
+  const watchVideo = async () => {
+    setStreamError('');
+    try {
+      const { data } = await apiClient.get<{ token: string }>(`/courses/${params.id}/stream-token`);
+      setStreamUrl(data.token);
+    } catch {
+      setStreamError(
+        lang === 'ar'
+          ? 'الفيديو غير متاح. تأكد من إعداد Bunny CDN على الخادم (BUNNY_API_KEY, BUNNY_CDN_HOSTNAME).'
+          : 'Video unavailable. Ensure Bunny CDN is configured on the API (BUNNY_API_KEY, BUNNY_CDN_HOSTNAME).',
+      );
+    }
+  };
 
   const getCookie = (name: string) => {
     if (typeof window === 'undefined') return null;
@@ -161,21 +178,32 @@ export default function CourseDetailPage() {
             <p className="leading-relaxed" style={{ color: 'var(--text-muted)' }}>{course.description}</p>
 
             {enrollment && (
-              <div className="card p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
-                    {lang === 'ar' ? 'تقدمك في الكورس' : 'Your Progress'}
-                  </span>
-                  <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
-                    {enrollment.progressPercentage}%
-                  </span>
+              <div className="card p-4 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+                      {lang === 'ar' ? 'تقدمك في الكورس' : 'Your Progress'}
+                    </span>
+                    <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
+                      {enrollment.progressPercentage}%
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-light)' }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${enrollment.progressPercentage}%`, background: '#D4A353' }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-light)' }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${enrollment.progressPercentage}%`, background: '#D4A353' }}
-                  />
-                </div>
+                <button type="button" onClick={watchVideo} className="btn-outline-gold w-full text-sm">
+                  {lang === 'ar' ? 'مشاهدة فيديو الكورس' : 'Watch Course Video'}
+                </button>
+                {streamUrl && (
+                  <video src={streamUrl} controls className="w-full rounded-lg" />
+                )}
+                {streamError && (
+                  <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{streamError}</p>
+                )}
               </div>
             )}
 

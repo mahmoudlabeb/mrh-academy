@@ -21,4 +21,15 @@ export class AppController {
       timestamp: new Date().toISOString(),
     };
   }
+
+  @Public()
+  @Get('health/integrations')
+  async integrationHealth() {
+    const integrations = await this.appService.getIntegrationStatus();
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      integrations,
+    };
+  }
 }

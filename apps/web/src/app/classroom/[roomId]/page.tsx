@@ -8,6 +8,11 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { getSocket, disconnectSocket } from '@/lib/socket';
 import { useWebRTC } from '@/hooks/useWebRTC';
+import { SecureBookViewer } from '@/components/classroom/SecureBookViewer';
+import {
+  ClassroomBookPanel,
+  type LessonBookMeta,
+} from '@/components/classroom/ClassroomBookPanel';
 
 interface ChatMessage {
   senderId: string;
@@ -30,6 +35,14 @@ interface Participant {
 interface WhiteboardState {
   pages: Record<string, DrawAction[]>;
   currentPage: number;
+}
+
+interface BookSessionState {
+  active: boolean;
+  bookId: string;
+  title: string;
+  pageCount: number;
+  page: number;
 }
 
 const COLORS = ['#000000', '#ef4444', '#3b82f6', '#22c55e', '#D4A353'];
@@ -69,29 +82,32 @@ export default function ClassroomPage() {
   const [focusedStudent, setFocusedStudent] = useState<string | null>(null);
   const [rtt, setRtt] = useState<number | null>(null);
   const [healthMap, setHealthMap] = useState<Record<string, number>>({});
+  const [mainView, setMainView] = useState<'whiteboard' | 'book'>('whiteboard');
+  const [bookSession, setBookSession] = useState<BookSessionState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const rttPingRef = useRef<number | null>(null);
 
-  const { data: lesson } = useQuery({
+  const { data: lesson, isError: lessonError, isLoading: lessonLoading } = useQuery({
     queryKey: ['lesson-by-room', roomId],
     queryFn: async () => {
-      const { data } = await apiClient.get('/lessons');
-      const lessons = Array.isArray(data) ? data : [];
-      return lessons.find((l: { meetUrl?: string }) => l.meetUrl === roomId) || null;
+      const { data } = await apiClient.get(`/lessons/by-room/${roomId}`);
+      return data as { id: string; status: string; title?: string; tutor?: { firstName?: string }; student?: { firstName?: string } };
     },
-    enabled: !!roomId,
+    enabled: !!roomId && !!user,
+    retry: false,
   });
 
-  const lessonId = lesson?.id || roomId;
+  const lessonId = lesson?.id;
   const peerUser = participants.find((p) => p.userId !== user?.id);
   const {
     activeCall,
     remoteStreams,
     localStreamRef,
     isCallLoading,
+    callError,
     startCall,
     stopCall,
-  } = useWebRTC(lessonId, user?.id || '', peerUser?.userId || null);
+  } = useWebRTC(lessonId ?? '', user?.id || '', peerUser?.userId || null);
 
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -154,7 +170,7 @@ export default function ClassroomPage() {
   }, [currentPage, pages, redrawPage]);
 
   useEffect(() => {
-    if (!user || !roomId) return;
+    if (!user || !roomId || !lessonId) return;
     const socket = getSocket();
 
     const onConnect = () => {
@@ -187,6 +203,22 @@ export default function ClassroomPage() {
 
     const onPageChange = (payload: { page: number }) => {
       setCurrentPage(payload.page);
+    };
+
+    const onBookSync = (state: BookSessionState) => {
+      if (state?.active && state.bookId) {
+        setBookSession(state);
+        setMainView('book');
+      }
+    };
+
+    const onBookPageChange = (payload: { page: number }) => {
+      setBookSession((prev) => (prev ? { ...prev, page: payload.page } : prev));
+    };
+
+    const onBookClose = () => {
+      setBookSession(null);
+      setMainView('whiteboard');
     };
 
     const onPeerJoined = (p: Participant) => {
@@ -234,6 +266,9 @@ export default function ClassroomPage() {
     socket.on('canvas_update', onCanvasUpdate);
     socket.on('chat_message', onChatMessage);
     socket.on('whiteboard_page_change', onPageChange);
+    socket.on('book_sync', onBookSync);
+    socket.on('book_page_change', onBookPageChange);
+    socket.on('book_close', onBookClose);
     socket.on('peer_joined', onPeerJoined);
     socket.on('peer_left', onPeerLeft);
     socket.on('pong_health', onPongHealth);
@@ -257,6 +292,9 @@ export default function ClassroomPage() {
       socket.off('canvas_update', onCanvasUpdate);
       socket.off('chat_message', onChatMessage);
       socket.off('whiteboard_page_change', onPageChange);
+      socket.off('book_sync', onBookSync);
+      socket.off('book_page_change', onBookPageChange);
+      socket.off('book_close', onBookClose);
       socket.off('peer_joined', onPeerJoined);
       socket.off('peer_left', onPeerLeft);
       socket.off('pong_health', onPongHealth);
@@ -370,6 +408,48 @@ export default function ClassroomPage() {
     socket.emit('whiteboard_page_change', { lessonId, page: newPage });
   };
 
+  const changeBookPage = (delta: number) => {
+    if (!bookSession || !lessonId) return;
+    const newPage = Math.max(
+      1,
+      Math.min(bookSession.pageCount, bookSession.page + delta),
+    );
+    setBookSession((prev) => (prev ? { ...prev, page: newPage } : prev));
+    if (user?.role === 'tutor') {
+      const socket = getSocket();
+      socket.emit('book_page_change', { lessonId, page: newPage });
+    }
+  };
+
+  const presentBook = (book: LessonBookMeta) => {
+    if (!lessonId) return;
+    const socket = getSocket();
+    const payload = {
+      lessonId,
+      bookId: book.id,
+      title: book.title,
+      pageCount: book.pageCount,
+      page: 1,
+    };
+    socket.emit('book_present', payload);
+    setBookSession({
+      active: true,
+      bookId: book.id,
+      title: book.title,
+      pageCount: book.pageCount,
+      page: 1,
+    });
+    setMainView('book');
+  };
+
+  const closeBookPresentation = () => {
+    if (!lessonId) return;
+    const socket = getSocket();
+    socket.emit('book_close', { lessonId });
+    setBookSession(null);
+    setMainView('whiteboard');
+  };
+
   const sendChat = () => {
     if (!chatInput.trim()) return;
     const socket = getSocket();
@@ -418,6 +498,25 @@ export default function ClassroomPage() {
   };
 
   const totalPages = Math.max(1, ...Object.keys(pages).map(Number), currentPage);
+
+  if (lessonLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+        <p style={{ color: 'var(--text-muted)' }}>{t('جاري تحميل الدرس...', 'Loading lesson...')}</p>
+      </div>
+    );
+  }
+
+  if (lessonError || !lessonId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: 'var(--bg-main)' }}>
+        <p style={{ color: 'var(--text-muted)' }}>{t('الدرس غير متاح أو انتهى', 'Lesson unavailable or ended')}</p>
+        <button type="button" className="btn-primary" onClick={() => router.push('/student')}>
+          {t('العودة', 'Go Back')}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-main)' }}>
@@ -506,11 +605,50 @@ export default function ClassroomPage() {
       <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
         {/* Whiteboard Area */}
         <div className="flex flex-col flex-1 min-w-0 order-2 lg:order-1" style={{ background: 'var(--bg-main)' }}>
-          {/* Drawing Toolbar */}
+          {user?.role === 'tutor' && (
+            <ClassroomBookPanel
+              lessonId={lessonId}
+              activeBookId={bookSession?.bookId ?? null}
+              onPresent={presentBook}
+              onClose={closeBookPresentation}
+              isPresenting={mainView === 'book' && !!bookSession}
+              t={t}
+            />
+          )}
+
+          {/* View + Drawing Toolbar */}
           <div
             className="flex items-center gap-2 px-4 py-2 flex-wrap"
             style={{ background: 'var(--bg-light)', borderBottom: '1px solid var(--border-color)' }}
           >
+            <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ background: 'var(--bg-main)' }}>
+              <button
+                type="button"
+                onClick={() => setMainView('whiteboard')}
+                className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
+                style={{
+                  background: mainView === 'whiteboard' ? '#D4A353' : 'transparent',
+                  color: mainView === 'whiteboard' ? '#0F3A40' : 'var(--text-muted)',
+                }}
+              >
+                {t('السبورة', 'Whiteboard')}
+              </button>
+              <button
+                type="button"
+                onClick={() => bookSession && setMainView('book')}
+                disabled={!bookSession}
+                className="px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-40"
+                style={{
+                  background: mainView === 'book' ? '#D4A353' : 'transparent',
+                  color: mainView === 'book' ? '#0F3A40' : 'var(--text-muted)',
+                }}
+              >
+                {t('الكتاب', 'Book')}
+              </button>
+            </div>
+
+            {mainView === 'whiteboard' && (
+              <>
             {COLORS.map((c) => (
               <button
                 key={c}
@@ -593,10 +731,66 @@ export default function ClassroomPage() {
                 ▶
               </button>
             </div>
+              </>
+            )}
+
+            {mainView === 'book' && bookSession && (
+              <>
+                <div className="w-px h-6" style={{ background: 'var(--border-color)' }} />
+                <span className="text-xs font-medium truncate max-w-[180px]" style={{ color: 'var(--text-main)' }}>
+                  {bookSession.title}
+                </span>
+                <div className="flex-1" />
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => changeBookPage(-1)}
+                    disabled={bookSession.page <= 1 || user?.role !== 'tutor'}
+                    className="px-2 py-1 rounded text-xs disabled:opacity-30"
+                    style={{ color: 'var(--text-muted)', border: '1px solid var(--border-color)' }}
+                  >
+                    ◀
+                  </button>
+                  <span className="text-xs px-2 font-medium" style={{ color: 'var(--text-main)' }}>
+                    {bookSession.page} / {bookSession.pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => changeBookPage(1)}
+                    disabled={bookSession.page >= bookSession.pageCount || user?.role !== 'tutor'}
+                    className="px-2 py-1 rounded text-xs disabled:opacity-30"
+                    style={{ color: 'var(--text-muted)', border: '1px solid var(--border-color)' }}
+                  >
+                    ▶
+                  </button>
+                </div>
+                {user?.role === 'tutor' && (
+                  <button
+                    type="button"
+                    onClick={closeBookPresentation}
+                    className="px-3 py-1 rounded-lg text-xs font-medium"
+                    style={{ color: '#ef4444', border: '1px solid #ef4444' }}
+                  >
+                    {t('إيقاف', 'Stop')}
+                  </button>
+                )}
+              </>
+            )}
           </div>
 
-          {/* Canvas */}
-          <div className="flex-1 relative p-2">
+          {/* Main canvas / book area */}
+          <div className="flex-1 relative p-2 min-h-[320px]">
+            {mainView === 'book' && bookSession ? (
+              <SecureBookViewer
+                lessonId={lessonId}
+                bookId={bookSession.bookId}
+                page={bookSession.page}
+                pageCount={bookSession.pageCount}
+                title={bookSession.title}
+                watermark={user?.email || user?.id || 'MRH'}
+                t={t}
+              />
+            ) : (
             <canvas
               ref={canvasRef}
               onMouseDown={handleMouseDown}
@@ -606,6 +800,7 @@ export default function ClassroomPage() {
               className="w-full h-full rounded-xl cursor-crosshair"
               style={{ background: '#ffffff', touchAction: 'none' }}
             />
+            )}
             {/* WebRTC Remote Video Overlay */}
             {Object.entries(remoteStreams).map(([pid, stream]) => (
               <div
@@ -690,6 +885,11 @@ export default function ClassroomPage() {
                   {activeCall === 'screen' ? t('إيقاف المشاركة', 'Stop Share') : t('مشاركة الشاشة', 'Screen Share')}
                 </button>
               </>
+            )}
+            {callError && (
+              <p className="text-xs w-full mt-1" style={{ color: '#ef4444' }}>
+                {callError}
+              </p>
             )}
           </div>
         </div>

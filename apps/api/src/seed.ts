@@ -184,8 +184,28 @@ async function bootstrap() {
   await tutorRepository.save(fatimaProfile);
   console.log('Tutor Fatimetou created (fatimetouzehra27@gmail.com).');
 
-  // 9. SubAdmin profile (for future use — linked later)
-  console.log('SubAdmin profile skipped (no specific account requested).');
+  // 9. SubAdmin (employee login for testing)
+  const subAdminUser = userRepository.create({
+    email: 'subadmin@mrhacademy.com',
+    passwordHash: defaultPassword,
+    firstName: 'لمى',
+    lastName: 'سعيد',
+    role: UserRole.SUBADMIN,
+    isVerified: true,
+  });
+  await userRepository.save(subAdminUser);
+  await subAdminRepository.save(
+    subAdminRepository.create({
+      userId: subAdminUser.id,
+      assignedPermissions: [
+        'manage_tutors',
+        'manage_payments',
+        'view_reports',
+        'impersonate_users',
+      ],
+    }),
+  );
+  console.log('SubAdmin created (subadmin@mrhacademy.com).');
 
   // 10. Employees
   await employeeRepository.save([
@@ -197,9 +217,14 @@ async function bootstrap() {
     }),
     employeeRepository.create({
       name: 'لمى سعيد',
-      email: 'lama@mrhacademy.com',
+      email: 'subadmin@mrhacademy.com',
       roleTitle: 'دعم فني',
-      permissions: 'Access classroom reports, Message users',
+      permissions: JSON.stringify([
+        'manage_tutors',
+        'manage_payments',
+        'view_reports',
+        'impersonate_users',
+      ]),
     }),
   ]);
   console.log('Employees created (محمد الدوسري, لمى سعيد).');

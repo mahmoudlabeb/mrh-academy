@@ -117,10 +117,11 @@ export class AuthService {
         );
       }
 
-      const accessToken = this.jwtService.sign(payload);
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
-      const { passwordHash, ...safeUser } = result;
-      return { accessToken, user: safeUser };
+      const { passwordHash: _passwordHash, ...safeUser } = result;
+      return { accessToken, refreshToken, user: safeUser };
     } catch (error: any) {
       if (error.code === '23505' || error.constraint?.includes('email')) {
         throw new ConflictException('Email is already registered');
@@ -164,10 +165,11 @@ export class AuthService {
       );
     }
 
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
-    const { passwordHash, ...safeUser } = user;
-    return { accessToken, user: safeUser };
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    return { accessToken, refreshToken, user: safeUser };
   }
 
   async getMe(userId: string) {
@@ -183,7 +185,7 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const { passwordHash, ...safeUser } = user;
+    const { passwordHash: _passwordHash, ...safeUser } = user;
     return safeUser;
   }
 
@@ -266,7 +268,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    const { passwordHash, ...safeUser } = user;
+    const { passwordHash: _passwordHash, ...safeUser } = user;
     return { accessToken, user: safeUser };
   }
 
@@ -333,5 +335,45 @@ export class AuthService {
   async deleteAccount(userId: string) {
     await this.userRepository.softDelete({ id: userId });
     await this.logout(userId);
+  }
+  async refreshTokens(refreshToken: string) {
+    try {
+      const decoded = this.jwtService.verify(refreshToken);
+      const user = await this.userRepository.findOne({
+        where: { id: decoded.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const payload: Record<string, string> = {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      };
+
+      if (user.role === UserRole.STUDENT) {
+        // Reuse session or generate new? We'll just generate new for simplicity,
+        // or re-use existing session logic.
+        const sessionId = randomUUID();
+        payload.sessionId = sessionId;
+        await this.redisService.set(
+          `user_session:${user.id}`,
+          sessionId,
+          'EX',
+          7 * 24 * 60 * 60,
+        );
+      }
+
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+      const newRefreshToken = this.jwtService.sign(payload, {
+        expiresIn: '30d',
+      });
+
+      return { accessToken, refreshToken: newRefreshToken };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 }

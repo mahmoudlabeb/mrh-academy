@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
-import Link from "next/link";
+import { useState, useEffect } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/contexts/auth-context';
+import Link from 'next/link';
 
 type Certificate = { subject: string; name: string; dateRange: string };
 type Education = { degree: string; major: string; university: string; dateRange: string };
@@ -22,21 +23,28 @@ const STEPS = [
 
 export default function BecomeTeacherWizard() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const [step, setStep] = useState(1);
-  const [submitError, setSubmitError] = useState("");
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login?redirect=/become-teacher');
+      return;
+    }
+    if (user.role !== 'student') {
+      router.replace(user.role === 'tutor' ? '/tutor' : '/student');
+    }
+  }, [user, authLoading, router]);
 
   // Step 1
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [country, setCountry] = useState("");
-  const [subject, setSubject] = useState("");
-  const [phone, setPhone] = useState("");
-  const [languages, setLanguages] = useState("");
-  const [timezone, setTimezone] = useState("");
+  const [country, setCountry] = useState('');
+  const [subject, setSubject] = useState('');
+  const [languages, setLanguages] = useState('');
 
-  // Step 2
-  const [avatar, setAvatar] = useState<File | null>(null);
+  // Step 2 — verification document (PDF/Word)
+  const [document, setDocument] = useState<File | null>(null);
 
   // Step 3
   const [certificates, setCertificates] = useState<Certificate[]>([]);
@@ -53,48 +61,53 @@ export default function BecomeTeacherWizard() {
   // Step 6
   const [videoUrl, setVideoUrl] = useState("");
 
-  // Step 7
-  const [availability] = useState<Record<string, string>>({});
+  // Step 7 — availability set after approval in tutor dashboard
 
   // Step 8
   const [hourlyRate, setHourlyRate] = useState<number>(15);
 
   const applyMutation = useMutation({
     mutationFn: async () => {
+      const langArray = languages.split(',').map((l) => l.trim()).filter(Boolean);
+      const bioParts = [
+        headline && `Headline: ${headline}`,
+        intro && `Introduction: ${intro}`,
+        experience && `Experience: ${experience}`,
+        motivation && `Motivation: ${motivation}`,
+        country && `Country: ${country}`,
+        certificates.length > 0 && `Certificates: ${JSON.stringify(certificates)}`,
+        education.length > 0 && `Education: ${JSON.stringify(education)}`,
+      ].filter(Boolean);
+      const bio = bioParts.join('\n\n');
+      if (bio.length < 50) {
+        throw new Error('Bio must be at least 50 characters');
+      }
+      if (!subject) {
+        throw new Error('Specialization is required');
+      }
+      if (langArray.length === 0) {
+        throw new Error('At least one language is required');
+      }
+
       const formData = new FormData();
-      formData.append("firstName", firstName);
-      formData.append("lastName", lastName);
-      formData.append("email", email);
-      formData.append("country", country);
-      formData.append("specialization", subject);
-      formData.append("phone", phone);
-      formData.append("timezone", timezone);
-      
-      const langArray = languages.split(",").map(l => l.trim()).filter(l => l);
-      langArray.forEach((lang, i) => formData.append(`languages[${i}]`, lang));
-      
-      formData.append("bio", intro);
-      formData.append("experience", experience);
-      formData.append("motivation", motivation);
-      formData.append("headline", headline);
-      
-      formData.append("hourlyRate", String(hourlyRate));
-      if (videoUrl) formData.append("videoUrl", videoUrl);
+      formData.append('bio', bio);
+      formData.append('specialization', subject);
+      langArray.forEach((lang) => formData.append('languages', lang));
+      formData.append('hourlyRate', String(hourlyRate));
+      if (videoUrl) formData.append('videoUrl', videoUrl);
+      if (document) formData.append('document', document);
 
-      if (avatar) formData.append("avatar", avatar);
-      formData.append("certificates", JSON.stringify(certificates));
-      formData.append("education", JSON.stringify(education));
-      formData.append("availability", JSON.stringify(availability));
-
-      const { data } = await apiClient.post("/tutors/apply", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const { data } = await apiClient.post('/tutors/apply', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       return data;
     },
-    onSuccess: () => router.push("/"),
+    onSuccess: () => router.push('/student?tab=settings'),
     onError: (error: unknown) => {
-      const err = error as { response?: { data?: { message?: string } } };
-      setSubmitError(err?.response?.data?.message || "Failed to submit application");
+      const err = error as { response?: { data?: { message?: string | string[] } }; message?: string };
+      const apiMsg = err?.response?.data?.message;
+      const msg = Array.isArray(apiMsg) ? apiMsg.join(', ') : apiMsg;
+      setSubmitError(msg || err?.message || 'Failed to submit application');
     },
   });
 
@@ -107,11 +120,12 @@ export default function BecomeTeacherWizard() {
         return (
           <div className="space-y-4 animate-fade-in">
             <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-main)' }}>المعلومات الأساسية</h2>
+            {user && (
+              <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+                {user.firstName} {user.lastName} — {user.email}
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>الاسم الأول</label><input value={firstName} onChange={e => setFirstName(e.target.value)} className="input-field" /></div>
-              <div><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>اسم العائلة</label><input value={lastName} onChange={e => setLastName(e.target.value)} className="input-field" /></div>
-              <div><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>البريد الإلكتروني</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field" /></div>
-              <div><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>رقم الهاتف</label><input value={phone} onChange={e => setPhone(e.target.value)} className="input-field" /></div>
               <div>
                 <label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>المادة التي ستدرسها</label>
                 <select value={subject} onChange={e => setSubject(e.target.value)} className="input-field">
@@ -121,25 +135,18 @@ export default function BecomeTeacherWizard() {
                 </select>
               </div>
               <div><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>البلد</label><input value={country} onChange={e => setCountry(e.target.value)} className="input-field" /></div>
-              <div className="col-span-2"><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>اللغات التي تتحدثها (مفصولة بفاصلة)</label><input value={languages} onChange={e => setLanguages(e.target.value)} className="input-field" /></div>
-              <div className="col-span-2"><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>المنطقة الزمنية</label><input value={timezone} onChange={e => setTimezone(e.target.value)} className="input-field" placeholder="مثال: Asia/Riyadh" /></div>
+              <div className="col-span-2"><label className="block text-sm mb-1" style={{ color: 'var(--text-main)' }}>اللغات التي تتحدثها (مفصولة بفاصلة)</label><input value={languages} onChange={e => setLanguages(e.target.value)} className="input-field" placeholder="Arabic, English" /></div>
             </div>
           </div>
         );
       case 2:
         return (
           <div className="space-y-4 animate-fade-in text-center">
-            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-main)' }}>الصورة الشخصية</h2>
-            <div className="w-32 h-32 rounded-full mx-auto bg-gray-200 flex items-center justify-center border border-dashed border-gray-400 overflow-hidden">
-              {avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={URL.createObjectURL(avatar)} className="w-full h-full object-cover" alt="Avatar preview" />
-              ) : (
-                <span className="text-gray-400">لا توجد صورة</span>
-              )}
-            </div>
+            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-main)' }}>وثيقة التحقق</h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>ارفع شهادة أو سيرة ذاتية بصيغة PDF أو Word (اختياري)</p>
             <div className="mt-4">
-              <input type="file" accept="image/*" onChange={e => setAvatar(e.target.files?.[0] || null)} className="input-field max-w-xs mx-auto" />
+              <input type="file" accept=".pdf,.doc,.docx,application/pdf" onChange={e => setDocument(e.target.files?.[0] || null)} className="input-field max-w-xs mx-auto" />
+              {document && <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>{document.name}</p>}
             </div>
           </div>
         );

@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Tutor Onboarding', () => {
-  const timestamp = Date.now();
-  const email = `tutor-${timestamp}@test.com`;
+  // No unused variables here
+
 
   test('should navigate to become-teacher page and see the form', async ({ page }) => {
     await page.goto('/become-teacher');

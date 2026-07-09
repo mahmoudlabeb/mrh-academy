@@ -1,5 +1,5 @@
 import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
-import { UserRole, LessonStatus, CourseStatus } from '@mrh/types';
+import { UserRole, CourseStatus } from '@mrh/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';

@@ -13,6 +13,7 @@ import { CourseLesson } from '../entities/course-lesson.entity.js';
 import { CourseLessonCompletion } from '../entities/course-lesson-completion.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
+import { CoursePromoCode } from '../entities/course-promo-code.entity.js';
 import { CommissionService } from '../services/commission.service.js';
 
 @Injectable()
@@ -157,11 +158,6 @@ export class CoursesService {
 
     const hasValidReferral = dto?.referralCode === course.tutorId;
     const soldBy = hasValidReferral ? 'tutor' : 'academy';
-    const { platformFee, tutorShare } =
-      await this.commissionService.calculateCourseEarnings(
-        course.price,
-        soldBy,
-      );
 
     await this.dataSource.transaction(async (manager) => {
       const existing = await manager.findOne(CourseEnrollment, {
@@ -177,22 +173,52 @@ export class CoursesService {
       });
       if (!studentProfile)
         throw new NotFoundException('Student profile not found');
-      if (studentProfile.balance < course.price)
+
+      let finalPrice = course.price;
+      if (dto?.promoCode) {
+        const promo = await manager.findOne(CoursePromoCode, {
+          where: { code: dto.promoCode, courseId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!promo) {
+          throw new BadRequestException('Invalid promo code');
+        }
+        if (promo.currentUses >= promo.usageLimit) {
+          throw new BadRequestException('Promo code usage limit reached');
+        }
+
+        finalPrice = 0;
+
+        promo.currentUses += 1;
+        await manager.save(promo);
+      }
+
+      if (studentProfile.balance < finalPrice)
         throw new BadRequestException('Insufficient balance');
 
-      await manager.decrement(
-        StudentProfile,
-        { userId: studentId },
-        'balance',
-        course.price,
-      );
+      if (finalPrice > 0) {
+        await manager.decrement(
+          StudentProfile,
+          { userId: studentId },
+          'balance',
+          finalPrice,
+        );
+      }
 
-      await manager.increment(
-        TutorProfile,
-        { userId: course.tutorId },
-        'balance',
-        tutorShare,
-      );
+      const { platformFee, tutorShare } =
+        await this.commissionService.calculateCourseEarnings(
+          finalPrice,
+          soldBy,
+        );
+
+      if (tutorShare > 0) {
+        await manager.increment(
+          TutorProfile,
+          { userId: course.tutorId },
+          'balance',
+          tutorShare,
+        );
+      }
 
       const enrollment = manager.create(CourseEnrollment, {
         studentId,

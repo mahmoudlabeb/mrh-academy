@@ -2,9 +2,14 @@ import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response, NextFunction } from 'express';
 
+/** Header sent by the official web app (see apps/web/src/lib/api-client.ts). */
+export const MRH_CLIENT_HEADER = 'x-mrh-client';
+export const MRH_CLIENT_WEB = 'mrh-web';
+
 @Injectable()
 export class CsrfOriginMiddleware implements NestMiddleware {
   private readonly allowedOrigins: Set<string>;
+  private readonly isProduction: boolean;
 
   constructor(private readonly configService: ConfigService) {
     const frontendUrl = this.configService.get<string>(
@@ -12,6 +17,7 @@ export class CsrfOriginMiddleware implements NestMiddleware {
       'http://localhost:3000',
     );
     const env = this.configService.get<string>('NODE_ENV', 'development');
+    this.isProduction = env === 'production';
     this.allowedOrigins = new Set([
       frontendUrl,
       'http://localhost:3000',
@@ -38,8 +44,18 @@ export class CsrfOriginMiddleware implements NestMiddleware {
 
     const origin = req.headers['origin'];
     const referer = req.headers['referer'];
+    const clientHeader = req.headers[MRH_CLIENT_HEADER];
 
     if (!origin && !referer) {
+      if (
+        this.isProduction &&
+        clientHeader !== MRH_CLIENT_WEB &&
+        !req.originalUrl.includes('webhooks/stripe')
+      ) {
+        throw new ForbiddenException(
+          'CSRF validation failed: missing origin and client header',
+        );
+      }
       next();
       return;
     }

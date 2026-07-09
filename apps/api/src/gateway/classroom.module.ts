@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClassroomGateway } from './classroom.gateway.js';
 import { Lesson } from '../entities/lesson.entity.js';
+import { Classroom } from '../entities/classroom.entity.js';
 
 import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
-  imports: [AuthModule, TypeOrmModule.forFeature([Lesson])],
+  imports: [AuthModule, TypeOrmModule.forFeature([Lesson, Classroom])],
   providers: [ClassroomGateway],
   exports: [ClassroomGateway],
 })

@@ -9,18 +9,22 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
 import { DataSource, In, Repository } from 'typeorm';
-import { LessonStatus } from '@mrh/types';
+import { LessonStatus, UserRole } from '@mrh/types';
 import { Lesson } from '../entities/lesson.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 
 import { User } from '../entities/user.entity.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { RedisService } from '../redis/redis.service.js';
 import {
   ChangeEmailDto,
   ChangePasswordDto,
+  UpdateNotificationPreferencesDto,
   UpdateProfileDto,
 } from './dto/index.js';
+import {
+  mergeNotificationPreferences,
+  NotificationPreferences,
+} from '../common/types/notification-preferences.js';
 
 type AvatarFile = {
   buffer: Buffer;
@@ -167,6 +171,33 @@ export class UsersService {
     return { avatarUrl: uploadResult.secure_url };
   }
 
+  async getNotificationPreferences(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: { id: true, notificationPreferences: true },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return mergeNotificationPreferences(user.notificationPreferences);
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    dto: UpdateNotificationPreferencesDto,
+  ) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const current = mergeNotificationPreferences(user.notificationPreferences);
+    const next: NotificationPreferences = { ...current, ...dto };
+    user.notificationPreferences = next;
+    await this.userRepository.save(user);
+    return next;
+  }
+
   async switchRole(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -174,15 +205,15 @@ export class UsersService {
     });
     if (!user) throw new UnauthorizedException('User not found');
 
-    if (user.role === 'student') {
+    if (user.role === UserRole.STUDENT) {
       if (!user.tutorProfile) {
         throw new BadRequestException(
           'You need to apply and be approved as a tutor first',
         );
       }
-      user.role = 'tutor' as any;
-    } else if (user.role === 'tutor') {
-      user.role = 'student' as any;
+      user.role = UserRole.TUTOR;
+    } else if (user.role === UserRole.TUTOR) {
+      user.role = UserRole.STUDENT;
     } else {
       throw new BadRequestException('Admins cannot switch roles');
     }

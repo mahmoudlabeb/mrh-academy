@@ -304,6 +304,7 @@ export class TutorsService {
     totalEarnings: number;
     reviewCount: number;
     averageRating: number;
+    studentCount: number;
   }> {
     const cacheKey = `tutors:stats:${userId}`;
     return this.redisService.getOrSet(
@@ -330,12 +331,19 @@ export class TutorsService {
           .select('AVG(review.rating)', 'avg')
           .getRawOne<{ avg: string | null }>();
 
+        const studentRows = await this.lessonRepository
+          .createQueryBuilder('lesson')
+          .select('DISTINCT lesson.studentId', 'studentId')
+          .where('lesson.tutorId = :tutorId', { tutorId: userId })
+          .getRawMany<{ studentId: string }>();
+
         return {
           completedLessons,
           totalHoursTaught: profile?.totalHoursTaught ?? 0,
           totalEarnings: profile?.balance ?? 0,
           reviewCount,
           averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
+          studentCount: studentRows.length,
         };
       },
       120,

@@ -22,10 +22,12 @@ export class ReportsService {
     return this.reportRepository.save(report);
   }
 
-  findAll() {
+  findAll(limit: number = 50, offset: number = 0) {
     return this.reportRepository.find({
       relations: { user: true },
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
   }
 }

@@ -62,6 +62,11 @@ import * as dbEntities from './entities/index.js';
         BUNNY_API_KEY: Joi.string().optional().allow(''),
         BUNNY_LIBRARY_ID: Joi.string().optional().allow(''),
         GEMINI_API_KEY: Joi.string().optional().allow(''),
+        DB_SYNCHRONIZE: Joi.string().valid('true', 'false').default('false'),
+        RUN_MIGRATIONS: Joi.string().valid('true', 'false').default('false'),
+        DATABASE_SSL_REJECT_UNAUTHORIZED: Joi.string()
+          .valid('true', 'false')
+          .default('true'),
         NODE_ENV: Joi.string()
           .valid('development', 'test', 'production')
           .default('development'),
@@ -72,10 +77,22 @@ import * as dbEntities from './entities/index.js';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const dbUrl = configService.get<string>('DATABASE_URL');
+        const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+        const sslRejectUnauthorized =
+          configService.get<string>('DATABASE_SSL_REJECT_UNAUTHORIZED') !==
+          'false';
+        const runMigrations =
+          configService.get<string>('RUN_MIGRATIONS') === 'true';
+        const dbSynchronize =
+          configService.get<string>('DB_SYNCHRONIZE') === 'true';
+
         return {
           type: 'postgres',
           ...(dbUrl
-            ? { url: dbUrl, ssl: { rejectUnauthorized: false } }
+            ? {
+                url: dbUrl,
+                ssl: { rejectUnauthorized: sslRejectUnauthorized },
+              }
             : {
                 host: configService.get<string>('DATABASE_HOST'),
                 port: configService.get<number>('DATABASE_PORT'),
@@ -86,7 +103,9 @@ import * as dbEntities from './entities/index.js';
               }),
           autoLoadEntities: true,
           entities: Object.values(dbEntities),
-          synchronize: configService.get<string>('NODE_ENV') !== 'production',
+          synchronize: dbSynchronize && nodeEnv !== 'production',
+          migrations: ['dist/database/migrations/*.js'],
+          migrationsRun: runMigrations,
         };
       },
     }),

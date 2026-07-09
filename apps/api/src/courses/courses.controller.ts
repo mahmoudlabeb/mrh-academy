@@ -83,11 +83,7 @@ export class CoursesController {
     @Param('courseId') courseId: string,
     @Param('lessonId') lessonId: string,
   ) {
-    return this.coursesService.markLessonComplete(
-      user.id,
-      courseId,
-      lessonId,
-    );
+    return this.coursesService.markLessonComplete(user.id, courseId, lessonId);
   }
 
   @Get(':id/stream-token')

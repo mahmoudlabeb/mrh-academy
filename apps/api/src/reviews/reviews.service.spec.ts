@@ -17,7 +17,7 @@ describe('ReviewsService', () => {
 
   const makeService = (overrides?: {
     lesson?: Partial<typeof lesson> | null;
-    saveError?: unknown;
+    saveError?: Error & { code?: string };
   }) => {
     const lessonRepository = {
       findOne: jest
@@ -89,7 +89,10 @@ describe('ReviewsService', () => {
   });
 
   it('turns duplicate lesson review database errors into conflicts', async () => {
-    const { service } = makeService({ saveError: { code: '23505' } });
+    const duplicateKeyError = Object.assign(new Error('duplicate key'), {
+      code: '23505',
+    });
+    const { service } = makeService({ saveError: duplicateKeyError });
 
     await expect(
       service.create(studentId, { lessonId: lesson.id, rating: 5 }),

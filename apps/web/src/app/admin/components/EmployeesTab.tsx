@@ -24,6 +24,7 @@ const PERMISSION_OPTIONS = [
   'manage_employees',
   'manage_settings',
   'view_reports',
+  'impersonate_users',
 ];
 
 const emptyForm = { firstName: '', lastName: '', email: '', roleTitle: '', permissions: '' };

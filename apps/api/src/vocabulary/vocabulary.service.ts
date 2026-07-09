@@ -40,7 +40,7 @@ Return ONLY valid JSON, no markdown formatting.`;
         .replace(/```json?/gi, '')
         .replace(/```/g, '')
         .trim();
-      return JSON.parse(cleaned);
+      return JSON.parse(cleaned) as Record<string, unknown>;
     } catch {
       return {
         word,

@@ -16,6 +16,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
   const [activeCall, setActiveCall] = useState<'voice' | 'camera' | 'screen' | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const [isCallLoading, setIsCallLoading] = useState(false);
+  const [callError, setCallError] = useState<string | null>(null);
 
   const rtcConfigRef = useRef<RTCConfiguration>({
     iceServers: [
@@ -84,6 +85,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
   const startCall = useCallback(async (type: 'voice' | 'camera' | 'screen') => {
     if (!peerUserId) return;
     setIsCallLoading(true);
+    setCallError(null);
 
     try {
       let stream: MediaStream;
@@ -122,6 +124,13 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
 
       setActiveCall(type);
     } catch (err) {
+      const message =
+        err instanceof DOMException && err.name === 'NotAllowedError'
+          ? 'Camera/microphone permission denied. Allow access in browser settings.'
+          : err instanceof Error
+            ? err.message
+            : 'Could not start call. Check camera/mic permissions and HTTPS.';
+      setCallError(message);
       console.error(`Failed to start ${type} call:`, err);
     } finally {
       setIsCallLoading(false);
@@ -261,6 +270,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
     remoteStreams,
     localStreamRef,
     isCallLoading,
+    callError,
     startCall,
     stopCall,
     stopAllCalls,

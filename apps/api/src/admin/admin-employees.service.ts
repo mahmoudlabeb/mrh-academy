@@ -138,7 +138,8 @@ export class AdminEmployeesService {
     if (dto.firstName || dto.lastName) {
       const [currentFirst = '', ...rest] = employee.name.split(' ');
       const currentLast = rest.join(' ');
-      employee.name = `${dto.firstName ?? currentFirst} ${dto.lastName ?? currentLast}`.trim();
+      employee.name =
+        `${dto.firstName ?? currentFirst} ${dto.lastName ?? currentLast}`.trim();
     }
     if (dto.email) employee.email = email;
     if (dto.roleTitle) employee.roleTitle = dto.roleTitle.trim();

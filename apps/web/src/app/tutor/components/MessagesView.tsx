@@ -20,13 +20,19 @@ type MessageData = {
   createdAt: string;
 };
 
-export default function MessagesView() {
+export default function MessagesView({ initialSelectedUserId }: { initialSelectedUserId?: string | null }) {
   const { lang } = useLanguage();
   const isAr = lang === 'ar';
   const queryClient = useQueryClient();
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(initialSelectedUserId || null);
   const [messageInput, setMessageInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialSelectedUserId) {
+      setSelectedUserId(initialSelectedUserId);
+    }
+  }, [initialSelectedUserId]);
 
   const t = (ar: string, en: string) => isAr ? ar : en;
 

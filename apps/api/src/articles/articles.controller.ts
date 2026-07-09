@@ -6,7 +6,6 @@ import {
   Delete,
   Body,
   Param,
-  UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { ArticlesService } from './articles.service.js';

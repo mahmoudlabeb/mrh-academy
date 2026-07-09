@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { AvailabilityService } from './availability.service.js';

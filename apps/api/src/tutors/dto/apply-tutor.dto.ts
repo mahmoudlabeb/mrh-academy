@@ -10,6 +10,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class ApplyTutorDto {
   @IsString()
@@ -22,11 +23,22 @@ export class ApplyTutorDto {
   @MinLength(2)
   specialization: string;
 
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.map(String);
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return value;
+  })
   @IsArray()
   @ArrayNotEmpty()
   @IsString({ each: true })
   languages: string[];
 
+  @Type(() => Number)
   @IsNumber()
   @Min(5)
   @Max(500)

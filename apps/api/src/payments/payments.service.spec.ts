@@ -6,6 +6,7 @@ import { Payment } from '../entities/payment.entity';
 import { StudentProfile } from '../entities/student-profile.entity';
 import { User } from '../entities/user.entity';
 import { EmailService } from '../services/email.service';
+import { CommissionService } from '../services/commission.service';
 import { PaymentsService } from './payments.service';
 import { StripeService } from './stripe/stripe.service';
 
@@ -32,6 +33,10 @@ describe('PaymentsService', () => {
     })),
   };
   const emailService = { sendEmail: jest.fn(async () => undefined) };
+  const commissionService = {
+    amountToCredits: jest.fn((amount: number) => amount / 15),
+    getCreditPrice: jest.fn(async () => 15),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -48,6 +53,7 @@ describe('PaymentsService', () => {
         { provide: ConfigService, useValue: configService },
         { provide: StripeService, useValue: stripeService },
         { provide: EmailService, useValue: emailService },
+        { provide: CommissionService, useValue: commissionService },
       ],
     }).compile();
 

@@ -19,4 +19,6 @@ export { Setting } from './setting.entity.js';
 export { Report } from './report.entity.js';
 export { SubAdminProfile } from './sub-admin-profile.entity.js';
 export { CoursePromoCode } from './course-promo-code.entity.js';
+export { Payout, PayoutStatus } from './payout.entity.js';
 export { VocabularyWord } from './vocabulary-word.entity.js';
+export { LessonBook } from './lesson-book.entity.js';

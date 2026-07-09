@@ -13,6 +13,7 @@ import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { Classroom } from '../entities/classroom.entity.js';
 import { User } from '../entities/user.entity.js';
+import { TutorAvailability } from '../entities/tutor-availability.entity.js';
 import { CommissionService } from '../services/commission.service.js';
 import { CalendarService } from '../services/calendar.service.js';
 import { EmailService } from '../services/email.service.js';
@@ -33,6 +34,8 @@ export class LessonsService {
     private readonly classroomRepository: Repository<Classroom>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(TutorAvailability)
+    private readonly availabilityRepository: Repository<TutorAvailability>,
     private readonly commissionService: CommissionService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
@@ -48,6 +51,29 @@ export class LessonsService {
       relations: {
         tutor: true,
         student: true,
+      },
+      select: {
+        id: true,
+        tutorId: true,
+        studentId: true,
+        scheduledTime: true,
+        durationMinutes: true,
+        status: true,
+        price: true,
+        meetUrl: true,
+        notes: true,
+        tutor: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
+        student: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+        },
       },
       order: { scheduledTime: 'DESC' },
     });
@@ -79,6 +105,12 @@ export class LessonsService {
       scheduledDate.getTime() + dto.durationMinutes * 60000,
     );
 
+    await this.assertWithinAvailability(
+      dto.tutorId,
+      scheduledDate,
+      dto.durationMinutes,
+    );
+
     const lesson = await this.dataSource.transaction(async (manager) => {
       const studentProfile = await manager.findOne(StudentProfile, {
         where: { userId: studentId },
@@ -95,7 +127,6 @@ export class LessonsService {
 
       const overlapping = await manager
         .createQueryBuilder(Lesson, 'lesson')
-        .setLock('pessimistic_write')
         .where('lesson.status IN (:...activeStatuses)', {
           activeStatuses: [LessonStatus.PENDING, LessonStatus.CONFIRMED],
         })
@@ -136,7 +167,7 @@ export class LessonsService {
 
       const classroom = manager.create(Classroom, {
         lessonId: saved.id,
-        isActive: false,
+        isActive: true,
       });
       await manager.save(Classroom, classroom);
 
@@ -368,6 +399,77 @@ export class LessonsService {
     if (lesson.studentId !== userId && lesson.tutorId !== userId) {
       throw new ForbiddenException('You are not a participant of this lesson');
     }
+    if (
+      lesson.status === LessonStatus.COMPLETED ||
+      lesson.status === LessonStatus.CANCELLED
+    ) {
+      throw new BadRequestException('This lesson is no longer available');
+    }
+    const classroom = await this.classroomRepository.findOne({
+      where: { lessonId: lesson.id },
+    });
+    if (classroom && !classroom.isActive) {
+      throw new BadRequestException('Classroom is closed');
+    }
     return lesson;
+  }
+
+  async findLessonForParticipant(lessonId: string, userId: string) {
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId },
+      relations: { tutor: true, student: true },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+    if (lesson.studentId !== userId && lesson.tutorId !== userId) {
+      throw new ForbiddenException('You are not a participant of this lesson');
+    }
+    if (
+      lesson.status === LessonStatus.COMPLETED ||
+      lesson.status === LessonStatus.CANCELLED
+    ) {
+      throw new BadRequestException('This lesson is no longer available');
+    }
+    const classroom = await this.classroomRepository.findOne({
+      where: { lessonId: lesson.id },
+    });
+    if (classroom && !classroom.isActive) {
+      throw new BadRequestException('Classroom is closed');
+    }
+    return lesson;
+  }
+
+  private timeToMinutes(time: string): number {
+    const parts = time.split(':').map(Number);
+    return parts[0] * 60 + (parts[1] || 0);
+  }
+
+  private async assertWithinAvailability(
+    tutorId: string,
+    scheduledDate: Date,
+    durationMinutes: number,
+  ): Promise<void> {
+    const slots = await this.availabilityRepository.find({
+      where: { tutorId },
+    });
+    if (slots.length === 0) {
+      throw new BadRequestException('Tutor has not set availability');
+    }
+    const dayOfWeek = scheduledDate.getDay();
+    const daySlots = slots.filter((s) => s.dayOfWeek === dayOfWeek);
+    if (daySlots.length === 0) {
+      throw new BadRequestException('Tutor is not available on this day');
+    }
+    const startMin = scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
+    const endMin = startMin + durationMinutes;
+    const fits = daySlots.some((slot) => {
+      const slotStart = this.timeToMinutes(slot.startTime);
+      const slotEnd = this.timeToMinutes(slot.endTime);
+      return startMin >= slotStart && endMin <= slotEnd;
+    });
+    if (!fits) {
+      throw new BadRequestException(
+        'Selected time is outside tutor availability',
+      );
+    }
   }
 }

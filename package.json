@@ -10,7 +10,11 @@
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "protect": "node scripts/protect.js",
-    "client-start": "cd apps/api && npm run start:prod & cd apps/web && npm run start"
+    "client-start": "cd apps/api && npm run start:prod & cd apps/web && npm run start",
+    "test:api": "powershell -ExecutionPolicy Bypass -File scripts/test-api-deliverables.ps1",
+    "test:deliverables": "powershell -ExecutionPolicy Bypass -File scripts/run-all-tests.ps1",
+    "test:integrations": "powershell -ExecutionPolicy Bypass -File scripts/test-integrations.ps1",
+    "test:e2e": "cd apps/api && pnpm test:e2e"
   },
   "devDependencies": {
     "javascript-obfuscator": "^4.1.1",

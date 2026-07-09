@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { LessonStatus } from '@mrh/types';
 import { Lesson } from '../entities/lesson.entity.js';
 import { EmailService } from './email.service.js';
+import { RedisService } from '../redis/redis.service.js';
 
 @Injectable()
 export class ReminderService {
-  private readonly reminded = new Set<string>();
-
   constructor(
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
     private readonly emailService: EmailService,
+    private readonly redisService: RedisService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -32,9 +32,11 @@ export class ReminderService {
       .getMany();
 
     for (const lesson of lessons) {
-      const key = lesson.id;
-      if (this.reminded.has(key)) continue;
-      this.reminded.add(key);
+      const key = `reminder:lesson:${lesson.id}`;
+      const alreadyReminded = await this.redisService.get(key);
+      if (alreadyReminded) continue;
+
+      await this.redisService.set(key, '1', 'EX', 7200); // Expiry in 2 hours
 
       if (lesson.student?.email) {
         this.emailService
@@ -61,10 +63,6 @@ export class ReminderService {
           )
           .catch(() => {});
       }
-    }
-
-    if (this.reminded.size > 1000) {
-      this.reminded.clear();
     }
   }
 }

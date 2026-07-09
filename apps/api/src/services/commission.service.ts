@@ -48,7 +48,7 @@ export class CommissionService {
     return Math.round((amount / price) * 100) / 100;
   }
 
-  async invalidateCache() {
+  invalidateCache() {
     this.cachedTutorPromoRate = null;
     this.cachedAcademyBaseRate = null;
     this.cachedCreditPrice = null;

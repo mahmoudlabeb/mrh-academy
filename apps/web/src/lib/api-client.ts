@@ -9,6 +9,7 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    config.headers["X-MRH-Client"] = "mrh-web";
     if (typeof window !== "undefined") {
       const token = Cookies.get("mrh_token");
       if (token) {

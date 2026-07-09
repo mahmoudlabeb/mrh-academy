@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import sanitizeHtml from 'sanitize-html';
 import { LessonStatus } from '@mrh/types';
 import { Message } from '../entities/message.entity.js';
 import { Lesson } from '../entities/lesson.entity.js';
@@ -220,6 +221,11 @@ export class MessagesService {
   }
 
   private sanitizeHtml(input: string): string {
-    return input.replace(/<[^>]*>/g, '');
+    return sanitizeHtml(input, {
+      allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br'],
+      allowedAttributes: {
+        a: ['href'],
+      },
+    });
   }
 }

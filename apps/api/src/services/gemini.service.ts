@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+};
+
 @Injectable()
 export class GeminiService {
   private readonly apiKey: string;
@@ -36,7 +42,7 @@ export class GeminiService {
       throw new Error(`Gemini API error ${res.status}: ${err}`);
     }
 
-    const data = await res.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const data = (await res.json()) as GeminiResponse;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   }
 }

@@ -19,6 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { StripeService } from '../payments/stripe/stripe.service.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
+import { Payout, PayoutStatus } from '../entities/payout.entity.js';
 
 @Controller('admin/payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -28,10 +29,12 @@ export class AdminPaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly stripeService: StripeService,
-    @InjectRepository(TutorProfile)
-    private readonly tutorProfileRepository: Repository<TutorProfile>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @InjectRepository(TutorProfile)
+    private readonly tutorProfileRepository: Repository<TutorProfile>,
+    @InjectRepository(Payout)
+    private readonly payoutRepository: Repository<Payout>,
   ) {}
 
   @Get()
@@ -68,7 +71,11 @@ export class AdminPaymentsController {
 
   @Post('payout/:tutorId')
   async payoutTutor(@Param('tutorId') tutorId: string) {
-    return this.dataSource.transaction(async (manager) => {
+    let payoutAmount = 0;
+    let stripeAccountId = '';
+    let payoutRecord: Payout;
+
+    await this.dataSource.transaction(async (manager) => {
       const profile = await manager.findOne(TutorProfile, {
         where: { userId: tutorId },
         lock: { mode: 'pessimistic_write' },
@@ -83,19 +90,53 @@ export class AdminPaymentsController {
       if (profile.balance <= 0)
         throw new BadRequestException('Tutor has zero balance');
 
-      const payoutAmount = profile.balance;
-      const amountCents = Math.round(payoutAmount * 100);
-      const idempotencyKey = `payout-${tutorId}-${Date.now()}`;
+      payoutAmount = profile.balance;
+      stripeAccountId = profile.stripeAccountId;
+      await manager.update(TutorProfile, { userId: tutorId }, { balance: 0 });
 
-      await this.stripeService.createPayout(
-        profile.stripeAccountId,
+      payoutRecord = manager.create(Payout, {
+        tutorId,
+        amount: payoutAmount,
+        status: PayoutStatus.PENDING,
+      });
+      await manager.save(payoutRecord);
+    });
+
+    const amountCents = Math.round(payoutAmount * 100);
+    const idempotencyKey = `payout-${payoutRecord!.id}`; // Use the payout record ID as idempotency key for uniqueness
+
+    try {
+      const stripeResponse = await this.stripeService.createPayout(
+        stripeAccountId,
         amountCents,
         idempotencyKey,
       );
 
-      await manager.update(TutorProfile, { userId: tutorId }, { balance: 0 });
+      await this.payoutRepository.update(payoutRecord!.id, {
+        status: PayoutStatus.SUCCESS,
+        stripePayoutId: stripeResponse.id, // Assuming stripeService returns the payout object
+      });
+    } catch (err: any) {
+      // Revert the balance and update payout record to FAILED
+      await this.dataSource.transaction(async (manager) => {
+        await manager.increment(
+          TutorProfile,
+          { userId: tutorId },
+          'balance',
+          payoutAmount,
+        );
+        await manager.update(
+          Payout,
+          { id: payoutRecord!.id },
+          {
+            status: PayoutStatus.FAILED,
+            errorMessage: err.message,
+          },
+        );
+      });
+      throw err;
+    }
 
-      return { message: 'Payout sent successfully', amount: payoutAmount };
-    });
+    return { message: 'Payout sent successfully', amount: payoutAmount };
   }
 }

@@ -113,7 +113,7 @@ export default function AdminPage() {
                 {lang === 'ar' ? `مرحبًا بعودتك، ${user?.firstName}` : `Welcome back, ${user?.firstName}`}
               </p>
               <p className="text-xs" style={{ color: '#5a7d73' }}>
-                {lang === 'ar' ? `آخر تسجيل: اليوم` : `Last login: today`}
+                {user?.email}
               </p>
             </div>
             <div className="flex items-center gap-2">

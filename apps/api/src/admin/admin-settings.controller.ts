@@ -45,7 +45,7 @@ export class AdminSettingsController {
         await this.settingRepository.upsert({ key, value }, ['key']);
       }
     }
-    await this.commissionService.invalidateCache();
+    this.commissionService.invalidateCache();
   }
 
   @Post()

@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 import { DataSource, Repository, type DeepPartial } from 'typeorm';
 import { PaymentMethod, PaymentStatus } from '@mrh/types';
 import { Payment } from '../entities/payment.entity.js';

@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useLanguage } from '@/contexts/language-context';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import MessagesView from './components/MessagesView';
 import StudentsList from './components/StudentsList';
 import Insights from './components/Insights';
@@ -18,6 +19,7 @@ type TutorStats = {
   totalEarnings: number;
   reviewCount: number;
   averageRating: number;
+  studentCount: number;
 };
 
 type DashboardSection = 'dashboard' | 'messages' | 'calendar' | 'students' | 'classroom' | 'insights' | 'profile' | 'settings';
@@ -83,11 +85,32 @@ function SidebarIcon({ section }: { section: DashboardSection }) {
 export const dynamic = 'force-dynamic';
 
 export default function TutorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>Loading...</div>}>
+      <TutorPageContent />
+    </Suspense>
+  );
+}
+
+function TutorPageContent() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { lang, toggleLanguage } = useLanguage();
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState<DashboardSection>('dashboard');
+  const [messageWithUserId, setMessageWithUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const withUser = searchParams.get('with');
+    if (tab && SIDEBAR_ITEMS.some((i) => i.key === tab)) {
+      setActiveSection(tab as DashboardSection);
+    }
+    if (withUser) {
+      setMessageWithUserId(withUser);
+    }
+  }, [searchParams]);
 
   const isAr = lang === 'ar';
 
@@ -231,7 +254,7 @@ export default function TutorPage() {
                   <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{t('الطلاب', 'Students')}</span>
                 </div>
                 <p className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>
-                  {statsQuery.isLoading ? <span className="inline-block w-12 h-8 skeleton rounded" /> : `${stats?.reviewCount ?? 0}`}
+                  {statsQuery.isLoading ? <span className="inline-block w-12 h-8 skeleton rounded" /> : `${stats?.studentCount ?? 0}`}
                 </p>
               </div>
             </div>
@@ -344,7 +367,7 @@ export default function TutorPage() {
           </div>
         );
       case 'messages':
-        return <MessagesView />;
+        return <MessagesView initialSelectedUserId={messageWithUserId} />;
       case 'calendar':
         return (
           <div className="card-dark p-8 text-center">

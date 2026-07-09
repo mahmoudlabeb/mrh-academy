@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useLanguage } from '@/contexts/language-context';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import NotificationPreferencesPanel from '@/components/NotificationPreferencesPanel';
 
 type SettingsSection = 'profile' | 'email' | 'password' | 'payments' | 'history' | 'notifications' | 'danger';
 
@@ -82,7 +83,10 @@ export default function SettingsView() {
 
   const changeEmailMutation = useMutation({
     mutationFn: async (data: typeof emailForm) => {
-      const { data: res } = await apiClient.put('/auth/email', data);
+      const { data: res } = await apiClient.patch('/users/change-email', {
+        newEmail: data.newEmail,
+        currentPassword: data.password,
+      });
       return res;
     },
     onSuccess: () => {
@@ -93,7 +97,7 @@ export default function SettingsView() {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
-      const { data: res } = await apiClient.put('/auth/password', data);
+      const { data: res } = await apiClient.patch('/users/change-password', data);
       return res;
     },
     onSuccess: () => {
@@ -104,7 +108,7 @@ export default function SettingsView() {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
-      const { data: res } = await apiClient.delete('/auth/account');
+      const { data: res } = await apiClient.delete('/users/me');
       return res;
     },
     onSuccess: () => {
@@ -271,24 +275,7 @@ export default function SettingsView() {
 
       case 'notifications':
         return (
-          <div className="card p-6 space-y-4">
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('إعدادات الإشعارات', 'Notification Preferences')}</h3>
-            {[
-              { key: 'lesson_reminders', labelAr: 'تذكير بالدروس', labelEn: 'Lesson Reminders' },
-              { key: 'new_messages', labelAr: 'الرسائل الجديدة', labelEn: 'New Messages' },
-              { key: 'promotions', labelAr: 'العروض والتخفيضات', labelEn: 'Promotions & Offers' },
-              { key: 'payment_updates', labelAr: 'تحديثات الدفع', labelEn: 'Payment Updates' },
-            ].map((item) => (
-              <label key={item.key} className="flex items-center justify-between p-4 rounded-xl cursor-pointer" style={{ background: 'var(--bg-light)' }}>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
-                  {lang === 'ar' ? item.labelAr : item.labelEn}
-                </span>
-                <div className="relative w-10 h-5 rounded-full transition-colors cursor-pointer" style={{ background: '#D4A353' }}>
-                  <div className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform" />
-                </div>
-              </label>
-            ))}
-          </div>
+          <NotificationPreferencesPanel lang={lang} t={t} />
         );
 
       case 'danger':

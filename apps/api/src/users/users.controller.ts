@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import {
   ChangeEmailDto,
   ChangePasswordDto,
+  UpdateNotificationPreferencesDto,
   UpdateProfileDto,
 } from './dto/index.js';
 import { UsersService } from './users.service.js';
@@ -83,6 +84,19 @@ export class UsersController {
   @Post('switch-role')
   async switchRole(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.switchRole(user.id);
+  }
+
+  @Get('me/notification-preferences')
+  getNotificationPreferences(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getNotificationPreferences(user.id);
+  }
+
+  @Patch('me/notification-preferences')
+  updateNotificationPreferences(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateNotificationPreferencesDto,
+  ) {
+    return this.usersService.updateNotificationPreferences(user.id, dto);
   }
 
   @Delete('me')
