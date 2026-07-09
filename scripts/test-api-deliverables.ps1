@@ -23,7 +23,7 @@ function Write-Result {
     Write-Host "[PASS] $Name" -ForegroundColor Green
   } else {
     $script:Failed++
-    Write-Host "[FAIL] $Name — $Detail" -ForegroundColor Red
+    Write-Host "[FAIL] $Name - $Detail" -ForegroundColor Red
   }
   $script:Results += [PSCustomObject]@{ Test = $Name; Pass = $Ok; Detail = $Detail }
 }

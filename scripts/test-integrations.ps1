@@ -27,10 +27,10 @@ function Test-Endpoint {
       $script:passed++
       return ($res.Content | ConvertFrom-Json)
     }
-    Write-Host "[FAIL] $Name — HTTP $($res.StatusCode)" -ForegroundColor Red
+    Write-Host "[FAIL] $Name - HTTP $($res.StatusCode)" -ForegroundColor Red
     $script:failed++
   } catch {
-    Write-Host "[FAIL] $Name — $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[FAIL] $Name - $($_.Exception.Message)" -ForegroundColor Red
     $script:failed++
   }
   return $null
