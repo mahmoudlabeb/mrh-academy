@@ -60,6 +60,9 @@ export class Lesson {
   meetUrl: string;
 
   @Column({ nullable: true })
+  googleMeetUrl: string;
+
+  @Column({ nullable: true })
   notes: string;
 
   @CreateDateColumn()

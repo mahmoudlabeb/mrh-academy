@@ -42,7 +42,7 @@ if (-not $health) { exit 1 }
 $integrations = Test-Endpoint "GET /health/integrations" "/health/integrations"
 if ($integrations) {
   $items = $integrations.integrations
-  foreach ($key in @('redis','stripe','bunny','gemini','googleOAuth','cloudinary')) {
+  foreach ($key in @('redis','stripe','bunny','gemini','googleOAuth','googleMeet','cloudinary')) {
     $status = $items.$key
     $color = if ($status -match 'ok|configured') { 'Green' } elseif ($status -eq 'degraded') { 'Yellow' } else { 'DarkYellow' }
     Write-Host "  $key : $status" -ForegroundColor $color

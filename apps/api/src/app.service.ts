@@ -8,6 +8,7 @@ export type IntegrationStatus = {
   bunny: 'configured' | 'unconfigured';
   gemini: 'configured' | 'unconfigured';
   googleOAuth: 'configured' | 'unconfigured';
+  googleMeet: 'configured' | 'unconfigured';
   cloudinary: 'configured' | 'unconfigured';
 };
 
@@ -45,6 +46,12 @@ export class AppService {
       gemini: has('GEMINI_API_KEY') ? 'configured' : 'unconfigured',
       googleOAuth:
         has('GOOGLE_CLIENT_ID') && has('GOOGLE_CLIENT_SECRET')
+          ? 'configured'
+          : 'unconfigured',
+      googleMeet:
+        has('GOOGLE_SERVICE_ACCOUNT_EMAIL') &&
+        has('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY') &&
+        has('GOOGLE_CALENDAR_IMPERSONATE_EMAIL')
           ? 'configured'
           : 'unconfigured',
       cloudinary:

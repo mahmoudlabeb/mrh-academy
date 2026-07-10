@@ -91,7 +91,14 @@ export default function ClassroomPage() {
     queryKey: ['lesson-by-room', roomId],
     queryFn: async () => {
       const { data } = await apiClient.get(`/lessons/by-room/${roomId}`);
-      return data as { id: string; status: string; title?: string; tutor?: { firstName?: string }; student?: { firstName?: string } };
+      return data as {
+        id: string;
+        status: string;
+        title?: string;
+        googleMeetUrl?: string;
+        tutor?: { firstName?: string };
+        student?: { firstName?: string };
+      };
     },
     enabled: !!roomId && !!user,
     retry: false,
@@ -567,7 +574,7 @@ export default function ClassroomPage() {
             className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
           />
           <a
-            href="https://meet.google.com/new"
+            href={lesson?.googleMeetUrl || 'https://meet.google.com/new'}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-ghost text-xs px-3 py-1.5"

@@ -17,6 +17,7 @@ interface Lesson {
   price: number;
   status: LessonStatus;
   roomId?: string;
+  googleMeetUrl?: string;
 }
 
 interface FavoriteTutor {
@@ -246,6 +247,20 @@ export default function MyLessons() {
                         >
                           {t('دخول الفصل', 'Enter Classroom')}
                         </button>
+                      )}
+                      {isJoinable(lesson.status) && lesson.googleMeetUrl && (
+                        <a
+                          href={lesson.googleMeetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-3 py-2 rounded-lg border transition-colors"
+                          style={{
+                            borderColor: 'rgba(59,130,246,0.3)',
+                            color: '#3b82f6',
+                          }}
+                        >
+                          {t('Google Meet', 'Google Meet')}
+                        </a>
                       )}
                     </div>
                   </div>

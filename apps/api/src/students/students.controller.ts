@@ -80,6 +80,7 @@ export class StudentsController {
       price: l.price,
       status: l.status,
       roomId: l.meetUrl,
+      googleMeetUrl: l.googleMeetUrl,
     }));
   }
 
