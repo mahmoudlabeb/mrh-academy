@@ -41,6 +41,7 @@ export class LessonsService {
     private readonly commissionService: CommissionService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
+    private readonly calendarService: CalendarService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -63,6 +64,7 @@ export class LessonsService {
         status: true,
         price: true,
         meetUrl: true,
+        googleMeetUrl: true,
         notes: true,
         tutor: {
           id: true,
@@ -191,6 +193,7 @@ export class LessonsService {
         status: true,
         price: true,
         meetUrl: true,
+        googleMeetUrl: true,
         notes: true,
         createdAt: true,
         platformFee: true,
@@ -220,6 +223,25 @@ export class LessonsService {
       }),
     ]);
 
+    let googleMeetUrl: string | null = null;
+    if (tutorUser?.email && studentUser?.email) {
+      googleMeetUrl = await this.calendarService.createLessonMeetLink({
+        summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
+        description: 'Language lesson booked on MRH Academy.',
+        start: scheduledDate,
+        end: endTime,
+        tutorEmail: tutorUser.email,
+        studentEmail: studentUser.email,
+      });
+
+      if (googleMeetUrl) {
+        await this.lessonRepository.update(lesson.id, { googleMeetUrl });
+        if (savedLesson) {
+          savedLesson.googleMeetUrl = googleMeetUrl;
+        }
+      }
+    }
+
     if (tutorUser?.email) {
       this.emailService
         .sendEmail(
@@ -229,7 +251,8 @@ export class LessonsService {
 <p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
-<p>Price: $${price.toFixed(2)}</p>`,
+<p>Price: $${price.toFixed(2)}</p>
+${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
         )
         .catch(() => {});
     }
@@ -243,7 +266,8 @@ export class LessonsService {
 <p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
-<p>Price: $${price.toFixed(2)}</p>`,
+<p>Price: $${price.toFixed(2)}</p>
+${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
         )
         .catch(() => {});
     }
@@ -346,6 +370,7 @@ export class LessonsService {
         status: true,
         price: true,
         meetUrl: true,
+        googleMeetUrl: true,
         notes: true,
         createdAt: true,
         platformFee: true,
@@ -458,6 +483,7 @@ export class LessonsService {
         status: true,
         price: true,
         meetUrl: true,
+        googleMeetUrl: true,
         notes: true,
         createdAt: true,
         tutor: {
@@ -555,7 +581,7 @@ ${studentRefundNote}`,
         new Date(
           lesson.scheduledTime.getTime() + lesson.durationMinutes * 60000,
         ),
-      location: lesson.meetUrl || '',
+      location: lesson.googleMeetUrl || lesson.meetUrl || '',
       uid: `lesson-${lesson.id}`,
     });
   }
@@ -573,6 +599,7 @@ ${studentRefundNote}`,
         status: true,
         price: true,
         meetUrl: true,
+        googleMeetUrl: true,
         notes: true,
         createdAt: true,
         tutor: {
@@ -621,6 +648,7 @@ ${studentRefundNote}`,
         status: true,
         price: true,
         meetUrl: true,
+        googleMeetUrl: true,
         notes: true,
         createdAt: true,
         tutor: {
