@@ -21,6 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "nest build && node dist/seed.js",
     "migration:run": "nest build && node dist/database/run-migrations.js",
+    "migration:validate": "nest build && node dist/database/validate-migrations.js",
+    "migration:generate": "nest build && typeorm migration:generate -d dist/database/data-source.js",
     "db:bootstrap": "nest build && node dist/database/bootstrap-schema.js"
   },
   "dependencies": {
