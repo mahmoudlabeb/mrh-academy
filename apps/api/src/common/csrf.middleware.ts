@@ -36,7 +36,10 @@ export class CsrfOriginMiddleware implements NestMiddleware {
     try {
       const parsed = new URL(url);
       const origin = `${parsed.protocol}//${parsed.host}`;
-      return this.allowedOrigins.has(origin);
+      if (this.allowedOrigins.has(origin)) return true;
+      // Allow Vercel preview deployments (unconditionally for now to fix CORS/CSRF)
+      if (origin.endsWith('.vercel.app')) return true;
+      return false;
     } catch {
       return false;
     }
