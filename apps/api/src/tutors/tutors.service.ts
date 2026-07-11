@@ -188,6 +188,31 @@ export class TutorsService {
           where: { tutorId: userId, status: CourseStatus.APPROVED },
         });
 
+        // Compute additional fields for frontend
+        const [studentsCount, lessonsCount] = await Promise.all([
+          this.lessonRepository
+            .createQueryBuilder('lesson')
+            .select('DISTINCT lesson.studentId', 'studentId')
+            .where('lesson.tutorId = :tutorId', { tutorId: userId })
+            .andWhere('lesson.status = :status', { status: LessonStatus.COMPLETED })
+            .getRawMany<{ studentId: string }>()
+            .then((rows) => rows.length),
+          this.lessonRepository.count({
+            where: { tutorId: userId, status: LessonStatus.COMPLETED },
+          }),
+        ]);
+
+        // Calculate experience years from profile creation date
+        const experienceYears = tutor.createdAt
+          ? Math.max(
+              1,
+              Math.floor(
+                (Date.now() - new Date(tutor.createdAt).getTime()) /
+                  (365.25 * 24 * 60 * 60 * 1000),
+              ),
+            )
+          : 5;
+
         const { user } = tutor;
         return {
           ...tutor,
@@ -198,6 +223,10 @@ export class TutorsService {
           },
           averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
           reviewCount,
+          studentsCount,
+          lessonsCount,
+          experienceYears: `${experienceYears}+ سنوات`,
+          country: 'مصر', // Default country, could be added to user profile later
         };
       },
       300,
