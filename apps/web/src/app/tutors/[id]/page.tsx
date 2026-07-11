@@ -278,7 +278,7 @@ export default async function TutorProfilePage({
         <div className="card p-8">
           <h2 className="text-xl font-bold mb-6" style={{ color: 'var(--text-main)' }}>
             التقييمات
-            <span className="font-normal mr-2" style={{ color: 'var(--text-muted)' }}>
+            <span className="font-normal me-2" style={{ color: 'var(--text-muted)' }}>
               ({reviews.length})
             </span>
           </h2>
@@ -307,7 +307,7 @@ export default async function TutorProfilePage({
                       <StarRating rating={review.rating} />
                     </div>
                   </div>
-                  <p className="text-sm mr-11 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-sm me-11 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                     {review.comment}
                   </p>
                 </div>

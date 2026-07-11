@@ -75,7 +75,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: 'var(--bg-main)' }}>
-      <aside className="w-full lg:w-64 shrink-0 lg:h-screen overflow-x-auto lg:overflow-y-auto flex flex-row lg:flex-col" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderLeft: 'none' }}>
+      <aside className="w-full lg:w-64 shrink-0 lg:h-screen overflow-x-auto lg:overflow-y-auto flex flex-row lg:flex-col" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderInlineStart: 'none' }}>
         <div className="p-5 border-b border-[#1D535B]">
           <h2 className="text-lg font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</h2>
           <p className="text-xs mt-0.5" style={{ color: '#E4CC9C' }}>لوحة الإدارة</p>

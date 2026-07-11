@@ -44,6 +44,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     await this.redis.del(key);
   }
 
+  /** Atomic set-if-not-exists with TTL. Returns true if key was newly set. */
+  async setNX(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    if (!this.connected) return true; // allow through if Redis is down
+    const result = await this.redis.set(key, value, 'EX', ttlSeconds, 'NX');
+    return result === 'OK';
+  }
+
   async delPattern(pattern: string) {
     if (!this.connected) return;
     const keys: string[] = [];

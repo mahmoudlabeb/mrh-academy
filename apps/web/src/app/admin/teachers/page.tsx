@@ -124,7 +124,7 @@ export default function AdminTeachersPage() {
           >
             قيد الانتظار
             {pendingQuery.data && (
-              <span className="mr-2 px-1.5 py-0.5 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.15)' }}>
+              <span className="me-2 px-1.5 py-0.5 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.15)' }}>
                 {pendingQuery.data.length}
               </span>
             )}

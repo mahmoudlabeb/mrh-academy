@@ -67,11 +67,7 @@ export class StripeWebhookController {
         throw new BadRequestException('Payment amount mismatch');
       }
 
-      try {
-        await this.paymentsService.approvePayment(paymentId, 'stripe-webhook');
-      } catch (e) {
-        console.error('Failed to auto-approve payment via webhook', e);
-      }
+      await this.paymentsService.approvePayment(paymentId, 'stripe-webhook');
     }
 
     if (event.type === 'account.updated') {

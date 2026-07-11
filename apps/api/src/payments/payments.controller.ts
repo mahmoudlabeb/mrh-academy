@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -24,7 +25,27 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
   @UseInterceptors(
-    FileInterceptor('screenshot', { limits: { fileSize: 5 * 1024 * 1024 } }),
+    FileInterceptor('screenshot', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_request, file, callback) => {
+        const allowed = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'application/pdf',
+        ];
+        if (!allowed.includes(file.mimetype)) {
+          callback(
+            new BadRequestException(
+              'Receipt must be JPEG, PNG, WebP, or PDF',
+            ) as unknown as Error,
+            false,
+          );
+          return;
+        }
+        callback(null, true);
+      },
+    }),
   )
   async submitPayment(
     @CurrentUser() user: { id: string },

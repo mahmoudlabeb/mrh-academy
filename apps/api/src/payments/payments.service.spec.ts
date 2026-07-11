@@ -24,7 +24,21 @@ describe('PaymentsService', () => {
       email: 'student@example.com',
     })),
   };
-  const dataSource = { transaction: jest.fn() };
+  const dataSource = {
+    transaction: jest.fn(async (cb) =>
+      cb({
+        findOne: jest.fn(async () => ({
+          id: 'payment-1',
+          userId: 'user-1',
+          amount: 30,
+          method: PaymentMethod.PAYPAL,
+          status: PaymentStatus.PENDING,
+        })),
+        save: jest.fn(async (entity) => entity),
+        increment: jest.fn(),
+      }),
+    ),
+  };
   const configService = { get: jest.fn(() => undefined) };
   const stripeService = {
     isConfigured: jest.fn(() => true),
@@ -87,8 +101,8 @@ describe('PaymentsService', () => {
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
 
-  it('keeps PayPal payments pending until admin approval', async () => {
-    await service.submitPayment('user-1', {
+  it('auto-approves PayPal payments per original spec', async () => {
+    const result = await service.submitPayment('user-1', {
       method: PaymentMethod.PAYPAL,
       amount: 30,
     });
@@ -99,6 +113,7 @@ describe('PaymentsService', () => {
         status: PaymentStatus.PENDING,
       }),
     );
-    expect(studentProfileRepository.increment).not.toHaveBeenCalled();
+    expect(dataSource.transaction).toHaveBeenCalled();
+    expect(result.payment.status).toBe(PaymentStatus.APPROVED);
   });
 });

@@ -294,7 +294,7 @@ function DiscoverContent() {
                 placeholder="ابحث عن معلم بالاسم أو التخصص..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="input-field pr-11"
+                className="input-field pe-11"
               />
             </div>
 

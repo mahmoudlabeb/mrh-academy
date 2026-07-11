@@ -574,13 +574,17 @@ export default function ClassroomPage() {
             className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
           />
           <a
-            href={lesson?.googleMeetUrl || 'https://meet.google.com/new'}
+            href={lesson?.googleMeetUrl ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-ghost text-xs px-3 py-1.5"
+            className={`btn-ghost text-xs px-3 py-1.5 ${lesson?.googleMeetUrl ? '' : 'pointer-events-none opacity-40'}`}
             style={{ color: '#FFFFF0' }}
+            aria-disabled={!lesson?.googleMeetUrl}
+            onClick={(e) => {
+              if (!lesson?.googleMeetUrl) e.preventDefault();
+            }}
           >
-            <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5l4.5-4.5v12L15 13.5M3 6.75A2.25 2.25 0 015.25 4.5h7.5A2.25 2.25 0 0115 6.75v10.5A2.25 2.25 0 0112.75 19.5h-7.5A2.25 2.25 0 013 17.25V6.75z" />
             </svg>
             Google Meet
@@ -590,7 +594,7 @@ export default function ClassroomPage() {
             className="btn-ghost text-xs px-3 py-1.5"
             style={{ color: '#FFFFF0' }}
           >
-            <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
             </svg>
             {t('بلّغ', 'Report')}
@@ -600,7 +604,7 @@ export default function ClassroomPage() {
             className="btn-ghost text-xs px-3 py-1.5"
             style={{ color: '#ef4444' }}
           >
-            <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
             </svg>
             {t('مغادرة', 'Leave')}
@@ -856,7 +860,7 @@ export default function ClassroomPage() {
                     color: activeCall === 'voice' ? '#22c55e' : 'var(--text-muted)',
                   }}
                 >
-                  <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     {activeCall === 'voice' ? (
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
                     ) : (
@@ -873,7 +877,7 @@ export default function ClassroomPage() {
                     color: activeCall === 'camera' ? '#22c55e' : 'var(--text-muted)',
                   }}
                 >
-                  <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                   </svg>
                   {activeCall === 'camera' ? t('إيقاف الكاميرا', 'Stop Camera') : t('الكاميرا', 'Camera')}
@@ -886,7 +890,7 @@ export default function ClassroomPage() {
                     color: activeCall === 'screen' ? '#22c55e' : 'var(--text-muted)',
                   }}
                 >
-                  <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
                   </svg>
                   {activeCall === 'screen' ? t('إيقاف المشاركة', 'Stop Share') : t('مشاركة الشاشة', 'Screen Share')}
@@ -904,7 +908,7 @@ export default function ClassroomPage() {
         {/* Side Panel */}
         <div
           className="w-full lg:w-80 flex-shrink-0 flex flex-col order-1 lg:order-2 max-h-80 lg:max-h-none"
-          style={{ background: 'var(--bg-light)', borderBottom: '1px solid var(--border-color)', borderLeft: 'none' }}
+          style={{ background: 'var(--bg-light)', borderBottom: '1px solid var(--border-color)', borderInlineStart: 'none' }}
         >
           {/* Tab Switcher */}
           <div className="flex" style={{ borderBottom: '1px solid var(--border-color)' }}>

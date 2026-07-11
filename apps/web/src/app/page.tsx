@@ -201,7 +201,7 @@ function LanguagesSection() {
               </Link>
             </div>
             {/* Background design elements */}
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full opacity-5 mix-blend-overlay" style={{ background: '#D4A353' }} />
+            <div className="absolute top-0 right-0 -me-8 -mt-8 w-40 h-40 rounded-full opacity-5 mix-blend-overlay" style={{ background: '#D4A353' }} />
             <div className="absolute bottom-0 right-1/4 w-32 h-32 rounded-full opacity-20 blur-2xl" style={{ background: '#D4A353' }} />
           </div>
 
@@ -218,7 +218,7 @@ function LanguagesSection() {
               </Link>
             </div>
             {/* Background design elements */}
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full opacity-5 mix-blend-overlay" style={{ background: '#D4A353' }} />
+            <div className="absolute top-0 right-0 -me-8 -mt-8 w-40 h-40 rounded-full opacity-5 mix-blend-overlay" style={{ background: '#D4A353' }} />
             <div className="absolute bottom-0 right-1/4 w-32 h-32 rounded-full opacity-20 blur-2xl" style={{ background: '#D4A353' }} />
           </div>
         </div>

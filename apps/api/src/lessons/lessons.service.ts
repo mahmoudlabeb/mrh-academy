@@ -129,6 +129,14 @@ export class LessonsService {
         throw new BadRequestException('Insufficient balance');
       }
 
+      const tutorProfileLocked = await manager.findOne(TutorProfile, {
+        where: { userId: dto.tutorId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!tutorProfileLocked) {
+        throw new NotFoundException('Tutor not found');
+      }
+
       const overlapping = await manager
         .createQueryBuilder(Lesson, 'lesson')
         .where('lesson.status IN (:...activeStatuses)', {
@@ -224,21 +232,28 @@ export class LessonsService {
     ]);
 
     let googleMeetUrl: string | null = null;
-    if (tutorUser?.email && studentUser?.email) {
-      googleMeetUrl = await this.calendarService.createLessonMeetLink({
-        summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
-        description: 'Language lesson booked on MRH Academy.',
-        start: scheduledDate,
-        end: endTime,
-        tutorEmail: tutorUser.email,
-        studentEmail: studentUser.email,
-      });
+    let calendarEventId: string | null = null;
+    const meetLinkResult = await this.calendarService.createLessonMeetLink({
+      summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
+      description: 'Language lesson booked on MRH Academy.',
+      start: scheduledDate,
+      end: endTime,
+      tutorEmail:
+        tutorUser?.email ?? `tutor-${dto.tutorId}@lessons.mrhacademy.internal`,
+      studentEmail:
+        studentUser?.email ??
+        `student-${studentId}@lessons.mrhacademy.internal`,
+    });
 
-      if (googleMeetUrl) {
-        await this.lessonRepository.update(lesson.id, { googleMeetUrl });
-        if (savedLesson) {
-          savedLesson.googleMeetUrl = googleMeetUrl;
-        }
+    if (meetLinkResult) {
+      googleMeetUrl = meetLinkResult.meetUrl;
+      calendarEventId = meetLinkResult.calendarEventId ?? null;
+      await this.lessonRepository.update(lesson.id, {
+        googleMeetUrl,
+        ...(calendarEventId ? { calendarEventId } : {}),
+      });
+      if (savedLesson) {
+        savedLesson.googleMeetUrl = googleMeetUrl;
       }
     }
 
@@ -298,6 +313,12 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
 
     if (lesson.status !== LessonStatus.CONFIRMED) {
       throw new BadRequestException('Lesson must be in confirmed status');
+    }
+
+    if (Date.now() < lesson.scheduledTime.getTime()) {
+      throw new BadRequestException(
+        'Lesson cannot be completed before it starts',
+      );
     }
 
     const tutorProfile = await this.tutorProfileRepository.findOne({
@@ -470,6 +491,10 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
 
     await this.redisService.del(`lessons:user:${lesson.tutorId}`);
     await this.redisService.del(`lessons:user:${lesson.studentId}`);
+
+    if (lesson.calendarEventId) {
+      await this.calendarService.deleteCalendarEvent(lesson.calendarEventId);
+    }
 
     const cancelled = await this.lessonRepository.findOne({
       where: { id: lessonId },
@@ -700,12 +725,13 @@ ${studentRefundNote}`,
     if (slots.length === 0) {
       throw new BadRequestException('Tutor has not set availability');
     }
-    const dayOfWeek = scheduledDate.getDay();
+    const dayOfWeek = scheduledDate.getUTCDay();
     const daySlots = slots.filter((s) => s.dayOfWeek === dayOfWeek);
     if (daySlots.length === 0) {
       throw new BadRequestException('Tutor is not available on this day');
     }
-    const startMin = scheduledDate.getHours() * 60 + scheduledDate.getMinutes();
+    const startMin =
+      scheduledDate.getUTCHours() * 60 + scheduledDate.getUTCMinutes();
     const endMin = startMin + durationMinutes;
     const fits = daySlots.some((slot) => {
       const slotStart = this.timeToMinutes(slot.startTime);

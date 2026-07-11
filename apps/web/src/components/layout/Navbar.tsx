@@ -61,7 +61,7 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <div className="flex items-center gap-2 mr-4 pr-4 border-r border-[#1D535B]">
+          <div className="flex items-center gap-2 me-4 pe-4 border-e border-[#1D535B]">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}

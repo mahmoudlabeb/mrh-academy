@@ -54,7 +54,7 @@ export default function ReviewsTab() {
         <h3 className="text-lg font-bold mb-3" style={{ color: 'var(--text-main)' }}>
           {lang === 'ar' ? 'تقييمات قيد المراجعة' : 'Pending Reviews'}
           {pendingReviews.length > 0 && (
-            <span className="mr-2 px-2 py-0.5 rounded-full text-xs" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308' }}>{pendingReviews.length}</span>
+            <span className="me-2 px-2 py-0.5 rounded-full text-xs" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308' }}>{pendingReviews.length}</span>
           )}
         </h3>
         {pendingReviews.length === 0 ? (
@@ -122,7 +122,7 @@ export default function ReviewsTab() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-semibold text-sm" style={{ color: 'var(--text-main)' }}>{review.studentName}</span>
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{lang === 'ar' ? 'على' : 'on'} {review.tutorName}</span>
-                  <div className="flex items-center gap-0.5 mr-auto">
+                  <div className="flex items-center gap-0.5 me-auto">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <svg key={i} className="w-3 h-3" fill={i < review.rating ? '#D4A353' : 'none'} viewBox="0 0 24 24" stroke="#D4A353" strokeWidth={i < review.rating ? 0 : 1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />

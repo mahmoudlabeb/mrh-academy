@@ -35,7 +35,10 @@ function Invoke-Api {
     [hashtable]$Body = $null,
     [string]$Token = $null
   )
-  $headers = @{ "Content-Type" = "application/json" }
+  $headers = @{
+    "Content-Type" = "application/json"
+    "X-MRH-Client" = "mrh-web"
+  }
   if ($Token) { $headers["Authorization"] = "Bearer $Token" }
   $uri = "$ApiUrl$Path"
   $params = @{
@@ -77,9 +80,7 @@ Write-Result "GET /tutors (public)" ($tutors.Ok) ($tutors.Error)
 $courses = Invoke-Api -Path "/courses"
 Write-Result "GET /courses (public)" ($courses.Ok) ($courses.Error)
 
-# 4. Vocabulary
-$vocab = Invoke-Api -Path "/vocabulary"
-Write-Result "GET /vocabulary" ($vocab.Ok) ($vocab.Error)
+# 4. (moved after student login — vocabulary requires auth)
 
 # 5. Admin login
 $adminLogin = Invoke-Api -Method POST -Path "/auth/login" -Body @{
@@ -131,6 +132,12 @@ Write-Result "POST /auth/login (subadmin)" ($subLogin.Ok) ($subLogin.Error)
 if ($studentToken) {
   $bal = Invoke-Api -Path "/students/balance" -Token $studentToken
   Write-Result "GET /students/balance" ($bal.Ok) ($bal.Error)
+}
+
+# 9b. Vocabulary (authenticated — requires student token)
+if ($studentToken) {
+  $vocab = Invoke-Api -Path "/vocabulary" -Token $studentToken
+  Write-Result "GET /vocabulary (authenticated)" ($vocab.Ok) ($vocab.Error)
 }
 
 # 10. Student lessons

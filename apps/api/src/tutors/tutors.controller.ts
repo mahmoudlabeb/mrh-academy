@@ -60,6 +60,13 @@ export class TutorsController {
     return this.availabilityService.findByTutor(id);
   }
 
+  @Get('pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  async getPendingTutors() {
+    return this.tutorsService.findAllPending();
+  }
+
   @Public()
   @Get(':id')
   getPublicProfile(@Param('id') id: string) {
@@ -116,10 +123,4 @@ export class TutorsController {
 
   // --- ADMIN ---
 
-  @Get('pending')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
-  async getPendingTutors() {
-    return this.tutorsService.findAllPending();
-  }
 }

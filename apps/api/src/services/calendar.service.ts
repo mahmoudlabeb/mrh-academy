@@ -12,6 +12,11 @@ export type LessonMeetLinkInput = {
   studentEmail: string;
 };
 
+export type LessonMeetLinkResult = {
+  meetUrl: string;
+  calendarEventId?: string;
+};
+
 @Injectable()
 export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
@@ -34,34 +39,59 @@ export class CalendarService {
     return raw.replace(/\\n/g, '\n');
   }
 
+  private buildCalendarClient() {
+    const auth = new google.auth.JWT({
+      email: this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
+      key: this.getPrivateKey(),
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+      subject: this.configService.get<string>(
+        'GOOGLE_CALENDAR_IMPERSONATE_EMAIL',
+      ),
+    });
+    return google.calendar({ version: 'v3', auth });
+  }
+
   /**
    * Generates a free Jitsi Meet link as a fallback when Google Meet
    * is not configured (no Google Workspace subscription required).
-   * Room names are unique per lesson using a hash for security.
    */
   generateJitsiMeetLink(input: LessonMeetLinkInput): string {
     const uniqueData = `${input.tutorEmail}-${input.studentEmail}-${input.start.toISOString()}-${randomUUID()}`;
-    const hash = createHash('sha256').update(uniqueData).digest('hex').substring(0, 12);
-    const roomName = `MRH-Lesson-${hash}`;
-    return `https://meet.jit.si/${roomName}`;
+    const hash = createHash('sha256')
+      .update(uniqueData)
+      .digest('hex')
+      .substring(0, 12);
+    return `https://meet.jit.si/MRH-Lesson-${hash}`;
+  }
+
+  async deleteCalendarEvent(eventId: string): Promise<void> {
+    if (!eventId || !this.isGoogleMeetConfigured()) {
+      return;
+    }
+
+    try {
+      const calendar = this.buildCalendarClient();
+      await calendar.events.delete({
+        calendarId: 'primary',
+        eventId,
+        sendUpdates: 'all',
+      });
+      this.logger.log(`Deleted calendar event ${eventId}`);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete calendar event ${eventId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async createLessonMeetLink(
     input: LessonMeetLinkInput,
-  ): Promise<string | null> {
-    // If Google Meet is configured, use it as the primary provider
+  ): Promise<LessonMeetLinkResult | null> {
     if (this.isGoogleMeetConfigured()) {
       try {
-        const auth = new google.auth.JWT({
-          email: this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
-          key: this.getPrivateKey(),
-          scopes: ['https://www.googleapis.com/auth/calendar'],
-          subject: this.configService.get<string>(
-            'GOOGLE_CALENDAR_IMPERSONATE_EMAIL',
-          ),
-        });
-
-        const calendar = google.calendar({ version: 'v3', auth });
+        const calendar = this.buildCalendarClient();
         const requestId = randomUUID();
 
         const response = await calendar.events.insert({
@@ -92,6 +122,7 @@ export class CalendarService {
           },
         });
 
+        const eventId = response.data.id ?? undefined;
         const meetUrl =
           response.data.hangoutLink ||
           response.data.conferenceData?.entryPoints?.find(
@@ -99,9 +130,13 @@ export class CalendarService {
           )?.uri ||
           null;
 
-        if (meetUrl) {
+        if (meetUrl && eventId) {
           this.logger.log('Google Meet link created successfully.');
-          return meetUrl;
+          return { meetUrl, calendarEventId: eventId };
+        }
+
+        if (eventId) {
+          await this.deleteCalendarEvent(eventId);
         }
       } catch (error) {
         this.logger.warn(
@@ -112,10 +147,10 @@ export class CalendarService {
       }
     }
 
-    // Fallback: generate a free Jitsi Meet link
     const jitsiUrl = this.generateJitsiMeetLink(input);
-    this.logger.log(`Jitsi Meet link generated: ${jitsiUrl}`);
-    return jitsiUrl;
+    const roomHash = jitsiUrl.split('/').pop();
+    this.logger.log(`Jitsi Meet link generated for room ${roomHash}`);
+    return { meetUrl: jitsiUrl };
   }
 
   private escapeIcsText(value: string): string {

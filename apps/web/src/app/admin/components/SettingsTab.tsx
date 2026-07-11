@@ -124,7 +124,7 @@ export default function SettingsTab() {
                   {lang === 'ar' ? 'وضع الصيانة' : 'Maintenance Mode'}
                 </span>
               </label>
-              <p className="text-xs mt-1 mr-12" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-xs mt-1 me-12" style={{ color: 'var(--text-muted)' }}>
                 {lang === 'ar' ? 'عند التفعيل، سيتم عرض صفحة صيانة للمستخدمين' : 'When enabled, users will see a maintenance page'}
               </p>
             </div>
@@ -149,7 +149,7 @@ export default function SettingsTab() {
               </button>
 
               {updateMutation.isSuccess && (
-                <span className="mr-4 text-sm" style={{ color: '#22c55e' }}>
+                <span className="me-4 text-sm" style={{ color: '#22c55e' }}>
                   {lang === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully'}
                 </span>
               )}

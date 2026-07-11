@@ -12,18 +12,24 @@ export class CsrfOriginMiddleware implements NestMiddleware {
   private readonly isProduction: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    const frontendUrl = this.configService.get<string>(
-      'FRONTEND_URL',
-      'http://localhost:3000',
-    );
     const env = this.configService.get<string>('NODE_ENV', 'development');
     this.isProduction = env === 'production';
-    this.allowedOrigins = new Set([
-      frontendUrl,
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      ...(env === 'development' ? ['http://localhost:4000'] : []),
-    ]);
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      this.isProduction ? '' : 'http://localhost:3000',
+    );
+    this.allowedOrigins = new Set(
+      this.isProduction
+        ? frontendUrl
+          ? [frontendUrl]
+          : []
+        : [
+            frontendUrl,
+            'http://localhost:3000',
+            'http://127.0.0.1:3000',
+            'http://localhost:4000',
+          ],
+    );
   }
 
   private isAllowedUrl(url: string): boolean {

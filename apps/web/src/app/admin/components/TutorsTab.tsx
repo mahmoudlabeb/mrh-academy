@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { getApiBaseUrl } from '@/lib/api-url';
+import { setAuthTokenCookie } from '@/lib/auth-cookie';
 import { useLanguage } from '@/contexts/language-context';
 
 type User = {
@@ -126,7 +127,7 @@ export default function TutorsTab() {
         >
           {lang === 'ar' ? 'قيد الانتظار' : 'Pending'}
           {pendingQuery.data && (
-            <span className="mr-2 px-1.5 py-0.5 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.15)' }}>
+            <span className="me-2 px-1.5 py-0.5 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.15)' }}>
               {pendingQuery.data.length}
             </span>
           )}
@@ -244,7 +245,7 @@ export default function TutorsTab() {
                       try {
                         const { data } = await apiClient.post('/admin/impersonate', { userId: selectedTutor.userId });
                         if (data.accessToken) {
-                          document.cookie = `mrh_token=${data.accessToken}; path=/`;
+                          setAuthTokenCookie(data.accessToken);
                           window.location.href = '/';
                         }
                       } catch {}

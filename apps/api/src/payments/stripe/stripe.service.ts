@@ -2,6 +2,7 @@ import { Injectable, RawBodyRequest } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { Request } from 'express';
+import { PLATFORM_CURRENCY } from '../../common/currency.util.js';
 
 @Injectable()
 export class StripeService {
@@ -35,7 +36,7 @@ export class StripeService {
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: PLATFORM_CURRENCY,
             product_data: {
               name: 'Mr.H Academy Balance',
               description: `Add $${amount} to your student balance`,
@@ -95,7 +96,7 @@ export class StripeService {
     return this.stripe.transfers.create(
       {
         amount: amountCents,
-        currency: 'usd',
+        currency: PLATFORM_CURRENCY,
         destination: accountId,
       },
       idempotencyKey ? { idempotencyKey } : undefined,

@@ -63,6 +63,9 @@ export class Lesson {
   googleMeetUrl: string;
 
   @Column({ nullable: true })
+  calendarEventId: string;
+
+  @Column({ nullable: true })
   notes: string;
 
   @CreateDateColumn()

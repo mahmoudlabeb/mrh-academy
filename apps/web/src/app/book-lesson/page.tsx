@@ -509,7 +509,7 @@ function BookLessonContent() {
               <div className="card p-6 animate-scale-in">
                 <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-main)' }}>
                   {t('اختر الوقت', 'Select Time')}
-                  <span className="font-normal mr-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                  <span className="font-normal me-2 text-sm" style={{ color: 'var(--text-muted)' }}>
                     {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </span>
                 </h3>

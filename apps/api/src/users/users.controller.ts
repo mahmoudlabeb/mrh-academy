@@ -62,10 +62,11 @@ export class UsersController {
   @Post('avatar')
   @UseInterceptors(
     FileInterceptor('avatar', {
+      limits: { fileSize: 2 * 1024 * 1024 },
       fileFilter: (_request, file, callback) => {
-        if (!['image/jpeg', 'image/png'].includes(file.mimetype)) {
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
           callback(
-            new BadRequestException('Only JPEG and PNG files are allowed'),
+            new BadRequestException('Only JPEG, PNG, and WebP files are allowed'),
             false,
           );
           return;

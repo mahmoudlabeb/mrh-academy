@@ -6,13 +6,22 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { UserRole } from '@mrh/types';
 import { Employee } from '../entities/employee.entity.js';
 import { User } from '../entities/user.entity.js';
 import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
 
-const DEFAULT_SUBADMIN_PASSWORD =
-  process.env.SUBADMIN_DEFAULT_PASSWORD || '123456';
+function resolveSubAdminPassword(): string {
+  const configured = process.env.SUBADMIN_DEFAULT_PASSWORD?.trim();
+  if (configured) {
+    return configured;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SUBADMIN_DEFAULT_PASSWORD must be set in production');
+  }
+  return randomBytes(12).toString('base64url');
+}
 
 export type EmployeeDto = {
   firstName: string;
@@ -80,7 +89,8 @@ export class AdminEmployeesService {
       throw new ConflictException('An employee with this email already exists');
     }
 
-    const passwordHash = await bcrypt.hash(DEFAULT_SUBADMIN_PASSWORD, 12);
+    const temporaryPassword = resolveSubAdminPassword();
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
     const permissions = dto.permissions.filter(Boolean);
 
     const result = await this.dataSource.transaction(async (manager) => {
@@ -115,7 +125,7 @@ export class AdminEmployeesService {
 
     return {
       ...this.mapEmployee(result),
-      temporaryPassword: DEFAULT_SUBADMIN_PASSWORD,
+      temporaryPassword,
     };
   }
 

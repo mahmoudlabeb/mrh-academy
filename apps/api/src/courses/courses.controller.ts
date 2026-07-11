@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -26,6 +27,7 @@ export class CoursesController {
     private readonly bunnyService: BunnyService,
   ) {}
 
+  @Public()
   @Get()
   findAllApproved() {
     return this.coursesService.findAllApproved();
@@ -45,6 +47,7 @@ export class CoursesController {
     return this.coursesService.getMyCourses(user.id);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.coursesService.findOne(id);

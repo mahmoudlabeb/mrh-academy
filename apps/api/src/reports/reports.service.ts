@@ -22,12 +22,13 @@ export class ReportsService {
     return this.reportRepository.save(report);
   }
 
-  findAll(limit: number = 50, offset: number = 0) {
-    return this.reportRepository.find({
+  async findAll(limit: number = 50, offset: number = 0) {
+    const [data, total] = await this.reportRepository.findAndCount({
       relations: { user: true },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
     });
+    return { data, total, limit, offset };
   }
 }

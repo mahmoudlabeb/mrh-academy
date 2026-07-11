@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 
@@ -24,6 +24,13 @@ type PaymentMethod = (typeof paymentMethods)[number]['key'];
 
 const MANUAL_METHODS: PaymentMethod[] = ['vodafone', 'instapay', 'binance', 'bank'];
 
+type ApiPaymentMethod = {
+  type: PaymentMethod;
+  label: string;
+  enabled: boolean;
+  details?: string;
+};
+
 export default function PaymentModal({ onClose, currentBalance, creditPrice = 15 }: PaymentModalProps) {
   const { lang } = useLanguage();
   const queryClient = useQueryClient();
@@ -36,7 +43,13 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
 
   const isManual = MANUAL_METHODS.includes(activeMethod);
 
-
+  const methodsQuery = useQuery({
+    queryKey: ['student-payment-methods'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ApiPaymentMethod[]>('/students/payment-methods');
+      return data;
+    },
+  });
 
   const submitMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -77,27 +90,32 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
     : '0.00';
   const currentBalanceNum = parseFloat(currentBalance) || 0;
 
+  const methodDetails = methodsQuery.data?.find((m) => m.type === activeMethod);
+
   const methodLabels: Record<PaymentMethod, { name: string; details?: string }> = {
     card: {
       name: lang === 'ar' ? 'بطاقة ائتمان' : 'Credit Card',
       details: lang === 'ar' ? 'فيزا - ماستركارد' : 'Visa - Mastercard',
     },
-    paypal: { name: 'PayPal', details: lang === 'ar' ? 'الدفع عبر PayPal' : 'Pay with PayPal' },
+    paypal: {
+      name: 'PayPal',
+      details: methodDetails?.details || (lang === 'ar' ? 'الدفع عبر PayPal' : 'Pay with PayPal'),
+    },
     vodafone: {
       name: lang === 'ar' ? 'فودافون كاش' : 'Vodafone Cash',
-      details: lang === 'ar' ? '01000000000' : '01000000000',
+      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
     },
     instapay: {
       name: lang === 'ar' ? 'انستاباي' : 'Instapay',
-      details: lang === 'ar' ? '@mrh_academy' : '@mrh_academy',
+      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
     },
     binance: {
       name: 'Binance',
-      details: lang === 'ar' ? 'ID: 123456789' : 'ID: 123456789',
+      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
     },
     bank: {
       name: lang === 'ar' ? 'تحويل بنكي' : 'Bank Transfer',
-      details: lang === 'ar' ? 'البنك الأهلي المصري - حساب 123456789' : 'NBE - Account 123456789',
+      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
     },
   };
 
@@ -128,93 +146,67 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
               <button
                 key={pm.key}
                 onClick={() => setActiveMethod(pm.key)}
-                className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl text-xs font-medium transition-all shrink-0 min-w-[80px]"
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeMethod === pm.key ? 'ring-2 ring-[#D4A353]' : ''}`}
                 style={{
-                  background: activeMethod === pm.key ? 'rgba(212, 163, 83,0.1)' : 'var(--bg-light)',
-                  border: activeMethod === pm.key ? '2px solid #D4A353' : '2px solid transparent',
-                  color: activeMethod === pm.key ? '#D4A353' : 'var(--text-muted)',
+                  background: activeMethod === pm.key ? 'var(--bg-light)' : 'transparent',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border-color)',
                 }}
               >
-                <span className="text-lg">{pm.icon}</span>
-                <span className="text-[10px]">{lang === 'ar' ? pm.labelAr : pm.labelEn}</span>
+                <span className="me-1">{pm.icon}</span>
+                {lang === 'ar' ? pm.labelAr : pm.labelEn}
               </button>
             ))}
           </div>
 
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-light)' }}>
-            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-main)' }}>{methodLabels[activeMethod].name}</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{methodLabels[activeMethod].details}</p>
+            <p className="font-medium" style={{ color: 'var(--text-main)' }}>{methodLabels[activeMethod].name}</p>
+            {methodLabels[activeMethod].details && (
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{methodLabels[activeMethod].details}</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('المبلغ ($)', 'Amount ($)')}
+            <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+              {t('المبلغ (USD)', 'Amount (USD)')}
             </label>
             <input
               type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
               min="1"
               step="0.01"
-              className="input-field text-sm"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="input-field w-full"
+              placeholder="0.00"
             />
-            {amount && parseFloat(amount) > 0 && (
-              <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                {t('ستحصل على', 'You will get')} <span className="font-semibold text-[#D4A353]">{credits}</span> {t('رصيد', 'credits')}
-                <span className="mx-1">·</span>
-                {t('سعر الصرف', 'Rate')}: ${creditPrice} = 1 {t('رصيد', 'credit')}
-              </p>
-            )}
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              {t(`≈ ${credits} رصيد`, `≈ ${credits} credits`)}
+            </p>
           </div>
 
           {isManual && (
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
+              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
                 {t('صورة الإيصال', 'Receipt Screenshot')}
               </label>
-              <div
-                onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-[#D4A353]"
-                style={{ borderColor: file ? '#D4A353' : 'var(--border-color)' }}
-              >
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                />
-                {file ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#22c55e">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium" style={{ color: '#22c55e' }}>{file.name}</span>
-                  </div>
-                ) : (
-                  <div>
-                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--text-muted)' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('اضغط لرفع صورة الإيصال', 'Click to upload receipt')}</p>
-                  </div>
-                )}
-              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="input-field w-full text-sm"
+              />
             </div>
           )}
 
           <button
             onClick={handleSubmit}
-            disabled={submitMutation.isPending || !amount || parseFloat(amount) <= 0}
-            className="btn-primary w-full py-3 text-base"
+            disabled={submitMutation.isPending}
+            className="btn-primary w-full py-3"
           >
-            {submitMutation.isPending ? (
-              <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : t('تأكيد الدفع', 'Confirm Payment')}
+            {submitMutation.isPending
+              ? t('جاري الإرسال...', 'Submitting...')
+              : t('إرسال الدفع', 'Submit Payment')}
           </button>
         </div>
       </div>

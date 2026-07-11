@@ -3,43 +3,63 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Setting } from '../entities/setting.entity.js';
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class CommissionService {
   private cachedTutorPromoRate: number | null = null;
   private cachedAcademyBaseRate: number | null = null;
   private cachedCreditPrice: number | null = null;
+  private cacheExpiresAt = 0;
 
   constructor(
     @InjectRepository(Setting)
     private readonly settingRepository: Repository<Setting>,
   ) {}
 
+  private isCacheValid(): boolean {
+    return Date.now() < this.cacheExpiresAt;
+  }
+
+  private touchCache() {
+    this.cacheExpiresAt = Date.now() + CACHE_TTL_MS;
+  }
+
   private async getCourseTutorPromoRate(): Promise<number> {
-    if (this.cachedTutorPromoRate !== null) return this.cachedTutorPromoRate;
+    if (this.cachedTutorPromoRate !== null && this.isCacheValid()) {
+      return this.cachedTutorPromoRate;
+    }
     const setting = await this.settingRepository.findOne({
       where: { key: 'course_tutor_promo_rate' },
     });
     this.cachedTutorPromoRate = setting ? parseFloat(setting.value) : 0.02;
+    this.touchCache();
     return this.cachedTutorPromoRate;
   }
 
   private async getCourseAcademyBaseRate(): Promise<number> {
-    if (this.cachedAcademyBaseRate !== null) return this.cachedAcademyBaseRate;
+    if (this.cachedAcademyBaseRate !== null && this.isCacheValid()) {
+      return this.cachedAcademyBaseRate;
+    }
     const setting = await this.settingRepository.findOne({
       where: { key: 'course_academy_base_rate' },
     });
     this.cachedAcademyBaseRate = setting ? parseFloat(setting.value) : 0.53;
+    this.touchCache();
     return this.cachedAcademyBaseRate;
   }
 
   async getCreditPrice(): Promise<number> {
-    if (this.cachedCreditPrice !== null) return this.cachedCreditPrice;
+    if (this.cachedCreditPrice !== null && this.isCacheValid()) {
+      return this.cachedCreditPrice;
+    }
     const setting = await this.settingRepository.findOne({
       where: { key: 'default_lesson_price' },
     });
     const parsed = setting ? parseFloat(setting.value) : 15;
     this.cachedCreditPrice =
       Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+    this.touchCache();
     return this.cachedCreditPrice;
   }
 
@@ -52,10 +72,10 @@ export class CommissionService {
     this.cachedTutorPromoRate = null;
     this.cachedAcademyBaseRate = null;
     this.cachedCreditPrice = null;
+    this.cacheExpiresAt = 0;
   }
 
   calculateLessonFee(totalHours: number): number {
-    if (totalHours <= 0) return 0.3;
     if (totalHours <= 20) return 0.3;
     if (totalHours <= 50) return 0.24;
     if (totalHours <= 200) return 0.2;

@@ -8,10 +8,10 @@
   --gold-gradient-end: #B89754;
   --gold-luxury: #E4CC9C;
   --gold-bronze: #D4A353;
-  --green-dark: #0F3A40;
+  --green-dark: #07211b;
   --teal-light: #1D535B;
-  --ivory-pure: #FFFFF0;
-  --ivory-warm: #FDFBF7;
+  --ivory-pure: #fcf8f2;
+  --ivory-warm: #fcf8f2;
   --ivory-rich: #FAEDCD;
 
   /* Theme semantic tokens (Light Mode) */
@@ -32,13 +32,13 @@
 }
 
 body.dark-theme, .dark-theme {
-  /* Theme semantic tokens (Dark Mode) */
+  /* Theme semantic tokens (Dark Mode) — client spec */
   --primary-color: var(--gold-luxury);
   --primary-hover: var(--gold-gradient-start);
   --secondary-color: var(--teal-light);
-  --text-main: var(--ivory-pure);
-  --text-muted: var(--gold-luxury);
-  --bg-main: var(--green-dark);
+  --text-main: #fcf8f2;
+  --text-muted: #c9c4bc;
+  --bg-main: #07211b;
   --bg-light: var(--teal-light);
   --border-color: var(--teal-light);
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -437,19 +437,16 @@ body.ltr .font-arabic {
 
 /* Section padding */
 .section-padding {
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding-inline: 1rem;
 }
 @media (min-width: 640px) {
   .section-padding {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
+    padding-inline: 1.5rem;
   }
 }
 @media (min-width: 1024px) {
   .section-padding {
-    padding-left: 2rem;
-    padding-right: 2rem;
+    padding-inline: 2rem;
   }
 }
 

@@ -111,7 +111,7 @@ export default function MessagesView() {
                 className="w-full text-right px-4 py-3 flex items-center gap-3 transition-colors hover:bg-white/5"
                 style={{
                   background: selectedUserId === contact.user.id ? 'rgba(212, 163, 83,0.08)' : 'transparent',
-                  borderRight: selectedUserId === contact.user.id ? '3px solid #D4A353' : '3px solid transparent',
+                  borderInlineEnd: selectedUserId === contact.user.id ? '3px solid #D4A353' : '3px solid transparent',
                 }}
               >
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden" style={{ background: '#D4A353' }}>

@@ -23,6 +23,7 @@ export class AdminStatsController {
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_tutors')
   getStats() {
     return this.tutorsService.getAdminStats();
   }
@@ -38,6 +39,7 @@ export class AdminStatsController {
   @Get('activity/recent')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_tutors')
   async getRecentActivity() {
     const lessons = await this.lessonRepository.find({
       relations: { tutor: true, student: true },

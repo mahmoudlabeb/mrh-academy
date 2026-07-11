@@ -1,13 +1,20 @@
 import { Logger } from '@nestjs/common';
 
-export function checkSecurityEnvironment(logger: Logger) {
+export function checkSecurityEnvironment(logger: Logger): void {
   const warnings: string[] = [];
   const errors: string[] = [];
 
   const nodeEnv = process.env.NODE_ENV || 'development';
   const jwtSecret = process.env.JWT_SECRET;
+  const frontendUrl = process.env.FRONTEND_URL;
 
   if (nodeEnv === 'production') {
+    if (!frontendUrl) {
+      errors.push('FRONTEND_URL must be configured in production');
+    } else if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(frontendUrl)) {
+      errors.push('FRONTEND_URL cannot point to localhost in production');
+    }
+
     if (!jwtSecret || jwtSecret.length < 32) {
       errors.push('JWT_SECRET must be at least 32 characters in production');
     }
@@ -22,6 +29,10 @@ export function checkSecurityEnvironment(logger: Logger) {
 
     if (!process.env.ADMIN_EMAILS) {
       warnings.push('ADMIN_EMAILS must be configured in production');
+    }
+
+    if (!process.env.SUBADMIN_DEFAULT_PASSWORD) {
+      errors.push('SUBADMIN_DEFAULT_PASSWORD must be set in production');
     }
 
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -55,8 +66,9 @@ export function checkSecurityEnvironment(logger: Logger) {
     }
     if (nodeEnv === 'production') {
       logger.error(
-        `[SECURITY] CRITICAL: ${errors.length} security configuration error(s) — app may malfunction:\n${errors.join('\n')}`,
+        `[SECURITY] CRITICAL: ${errors.length} security configuration error(s). Aborting startup.`,
       );
+      process.exit(1);
     }
   }
 
@@ -67,6 +79,4 @@ export function checkSecurityEnvironment(logger: Logger) {
   if (errors.length === 0 && warnings.length === 0) {
     logger.log('[SECURITY] All security checks passed');
   }
-
-  return { errors, warnings };
 }

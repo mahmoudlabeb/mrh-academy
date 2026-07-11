@@ -19,6 +19,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: clientSecret ?? 'missing',
       callbackURL: callbackURL ?? 'http://localhost/missing',
       scope: ['profile', 'email'],
+      state: true,
     });
 
     this.googleEnabled = enabled;
@@ -41,12 +42,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       );
     }
     const { id, emails, name, photos } = profile;
+    const email = emails?.[0]?.value;
+    if (!email) {
+      throw new UnauthorizedException('Google account has no email address');
+    }
     return {
       googleId: id,
-      email: emails[0].value,
-      firstName: name.givenName,
-      lastName: name.familyName,
-      avatarUrl: photos[0]?.value,
+      email,
+      firstName: name?.givenName ?? 'User',
+      lastName: name?.familyName ?? '',
+      avatarUrl: photos?.[0]?.value,
     };
   }
 }

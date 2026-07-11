@@ -217,7 +217,7 @@ function StudentDashboardContent() {
               </button>
 
               <div className="relative">
-                <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-white/5 transition-colors">
+                <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-2 p-1 pe-2 rounded-lg hover:bg-white/5 transition-colors">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: '#D4A353' }}>
                     {user?.firstName?.[0] || 'U'}
                   </div>

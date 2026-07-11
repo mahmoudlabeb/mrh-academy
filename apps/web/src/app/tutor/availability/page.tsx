@@ -133,7 +133,7 @@ export default function AvailabilityPage() {
               ))}
               {HOURS.map((hour, hourIndex) => (
                 <div key={hour} className="contents">
-                  <div className="text-xs text-slate-400 pr-2 text-right py-1.5 border-b self-start sticky left-0 bg-white font-mono">
+                  <div className="text-xs text-slate-400 pe-2 text-end py-1.5 border-b self-start sticky start-0 bg-white font-mono">
                     {hour}
                   </div>
                   {DAYS.map((_, dayIndex) => {

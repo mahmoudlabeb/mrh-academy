@@ -91,7 +91,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                 onClick={() => {
                   if (!notification.isRead) markReadMutation.mutate(notification.id);
                 }}
-                className="w-full text-right p-4 border-b transition-colors hover:bg-white/5"
+                className="w-full text-end p-4 border-b transition-colors hover:bg-white/5"
                 style={{
                   borderColor: 'var(--border-color)',
                   background: notification.isRead ? 'transparent' : 'rgba(212, 163, 83,0.06)',

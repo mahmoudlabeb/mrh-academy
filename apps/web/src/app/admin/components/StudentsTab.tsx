@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { setAuthTokenCookie } from '@/lib/auth-cookie';
 import { useLanguage } from '@/contexts/language-context';
 
 type Student = {
@@ -54,7 +55,7 @@ export default function StudentsTab() {
     try {
       const { data } = await apiClient.post('/admin/impersonate', { userId: studentId });
       if (data.accessToken) {
-        document.cookie = `mrh_token=${data.accessToken}; path=/`;
+        setAuthTokenCookie(data.accessToken);
         window.location.href = '/';
       }
     } catch {

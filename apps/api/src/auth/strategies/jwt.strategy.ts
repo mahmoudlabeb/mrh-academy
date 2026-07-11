@@ -10,7 +10,8 @@ interface JwtPayload {
   sub: string;
   email: string;
   role: User['role'];
-  sessionId: string;
+  sessionId?: string;
+  type?: 'access' | 'refresh';
   originalAdminId?: string;
 }
 
@@ -28,6 +29,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
+    if (payload.type && payload.type !== 'access') {
+      throw new UnauthorizedException('Access token required');
+    }
+
     const user = await this.userRepository.findOne({
       where: { id: payload.sub },
       relations: { subAdminProfile: true },

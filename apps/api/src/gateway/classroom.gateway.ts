@@ -12,9 +12,10 @@ import sanitizeHtml from 'sanitize-html';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LessonStatus } from '@mrh/types';
+import { UserRole, LessonStatus } from '@mrh/types';
 import { Lesson } from '../entities/lesson.entity.js';
 import { Classroom } from '../entities/classroom.entity.js';
+import { User } from '../entities/user.entity.js';
 import { RedisService } from '../redis/redis.service.js';
 import {
   getClassroomSocketData,
@@ -37,6 +38,8 @@ interface HealthRecord {
 interface JwtHandshakePayload {
   sub: string;
   role: string;
+  sessionId?: string;
+  type?: 'access' | 'refresh';
 }
 
 @Injectable()
@@ -51,6 +54,7 @@ export class ClassroomGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnApplicationShutdown
 {
   private static readonly MAX_ACTIONS_PER_PAGE = 2000;
+  private static readonly MAX_WHITEBOARD_PAGES = 50;
   private static readonly MAX_CHAT_PER_MINUTE = 30;
   @WebSocketServer()
   server: Server;
@@ -71,6 +75,8 @@ export class ClassroomGateway
     private readonly lessonRepository: Repository<Lesson>,
     @InjectRepository(Classroom)
     private readonly classroomRepository: Repository<Classroom>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -87,8 +93,32 @@ export class ClassroomGateway
       const payload = await this.jwtService.verifyAsync<JwtHandshakePayload>(
         String(token),
       );
-      const userId = payload.sub;
-      const role = payload.role;
+
+      if (payload.type && payload.type !== 'access') {
+        socket.disconnect(true);
+        return;
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
+      if (!user) {
+        socket.disconnect(true);
+        return;
+      }
+
+      if (user.role === UserRole.STUDENT && payload.sessionId) {
+        const activeSession = await this.redisService.get(
+          `user_session:${user.id}`,
+        );
+        if (activeSession !== payload.sessionId) {
+          socket.disconnect(true);
+          return;
+        }
+      }
+
+      const userId = user.id;
+      const role = user.role;
 
       const existing = this.connectedClients.get(userId) || [];
       existing.push({ socketId: socket.id, userId, role });
@@ -252,6 +282,13 @@ export class ClassroomGateway
       try {
         const parsed = JSON.parse(existing);
         const pageStr = String(page);
+        if (
+          !parsed.pages[pageStr] &&
+          Object.keys(parsed.pages).length >=
+            ClassroomGateway.MAX_WHITEBOARD_PAGES
+        ) {
+          return;
+        }
         if (!parsed.pages[pageStr]) {
           parsed.pages[pageStr] = [];
         }
@@ -321,7 +358,7 @@ export class ClassroomGateway
       page?: number;
     },
   ) {
-    if (this.socketData(socket).role !== 'tutor') return;
+    if (this.socketData(socket).role !== UserRole.TUTOR) return;
     if (!this.assertLessonMembership(socket, payload.lessonId)) return;
     if (!payload.bookId || !payload.title || !payload.pageCount) return;
 
@@ -344,7 +381,7 @@ export class ClassroomGateway
     socket: Socket,
     payload: { lessonId: string; page: number },
   ) {
-    if (this.socketData(socket).role !== 'tutor') return;
+    if (this.socketData(socket).role !== UserRole.TUTOR) return;
     if (!this.assertLessonMembership(socket, payload.lessonId)) return;
     if (!Number.isInteger(payload.page) || payload.page < 1) return;
 
@@ -371,7 +408,7 @@ export class ClassroomGateway
 
   @SubscribeMessage('book_close')
   async handleBookClose(socket: Socket, payload: { lessonId: string }) {
-    if (this.socketData(socket).role !== 'tutor') return;
+    if (this.socketData(socket).role !== UserRole.TUTOR) return;
     if (!this.assertLessonMembership(socket, payload.lessonId)) return;
 
     const bookKey = `book:${payload.lessonId}`;

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { createHmac } from 'node:crypto';
 import { CourseStatus, UserRole } from '@mrh/types';
 import { Course } from '../entities/course.entity.js';
 import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
@@ -34,6 +35,28 @@ export class CoursesService {
     private readonly commissionService: CommissionService,
     private readonly dataSource: DataSource,
   ) {}
+
+  private isValidCourseReferral(
+    referralCode: string | undefined,
+    tutorId: string,
+    courseId: string,
+  ): boolean {
+    if (!referralCode) {
+      return false;
+    }
+    if (referralCode === tutorId) {
+      return true;
+    }
+    const secret =
+      process.env.REFERRAL_SECRET ||
+      process.env.JWT_SECRET ||
+      'mrh-referral-dev';
+    const signature = createHmac('sha256', secret)
+      .update(`${courseId}:${tutorId}`)
+      .digest('hex')
+      .slice(0, 16);
+    return referralCode === `${tutorId}.${signature}`;
+  }
 
   async findAllApproved() {
     return this.courseRepository.find({
@@ -156,7 +179,11 @@ export class CoursesService {
     if (!course)
       throw new NotFoundException('Course not found or not yet approved');
 
-    const hasValidReferral = dto?.referralCode === course.tutorId;
+    const hasValidReferral = this.isValidCourseReferral(
+      dto?.referralCode,
+      course.tutorId,
+      courseId,
+    );
     const soldBy = hasValidReferral ? 'tutor' : 'academy';
 
     await this.dataSource.transaction(async (manager) => {

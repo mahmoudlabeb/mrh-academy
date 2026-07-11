@@ -35,6 +35,15 @@ function getAdminEmails(): string[] {
     .filter(Boolean);
 }
 
+type JwtTokenPayload = {
+  sub: string;
+  email: string;
+  role: UserRole;
+  sessionId?: string;
+  type: 'access' | 'refresh';
+  originalAdminId?: string;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -46,6 +55,60 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
   ) {}
+
+  private async clearRevocation(userId: string) {
+    await this.redisService.del(`refresh_blocklist:${userId}`);
+  }
+
+  private async establishStudentSession(
+    userId: string,
+    existingSessionId?: string,
+  ): Promise<string> {
+    const sessionId = existingSessionId ?? randomUUID();
+    await this.redisService.set(
+      `user_session:${userId}`,
+      sessionId,
+      'EX',
+      7 * 24 * 60 * 60,
+    );
+    return sessionId;
+  }
+
+  private signAccessToken(base: Omit<JwtTokenPayload, 'type'>) {
+    return this.jwtService.sign(
+      { ...base, type: 'access' } satisfies JwtTokenPayload,
+      { expiresIn: '15m' },
+    );
+  }
+
+  private signRefreshToken(base: Omit<JwtTokenPayload, 'type'>) {
+    return this.jwtService.sign(
+      { ...base, type: 'refresh' } satisfies JwtTokenPayload,
+      { expiresIn: '30d' },
+    );
+  }
+
+  private async buildAuthResponse(user: User, existingSessionId?: string) {
+    await this.clearRevocation(user.id);
+
+    const base: Omit<JwtTokenPayload, 'type'> = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    if (user.role === UserRole.STUDENT) {
+      base.sessionId = await this.establishStudentSession(
+        user.id,
+        existingSessionId,
+      );
+    }
+
+    const accessToken = this.signAccessToken(base);
+    const refreshToken = this.signRefreshToken(base);
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    return { accessToken, refreshToken, user: safeUser };
+  }
 
   async register(dto: RegisterDto) {
     const existing = await this.userRepository.findOne({
@@ -101,27 +164,7 @@ export class AuthService {
         return savedUser;
       });
 
-      const payload: Record<string, string> = {
-        sub: result.id,
-        email: result.email,
-        role: result.role,
-      };
-      if (result.role === UserRole.STUDENT) {
-        const sessionId = randomUUID();
-        payload.sessionId = sessionId;
-        await this.redisService.set(
-          `user_session:${result.id}`,
-          sessionId,
-          'EX',
-          7 * 24 * 60 * 60,
-        );
-      }
-
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
-
-      const { passwordHash: _passwordHash, ...safeUser } = result;
-      return { accessToken, refreshToken, user: safeUser };
+      return this.buildAuthResponse(result);
     } catch (error: any) {
       if (error.code === '23505' || error.constraint?.includes('email')) {
         throw new ConflictException('Email is already registered');
@@ -149,27 +192,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const payload: Record<string, string> = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-    if (user.role === UserRole.STUDENT) {
-      const sessionId = randomUUID();
-      payload.sessionId = sessionId;
-      await this.redisService.set(
-        `user_session:${user.id}`,
-        sessionId,
-        'EX',
-        7 * 24 * 60 * 60,
-      );
-    }
-
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
-
-    const { passwordHash: _passwordHash, ...safeUser } = user;
-    return { accessToken, refreshToken, user: safeUser };
+    return this.buildAuthResponse(user);
   }
 
   async getMe(userId: string) {
@@ -250,27 +273,7 @@ export class AuthService {
       }
     }
 
-    const payload: Record<string, string> = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
-    if (user.role === UserRole.STUDENT) {
-      const sessionId = randomUUID();
-      payload.sessionId = sessionId;
-      await this.redisService.set(
-        `user_session:${user.id}`,
-        sessionId,
-        'EX',
-        7 * 24 * 60 * 60,
-      );
-    }
-
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
-
-    const { passwordHash: _passwordHash, ...safeUser } = user;
-    return { accessToken, refreshToken, user: safeUser };
+    return this.buildAuthResponse(user);
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
@@ -325,6 +328,7 @@ export class AuthService {
     await this.userRepository.save(user);
 
     await this.redisService.del(`reset_token:${dto.token}`);
+    await this.clearRevocation(user.id);
 
     return { message: 'Password reset successfully' };
   }
@@ -346,7 +350,12 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string) {
     try {
-      const decoded = this.jwtService.verify(refreshToken);
+      const decoded = this.jwtService.verify(refreshToken) as JwtTokenPayload;
+
+      if (decoded.type && decoded.type !== 'refresh') {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
       const user = await this.userRepository.findOne({
         where: { id: decoded.sub },
       });
@@ -362,30 +371,25 @@ export class AuthService {
         throw new UnauthorizedException('Refresh token has been revoked');
       }
 
-      const payload: Record<string, string> = {
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      };
-
       if (user.role === UserRole.STUDENT) {
-        const sessionId = randomUUID();
-        payload.sessionId = sessionId;
-        await this.redisService.set(
+        if (!decoded.sessionId) {
+          throw new UnauthorizedException('Invalid refresh token');
+        }
+        const activeSession = await this.redisService.get(
           `user_session:${user.id}`,
-          sessionId,
-          'EX',
-          7 * 24 * 60 * 60,
         );
+        if (activeSession !== decoded.sessionId) {
+          throw new UnauthorizedException(
+            'Session expired or logged in from another device',
+          );
+        }
       }
 
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-      const newRefreshToken = this.jwtService.sign(payload, {
-        expiresIn: '30d',
-      });
-
-      return { accessToken, refreshToken: newRefreshToken };
-    } catch {
+      return this.buildAuthResponse(user, decoded.sessionId);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }

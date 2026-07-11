@@ -12,6 +12,7 @@ import MessagesView from './components/MessagesView';
 import StudentsList from './components/StudentsList';
 import Insights from './components/Insights';
 import SettingsView from './components/SettingsView';
+import NotificationsPanel from '@/app/student/components/NotificationsPanel';
 
 type TutorStats = {
   completedLessons: number;
@@ -100,6 +101,15 @@ function TutorPageContent() {
   const [activeSection, setActiveSection] = useState<DashboardSection>('dashboard');
   const [messageWithUserId, setMessageWithUserId] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications-unread'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/notifications?unread=true');
+      return { count: Array.isArray(data) ? data.length : (data?.count ?? 0) };
+    },
+  });
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -499,7 +509,7 @@ function TutorPageContent() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: 'var(--bg-main)' }}>
       {/* Sidebar */}
-      <aside className="w-full lg:w-64 flex-shrink-0 lg:min-h-screen overflow-x-auto" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderLeft: 'none' }}>
+      <aside className="w-full lg:w-64 flex-shrink-0 lg:min-h-screen overflow-x-auto" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderInlineStart: 'none' }}>
         <div className="p-4 border-b" style={{ borderColor: '#1D535B' }}>
           <Link href="/" className="flex items-center gap-2">
             <span className="text-xl font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</span>
@@ -545,11 +555,30 @@ function TutorPageContent() {
             </div>
             <div className="flex items-center gap-3">
               <button className="btn-ghost text-sm px-3 py-2 rounded-xl" style={{ color: '#FFFFF0' }}>
-                <svg className="w-4 h-4 inline ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                 </svg>
                 {t('خطط لإجازة', 'Plan Time Off')}
               </button>
+
+              {/* Notification Bell */}
+              <button
+                type="button"
+                onClick={() => setShowNotifications(true)}
+                className="relative p-2 rounded-xl hover:bg-white/5 transition-colors"
+                title={t('الإشعارات', 'Notifications')}
+                style={{ color: '#FFFFF0' }}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                </svg>
+                {(notifData?.count ?? 0) > 0 && (
+                  <span className="absolute -top-0.5 -end-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {(notifData?.count ?? 0) > 9 ? '9+' : notifData?.count}
+                  </span>
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={() => setActiveSection('students')}
@@ -592,16 +621,16 @@ function TutorPageContent() {
                 {profileOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
-                    <div className="absolute left-0 mt-2 w-56 rounded-xl shadow-lg z-20 animate-scale-in overflow-hidden" style={{ background: 'var(--bg-light)', border: '1px solid var(--border-color)' }}>
+                    <div className="absolute start-0 mt-2 w-56 rounded-xl shadow-lg z-20 animate-scale-in overflow-hidden" style={{ background: 'var(--bg-light)', border: '1px solid var(--border-color)' }}>
                       <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-color)' }}>
                         <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>{user?.firstName} {user?.lastName}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{user?.email}</p>
                       </div>
                       <div className="py-1">
-                        <Link href="/tutor/profile" className="block w-full text-right px-4 py-2 text-sm transition-colors" style={{ color: 'var(--text-main)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(212, 163, 83,0.08)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                        <Link href="/tutor/profile" className="block w-full text-end px-4 py-2 text-sm transition-colors" style={{ color: 'var(--text-main)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(212, 163, 83,0.08)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                           {t('الملف الشخصي', 'Profile')}
                         </Link>
-                        <button onClick={() => { logout(); setProfileOpen(false); }} className="w-full text-right px-4 py-2 text-sm transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                        <button onClick={() => { logout(); setProfileOpen(false); }} className="w-full text-end px-4 py-2 text-sm transition-colors" style={{ color: '#ef4444' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                           {t('تسجيل الخروج', 'Logout')}
                         </button>
                       </div>
@@ -620,6 +649,11 @@ function TutorPageContent() {
           </div>
         </main>
       </div>
+
+      {/* Notification Panel Overlay */}
+      {showNotifications && (
+        <NotificationsPanel onClose={() => setShowNotifications(false)} />
+      )}
     </div>
   );
 }

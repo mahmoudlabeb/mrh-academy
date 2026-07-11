@@ -28,12 +28,19 @@ async function bootstrap() {
 
   // CORS Configuration — strict lockdown in production
   const nodeEnv = process.env.NODE_ENV || 'development';
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-  const allowedOrigins = [
-    frontendUrl,
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-  ];
+  const frontendUrl =
+    process.env.FRONTEND_URL ||
+    (nodeEnv === 'production' ? undefined : 'http://localhost:3000');
+  const allowedOrigins =
+    nodeEnv === 'production'
+      ? frontendUrl
+        ? [frontendUrl]
+        : []
+      : [
+          frontendUrl || 'http://localhost:3000',
+          'http://localhost:3000',
+          'http://127.0.0.1:3000',
+        ];
 
   app.enableCors({
     origin: (
@@ -43,7 +50,11 @@ async function bootstrap() {
         origin?: boolean | string | RegExp | (string | RegExp)[],
       ) => void,
     ) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
+        callback(null, nodeEnv !== 'production');
+        return;
+      }
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -79,7 +90,7 @@ async function bootstrap() {
                   'https://res.cloudinary.com',
                   'https://randomuser.me',
                 ],
-                connectSrc: ["'self'", frontendUrl],
+                connectSrc: frontendUrl ? ["'self'", frontendUrl] : ["'self'"],
                 mediaSrc: ["'self'", 'https://video.bunnycdn.com'],
                 frameSrc: ["'self'", 'https://hooks.stripe.com'],
               },
