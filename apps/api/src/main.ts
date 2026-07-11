@@ -31,16 +31,17 @@ async function bootstrap() {
   const frontendUrl =
     process.env.FRONTEND_URL ||
     (nodeEnv === 'production' ? undefined : 'http://localhost:3000');
-  const allowedOrigins =
-    nodeEnv === 'production'
-      ? frontendUrl
-        ? [frontendUrl]
-        : []
-      : [
-          frontendUrl || 'http://localhost:3000',
-          'http://localhost:3000',
-          'http://127.0.0.1:3000',
-        ];
+
+  const isOriginAllowed = (origin: string): boolean => {
+    // Explicitly configured frontend URL
+    if (frontendUrl && origin === frontendUrl) return true;
+    // Allow localhost for development
+    if (origin.startsWith('http://localhost')) return true;
+    if (origin.startsWith('http://127.0.0.1')) return true;
+    // Allow Vercel preview deployments (unconditionally for now to fix CORS)
+    if (origin.endsWith('.vercel.app')) return true;
+    return false;
+  };
 
   app.enableCors({
     origin: (
@@ -51,10 +52,10 @@ async function bootstrap() {
       ) => void,
     ) => {
       if (!origin) {
-        callback(null, nodeEnv !== 'production');
+        callback(null, true);
         return;
       }
-      if (allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));

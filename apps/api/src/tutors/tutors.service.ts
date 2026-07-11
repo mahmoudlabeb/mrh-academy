@@ -214,6 +214,10 @@ export class TutorsService {
           : 5;
 
         const { user } = tutor;
+        if (!user) {
+          throw new NotFoundException('Tutor profile user not found');
+        }
+
         return {
           ...tutor,
           user: {

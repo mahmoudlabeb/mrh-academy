@@ -150,12 +150,12 @@ export default async function TutorProfilePage({
                   {/* Stats Bar */}
                   <div className="flex flex-wrap items-center gap-4 mt-4 p-3 rounded-xl" style={{ background: 'var(--bg-light)', border: '1px solid var(--border-color)' }}>
                     <div className="flex items-center gap-1.5">
-                      {tutor.reviewCount > 0 ? <StarRating rating={tutor.averageRating} /> : null}
+                      {Number(tutor.reviewCount) > 0 ? <StarRating rating={Number(tutor.averageRating) || 0} /> : null}
                       <span className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-                        {tutor.reviewCount > 0 ? tutor.averageRating.toFixed(1) : 'جديد'}
+                        {Number(tutor.reviewCount) > 0 ? Number(tutor.averageRating).toFixed(1) : 'جديد'}
                       </span>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        ({tutor.reviewCount})
+                      <span className="text-xs inline-block" dir="ltr" style={{ color: 'var(--text-muted)' }}>
+                        ({tutor.reviewCount || 0})
                       </span>
                     </div>
                     <div className="w-px h-4" style={{ background: 'var(--border-color)' }} />

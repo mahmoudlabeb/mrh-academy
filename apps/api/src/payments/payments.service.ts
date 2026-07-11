@@ -95,7 +95,7 @@ export class PaymentsService {
     let receiptUrl: string | null = null;
     if (screenshotFile) {
       this.validateReceiptFile(screenshotFile);
-      receiptUrl = await this.uploadToCloudinary(screenshotFile.buffer);
+      receiptUrl = await this.uploadToCloudinary(screenshotFile.buffer, screenshotFile.mimetype);
     }
 
     const payment = this.paymentRepository.create({
@@ -233,13 +233,18 @@ export class PaymentsService {
     });
   }
 
-  private uploadToCloudinary(buffer: Buffer): Promise<string> {
+  private uploadToCloudinary(buffer: Buffer, mimetype?: string): Promise<string> {
     return new Promise((resolve, reject) => {
+      const options: any = {
+        folder: 'mrh-academy/payments',
+        resource_type: 'auto',
+      };
+      if (mimetype === 'application/pdf') {
+        options.format = 'pdf';
+      }
+      
       const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'mrh-academy/payments',
-          resource_type: 'auto',
-        },
+        options,
         (error, result) => {
           if (error || !result) {
             reject(

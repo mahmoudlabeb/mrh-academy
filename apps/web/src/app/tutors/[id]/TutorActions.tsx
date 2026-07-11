@@ -38,10 +38,6 @@ export default function TutorActions({ tutorId }: { tutorId: string }) {
     router.push(`/student?tab=messages&with=${tutorId}`);
   };
 
-  const handleBookLesson = () => {
-    router.push(`/book-lesson?tutorId=${tutorId}`);
-  };
-
   return (
     <>
       <button

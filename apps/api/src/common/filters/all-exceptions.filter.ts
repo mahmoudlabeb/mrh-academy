@@ -29,6 +29,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exceptionResponse
         : ((exceptionResponse as any).message ?? exceptionResponse);
 
+    if (request.url.startsWith('/api/v1/auth/google')) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      response.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+      return;
+    }
+
     response.status(status).json({
       statusCode: status,
       message,

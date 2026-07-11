@@ -5,15 +5,18 @@ import {
   Delete,
   Body,
   Res,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
-import type { Response } from 'express';
+import { GoogleConfigGuard } from './guards/google-config.guard.js';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -24,7 +27,10 @@ import { CurrentUser } from './decorators/current-user.decorator.js';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -86,14 +92,14 @@ export class AuthController {
 
   @Public()
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleConfigGuard, AuthGuard('google'))
   async googleAuth() {
     // Passport redirects to Google
   }
 
   @Public()
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleConfigGuard, AuthGuard('google'))
   async googleCallback(@CurrentUser() profile: any, @Res() res: Response) {
     const result = await this.authService.handleGoogleLogin(profile);
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

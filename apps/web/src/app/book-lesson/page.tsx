@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
@@ -26,7 +26,6 @@ interface AvailabilitySlot {
 }
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-const DAY_LABELS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'] as const;
 const DAY_LABELS_AR_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'] as const;
 const MONTH_NAMES_AR = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -72,7 +71,6 @@ export const dynamic = 'force-dynamic';
 
 function BookLessonContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { lang } = useLanguage();
   const { user } = useAuth();
 
@@ -663,7 +661,7 @@ function BookLessonContent() {
               <button
                 onClick={() => bookMutation.mutate()}
                 disabled={!canBook || bookMutation.isPending}
-                className="btn-primary w-full mt-6 py-3.5 text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="btn-primary w-full mt-6 py-3.5 text-base font-bold disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {bookMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">

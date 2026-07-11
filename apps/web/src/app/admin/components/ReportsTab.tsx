@@ -19,8 +19,8 @@ export default function ReportsTab() {
   const reportsQuery = useQuery({
     queryKey: ['admin-reports'],
     queryFn: async () => {
-      const { data } = await apiClient.get<Report[]>('/admin/reports');
-      return data;
+      const { data } = await apiClient.get<{ data: Report[]; total: number }>('/admin/reports');
+      return data.data;
     },
   });
 

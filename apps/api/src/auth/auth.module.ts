@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { GoogleStrategy } from './strategies/google.strategy.js';
+import { GoogleConfigGuard } from './guards/google-config.guard.js';
 import { User } from '../entities/user.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
@@ -15,6 +16,7 @@ import { EmailService } from '../services/email.service.js';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([
       User,
       StudentProfile,
@@ -35,7 +37,7 @@ import { EmailService } from '../services/email.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService, GoogleConfigGuard],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
