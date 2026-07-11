@@ -10,6 +10,7 @@ import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
 import { Setting } from './entities/setting.entity.js';
 import { Employee } from './entities/employee.entity.js';
 import { Course } from './entities/course.entity.js';
+import { TutorAvailability } from './entities/tutor-availability.entity.js';
 import { UserRole, CourseStatus } from '@mrh/types';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001';
@@ -39,6 +40,7 @@ async function bootstrap() {
   const settingRepository = dataSource.getRepository(Setting);
   const employeeRepository = dataSource.getRepository(Employee);
   const courseRepository = dataSource.getRepository(Course);
+  const availabilityRepository = dataSource.getRepository(TutorAvailability);
 
   // Helper: upsert user by email, always resetting password to default
   async function upsertUser(data: Partial<User> & { email: string }): Promise<User> {
@@ -297,7 +299,28 @@ async function bootstrap() {
   }
   console.log('Courses upserted (3 courses).');
 
-  // 12. Settings
+  // 12. Availability
+  const tutors = [sarahUser, yasmeenUser, fatimaUser];
+  for (const tutor of tutors) {
+    const existingAvailability = await availabilityRepository.find({ where: { tutorId: tutor.id } });
+    if (existingAvailability.length === 0) {
+      // Add default availability: Sunday (0) to Thursday (4), 10:00 to 18:00
+      for (let day = 0; day <= 4; day++) {
+        await availabilityRepository.save(
+          availabilityRepository.create({
+            tutorId: tutor.id,
+            dayOfWeek: day,
+            startTime: '10:00',
+            endTime: '18:00',
+            isRecurring: true,
+          }),
+        );
+      }
+    }
+  }
+  console.log('Tutor availability upserted (Default: Sun-Thu, 10:00-18:00).');
+
+  // 13. Settings
   const settingsToSeed = [
     { key: 'platform_name', value: 'Mr.H Academy' },
     { key: 'contact_email', value: 'hello@mrhacademy.com' },
