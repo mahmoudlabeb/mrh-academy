@@ -221,7 +221,7 @@ async function bootstrap() {
       }),
     );
   } else {
-    await subAdminRepository.update(existingSubAdmin.id, {
+    await subAdminRepository.update(existingSubAdmin.userId, {
       assignedPermissions: [
         'manage_tutors',
         'manage_payments',
@@ -313,7 +313,7 @@ async function bootstrap() {
   for (const s of settingsToSeed) {
     const existing = await settingRepository.findOne({ where: { key: s.key } });
     if (existing) {
-      await settingRepository.update(existing.id, { value: s.value });
+      await settingRepository.update(existing.key, { value: s.value });
     } else {
       await settingRepository.save(settingRepository.create(s));
     }

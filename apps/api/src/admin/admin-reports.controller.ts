@@ -18,19 +18,20 @@ export class AdminReportsController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
-    const reports = await this.reportsService.findAll(
+    const result = await this.reportsService.findAll(
       limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200) : 50,
       offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0,
     );
-    return reports.map((r) => ({
-      id: r.id,
-      reporterName: r.user
-        ? `${r.user.firstName} ${r.user.lastName}`
-        : 'Unknown',
-      reporterEmail: r.user?.email ?? '',
-      issueType: r.issueType,
-      description: r.description,
-      createdAt: r.createdAt,
-    }));
+    return {
+      ...result,
+      data: result.data.map((r) => ({
+        id: r.id,
+        reporterName: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
+        reporterEmail: r.user?.email ?? '',
+        issueType: r.issueType,
+        description: r.description,
+        createdAt: r.createdAt,
+      })),
+    };
   }
 }
