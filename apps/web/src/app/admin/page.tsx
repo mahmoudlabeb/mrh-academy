@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useLanguage } from '@/contexts/language-context';
@@ -53,6 +53,17 @@ export default function AdminPage() {
   const filteredTabs = tabs.filter((t) => !isSubAdmin || !SUBADMIN_RESTRICTED_TABS.has(t.id));
   const [activeTab, setActiveTab] = useState('overview');
   const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.tab && filteredTabs.some((t) => t.id === detail.tab)) {
+        setActiveTab(detail.tab);
+      }
+    };
+    window.addEventListener('admin-navigate', handler);
+    return () => window.removeEventListener('admin-navigate', handler);
+  }, [filteredTabs]);
 
   const renderTab = () => {
     if (isSubAdmin && SUBADMIN_RESTRICTED_TABS.has(activeTab)) {

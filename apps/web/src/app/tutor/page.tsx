@@ -144,16 +144,40 @@ function TutorPageContent() {
     },
   });
 
-  const recentLessonsQuery = useQuery({
-    queryKey: ['tutor-recent-lessons'],
+  const allLessonsQuery = useQuery({
+    queryKey: ['tutor-all-lessons'],
     queryFn: async () => {
       const { data } = await apiClient.get<Array<{
         id: string;
         status: string;
         scheduledTime: string;
+        durationMinutes: number;
+        price: number;
         student?: { firstName?: string; lastName?: string };
       }>>('/lessons');
-      return (data ?? []).slice(0, 5);
+      return data ?? [];
+    },
+  });
+
+  const pendingLessons = (allLessonsQuery.data ?? []).filter((l) => l.status === 'pending');
+  const recentLessons = (allLessonsQuery.data ?? []).filter((l) => l.status !== 'pending').slice(0, 5);
+
+  const approveLessonMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      await apiClient.post(`/lessons/${lessonId}/approve`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tutor-all-lessons'] });
+      queryClient.invalidateQueries({ queryKey: ['tutor-active-lessons'] });
+    },
+  });
+
+  const rejectLessonMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      await apiClient.post(`/lessons/${lessonId}/reject`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tutor-all-lessons'] });
     },
   });
 
@@ -343,6 +367,50 @@ function TutorPageContent() {
               )}
             </div>
 
+            {pendingLessons.length > 0 && (
+              <div className="card-dark p-6">
+                <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
+                  {t('طلبات دروس جديدة', 'New Lesson Requests')}
+                </h3>
+                <div className="space-y-3">
+                  {pendingLessons.map((lesson) => (
+                    <div key={lesson.id} className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.12)', color: 'var(--primary-color)' }}>
+                          {lesson.student?.firstName?.[0] ?? 'S'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                            {lesson.student ? `${lesson.student.firstName ?? ''} ${lesson.student.lastName ?? ''}`.trim() : t('طالب', 'Student')}
+                          </p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {new Date(lesson.scheduledTime).toLocaleDateString()} &middot; {lesson.durationMinutes} {t('دقيقة', 'min')} &middot; ${lesson.price.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => rejectLessonMutation.mutate(lesson.id)}
+                          disabled={rejectLessonMutation.isPending}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                          style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                        >
+                          {t('رفض', 'Decline')}
+                        </button>
+                        <button
+                          onClick={() => approveLessonMutation.mutate(lesson.id)}
+                          disabled={approveLessonMutation.isPending}
+                          className="btn-primary px-4 py-1.5 text-xs"
+                        >
+                          {t('موافقة', 'Approve')}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {coursesQuery.data && coursesQuery.data.length > 0 && (
               <div className="card-dark p-6">
                 <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('روابط الإحالة', 'Referral Links')}</h3>
@@ -381,12 +449,12 @@ function TutorPageContent() {
                 {t('النشاط الأخير', 'Recent Activity')}
               </h3>
               <div className="space-y-4">
-                {recentLessonsQuery.isLoading ? (
+                {allLessonsQuery.isLoading ? (
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري التحميل...', 'Loading...')}</p>
-                ) : (recentLessonsQuery.data ?? []).length === 0 ? (
+                ) : recentLessons.length === 0 ? (
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا يوجد نشاط حديث', 'No recent activity')}</p>
                 ) : (
-                  recentLessonsQuery.data?.map((lesson) => (
+                  recentLessons.map((lesson) => (
                     <div key={lesson.id} className="flex items-center gap-4 py-3 border-b" style={{ borderColor: 'var(--border-color)' }}>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.12)', color: 'var(--primary-color)' }}>
                         {lesson.student?.firstName?.[0] ?? 'S'}
@@ -507,51 +575,40 @@ function TutorPageContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: 'var(--bg-main)' }}>
-      {/* Sidebar */}
-      <aside className="w-full lg:w-64 flex-shrink-0 lg:min-h-screen overflow-x-auto" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B', borderInlineStart: 'none' }}>
-        <div className="p-4 border-b" style={{ borderColor: '#1D535B' }}>
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</span>
-          </Link>
-        </div>
-        <nav className="p-3 flex lg:flex-col gap-1 overflow-x-auto">
-          {SIDEBAR_ITEMS.map((item) => {
-            const active = activeSection === item.key;
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveSection(item.key)}
-                className="shrink-0 lg:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
-                style={{
-                  background: active ? 'rgba(212, 163, 83,0.12)' : 'transparent',
-                  color: active ? '#D4A353' : '#E4CC9C',
-                }}
-                onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = 'rgba(212, 163, 83,0.06)'; e.currentTarget.style.color = '#FFFFF0'; } }}
-                onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#E4CC9C'; } }}
-              >
-                <SidebarIcon section={item.key} />
-                <span>{isAr ? item.labelAr : item.labelEn}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </aside>
-
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Header */}
-        <header className="dashboard-header">
-          <div className="flex items-center justify-between px-6 py-3">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#22c55e" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm font-semibold" style={{ color: '#22c55e' }}>
-                  {statsQuery.isLoading ? '...' : `$${(stats?.totalEarnings ?? 0).toFixed(2)}`}
-                </span>
-              </div>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-main)' }}>
+      {/* Top Navigation Bar */}
+      <header className="dashboard-header sticky top-0 z-30">
+        <div className="flex items-center justify-between px-4 md:px-6 py-2">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="text-lg font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</Link>
+            <nav className="hidden md:flex items-center gap-1">
+              {SIDEBAR_ITEMS.map((item) => {
+                const active = activeSection === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setActiveSection(item.key)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: active ? 'rgba(212, 163, 83,0.12)' : 'transparent',
+                      color: active ? '#D4A353' : '#E4CC9C',
+                    }}
+                  >
+                    <SidebarIcon section={item.key} />
+                    <span>{isAr ? item.labelAr : item.labelEn}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#22c55e" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-semibold" style={{ color: '#22c55e' }}>
+                {statsQuery.isLoading ? '...' : `$${(stats?.totalEarnings ?? 0).toFixed(2)}`}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <button className="btn-ghost text-sm px-3 py-2 rounded-xl" style={{ color: '#FFFFF0' }}>
@@ -640,7 +697,29 @@ function TutorPageContent() {
               </div>
             </div>
           </div>
+        </div>
         </header>
+
+        {/* Mobile Navigation */}
+        <nav className="md:hidden flex gap-1 px-4 py-2 overflow-x-auto" style={{ background: '#0F3A40', borderBottom: '1px solid #1D535B' }}>
+          {SIDEBAR_ITEMS.map((item) => {
+            const active = activeSection === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveSection(item.key)}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  background: active ? 'rgba(212, 163, 83,0.12)' : 'transparent',
+                  color: active ? '#D4A353' : '#E4CC9C',
+                }}
+              >
+                <SidebarIcon section={item.key} />
+                <span>{isAr ? item.labelAr : item.labelEn}</span>
+              </button>
+            );
+          })}
+        </nav>
 
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto">
@@ -648,7 +727,6 @@ function TutorPageContent() {
             {renderContent()}
           </div>
         </main>
-      </div>
 
       {/* Notification Panel Overlay */}
       {showNotifications && (

@@ -67,6 +67,17 @@ export class ClassroomGateway
     { count: number; resetAt: number }
   >();
 
+  private async persistWhiteboardToDb(lessonId: string, state: object): Promise<void> {
+    try {
+      await this.classroomRepository.update(
+        { lessonId },
+        { whiteboardSnapshot: state },
+      );
+    } catch {
+      // Ignore DB errors - Redis is source of truth for real-time
+    }
+  }
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -190,7 +201,16 @@ export class ClassroomGateway
     const whiteboardKey = `whiteboard:${lessonId}`;
     let whiteboardState = await this.redisService.get(whiteboardKey);
     if (!whiteboardState) {
-      whiteboardState = JSON.stringify({ pages: { '1': [] }, currentPage: 1 });
+      // Fallback to DB if Redis is empty
+      const classroom = await this.classroomRepository.findOne({
+        where: { lessonId },
+        select: { whiteboardSnapshot: true },
+      });
+      if (classroom?.whiteboardSnapshot) {
+        whiteboardState = JSON.stringify(classroom.whiteboardSnapshot);
+      } else {
+        whiteboardState = JSON.stringify({ pages: { '1': [] }, currentPage: 1 });
+      }
       await this.redisService.set(whiteboardKey, whiteboardState, 'EX', 86400);
     }
 
@@ -303,6 +323,7 @@ export class ClassroomGateway
           'EX',
           86400,
         );
+        await this.persistWhiteboardToDb(lessonId, parsed);
       } catch {
         // ignore parse errors
       }
@@ -339,6 +360,7 @@ export class ClassroomGateway
           'EX',
           86400,
         );
+        await this.persistWhiteboardToDb(lessonId, parsed);
       } catch {
         // ignore
       }

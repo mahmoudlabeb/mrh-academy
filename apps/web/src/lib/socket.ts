@@ -12,6 +12,13 @@ export function getSocket(): Socket {
         cb({ token: Cookies.get('mrh_token') || '' });
       },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
+      timeout: 20000,
+      autoConnect: true,
     });
   }
   return socket;

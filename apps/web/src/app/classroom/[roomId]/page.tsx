@@ -239,11 +239,7 @@ export default function ClassroomPage() {
       setParticipants((prev) => prev.filter((x) => x.userId !== p.userId));
     };
 
-    if (socket.connected) {
-      onConnect();
-    } else {
-      socket.on('connect', onConnect);
-    }
+
 
     const onPongHealth = (payload: { timestamp: number; serverTime: number }) => {
       const now = Date.now();
@@ -267,7 +263,11 @@ export default function ClassroomPage() {
 
     let healthInterval: ReturnType<typeof setInterval> | null = null;
 
-    socket.on('connect', onConnect);
+    if (socket.connected) {
+      onConnect();
+    } else {
+      socket.on('connect', onConnect);
+    }
     socket.on('disconnect', onDisconnect);
     socket.on('whiteboard_sync', onWhiteboardSync);
     socket.on('canvas_update', onCanvasUpdate);
@@ -280,10 +280,6 @@ export default function ClassroomPage() {
     socket.on('peer_left', onPeerLeft);
     socket.on('pong_health', onPongHealth);
     socket.on('connection_health', onConnectionHealth);
-
-    if (socket.connected) {
-      onConnect();
-    }
 
     healthInterval = setInterval(() => {
       socket.emit('ping_health', { timestamp: Date.now() });

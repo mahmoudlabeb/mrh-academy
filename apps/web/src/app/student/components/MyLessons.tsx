@@ -33,7 +33,7 @@ type SubTab = 'history' | 'calendar' | 'favorites';
 
 const statusConfig: Record<string, { labelAr: string; labelEn: string; bg: string; color: string }> = {
   confirmed: { labelAr: 'مؤكد', labelEn: 'Confirmed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  pending: { labelAr: 'قيد الانتظار', labelEn: 'Pending', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
+  pending: { labelAr: 'بانتظار الموافقة', labelEn: 'Awaiting Approval', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
   completed: { labelAr: 'مكتمل', labelEn: 'Completed', bg: 'rgba(59,130,246,0.1)', color: '#3b82f6' },
   cancelled: { labelAr: 'ملغي', labelEn: 'Cancelled', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
@@ -144,7 +144,7 @@ export default function MyLessons() {
     }
   };
 
-  const isJoinable = (status: string) => status === 'confirmed' || status === 'pending';
+  const isJoinable = (status: string) => status === 'confirmed';
   const today = new Date().toISOString().split('T')[0];
   const calendarDays = Object.keys(lessonsByDate).sort();
 

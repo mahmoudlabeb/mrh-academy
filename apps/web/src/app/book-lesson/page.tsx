@@ -27,6 +27,7 @@ interface AvailabilitySlot {
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 const DAY_LABELS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'] as const;
+const DAY_LABELS_AR_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'] as const;
 const MONTH_NAMES_AR = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
@@ -209,7 +210,7 @@ function BookLessonContent() {
       return data;
     },
     onSuccess: () => {
-      router.push('/student?tab=lessons');
+      setBookingSuccess(true);
     },
     onError: (err: Error) => {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -219,6 +220,7 @@ function BookLessonContent() {
   });
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
 
   const canBook = selectedDate && selectedTime && tutorId && !insufficientBalance;
 
@@ -295,6 +297,34 @@ function BookLessonContent() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: '#D4A353' }} />
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري تحميل بيانات المعلم...', 'Loading tutor data...')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bookingSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+        <div className="text-center card p-12 max-w-md animate-scale-in">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
+            {t('تم إرسال طلب الحجز', 'Booking Request Sent')}
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+            {t('بانتظار موافقة المعلم على الحجز. سنرسل لك إشعاراً عند التأكيد.', 'Awaiting tutor approval. You will be notified once confirmed.')}
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Link href="/student?tab=lessons" className="btn-primary">
+              {t('عرض دروسي', 'My Lessons')}
+            </Link>
+            <Link href="/student/discover" className="btn-secondary">
+              {t('العودة للمعلمين', 'Back to Tutors')}
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -456,9 +486,9 @@ function BookLessonContent() {
               </div>
 
               <div className="grid grid-cols-7 gap-1 mb-1">
-                {(lang === 'ar' ? DAY_LABELS_AR : DAY_LABELS).map((label) => (
-                  <div key={label} className="text-center text-xs font-semibold py-2" style={{ color: 'var(--text-muted)' }}>
-                    {lang === 'ar' ? label.slice(0, 2) : label.slice(0, 2)}
+                {(lang === 'ar' ? DAY_LABELS_AR_SHORT : DAY_LABELS).map((label, idx) => (
+                  <div key={`${label}-${idx}`} className="text-center text-xs font-semibold py-2" style={{ color: 'var(--text-muted)' }}>
+                    {label}
                   </div>
                 ))}
               </div>

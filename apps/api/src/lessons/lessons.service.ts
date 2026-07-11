@@ -156,13 +156,6 @@ export class LessonsService {
         );
       }
 
-      await manager.decrement(
-        StudentProfile,
-        { userId: studentId },
-        'balance',
-        price,
-      );
-
       const roomId = `room-${randomUUID()}`;
 
       const lessonEntity = manager.create(Lesson, {
@@ -172,14 +165,14 @@ export class LessonsService {
         endTime,
         durationMinutes: dto.durationMinutes,
         price,
-        status: LessonStatus.CONFIRMED,
+        status: LessonStatus.PENDING,
         meetUrl: roomId,
       });
       const saved = await manager.save(Lesson, lessonEntity);
 
       const classroom = manager.create(Classroom, {
         lessonId: saved.id,
-        isActive: true,
+        isActive: false,
       });
       await manager.save(Classroom, classroom);
 
@@ -231,41 +224,140 @@ export class LessonsService {
       }),
     ]);
 
+    if (tutorUser?.email) {
+      this.emailService
+        .sendEmail(
+          tutorUser.email,
+          'New Lesson Request — MRH Academy',
+          `<p>A student has requested a lesson with you.</p>
+<p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
+<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
+<p>Duration: ${dto.durationMinutes} minutes</p>
+<p>Price: $${price.toFixed(2)}</p>
+<p>Please log in to approve or decline this lesson request.</p>`,
+        )
+        .catch(() => {});
+    }
+
+    if (studentUser?.email) {
+      this.emailService
+        .sendEmail(
+          studentUser.email,
+          'Lesson Request Sent — MRH Academy',
+          `<p>Your lesson request has been sent to the tutor for approval.</p>
+<p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
+<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
+<p>Duration: ${dto.durationMinutes} minutes</p>
+<p>Price: $${price.toFixed(2)}</p>
+<p>You will receive a confirmation once the tutor approves.</p>`,
+        )
+        .catch(() => {});
+    }
+
+    return savedLesson;
+  }
+
+  async approveLesson(lessonId: string, tutorId: string) {
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, tutorId },
+      relations: { tutor: true, student: true },
+    });
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found');
+    }
+
+    if (lesson.tutorId !== tutorId) {
+      throw new ForbiddenException('Only the tutor can approve a lesson');
+    }
+
+    if (lesson.status !== LessonStatus.PENDING) {
+      throw new BadRequestException('Lesson is not in pending status');
+    }
+
+    const price = lesson.price;
+
+    await this.dataSource.transaction(async (manager) => {
+      const studentProfile = await manager.findOne(StudentProfile, {
+        where: { userId: lesson.studentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!studentProfile) {
+        throw new NotFoundException('Student profile not found');
+      }
+
+      if (studentProfile.balance < price) {
+        throw new BadRequestException('Student has insufficient balance');
+      }
+
+      await manager.decrement(
+        StudentProfile,
+        { userId: lesson.studentId },
+        'balance',
+        price,
+      );
+
+      await manager.update(
+        Lesson,
+        { id: lessonId },
+        { status: LessonStatus.CONFIRMED },
+      );
+
+      await manager.update(Classroom, { lessonId }, { isActive: true });
+    });
+
+    await this.redisService.del(`lessons:user:${lesson.studentId}`);
+    await this.redisService.del(`lessons:user:${lesson.tutorId}`);
+
+    const updatedLesson = await this.lessonRepository.findOne({
+      where: { id: lessonId },
+      relations: { tutor: true, student: true },
+    });
+
     let googleMeetUrl: string | null = null;
-    let calendarEventId: string | null = null;
+    const [tutorUser, studentUser] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: lesson.tutorId },
+        select: { id: true, email: true },
+      }),
+      this.userRepository.findOne({
+        where: { id: lesson.studentId },
+        select: { id: true, email: true },
+      }),
+    ]);
+
     const meetLinkResult = await this.calendarService.createLessonMeetLink({
-      summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
+      summary: `MRH Academy Lesson: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} & ${updatedLesson?.student?.firstName ?? 'Student'}`,
       description: 'Language lesson booked on MRH Academy.',
-      start: scheduledDate,
-      end: endTime,
+      start: lesson.scheduledTime,
+      end: lesson.endTime,
       tutorEmail:
-        tutorUser?.email ?? `tutor-${dto.tutorId}@lessons.mrhacademy.internal`,
+        tutorUser?.email ?? `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
       studentEmail:
         studentUser?.email ??
-        `student-${studentId}@lessons.mrhacademy.internal`,
+        `student-${lesson.studentId}@lessons.mrhacademy.internal`,
     });
 
     if (meetLinkResult) {
       googleMeetUrl = meetLinkResult.meetUrl;
-      calendarEventId = meetLinkResult.calendarEventId ?? null;
       await this.lessonRepository.update(lesson.id, {
         googleMeetUrl,
-        ...(calendarEventId ? { calendarEventId } : {}),
+        ...(meetLinkResult.calendarEventId
+          ? { calendarEventId: meetLinkResult.calendarEventId }
+          : {}),
       });
-      if (savedLesson) {
-        savedLesson.googleMeetUrl = googleMeetUrl;
-      }
     }
 
     if (tutorUser?.email) {
       this.emailService
         .sendEmail(
           tutorUser.email,
-          'New Lesson Booked — MRH Academy',
-          `<p>A new lesson has been booked with you.</p>
-<p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
-<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
-<p>Duration: ${dto.durationMinutes} minutes</p>
+          'Lesson Approved — MRH Academy',
+          `<p>You have approved the lesson.</p>
+<p>Student: ${updatedLesson?.student?.firstName ?? 'Student'} ${updatedLesson?.student?.lastName ?? ''}</p>
+<p>Scheduled: ${lesson.scheduledTime.toLocaleString()}</p>
+<p>Duration: ${lesson.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
 ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
         )
@@ -276,18 +368,45 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       this.emailService
         .sendEmail(
           studentUser.email,
-          'Lesson Booking Confirmed — MRH Academy',
-          `<p>Your lesson has been booked successfully.</p>
-<p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
-<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
-<p>Duration: ${dto.durationMinutes} minutes</p>
+          'Lesson Approved — MRH Academy',
+          `<p>Your lesson has been approved by the tutor.</p>
+<p>Tutor: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} ${updatedLesson?.tutor?.lastName ?? ''}</p>
+<p>Scheduled: ${lesson.scheduledTime.toLocaleString()}</p>
+<p>Duration: ${lesson.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
 ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
         )
         .catch(() => {});
     }
 
-    return savedLesson;
+    return updatedLesson;
+  }
+
+  async rejectLesson(lessonId: string, tutorId: string) {
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, tutorId },
+    });
+
+    if (!lesson) {
+      throw new NotFoundException('Lesson not found');
+    }
+
+    if (lesson.tutorId !== tutorId) {
+      throw new ForbiddenException('Only the tutor can reject a lesson');
+    }
+
+    if (lesson.status !== LessonStatus.PENDING) {
+      throw new BadRequestException('Lesson is not in pending status');
+    }
+
+    await this.lessonRepository.update(lessonId, {
+      status: LessonStatus.CANCELLED,
+    });
+
+    await this.redisService.del(`lessons:user:${lesson.studentId}`);
+    await this.redisService.del(`lessons:user:${lesson.tutorId}`);
+
+    return { message: 'Lesson request rejected' };
   }
 
   async completeLesson(

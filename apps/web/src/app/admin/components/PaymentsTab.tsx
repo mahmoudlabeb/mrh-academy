@@ -10,6 +10,7 @@ type Payment = {
   amount: number;
   paymentMethod: string;
   status: string;
+  receiptUrl?: string;
   createdAt: string;
 };
 
@@ -61,6 +62,7 @@ export default function PaymentsTab() {
                 <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'المبلغ' : 'Amount'}</th>
                 <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'طريقة الدفع' : 'Method'}</th>
                 <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الإيصال' : 'Receipt'}</th>
                 <th className="text-left px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
               </tr>
             </thead>
@@ -68,14 +70,14 @@ export default function PaymentsTab() {
               {paymentsQuery.isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-5 skeleton rounded w-3/4" /></td>
                     ))}
                   </tr>
                 ))
               ) : paymentsQuery.data?.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
+                  <td colSpan={7} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
                     {lang === 'ar' ? 'لا توجد مدفوعات' : 'No payments'}
                   </td>
                 </tr>
@@ -95,8 +97,27 @@ export default function PaymentsTab() {
                     <td className="px-4 py-3">
                       <span className="badge text-xs"
                         style={payment.status === 'approved' ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' } : payment.status === 'pending' ? { background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' } : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-                        {payment.status === 'approved' ? (lang === 'ar' ? 'معتمدة' : 'Approved') : payment.status === 'pending' ? (lang === 'ar' ? 'معلقة' : 'Pending') : (lang === 'ar' ? 'مرفوضة' : 'Rejected')}
+                        {payment.status === 'approved' ? (lang === 'ar' ? 'مكتملة' : 'Completed') : payment.status === 'pending' ? (lang === 'ar' ? 'قيد الانتظار' : 'Pending') : (lang === 'ar' ? 'مرفوضة' : 'Rejected')}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {payment.receiptUrl ? (
+                        <a
+                          href={payment.receiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
+                          style={{ background: 'rgba(212, 163, 83,0.1)', color: '#D4A353', border: '1px solid rgba(212, 163, 83,0.2)' }}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {lang === 'ar' ? 'عرض' : 'View'}
+                        </a>
+                      ) : (
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-left">
                       {payment.status === 'pending' && (
@@ -104,16 +125,16 @@ export default function PaymentsTab() {
                           <button
                             onClick={() => approveMutation.mutate(payment.id)}
                             disabled={approveMutation.isPending}
-                            className="btn-ghost px-2 py-1 text-xs"
-                            style={{ color: '#22c55e' }}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                            style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
                           >
                             {lang === 'ar' ? 'اعتماد' : 'Approve'}
                           </button>
                           <button
                             onClick={() => rejectMutation.mutate(payment.id)}
                             disabled={rejectMutation.isPending}
-                            className="btn-ghost px-2 py-1 text-xs"
-                            style={{ color: '#ef4444' }}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
                           >
                             {lang === 'ar' ? 'رفض' : 'Reject'}
                           </button>

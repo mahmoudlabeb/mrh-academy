@@ -52,7 +52,7 @@ export default function VocabularyPage() {
     },
     onError: (err: Error) => {
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      setLookupError(axiosErr?.response?.data?.message || axiosErr.message || 'Failed to look up word');
+      setLookupError(axiosErr?.response?.data?.message || axiosErr.message || (isAr ? 'فشل في البحث عن الكلمة' : 'Failed to look up word'));
       setDefinition(null);
     },
   });

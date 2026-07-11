@@ -71,6 +71,24 @@ export class LessonsController {
     return this.lessonsService.cancelLesson(id, user.id);
   }
 
+  @Post(':id/approve')
+  @Roles(UserRole.TUTOR)
+  approveLesson(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.lessonsService.approveLesson(id, user.id);
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.TUTOR)
+  rejectLesson(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.lessonsService.rejectLesson(id, user.id);
+  }
+
   @Post(':id/complete')
   @Roles(UserRole.TUTOR)
   completeLesson(
