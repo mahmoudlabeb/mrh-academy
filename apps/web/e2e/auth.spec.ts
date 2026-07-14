@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAs } from './helpers/auth';
 
 test.describe('Authentication Flow', () => {
   const timestamp = Date.now();
@@ -20,27 +21,11 @@ test.describe('Authentication Flow', () => {
   });
 
   test('should login with seeded admin account', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto('/login');
-
-    await page.fill('input[name="email"]', 'admin@mrhacademy.com');
-    await page.fill('input[name="password"]', '123456');
-
-    await page.click('button[type="submit"]');
-
-    await expect(page).toHaveURL(/\/admin/);
+    await loginAs(page, 'admin');
   });
 
   test('should login with seeded student account', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto('/login');
-
-    await page.fill('input[name="email"]', 'student@demo.com');
-    await page.fill('input[name="password"]', '123456');
-
-    await page.click('button[type="submit"]');
-
-    await expect(page).toHaveURL(/\/student/);
+    await loginAs(page, 'student');
   });
 
   test('should show validation errors on invalid login', async ({ page }) => {

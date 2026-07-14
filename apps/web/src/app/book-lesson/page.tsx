@@ -48,17 +48,7 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function formatTime(time: string) {
-  const [h, m] = time.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${hour}:${m.toString().padStart(2, '0')} ${period}`;
-}
-
-function parseTime(time: string) {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + m;
-}
+  
 
 function formatDateToISO(date: Date) {
   const y = date.getFullYear();
@@ -77,7 +67,7 @@ function BookLessonContent() {
   const tutorId = searchParams.get('tutorId');
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState('12:00');
   const [duration, setDuration] = useState<25 | 50>(25);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -95,7 +85,7 @@ function BookLessonContent() {
     enabled: !!tutorId,
   });
 
-  const { data: availability, isLoading: availabilityLoading } = useQuery({
+  const { data: availability } = useQuery({
     queryKey: ['availability', tutorId],
     queryFn: async () => {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -158,35 +148,6 @@ function BookLessonContent() {
     return dates;
   }, [availability, calendarMonth]);
 
-  const availableSlots = useMemo(() => {
-    if (!selectedDate || !availability) return [];
-    const dayOfWeek = selectedDate.getDay();
-    const daySlots = availability.filter((s) => s.dayOfWeek === dayOfWeek);
-
-    const slots: string[] = [];
-    for (const slot of daySlots) {
-      const start = parseTime(slot.startTime);
-      const end = parseTime(slot.endTime);
-      for (let t = start; t + duration <= end; t += 30) {
-        const h = Math.floor(t / 60);
-        const m = t % 60;
-        const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-        slots.push(timeStr);
-      }
-    }
-
-    const isToday = formatDateToISO(selectedDate) === formatDateToISO(today);
-    if (!isToday) return slots;
-
-    const now = new Date();
-    return slots.filter((time) => {
-      const [h, m] = time.split(':').map(Number);
-      const slotDate = new Date(selectedDate);
-      slotDate.setHours(h, m, 0, 0);
-      return slotDate > now;
-    });
-  }, [selectedDate, availability, duration, today]);
-
   const isViewingCurrentMonth =
     calendarMonth.year === today.getFullYear() &&
     calendarMonth.month === today.getMonth();
@@ -196,13 +157,11 @@ function BookLessonContent() {
 
   const bookMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedDate || !selectedTime || !tutorId) throw new Error('Missing booking info');
-      const [h, m] = selectedTime.split(':').map(Number);
-      const scheduledDate = new Date(selectedDate);
-      scheduledDate.setHours(h, m, 0, 0);
+      if (!selectedDate || !tutorId) throw new Error('Missing booking info');
+      const scheduledTime = `${formatDateToISO(selectedDate)}T${selectedTime}:00`;
       const { data } = await apiClient.post('/lessons/book', {
         tutorId,
-        scheduledTime: scheduledDate.toISOString(),
+        scheduledTime,
         durationMinutes: duration,
       });
       return data;
@@ -220,7 +179,7 @@ function BookLessonContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
-  const canBook = selectedDate && selectedTime && tutorId && !insufficientBalance;
+  const canBook = selectedDate && tutorId && !insufficientBalance;
 
   const prevMonth = () => {
     if (isViewingCurrentMonth) return;
@@ -228,7 +187,6 @@ function BookLessonContent() {
       if (prev.month === 0) return { year: prev.year - 1, month: 11 };
       return { year: prev.year, month: prev.month - 1 };
     });
-    setSelectedTime(null);
   };
 
   const nextMonth = () => {
@@ -236,7 +194,6 @@ function BookLessonContent() {
       if (prev.month === 11) return { year: prev.year + 1, month: 0 };
       return { year: prev.year, month: prev.month + 1 };
     });
-    setSelectedTime(null);
   };
 
   const handleDateSelect = (date: Date) => {
@@ -244,7 +201,6 @@ function BookLessonContent() {
     const iso = formatDateToISO(date);
     if (!availableDates.has(iso)) return;
     setSelectedDate(date);
-    setSelectedTime(null);
     setErrorMsg(null);
   };
 
@@ -313,7 +269,7 @@ function BookLessonContent() {
             {t('تم إرسال طلب الحجز', 'Booking Request Sent')}
           </h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('بانتظار موافقة المعلم على الحجز. سنرسل لك إشعاراً عند التأكيد.', 'Awaiting tutor approval. You will be notified once confirmed.')}
+            {t('بانتظار موافقة المعلم على الحجز واختيار الوقت المناسب. سنرسل لك إشعاراً عند التأكيد.', 'Awaiting tutor approval and time selection. You will be notified once confirmed.')}
           </p>
           <div className="flex gap-3 justify-center">
             <Link href="/student?tab=lessons" className="btn-primary">
@@ -426,7 +382,7 @@ function BookLessonContent() {
               </h3>
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setDuration(25); setSelectedTime(null); }}
+                  onClick={() => { setDuration(25); }}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all ${
                     duration === 25
                       ? 'bg-[#D4A353] text-[#0F3A40] shadow-md'
@@ -440,7 +396,7 @@ function BookLessonContent() {
                   </span>
                 </button>
                 <button
-                  onClick={() => { setDuration(50); setSelectedTime(null); }}
+                  onClick={() => { setDuration(50); }}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all ${
                     duration === 50
                       ? 'bg-[#D4A353] text-[#0F3A40] shadow-md'
@@ -535,54 +491,33 @@ function BookLessonContent() {
 
             {selectedDate && (
               <div className="card p-6 animate-scale-in">
-                <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-                  {t('اختر الوقت', 'Select Time')}
-                  <span className="font-normal me-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
-                  </span>
-                </h3>
-
-                {availabilityLoading ? (
-                  <div className="flex items-center gap-3 py-4">
-                    <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: '#D4A353' }} />
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري تحميل الأوقات...', 'Loading slots...')}</span>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
-                ) : availableSlots.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: 'var(--bg-light)' }}>
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
+                  <div>
+                    <h3 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
+                      {t('اليوم والوقت المحدد', 'Selected Day & Time')}
+                    </h3>
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {t('لا توجد أوقات متاحة لهذا اليوم', 'No available slots for this day')}
+                      {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                    {availableSlots.map((time) => {
-                      const isSelectedTime = selectedTime === time;
-                      return (
-                        <button
-                          key={time}
-                          onClick={() => { setSelectedTime(time); setErrorMsg(null); }}
-                          className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
-                            isSelectedTime
-                              ? 'bg-[#D4A353] text-[#0F3A40] shadow-md font-bold'
-                              : 'border hover:border-[#D4A353] hover:text-[#D4A353]'
-                          }`}
-                          style={
-                            !isSelectedTime
-                              ? { borderColor: 'var(--border-color)', color: 'var(--text-main)', background: 'var(--bg-light)' }
-                              : {}
-                          }
-                        >
-                          {formatTime(time)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>
+                    {t('اختر الوقت', 'Select Time')}
+                  </label>
+                  <input
+                    type="time"
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="input-field w-full"
+                    style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', color: 'var(--text-main)' }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -615,13 +550,11 @@ function BookLessonContent() {
                   </span>
                 </div>
 
-                {selectedDate && selectedTime && (
+                {selectedDate && (
                   <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--text-muted)' }}>{t('الموعد', 'Time')}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('اليوم', 'Day')}</span>
                     <span className="font-medium" style={{ color: 'var(--text-main)' }}>
                       {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      {' '}
-                      {formatTime(selectedTime)}
                     </span>
                   </div>
                 )}

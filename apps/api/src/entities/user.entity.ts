@@ -9,9 +9,9 @@ import {
 } from 'typeorm';
 import { UserRole } from '@mrh/types';
 import type { NotificationPreferences } from '../common/types/notification-preferences.js';
-import { TutorProfile } from './tutor-profile.entity.js';
-import { StudentProfile } from './student-profile.entity.js';
-import { SubAdminProfile } from './sub-admin-profile.entity.js';
+import type { TutorProfile } from './tutor-profile.entity.js';
+import type { StudentProfile } from './student-profile.entity.js';
+import type { SubAdminProfile } from './sub-admin-profile.entity.js';
 
 @Entity('users')
 export class User {
@@ -63,12 +63,12 @@ export class User {
   @DeleteDateColumn()
   deletedAt: Date;
 
-  @OneToOne(() => TutorProfile, (profile) => profile.user)
+  @OneToOne('TutorProfile', (profile: any) => profile.user)
   tutorProfile: TutorProfile;
 
-  @OneToOne(() => StudentProfile, (profile) => profile.user)
+  @OneToOne('StudentProfile', (profile: any) => profile.user)
   studentProfile: StudentProfile;
 
-  @OneToOne(() => SubAdminProfile, (profile) => profile.user)
+  @OneToOne('SubAdminProfile', (profile: any) => profile.user)
   subAdminProfile: SubAdminProfile;
 }

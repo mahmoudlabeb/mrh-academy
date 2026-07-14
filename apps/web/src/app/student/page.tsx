@@ -12,13 +12,15 @@ import MyLessons from './components/MyLessons';
 import MessagesView from './components/MessagesView';
 import SettingsView from './components/SettingsView';
 import PaymentModal from './components/PaymentModal';
+import PaymentHistory from './components/PaymentHistory';
 import NotificationsPanel from './components/NotificationsPanel';
 
-type Tab = 'discover' | 'lessons' | 'messages' | 'settings';
+type Tab = 'discover' | 'lessons' | 'messages' | 'payments' | 'settings';
 
 const tabs: { key: Tab; labelAr: string; labelEn: string }[] = [
   { key: 'discover', labelAr: 'اكتشف', labelEn: 'Discover' },
   { key: 'lessons', labelAr: 'دروسي', labelEn: 'My Lessons' },
+  { key: 'payments', labelAr: 'المدفوعات', labelEn: 'Payments' },
   { key: 'messages', labelAr: 'الرسائل', labelEn: 'Messages' },
   { key: 'settings', labelAr: 'الإعدادات', labelEn: 'Settings' },
 ];
@@ -32,6 +34,11 @@ const tabIcons: Record<Tab, ReactNode> = {
   lessons: (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+    </svg>
+  ),
+  payments: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
     </svg>
   ),
   messages: (
@@ -56,7 +63,7 @@ function StudentDashboardContent() {
   const { lang, toggleLanguage } = useLanguage();
   const initialTab = (searchParams.get('tab') as Tab) || 'discover';
   const [activeTab, setActiveTab] = useState<Tab>(
-    ['discover', 'lessons', 'messages', 'settings'].includes(initialTab)
+    ['discover', 'lessons', 'payments', 'messages', 'settings'].includes(initialTab)
       ? initialTab
       : 'discover',
   );
@@ -144,6 +151,8 @@ function StudentDashboardContent() {
         );
       case 'lessons':
         return <MyLessons />;
+      case 'payments':
+        return <PaymentHistory />;
       case 'messages':
         return <MessagesView />;
       case 'settings':

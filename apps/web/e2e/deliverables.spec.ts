@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAs } from './helpers/auth';
 
 /**
  * End-to-end smoke tests mapped to client deliverables.
@@ -31,12 +32,7 @@ test.describe('Client Deliverables — Public', () => {
 
 test.describe('Client Deliverables — Student', () => {
   test.beforeEach(async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'student@demo.com');
-    await page.fill('input[name="password"]', '123456');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/student/, { timeout: 15000 });
+    await loginAs(page, 'student');
   });
 
   test('student dashboard tabs', async ({ page }) => {
@@ -59,12 +55,7 @@ test.describe('Client Deliverables — Student', () => {
 
 test.describe('Client Deliverables — Tutor', () => {
   test.beforeEach(async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'Sarah.alazzeh87@gmail.com');
-    await page.fill('input[name="password"]', '123456');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/tutor/, { timeout: 15000 });
+    await loginAs(page, 'tutor');
   });
 
   test('tutor dashboard sections', async ({ page }) => {
@@ -82,12 +73,7 @@ test.describe('Client Deliverables — Tutor', () => {
 
 test.describe('Client Deliverables — Admin', () => {
   test.beforeEach(async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'admin@mrhacademy.com');
-    await page.fill('input[name="password"]', '123456');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15000 });
+    await loginAs(page, 'admin');
   });
 
   test('admin panel loads', async ({ page }) => {

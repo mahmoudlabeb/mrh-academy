@@ -1,13 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { loginAs } from './helpers/auth';
 
 test.describe('Admin Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'admin@mrhacademy.com');
-    await page.fill('input[name="password"]', '123456');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/admin/, { timeout: 10000 });
+    await loginAs(page, 'admin');
   });
 
   test('should display admin overview tab', async ({ page }) => {

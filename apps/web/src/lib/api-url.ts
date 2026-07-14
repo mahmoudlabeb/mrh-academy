@@ -1,6 +1,10 @@
 export function getApiBaseUrl() {
-  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-  return configured.replace(/\/+$/, '');
+  // Use relative path through Next.js rewrite proxy to avoid direct connection failures
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (configured && !configured.startsWith('http://localhost')) {
+    return configured.replace(/\/+$/, '');
+  }
+  return '/api/v1';
 }
 
 export function getApiOriginUrl() {

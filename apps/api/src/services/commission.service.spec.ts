@@ -6,7 +6,9 @@ import { CommissionService } from './commission.service.js';
 
 describe('CommissionService', () => {
   let service: CommissionService;
-  const settingRepository: Partial<Record<keyof Repository<Setting>, jest.Mock>> = {
+  const settingRepository: Partial<
+    Record<keyof Repository<Setting>, jest.Mock>
+  > = {
     findOne: jest.fn(),
   };
 
@@ -40,19 +42,25 @@ describe('CommissionService', () => {
     });
 
     it('parses and returns setting value when found', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: '25.50' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: '25.50',
+      });
       const price = await service.getCreditPrice();
       expect(price).toBe(25.5);
     });
 
     it('handles invalid setting value gracefully', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: 'invalid' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: 'invalid',
+      });
       const price = await service.getCreditPrice();
       expect(price).toBe(15);
     });
 
     it('handles zero or negative setting value', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: '0' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: '0',
+      });
       const price = await service.getCreditPrice();
       expect(price).toBe(15);
     });
@@ -60,13 +68,17 @@ describe('CommissionService', () => {
 
   describe('amountToCredits', () => {
     it('converts amount to credits using credit price', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: '20' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: '20',
+      });
       const credits = await service.amountToCredits(100);
       expect(credits).toBe(5);
     });
 
     it('rounds to 2 decimal places', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: '15' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: '15',
+      });
       const credits = await service.amountToCredits(37.5);
       expect(credits).toBe(2.5);
     });
@@ -108,13 +120,17 @@ describe('CommissionService', () => {
 
   describe('calculateCourseFee', () => {
     it('returns tutor promo rate when sold by tutor', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: '0.05' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: '0.05',
+      });
       const fee = await service.calculateCourseFee('tutor');
       expect(fee).toBe(0.05);
     });
 
     it('returns academy base rate when sold by academy', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({ value: '0.5' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValueOnce({
+        value: '0.5',
+      });
       const fee = await service.calculateCourseFee('academy');
       expect(fee).toBe(0.5);
     });
@@ -122,7 +138,9 @@ describe('CommissionService', () => {
 
   describe('invalidateCache', () => {
     it('clears all cached values', async () => {
-      (settingRepository.findOne as jest.Mock).mockResolvedValue({ value: '10' });
+      (settingRepository.findOne as jest.Mock).mockResolvedValue({
+        value: '10',
+      });
       await service.getCreditPrice();
       await service.getCourseTutorPromoRate();
       await service.getCourseAcademyBaseRate();

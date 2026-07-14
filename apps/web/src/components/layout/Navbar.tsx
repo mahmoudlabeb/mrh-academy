@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/contexts/theme-context';
 import { useLanguage } from '@/contexts/language-context';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -17,19 +18,19 @@ export default function Navbar() {
   const links = [
     {
       label: isAr ? 'الكورسات' : 'Courses',
-      href: isAr ? '/courses' : '/en/courses',
+      href: '/courses',
     },
     {
       label: isAr ? 'ابحث عن معلم' : 'Find a Teacher',
-      href: isAr ? '/student/discover' : '/en/student/discover',
+      href: '/student/discover',
     },
     {
       label: isAr ? 'كن معلمًا' : 'Become a Teacher',
-      href: isAr ? '/become-teacher' : '/en/become-teacher',
+      href: '/become-teacher',
     },
     {
       label: isAr ? 'التدريب' : 'Training',
-      href: isAr ? '/teacher-training' : '/en/teacher-training',
+      href: '/teacher-training',
     },
     {
       label: isAr ? 'المفردات' : 'Vocabulary',
@@ -93,6 +94,7 @@ export default function Navbar() {
             {/* Auth */}
             {user ? (
               <>
+                <NotificationBell />
                 <Link
                   href={dashboardHref}
                   className="btn-ghost text-sm font-medium"
@@ -156,6 +158,7 @@ export default function Navbar() {
           >
             {isAr ? 'EN' : 'ع'}
           </button>
+          <NotificationBell />
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className="p-2 rounded-lg"

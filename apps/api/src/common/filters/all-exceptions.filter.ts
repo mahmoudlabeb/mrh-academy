@@ -24,10 +24,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
+    if (!(exception instanceof HttpException)) {
+      console.error('Unhandled exception:', exception);
+    }
+
     const message =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
-        : ((exceptionResponse as any).message ?? exceptionResponse);
+        : ((exceptionResponse as { message?: unknown }).message ??
+          exceptionResponse);
 
     if (request.url.startsWith('/api/v1/auth/google')) {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

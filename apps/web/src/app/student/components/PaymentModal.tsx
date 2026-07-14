@@ -37,6 +37,7 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
   const [activeMethod, setActiveMethod] = useState<PaymentMethod>('card');
+  const [currency, setCurrency] = useState<'USD' | 'EGP'>('USD');
   const [amount, setAmount] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -81,12 +82,14 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
     const formData = new FormData();
     formData.append('amount', amount);
     formData.append('method', activeMethod);
+    formData.append('currency', currency);
     if (file) formData.append('screenshot', file);
     submitMutation.mutate(formData);
   };
 
-  const credits = amount && creditPrice > 0
-    ? (parseFloat(amount) / creditPrice).toFixed(2)
+  const amountInUsd = currency === 'EGP' ? (parseFloat(amount) || 0) / 50 : (parseFloat(amount) || 0);
+  const credits = amountInUsd > 0 && creditPrice > 0
+    ? (amountInUsd / creditPrice).toFixed(2)
     : '0.00';
   const currentBalanceNum = parseFloat(currentBalance) || 0;
 
@@ -103,11 +106,11 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
     },
     vodafone: {
       name: lang === 'ar' ? 'فودافون كاش' : 'Vodafone Cash',
-      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
+      details: methodDetails?.details || t('01000000000', '01000000000'),
     },
     instapay: {
       name: lang === 'ar' ? 'انستاباي' : 'Instapay',
-      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
+      details: methodDetails?.details || t('@mrh_academy', '@mrh_academy'),
     },
     binance: {
       name: 'Binance',
@@ -166,28 +169,45 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
             )}
           </div>
 
-          <div>
-            <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-              {t('المبلغ (USD)', 'Amount (USD)')}
-            </label>
-            <input
-              type="number"
-              min="1"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="input-field w-full"
-              placeholder="0.00"
-            />
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              {t(`≈ ${credits} رصيد`, `≈ ${credits} credits`)}
-            </p>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+                {t('المبلغ', 'Amount')}
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="input-field w-full"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="w-32">
+              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+                {t('العملة', 'Currency')}
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as 'USD' | 'EGP')}
+                className="input-field w-full"
+              >
+                <option value="USD">USD $</option>
+                <option value="EGP">EGP E£</option>
+              </select>
+            </div>
           </div>
+
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {t(`≈ ${credits} رصيد تعليمي`, `≈ ${credits} learning credits`)}
+            {currency === 'EGP' && t(' (معدل: 1 دولار = 50 جنيهاً)', ' (Rate: 1 USD = 50 EGP)')}
+          </p>
 
           {isManual && (
             <div>
               <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                {t('صورة الإيصال', 'Receipt Screenshot')}
+                {t('صورة الإيصال أو المرفق', 'Receipt / Transfer Image')}
               </label>
               <input
                 ref={fileRef}
@@ -196,6 +216,11 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="input-field w-full text-sm"
               />
+              {file && (
+                <p className="text-xs mt-1" style={{ color: '#22c55e' }}>
+                  {t('✓ تم رفع الملف', '✓ File attached')}
+                </p>
+              )}
             </div>
           )}
 
@@ -206,8 +231,16 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
           >
             {submitMutation.isPending
               ? t('جاري الإرسال...', 'Submitting...')
-              : t('إرسال الدفع', 'Submit Payment')}
+              : isManual
+                ? t('إرسال طلب الدفع', 'Submit Payment Request')
+                : t('إرسال الدفع', 'Submit Payment')}
           </button>
+
+          {isManual && (
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              {t('سيتم مراجعة طلب الدفع من قبل الإدارة. ستتلقى إشعاراً عند الموافقة.', 'Your payment will be reviewed by admin. You will be notified upon approval.')}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -194,7 +194,9 @@ export class TutorsService {
             .createQueryBuilder('lesson')
             .select('DISTINCT lesson.studentId', 'studentId')
             .where('lesson.tutorId = :tutorId', { tutorId: userId })
-            .andWhere('lesson.status = :status', { status: LessonStatus.COMPLETED })
+            .andWhere('lesson.status = :status', {
+              status: LessonStatus.COMPLETED,
+            })
             .getRawMany<{ studentId: string }>()
             .then((rows) => rows.length),
           this.lessonRepository.count({

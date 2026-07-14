@@ -1,12 +1,8 @@
 import type { NextConfig } from 'next';
 
-function getApiOriginForRewrite() {
-  const configured =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-  return configured.replace(/\/api\/v1\/?$/, '').replace(/\/+$/, '');
-}
-
-const apiUrl = getApiOriginForRewrite();
+const apiUrl =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ||
+  'http://localhost:4000/api/v1';
 
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
@@ -32,13 +28,26 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'ui-avatars.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'randomuser.me',
+        pathname: '/api/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.b-cdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.googleusercontent.com',
+      },
     ],
   },
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
+        destination: `${apiUrl}/:path*`,
       },
     ];
   },

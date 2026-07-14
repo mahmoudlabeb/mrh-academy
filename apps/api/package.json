@@ -10,7 +10,7 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node dist/main.js",
-    "start:dev": "nest start --watch",
+    "start:dev": "node --max-old-space-size=4096 node_modules/@nestjs/cli/bin/nest.js start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
@@ -39,7 +39,9 @@
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.3",
     "@nestjs/websockets": "^11.1.27",
+    "arabic-reshaper": "^1.1.0",
     "bcrypt": "^6.0.0",
+    "bidi-js": "^1.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cloudinary": "^2.10.0",
@@ -58,7 +60,7 @@
     "sanitize-html": "^2.17.5",
     "socket.io": "^4.8.3",
     "stripe": "^22.3.0",
-    "typeorm": "^1.0.0",
+    "typeorm": "0.3.20",
     "uuid": "^14.0.1"
   },
   "devDependencies": {
@@ -67,6 +69,8 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.15.43",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
@@ -119,9 +123,61 @@
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/main.ts",
+      "!**/seed.ts",
+      "!**/*.module.ts",
+      "!**/*.dto.ts",
+      "!**/index.ts",
+      "!**/entities/**",
+      "!**/database/**",
+      "!**/admin/**",
+      "!**/migrations/**",
+      "!**/courses/**",
+      "!**/tutors/**",
+      "!**/students/**",
+      "!**/vocabulary/**",
+      "!**/messages/**",
+      "!**/reports/**",
+      "!**/redis/**",
+      "!**/shared/**",
+      "!**/articles/**",
+      "!**/availability/**",
+      "!**/gateway/**"
     ],
     "coverageDirectory": "../coverage",
+    "coverageThreshold": {
+      "global": {
+        "branches": 12,
+        "functions": 10,
+        "lines": 15,
+        "statements": 16
+      },
+      "src/auth/auth.service.ts": {
+        "branches": 60,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      },
+      "src/lessons/lessons.service.ts": {
+        "branches": 60,
+        "functions": 60,
+        "lines": 70,
+        "statements": 70
+      },
+      "src/payments/payments.service.ts": {
+        "branches": 40,
+        "functions": 20,
+        "lines": 45,
+        "statements": 45
+      },
+      "src/services/commission.service.ts": {
+        "branches": 60,
+        "functions": 60,
+        "lines": 60,
+        "statements": 60
+      }
+    },
     "testEnvironment": "node"
   }
 }

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,6 +26,8 @@ const CANCELLATION_REFUND_HOURS = 24;
 
 @Injectable()
 export class LessonsService {
+  private readonly logger = new Logger(LessonsService.name);
+
   constructor(
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
@@ -101,6 +104,9 @@ export class LessonsService {
       100;
 
     const scheduledDate = new Date(dto.scheduledTime);
+    if (isNaN(scheduledDate.getTime())) {
+      throw new BadRequestException('Invalid scheduled time format');
+    }
     if (scheduledDate.getTime() <= Date.now()) {
       throw new BadRequestException('Scheduled time must be in the future');
     }
@@ -116,44 +122,12 @@ export class LessonsService {
     );
 
     const lesson = await this.dataSource.transaction(async (manager) => {
-      const studentProfile = await manager.findOne(StudentProfile, {
-        where: { userId: studentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!studentProfile) {
-        throw new NotFoundException('Student profile not found');
-      }
-
-      if (studentProfile.balance < price) {
-        throw new BadRequestException('Insufficient balance');
-      }
-
       const tutorProfileLocked = await manager.findOne(TutorProfile, {
         where: { userId: dto.tutorId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!tutorProfileLocked) {
         throw new NotFoundException('Tutor not found');
-      }
-
-      const overlapping = await manager
-        .createQueryBuilder(Lesson, 'lesson')
-        .where('lesson.status IN (:...activeStatuses)', {
-          activeStatuses: [LessonStatus.PENDING, LessonStatus.CONFIRMED],
-        })
-        .andWhere(
-          '(lesson.tutorId = :tutorId OR lesson.studentId = :studentId)',
-          { tutorId: dto.tutorId, studentId },
-        )
-        .andWhere('lesson.scheduledTime < :endTime', { endTime })
-        .andWhere('lesson.endTime > :scheduledDate', { scheduledDate })
-        .getCount();
-
-      if (overlapping > 0) {
-        throw new BadRequestException(
-          'Time slot conflicts with an existing lesson',
-        );
       }
 
       const roomId = `room-${randomUUID()}`;
@@ -236,7 +210,7 @@ export class LessonsService {
 <p>Price: $${price.toFixed(2)}</p>
 <p>Please log in to approve or decline this lesson request.</p>`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     if (studentUser?.email) {
@@ -251,7 +225,7 @@ export class LessonsService {
 <p>Price: $${price.toFixed(2)}</p>
 <p>You will receive a confirmation once the tutor approves.</p>`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     return savedLesson;
@@ -275,9 +249,32 @@ export class LessonsService {
       throw new BadRequestException('Lesson is not in pending status');
     }
 
+    const scheduledDate = lesson.scheduledTime;
+    const endTime =
+      lesson.endTime ||
+      new Date(scheduledDate.getTime() + lesson.durationMinutes * 60000);
+
     const price = lesson.price;
 
     await this.dataSource.transaction(async (manager) => {
+      const overlappingLesson = await manager
+        .createQueryBuilder(Lesson, 'lesson')
+        .setLock('pessimistic_read')
+        .where('lesson.tutorId = :tutorId', { tutorId })
+        .andWhere('lesson.id != :lessonId', { lessonId })
+        .andWhere('lesson.status = :status', {
+          status: LessonStatus.CONFIRMED,
+        })
+        .andWhere('lesson.scheduledTime < :endTime', { endTime })
+        .andWhere('lesson.endTime > :scheduledDate', { scheduledDate })
+        .getOne();
+
+      if (overlappingLesson) {
+        throw new BadRequestException(
+          'Tutor already has a lesson at this time',
+        );
+      }
+
       const studentProfile = await manager.findOne(StudentProfile, {
         where: { userId: lesson.studentId },
         lock: { mode: 'pessimistic_write' },
@@ -330,10 +327,11 @@ export class LessonsService {
     const meetLinkResult = await this.calendarService.createLessonMeetLink({
       summary: `MRH Academy Lesson: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} & ${updatedLesson?.student?.firstName ?? 'Student'}`,
       description: 'Language lesson booked on MRH Academy.',
-      start: lesson.scheduledTime,
-      end: lesson.endTime,
+      start: scheduledDate,
+      end: endTime,
       tutorEmail:
-        tutorUser?.email ?? `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
+        tutorUser?.email ??
+        `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
       studentEmail:
         studentUser?.email ??
         `student-${lesson.studentId}@lessons.mrhacademy.internal`,
@@ -356,12 +354,12 @@ export class LessonsService {
           'Lesson Approved — MRH Academy',
           `<p>You have approved the lesson.</p>
 <p>Student: ${updatedLesson?.student?.firstName ?? 'Student'} ${updatedLesson?.student?.lastName ?? ''}</p>
-<p>Scheduled: ${lesson.scheduledTime.toLocaleString()}</p>
+<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
 ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     if (studentUser?.email) {
@@ -371,12 +369,12 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
           'Lesson Approved — MRH Academy',
           `<p>Your lesson has been approved by the tutor.</p>
 <p>Tutor: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} ${updatedLesson?.tutor?.lastName ?? ''}</p>
-<p>Scheduled: ${lesson.scheduledTime.toLocaleString()}</p>
+<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
 ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     return updatedLesson;
@@ -539,7 +537,7 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
 <p>Price: $${lesson.price.toFixed(2)}</p>
 <p>Platform Fee: $${platformFee.toFixed(2)}</p>`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     return completed;
@@ -668,7 +666,7 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
 <p>Scheduled: ${scheduledLabel}</p>
 ${refundNote}`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     if (lesson.student?.email) {
@@ -685,7 +683,7 @@ ${refundNote}`,
 <p>Scheduled: ${scheduledLabel}</p>
 ${studentRefundNote}`,
         )
-        .catch(() => {});
+        .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
     return {

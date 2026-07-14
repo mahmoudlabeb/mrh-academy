@@ -1,12 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { loginAs } from './helpers/auth';
 
 test.describe('Booking flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'student@demo.com');
-    await page.fill('input[name="password"]', '123456');
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/student/, { timeout: 15000 });
+    await loginAs(page, 'student');
   });
 
   test('student can open book-lesson page', async ({ page }) => {

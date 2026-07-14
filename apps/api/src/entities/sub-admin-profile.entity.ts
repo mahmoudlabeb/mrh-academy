@@ -7,7 +7,7 @@ import {
   OneToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from './user.entity.js';
+import type { User } from './user.entity.js';
 
 @Entity('sub_admin_profiles')
 export class SubAdminProfile {
@@ -23,7 +23,7 @@ export class SubAdminProfile {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne(() => User, (user) => user.subAdminProfile)
+  @OneToOne('User', (user: any) => user.subAdminProfile)
   @JoinColumn({ name: 'userId' })
   user: User;
 }

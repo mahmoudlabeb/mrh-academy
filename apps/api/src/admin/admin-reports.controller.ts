@@ -26,7 +26,9 @@ export class AdminReportsController {
       ...result,
       data: result.data.map((r) => ({
         id: r.id,
-        reporterName: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
+        reporterName: r.user
+          ? `${r.user.firstName} ${r.user.lastName}`
+          : 'Unknown',
         reporterEmail: r.user?.email ?? '',
         issueType: r.issueType,
         description: r.description,

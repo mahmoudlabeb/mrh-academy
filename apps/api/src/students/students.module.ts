@@ -6,6 +6,7 @@ import { Lesson } from '../entities/lesson.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { Review } from '../entities/review.entity.js';
 import { StudentFavorite } from '../entities/student-favorite.entity.js';
+import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
 import { Setting } from '../entities/setting.entity.js';
 import { StudentsController } from './students.controller.js';
 import { StudentsService } from './students.service.js';
@@ -20,6 +21,7 @@ import { UsersModule } from '../users/users.module.js';
       TutorProfile,
       Review,
       StudentFavorite,
+      PaymentMethodConfig,
       Setting,
     ]),
     UsersModule,

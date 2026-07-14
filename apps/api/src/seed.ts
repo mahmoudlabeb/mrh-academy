@@ -8,6 +8,7 @@ import { TutorProfile } from './entities/tutor-profile.entity.js';
 import { StudentProfile } from './entities/student-profile.entity.js';
 import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
 import { Setting } from './entities/setting.entity.js';
+import { PaymentMethodConfig } from './entities/payment-method-config.entity.js';
 import { Employee } from './entities/employee.entity.js';
 import { Course } from './entities/course.entity.js';
 import { TutorAvailability } from './entities/tutor-availability.entity.js';
@@ -41,20 +42,32 @@ async function bootstrap() {
   const employeeRepository = dataSource.getRepository(Employee);
   const courseRepository = dataSource.getRepository(Course);
   const availabilityRepository = dataSource.getRepository(TutorAvailability);
+  const paymentMethodConfigRepository =
+    dataSource.getRepository(PaymentMethodConfig);
 
   // Helper: upsert user by email, always resetting password to default
-  async function upsertUser(data: Partial<User> & { email: string }): Promise<User> {
-    const existing = await userRepository.findOne({ where: { email: data.email } });
+  async function upsertUser(
+    data: Partial<User> & { email: string },
+  ): Promise<User> {
+    const existing = await userRepository.findOne({
+      where: { email: data.email },
+    });
     if (existing) {
-      await userRepository.update(existing.id, { ...data, passwordHash: defaultPassword });
-      return { ...existing, ...data, passwordHash: defaultPassword } as User;
+      await userRepository.update(existing.id, {
+        ...data,
+        passwordHash: defaultPassword,
+      });
+      return { ...existing, ...data, passwordHash: defaultPassword };
     }
-    const user = userRepository.create({ ...data, passwordHash: defaultPassword });
+    const user = userRepository.create({
+      ...data,
+      passwordHash: defaultPassword,
+    });
     return userRepository.save(user);
   }
 
   // 1. SYSTEM user
-  const systemUser = await upsertUser({
+  const _systemUser = await upsertUser({
     id: SYSTEM_USER_ID,
     email: 'system@mrhacademy.com',
     firstName: 'System',
@@ -94,7 +107,9 @@ async function bootstrap() {
     isVerified: true,
     avatarUrl: 'https://randomuser.me/api/portraits/men/45.jpg',
   });
-  const existingDemoProfile = await studentRepository.findOne({ where: { userId: demoStudent.id } });
+  const existingDemoProfile = await studentRepository.findOne({
+    where: { userId: demoStudent.id },
+  });
   if (!existingDemoProfile) {
     await studentRepository.save(
       studentRepository.create({
@@ -114,7 +129,9 @@ async function bootstrap() {
     role: UserRole.STUDENT,
     isVerified: true,
   });
-  const existingHkProfile = await studentRepository.findOne({ where: { userId: hkStudent.id } });
+  const existingHkProfile = await studentRepository.findOne({
+    where: { userId: hkStudent.id },
+  });
   if (!existingHkProfile) {
     await studentRepository.save(
       studentRepository.create({
@@ -134,7 +151,9 @@ async function bootstrap() {
     role: UserRole.TUTOR,
     isVerified: true,
   });
-  const existingSarah = await tutorRepository.findOne({ where: { userId: sarahUser.id } });
+  const existingSarah = await tutorRepository.findOne({
+    where: { userId: sarahUser.id },
+  });
   if (!existingSarah) {
     await tutorRepository.save(
       tutorRepository.create({
@@ -159,7 +178,9 @@ async function bootstrap() {
     role: UserRole.TUTOR,
     isVerified: true,
   });
-  const existingYasmeen = await tutorRepository.findOne({ where: { userId: yasmeenUser.id } });
+  const existingYasmeen = await tutorRepository.findOne({
+    where: { userId: yasmeenUser.id },
+  });
   if (!existingYasmeen) {
     await tutorRepository.save(
       tutorRepository.create({
@@ -184,7 +205,9 @@ async function bootstrap() {
     role: UserRole.TUTOR,
     isVerified: true,
   });
-  const existingFatima = await tutorRepository.findOne({ where: { userId: fatimaUser.id } });
+  const existingFatima = await tutorRepository.findOne({
+    where: { userId: fatimaUser.id },
+  });
   if (!existingFatima) {
     await tutorRepository.save(
       tutorRepository.create({
@@ -209,7 +232,9 @@ async function bootstrap() {
     role: UserRole.SUBADMIN,
     isVerified: true,
   });
-  const existingSubAdmin = await subAdminRepository.findOne({ where: { userId: subAdminUser.id } });
+  const existingSubAdmin = await subAdminRepository.findOne({
+    where: { userId: subAdminUser.id },
+  });
   if (!existingSubAdmin) {
     await subAdminRepository.save(
       subAdminRepository.create({
@@ -254,7 +279,9 @@ async function bootstrap() {
       ]),
     },
   ]) {
-    const existing = await employeeRepository.findOne({ where: { email: emp.email } });
+    const existing = await employeeRepository.findOne({
+      where: { email: emp.email },
+    });
     if (existing) {
       await employeeRepository.update(existing.id, emp);
     } else {
@@ -302,7 +329,9 @@ async function bootstrap() {
   // 12. Availability
   const tutors = [sarahUser, yasmeenUser, fatimaUser];
   for (const tutor of tutors) {
-    const existingAvailability = await availabilityRepository.find({ where: { tutorId: tutor.id } });
+    const existingAvailability = await availabilityRepository.find({
+      where: { tutorId: tutor.id },
+    });
     if (existingAvailability.length === 0) {
       // Add default availability: Sunday (0) to Thursday (4), 10:00 to 18:00
       for (let day = 0; day <= 4; day++) {
@@ -331,7 +360,10 @@ async function bootstrap() {
     { key: 'payment_vodafone_number', value: '01000000000' },
     { key: 'payment_instapay_handle', value: '@mrh_academy' },
     { key: 'payment_binance_id', value: 'Configure in admin settings' },
-    { key: 'payment_bank_details', value: 'National Bank of Egypt - Account 123456789' },
+    {
+      key: 'payment_bank_details',
+      value: 'National Bank of Egypt - Account 123456789',
+    },
   ];
   for (const s of settingsToSeed) {
     const existing = await settingRepository.findOne({ where: { key: s.key } });
@@ -342,6 +374,65 @@ async function bootstrap() {
     }
   }
   console.log('System settings upserted.');
+
+  // 14. Payment Method Configs
+  const paymentMethodsToSeed = [
+    {
+      type: 'card',
+      label: 'Credit Card',
+      enabled: true,
+      details: null,
+      sortOrder: 1,
+    },
+    {
+      type: 'paypal',
+      label: 'PayPal',
+      enabled: true,
+      details: null,
+      sortOrder: 2,
+    },
+    {
+      type: 'vodafone_cash',
+      label: 'Vodafone Cash',
+      enabled: true,
+      details: '01000000000',
+      sortOrder: 3,
+    },
+    {
+      type: 'instapay',
+      label: 'Instapay',
+      enabled: true,
+      details: '@mrh_academy',
+      sortOrder: 4,
+    },
+    {
+      type: 'binance',
+      label: 'Binance',
+      enabled: true,
+      details: 'Configure in admin settings',
+      sortOrder: 5,
+    },
+    {
+      type: 'bank_transfer',
+      label: 'Bank Transfer',
+      enabled: true,
+      details: 'National Bank of Egypt - Account 123456789',
+      sortOrder: 6,
+    },
+  ];
+  for (const pm of paymentMethodsToSeed) {
+    const existing = await paymentMethodConfigRepository.findOne({
+      where: { type: pm.type },
+    });
+    if (existing) {
+      await paymentMethodConfigRepository.update(existing.id, pm);
+    } else {
+      await paymentMethodConfigRepository.save(
+        paymentMethodConfigRepository.create(pm),
+      );
+    }
+  }
+  console.log('Payment method configs upserted.');
 
   console.log('\n========================================');
   console.log('  Seeding completed successfully!');

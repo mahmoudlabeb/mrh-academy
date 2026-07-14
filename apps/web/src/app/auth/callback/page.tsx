@@ -1,28 +1,20 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { apiClient } from "@/lib/api-client";
 
 function AuthCallbackContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
+    const token = Cookies.get("mrh_token");
     if (!token) {
       setError("No token received");
       return;
     }
-
-    window.history.replaceState({}, "", "/auth/callback");
-
-    Cookies.set("mrh_token", token, {
-      secure: true,
-      sameSite: "strict",
-    });
 
     apiClient
       .get("/users/me")
@@ -40,7 +32,7 @@ function AuthCallbackContent() {
         Cookies.remove("mrh_token");
         setError("Failed to verify session");
       });
-  }, [searchParams, router]);
+  }, [router]);
 
   if (error) {
     return (

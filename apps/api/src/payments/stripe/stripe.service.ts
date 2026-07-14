@@ -4,6 +4,8 @@ import Stripe from 'stripe';
 import { Request } from 'express';
 import { PLATFORM_CURRENCY } from '../../common/currency.util.js';
 
+const STRIPE_API_VERSION = '2026-06-24.dahlia';
+
 @Injectable()
 export class StripeService {
   private stripe: Stripe;
@@ -12,7 +14,7 @@ export class StripeService {
   constructor(private readonly configService: ConfigService) {
     this.secret = this.configService.get<string>('STRIPE_SECRET_KEY');
     this.stripe = new Stripe(this.secret || 'sk_test_placeholder', {
-      apiVersion: '2025-01-27.acacia' as any,
+      apiVersion: STRIPE_API_VERSION,
     });
   }
 

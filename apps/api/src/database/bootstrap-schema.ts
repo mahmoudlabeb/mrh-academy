@@ -17,8 +17,9 @@ async function bootstrap() {
 
   if (count > 0) {
     console.log(
-      `Database already has ${count} table(s). Running migrations only.`,
+      `Database already has ${count} table(s). Running migrations and forcing sync.`,
     );
+    await AppDataSource.synchronize();
     const executed = await AppDataSource.runMigrations();
     console.log(
       executed.length

@@ -15,6 +15,7 @@ import { TutorsService } from './tutors.service.js';
 import { AvailabilityService } from '../availability/availability.service.js';
 import { ApplyTutorDto, UpdateTutorDto } from './dto/index.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { UploadRateGuard } from '../common/guards/upload-rate.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -109,7 +110,7 @@ export class TutorsController {
   // --- APPLICATION ---
 
   @Post('apply')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, UploadRateGuard)
   @UseInterceptors(
     FileInterceptor('document', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
@@ -122,5 +123,4 @@ export class TutorsController {
   }
 
   // --- ADMIN ---
-
 }

@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UserRole } from '@mrh/types';
+import { UserRole, LessonStatus, PaymentStatus } from '@mrh/types';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { Repository } from 'typeorm';
@@ -13,17 +13,35 @@ import { RedisServiceMock } from './redis.mock.js';
 import { Payment } from '../src/entities/payment.entity.js';
 import { TutorProfile } from '../src/entities/tutor-profile.entity.js';
 import { TutorAvailability } from '../src/entities/tutor-availability.entity.js';
+import { Lesson } from '../src/entities/lesson.entity.js';
 import { CourseStatus } from '@mrh/types';
+
+function futureDayIso(daysAhead = 1): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
+function futureScheduledTimeIso(daysAhead = 1, hourUtc = 10): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysAhead);
+  date.setUTCHours(hourUtc, 0, 0, 0);
+  return date.toISOString();
+}
 
 describe('Payments & Booking Flow (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let studentProfileRepository: Repository<StudentProfile>;
   let paymentRepository: Repository<Payment>;
+  let lessonRepository: Repository<Lesson>;
 
   let adminToken: string;
   let studentUser: User;
   let studentToken: string;
+  let tutorUser: User;
+  let tutorToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -43,9 +61,10 @@ describe('Payments & Booking Flow (e2e)', () => {
     userRepository = app.get(getRepositoryToken(User));
     studentProfileRepository = app.get(getRepositoryToken(StudentProfile));
     paymentRepository = app.get(getRepositoryToken(Payment));
+    lessonRepository = app.get(getRepositoryToken(Lesson));
 
-    // Clear db for these tests
     await paymentRepository.query(`TRUNCATE TABLE payments CASCADE`);
+    await lessonRepository.query(`TRUNCATE TABLE lessons CASCADE`);
     await studentProfileRepository.query(
       `TRUNCATE TABLE student_profiles CASCADE`,
     );
@@ -53,7 +72,6 @@ describe('Payments & Booking Flow (e2e)', () => {
 
     const passwordHash = await bcrypt.hash('Test1234', 12);
 
-    // Create Admin
     await userRepository.save(
       userRepository.create({
         email: 'admin_pay@test.com',
@@ -65,7 +83,6 @@ describe('Payments & Booking Flow (e2e)', () => {
       }),
     );
 
-    // Create Student
     studentUser = await userRepository.save(
       userRepository.create({
         email: 'student_pay@test.com',
@@ -83,71 +100,17 @@ describe('Payments & Booking Flow (e2e)', () => {
       }),
     );
 
-    // Login Admin
-    let res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: 'admin_pay@test.com', password: 'Test1234' })
-      .expect(200);
-    adminToken = res.body.accessToken;
-
-    // Login Student
-    res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: 'student_pay@test.com', password: 'Test1234' })
-      .expect(200);
-    studentToken = res.body.accessToken;
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('Student can request a top-up payment', async () => {
-    const res = await request(app.getHttpServer())
-      .post('/api/v1/payments/submit')
-      .set('Authorization', `Bearer ${studentToken}`)
-      .send({ amount: 1500, method: 'paypal' });
-    if (res.status !== 201) console.error(res.body);
-    expect(res.status).toBe(201);
-
-    expect(res.body.payment.status).toBe('pending');
-  });
-
-  it('Admin can approve the pending payment, adding to student balance', async () => {
-    // 1. Find the pending payment
-    const payments = await paymentRepository.find({
-      where: { userId: studentUser.id },
-    });
-    expect(payments.length).toBeGreaterThan(0);
-    const payment = payments[0];
-
-    // 2. Admin approves it
-    await request(app.getHttpServer())
-      .post(`/api/v1/admin/payments/${payment.id}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(201);
-
-    // 3. Verify student balance updated
-    const student = await studentProfileRepository.findOne({
-      where: { userId: studentUser.id },
-    });
-    expect(student?.balance).toBe(100);
-  });
-
-  it('Student can book a lesson', async () => {
-    // We need a tutor first. Let's create one.
-    const tutorUser = await userRepository.save(
+    tutorUser = await userRepository.save(
       userRepository.create({
         email: 'tutor_pay@test.com',
         firstName: 'Tutor',
         lastName: 'Pay',
-        passwordHash: await bcrypt.hash('Test1234', 12),
+        passwordHash,
         role: UserRole.TUTOR,
         isVerified: true,
       }),
     );
 
-    // Add Tutor Profile (Approved)
     const tutorProfileRepo = app.get(getRepositoryToken(TutorProfile));
     await tutorProfileRepo.save(
       tutorProfileRepo.create({
@@ -161,70 +124,139 @@ describe('Payments & Booking Flow (e2e)', () => {
       }),
     );
 
-    const time = new Date();
-    time.setDate(time.getDate() + 1); // tomorrow
-
-    // Add Availability
+    const scheduledDay = futureDayIso();
     const availabilityRepo = app.get(getRepositoryToken(TutorAvailability));
     await availabilityRepo.save(
       availabilityRepo.create({
         tutorId: tutorUser.id,
-        dayOfWeek: time.getDay(),
+        dayOfWeek: new Date(scheduledDay).getDay(),
         startTime: '00:00',
         endTime: '23:59',
       }),
     );
 
-    // Book Lesson
+    let res = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin_pay@test.com', password: 'Test1234' })
+      .expect(200);
+    adminToken = res.body.accessToken;
+
+    res = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: 'student_pay@test.com', password: 'Test1234' })
+      .expect(200);
+    studentToken = res.body.accessToken;
+
+    res = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: 'tutor_pay@test.com', password: 'Test1234' })
+      .expect(200);
+    tutorToken = res.body.accessToken;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('Student PayPal top-up is auto-approved and credits balance', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/payments/submit')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({ amount: 1500, method: 'paypal' });
+    if (res.status !== 201) console.error(res.body);
+    expect(res.status).toBe(201);
+    expect(res.body.payment.status).toBe('approved');
+
+    const student = await studentProfileRepository.findOne({
+      where: { userId: studentUser.id },
+    });
+    expect(student?.balance).toBe(100);
+  });
+
+  it('Admin can approve a manually submitted pending payment', async () => {
+    const pendingPayment = await paymentRepository.save(
+      paymentRepository.create({
+        userId: studentUser.id,
+        amount: 300,
+        method: 'bank',
+        currency: 'USD',
+        status: PaymentStatus.PENDING,
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/admin/payments/${pendingPayment.id}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(201);
+
+    const student = await studentProfileRepository.findOne({
+      where: { userId: studentUser.id },
+    });
+    expect(student?.balance).toBe(120);
+  });
+
+  it('Student can book a lesson as a pending request without balance deduction', async () => {
+    const scheduledDay = futureDayIso();
+
     const res = await request(app.getHttpServer())
       .post('/api/v1/lessons/book')
       .set('Authorization', `Bearer ${studentToken}`)
       .send({
         tutorId: tutorUser.id,
-        scheduledTime: time.toISOString(),
+        scheduledDay,
         durationMinutes: 50,
       });
     if (res.status !== 201) console.error(res.body);
     expect(res.status).toBe(201);
+    expect(res.body.status).toBe('pending');
 
-    expect(res.body.status).toBe('confirmed');
-
-    // Verify balance deduction
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBe(58.33);
+    expect(student?.balance).toBe(120);
   });
 
-  it('Tutor can complete a lesson and get paid', async () => {
-    // We need the tutor's token
-    const resTutor = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: 'tutor_pay@test.com', password: 'Test1234' })
-      .expect(200);
-    const tutorToken = resTutor.body.accessToken;
-
-    // Get the lesson
+  it('Tutor approves lesson, balance is deducted, and tutor can complete it', async () => {
     const resLessons = await request(app.getHttpServer())
       .get('/api/v1/lessons')
       .set('Authorization', `Bearer ${tutorToken}`)
       .expect(200);
 
+    expect(resLessons.body.length).toBeGreaterThan(0);
     const lessonId = resLessons.body[0].id;
+    const scheduledTime = futureScheduledTimeIso();
 
-    // Complete lesson
+    const approveRes = await request(app.getHttpServer())
+      .post(`/api/v1/lessons/${lessonId}/approve`)
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .send({ scheduledTime });
+    if (approveRes.status !== 201) console.error(approveRes.body);
+    expect(approveRes.status).toBe(201);
+    expect(approveRes.body.status).toBe('confirmed');
+
+    const studentAfterApproval = await studentProfileRepository.findOne({
+      where: { userId: studentUser.id },
+    });
+    expect(studentAfterApproval?.balance).toBeCloseTo(78.33, 2);
+
+    await lessonRepository.update(lessonId, {
+      scheduledTime: new Date(Date.now() - 3600000),
+    });
+
     await request(app.getHttpServer())
       .post(`/api/v1/lessons/${lessonId}/complete`)
       .set('Authorization', `Bearer ${tutorToken}`)
       .expect(201);
 
-    // Check tutor balance
     const tutorProfileRepo = app.get(getRepositoryToken(TutorProfile));
     const tutor = await tutorProfileRepo.findOne({
-      where: { userId: resTutor.body.user.id },
+      where: { userId: tutorUser.id },
     });
-
-    // Tutor should have received their share (e.g. 50 * 0.8 = 40)
     expect(tutor?.balance).toBeGreaterThan(0);
+
+    const completedLesson = await lessonRepository.findOne({
+      where: { id: lessonId },
+    });
+    expect(completedLesson?.status).toBe(LessonStatus.COMPLETED);
   });
 });

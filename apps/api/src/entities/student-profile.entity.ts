@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ColumnNumericTransformer } from '../common/transformers/numeric.transformer.js';
-import { User } from './user.entity.js';
+import type { User } from './user.entity.js';
 
 @Entity('student_profiles')
 export class StudentProfile {
@@ -33,7 +33,7 @@ export class StudentProfile {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne(() => User, (user) => user.studentProfile)
+  @OneToOne('User', (user: any) => user.studentProfile)
   @JoinColumn({ name: 'userId' })
   user: User;
 }

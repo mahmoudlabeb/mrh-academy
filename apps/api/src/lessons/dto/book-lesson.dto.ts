@@ -1,13 +1,14 @@
-import { IsUUID, IsDateString, IsInt, IsIn } from 'class-validator';
+import { IsUUID, IsISO8601, IsInt, Min, Max } from 'class-validator';
 
 export class BookLessonDto {
   @IsUUID()
   tutorId: string;
 
-  @IsDateString()
+  @IsISO8601({ strict: true })
   scheduledTime: string;
 
   @IsInt()
-  @IsIn([25, 50])
-  durationMinutes: 25 | 50;
+  @Min(30)
+  @Max(240)
+  durationMinutes: number;
 }

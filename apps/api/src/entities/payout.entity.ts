@@ -35,6 +35,15 @@ export class Payout {
   @Column({ type: 'enum', enum: PayoutStatus, default: PayoutStatus.PENDING })
   status: PayoutStatus;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  method: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  accountDetails: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  adminNote: string | null;
+
   @Column({ nullable: true })
   stripePayoutId?: string;
 

@@ -67,7 +67,10 @@ export class ClassroomGateway
     { count: number; resetAt: number }
   >();
 
-  private async persistWhiteboardToDb(lessonId: string, state: object): Promise<void> {
+  private async persistWhiteboardToDb(
+    lessonId: string,
+    state: object,
+  ): Promise<void> {
     try {
       await this.classroomRepository.update(
         { lessonId },
@@ -180,6 +183,7 @@ export class ClassroomGateway
     }
     const classroom = await this.classroomRepository.findOne({
       where: { lessonId },
+      select: ['whiteboardSnapshot'],
     });
     if (classroom && !classroom.isActive) {
       socket.emit('error_message', 'Classroom is closed');
@@ -204,12 +208,15 @@ export class ClassroomGateway
       // Fallback to DB if Redis is empty
       const classroom = await this.classroomRepository.findOne({
         where: { lessonId },
-        select: { whiteboardSnapshot: true },
+        select: ['whiteboardSnapshot'],
       });
       if (classroom?.whiteboardSnapshot) {
         whiteboardState = JSON.stringify(classroom.whiteboardSnapshot);
       } else {
-        whiteboardState = JSON.stringify({ pages: { '1': [] }, currentPage: 1 });
+        whiteboardState = JSON.stringify({
+          pages: { '1': [] },
+          currentPage: 1,
+        });
       }
       await this.redisService.set(whiteboardKey, whiteboardState, 'EX', 86400);
     }
@@ -380,7 +387,7 @@ export class ClassroomGateway
       page?: number;
     },
   ) {
-    if (this.socketData(socket).role !== UserRole.TUTOR) return;
+    if (this.socketData(socket).role !== UserRole.TUTOR.toString()) return;
     if (!this.assertLessonMembership(socket, payload.lessonId)) return;
     if (!payload.bookId || !payload.title || !payload.pageCount) return;
 
@@ -403,7 +410,7 @@ export class ClassroomGateway
     socket: Socket,
     payload: { lessonId: string; page: number },
   ) {
-    if (this.socketData(socket).role !== UserRole.TUTOR) return;
+    if (this.socketData(socket).role !== UserRole.TUTOR.toString()) return;
     if (!this.assertLessonMembership(socket, payload.lessonId)) return;
     if (!Number.isInteger(payload.page) || payload.page < 1) return;
 
@@ -430,7 +437,7 @@ export class ClassroomGateway
 
   @SubscribeMessage('book_close')
   async handleBookClose(socket: Socket, payload: { lessonId: string }) {
-    if (this.socketData(socket).role !== UserRole.TUTOR) return;
+    if (this.socketData(socket).role !== UserRole.TUTOR.toString()) return;
     if (!this.assertLessonMembership(socket, payload.lessonId)) return;
 
     const bookKey = `book:${payload.lessonId}`;

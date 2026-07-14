@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { CourseStatus, PaymentMethod } from '@mrh/types';
+import { CourseStatus } from '@mrh/types';
+import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { Payment } from '../entities/payment.entity.js';
 import { Lesson } from '../entities/lesson.entity.js';
@@ -10,40 +15,6 @@ import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { Review } from '../entities/review.entity.js';
 import { Setting } from '../entities/setting.entity.js';
 import { CommissionService } from '../services/commission.service.js';
-
-const PAYMENT_METHOD_CONFIG: Array<{
-  type: PaymentMethod;
-  label: string;
-  settingKey?: string;
-  defaultDetails?: string;
-}> = [
-  { type: PaymentMethod.CARD, label: 'Credit Card' },
-  { type: PaymentMethod.PAYPAL, label: 'PayPal' },
-  {
-    type: PaymentMethod.VODAFONE,
-    label: 'Vodafone Cash',
-    settingKey: 'payment_vodafone_number',
-    defaultDetails: '01000000000',
-  },
-  {
-    type: PaymentMethod.INSTAPAY,
-    label: 'Instapay',
-    settingKey: 'payment_instapay_handle',
-    defaultDetails: '@mrh_academy',
-  },
-  {
-    type: PaymentMethod.BINANCE,
-    label: 'Binance',
-    settingKey: 'payment_binance_id',
-    defaultDetails: 'Configure in admin settings',
-  },
-  {
-    type: PaymentMethod.BANK,
-    label: 'Bank Transfer',
-    settingKey: 'payment_bank_details',
-    defaultDetails: 'Configure in admin settings',
-  },
-];
 
 @Injectable()
 export class StudentsService {
@@ -62,6 +33,8 @@ export class StudentsService {
     private readonly reviewRepository: Repository<Review>,
     @InjectRepository(Setting)
     private readonly settingRepository: Repository<Setting>,
+    @InjectRepository(PaymentMethodConfig)
+    private readonly paymentMethodConfigRepository: Repository<PaymentMethodConfig>,
     private readonly commissionService: CommissionService,
   ) {}
 
@@ -83,22 +56,44 @@ export class StudentsService {
   }
 
   async getPaymentMethods(_userId: string) {
-    const keys = PAYMENT_METHOD_CONFIG.map((m) => m.settingKey).filter(
-      Boolean,
-    ) as string[];
-    const settings =
-      keys.length > 0
-        ? await this.settingRepository.find({ where: { key: In(keys) } })
-        : [];
-    const settingsMap = new Map(settings.map((s) => [s.key, s.value]));
-
-    return PAYMENT_METHOD_CONFIG.map((method) => ({
-      type: method.type,
-      label: method.label,
-      enabled: true,
-      details: method.settingKey
-        ? settingsMap.get(method.settingKey) || method.defaultDetails || ''
-        : undefined,
+    const configs = await this.paymentMethodConfigRepository.find({
+      order: { sortOrder: 'ASC' },
+    });
+    if (configs.length === 0) {
+      return [
+        { type: 'card', label: 'Credit Card', enabled: true, details: null },
+        { type: 'paypal', label: 'PayPal', enabled: true, details: null },
+        {
+          type: 'vodafone_cash',
+          label: 'Vodafone Cash',
+          enabled: true,
+          details: '01000000000',
+        },
+        {
+          type: 'instapay',
+          label: 'Instapay',
+          enabled: true,
+          details: '@mrh_academy',
+        },
+        {
+          type: 'binance',
+          label: 'Binance',
+          enabled: true,
+          details: 'Configure in admin settings',
+        },
+        {
+          type: 'bank_transfer',
+          label: 'Bank Transfer',
+          enabled: true,
+          details: 'Configure in admin settings',
+        },
+      ];
+    }
+    return configs.map((c) => ({
+      type: c.type,
+      label: c.label,
+      enabled: c.enabled,
+      details: c.details,
     }));
   }
 

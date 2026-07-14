@@ -448,7 +448,11 @@ export class InitialSchema1737000000000 implements MigrationInterface {
     `);
 
     const indexes: Array<[string, string, string]> = [
-      ['tutor_availabilities', 'IDX_tutor_availabilities_tutorId', '("tutorId")'],
+      [
+        'tutor_availabilities',
+        'IDX_tutor_availabilities_tutorId',
+        '("tutorId")',
+      ],
       ['lessons', 'IDX_lessons_tutorId', '("tutorId")'],
       ['lessons', 'IDX_lessons_studentId', '("studentId")'],
       ['classroom_messages', 'IDX_classroom_messages_lessonId', '("lessonId")'],
@@ -459,7 +463,11 @@ export class InitialSchema1737000000000 implements MigrationInterface {
       ['notifications', 'IDX_notifications_userId', '("userId")'],
       ['courses', 'IDX_courses_tutorId', '("tutorId")'],
       ['course_lessons', 'IDX_course_lessons_courseId', '("courseId")'],
-      ['course_enrollments', 'IDX_course_enrollments_studentId', '("studentId")'],
+      [
+        'course_enrollments',
+        'IDX_course_enrollments_studentId',
+        '("studentId")',
+      ],
       ['course_enrollments', 'IDX_course_enrollments_courseId', '("courseId")'],
       [
         'course_lesson_completions',

@@ -3,8 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { PaymentMethod, PaymentStatus } from '@mrh/types';
 import { Payment } from '../entities/payment.entity';
+import { Payout } from '../entities/payout.entity';
 import { StudentProfile } from '../entities/student-profile.entity';
+import { TutorProfile } from '../entities/tutor-profile.entity';
 import { User } from '../entities/user.entity';
+import { PaymentMethodConfig } from '../entities/payment-method-config.entity';
 import { EmailService } from '../services/email.service';
 import { CommissionService } from '../services/commission.service';
 import { PaymentsService } from './payments.service';
@@ -16,8 +19,23 @@ describe('PaymentsService', () => {
     create: jest.fn((value) => ({ id: 'payment-1', ...value })),
     save: jest.fn(async (value) => value),
     find: jest.fn(),
+    findOne: jest.fn(),
+  };
+  const paymentMethodConfigRepository = {
+    findOne: jest.fn(async (opts) => ({
+      type: opts?.where?.type ?? 'card',
+      enabled: true,
+    })),
+    find: jest.fn(),
+  };
+  const payoutRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    find: jest.fn(),
+    findOne: jest.fn(),
   };
   const studentProfileRepository = { increment: jest.fn() };
+  const tutorProfileRepository = { findOne: jest.fn(), update: jest.fn() };
   const userRepository = {
     findOne: jest.fn(async () => ({
       id: 'user-1',
@@ -36,6 +54,8 @@ describe('PaymentsService', () => {
         })),
         save: jest.fn(async (entity) => entity),
         increment: jest.fn(),
+        decrement: jest.fn(),
+        create: jest.fn(),
       }),
     ),
   };
@@ -58,11 +78,20 @@ describe('PaymentsService', () => {
       providers: [
         PaymentsService,
         { provide: getRepositoryToken(Payment), useValue: paymentRepository },
+        { provide: getRepositoryToken(Payout), useValue: payoutRepository },
         {
           provide: getRepositoryToken(StudentProfile),
           useValue: studentProfileRepository,
         },
+        {
+          provide: getRepositoryToken(TutorProfile),
+          useValue: tutorProfileRepository,
+        },
         { provide: getRepositoryToken(User), useValue: userRepository },
+        {
+          provide: getRepositoryToken(PaymentMethodConfig),
+          useValue: paymentMethodConfigRepository,
+        },
         { provide: getDataSourceToken(), useValue: dataSource },
         { provide: ConfigService, useValue: configService },
         { provide: StripeService, useValue: stripeService },

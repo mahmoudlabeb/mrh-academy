@@ -48,7 +48,9 @@ export class ReminderService {
 <p>Time: ${lesson.scheduledTime.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
             )
-            .catch(() => {});
+            .catch((err) =>
+              console.error('Reminder email delivery failed', err),
+            );
         }
 
         if (lesson.tutor?.email) {
@@ -61,7 +63,9 @@ export class ReminderService {
 <p>Time: ${lesson.scheduledTime.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
             )
-            .catch(() => {});
+            .catch((err) =>
+              console.error('Reminder email delivery failed', err),
+            );
         }
       } catch (err) {
         // Don't let a single lesson failure crash the entire cron job

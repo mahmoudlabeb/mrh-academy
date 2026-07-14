@@ -16,8 +16,12 @@ export class SubmitPaymentDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  @Max(10000)
+  @Max(100000)
   amount: number;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @IsOptional()
   @IsString()

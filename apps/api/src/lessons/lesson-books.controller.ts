@@ -19,6 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { UploadRateGuard } from '../common/guards/upload-rate.guard.js';
 import { LessonBooksService } from './lesson-books.service.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
@@ -39,6 +40,7 @@ export class LessonBooksController {
 
   @Post()
   @Roles(UserRole.TUTOR)
+  @UseGuards(UploadRateGuard)
   @UseInterceptors(
     FileInterceptor('book', {
       limits: { fileSize: 20 * 1024 * 1024 },

@@ -32,6 +32,9 @@ export class Payment {
   @Column({ type: 'enum', enum: PaymentMethod })
   method: PaymentMethod;
 
+  @Column({ type: 'varchar', default: 'USD' })
+  currency: string;
+
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
 
@@ -43,6 +46,9 @@ export class Payment {
 
   @Column({ nullable: true })
   adminNote: string;
+
+  @Column({ nullable: true, type: 'varchar' })
+  rejectionReason: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

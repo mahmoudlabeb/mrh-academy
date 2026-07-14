@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { UploadRateGuard } from '../common/guards/upload-rate.guard.js';
+import { UseGuards } from '@nestjs/common';
 import {
   ChangeEmailDto,
   ChangePasswordDto,
@@ -60,13 +62,18 @@ export class UsersController {
   }
 
   @Post('avatar')
+  @UseGuards(UploadRateGuard)
   @UseInterceptors(
     FileInterceptor('avatar', {
       limits: { fileSize: 2 * 1024 * 1024 },
       fileFilter: (_request, file, callback) => {
-        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+        if (
+          !['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)
+        ) {
           callback(
-            new BadRequestException('Only JPEG, PNG, and WebP files are allowed'),
+            new BadRequestException(
+              'Only JPEG, PNG, and WebP files are allowed',
+            ),
             false,
           );
           return;

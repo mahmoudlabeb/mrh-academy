@@ -26,8 +26,8 @@ export class CalendarService {
   isGoogleMeetConfigured(): boolean {
     return Boolean(
       this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_EMAIL') &&
-        this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY') &&
-        this.configService.get<string>('GOOGLE_CALENDAR_IMPERSONATE_EMAIL'),
+      this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY') &&
+      this.configService.get<string>('GOOGLE_CALENDAR_IMPERSONATE_EMAIL'),
     );
   }
 

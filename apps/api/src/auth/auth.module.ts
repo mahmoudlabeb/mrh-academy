@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+import type { JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller.js';
@@ -13,6 +14,10 @@ import { StudentProfile } from '../entities/student-profile.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
 import { EmailService } from '../services/email.service.js';
+
+type JwtExpiresIn = NonNullable<
+  NonNullable<JwtModuleOptions['signOptions']>['expiresIn']
+>;
 
 @Module({
   imports: [
@@ -31,13 +36,19 @@ import { EmailService } from '../services/email.service.js';
         secret: configService.get<string>('JWT_SECRET')!,
         signOptions: {
           expiresIn:
-            (configService.get<string>('JWT_EXPIRES_IN') as any) || '7d',
+            configService.get<JwtExpiresIn>('JWT_EXPIRES_IN') || '7d',
         },
       }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, EmailService, GoogleConfigGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    EmailService,
+    GoogleConfigGuard,
+  ],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

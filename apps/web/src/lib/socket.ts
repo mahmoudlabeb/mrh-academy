@@ -1,12 +1,17 @@
 import { io, Socket } from 'socket.io-client';
 import Cookies from 'js-cookie';
-import { getApiBaseUrl } from './api-url';
 
 let socket: Socket | null = null;
 
+function getSocketBaseUrl(): string {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '');
+  if (!apiUrl) return 'http://localhost:4000';
+  return apiUrl.replace(/\/api\/v1$/, '');
+}
+
 export function getSocket(): Socket {
   if (!socket) {
-    const baseUrl = getApiBaseUrl().replace('/api/v1', '');
+    const baseUrl = getSocketBaseUrl();
     socket = io(`${baseUrl}/classroom`, {
       auth: (cb: (params: { token: string }) => void) => {
         cb({ token: Cookies.get('mrh_token') || '' });

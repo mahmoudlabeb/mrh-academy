@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, QueryFailedError } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
@@ -165,8 +165,11 @@ export class AuthService {
       });
 
       return this.buildAuthResponse(result);
-    } catch (error: any) {
-      if (error.code === '23505' || error.constraint?.includes('email')) {
+    } catch (error: unknown) {
+      if (
+        error instanceof QueryFailedError &&
+        (error.driverError as { code?: string })?.code === '23505'
+      ) {
         throw new ConflictException('Email is already registered');
       }
       throw error;
@@ -350,7 +353,7 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string) {
     try {
-      const decoded = this.jwtService.verify(refreshToken) as JwtTokenPayload;
+      const decoded = this.jwtService.verify(refreshToken);
 
       if (decoded.type && decoded.type !== 'refresh') {
         throw new UnauthorizedException('Invalid refresh token');

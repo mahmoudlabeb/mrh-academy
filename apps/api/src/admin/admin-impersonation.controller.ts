@@ -16,6 +16,12 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator.js'
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../entities/user.entity.js';
 
+interface AdminUser {
+  id: string;
+  role: string;
+  originalAdminId?: string;
+}
+
 @Controller('admin/impersonate')
 export class AdminImpersonationController {
   constructor(
@@ -29,7 +35,7 @@ export class AdminImpersonationController {
   @Roles(UserRole.ADMIN)
   @RequirePermissions('impersonate_users')
   async impersonate(
-    @CurrentUser() admin: any,
+    @CurrentUser() admin: AdminUser,
     @Body() dto: { userId: string },
   ) {
     const targetUser = await this.userRepository.findOne({
@@ -54,7 +60,7 @@ export class AdminImpersonationController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @RequirePermissions('impersonate_users')
-  async unimpersonate(@CurrentUser() admin: any) {
+  async unimpersonate(@CurrentUser() admin: AdminUser) {
     if (!admin.originalAdminId) {
       throw new UnauthorizedException('Not currently impersonating');
     }
@@ -71,7 +77,7 @@ export class AdminImpersonationController {
       email: originalAdmin.email,
       role: originalAdmin.role,
     };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 
     return { accessToken, user: originalAdmin };
   }

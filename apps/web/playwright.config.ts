@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config as dotenvConfig } from 'dotenv';
+
+dotenvConfig({ path: '.env.test' });
 
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const apiURL = process.env.API_URL || 'http://localhost:4000/api/v1';

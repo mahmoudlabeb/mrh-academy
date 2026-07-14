@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserRole } from '@mrh/types';
+import { UserRole, LessonStatus } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -43,7 +43,7 @@ export class AdminStudentsController {
           where: { studentId: student.id },
         });
         const completedLessons = await this.lessonRepository.count({
-          where: { studentId: student.id, status: 'completed' as any },
+          where: { studentId: student.id, status: LessonStatus.COMPLETED },
         });
         return {
           id: student.id,

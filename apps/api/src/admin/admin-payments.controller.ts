@@ -44,10 +44,12 @@ export class AdminPaymentsController {
       id: p.id,
       userName: p.user ? `${p.user.firstName} ${p.user.lastName}` : 'Unknown',
       amount: p.amount,
+      currency: p.currency,
       paymentMethod: p.method,
       status: p.status,
       receiptUrl: p.receiptUrl,
       adminNote: p.adminNote,
+      rejectionReason: p.rejectionReason,
       createdAt: p.createdAt,
     }));
   }
@@ -64,16 +66,16 @@ export class AdminPaymentsController {
   async rejectPayment(
     @Param('id') id: string,
     @CurrentUser() admin: { id: string },
-    @Body('reason') reason?: string,
+    @Body() body?: { reason?: string },
   ) {
-    return this.paymentsService.rejectPayment(id, admin.id, reason);
+    return this.paymentsService.rejectPayment(id, admin.id, body?.reason);
   }
 
   @Post('payout/:tutorId')
   async payoutTutor(@Param('tutorId') tutorId: string) {
     let payoutAmount = 0;
     let stripeAccountId = '';
-    let payoutRecord: Payout;
+    let payoutRecord: Payout | undefined;
 
     await this.dataSource.transaction(async (manager) => {
       const profile = await manager.findOne(TutorProfile, {
@@ -102,8 +104,13 @@ export class AdminPaymentsController {
       await manager.save(payoutRecord);
     });
 
+    if (!payoutRecord) {
+      throw new Error('Payout record was not created');
+    }
+    const createdPayout = payoutRecord;
+
     const amountCents = Math.round(payoutAmount * 100);
-    const idempotencyKey = `payout-${payoutRecord!.id}`; // Use the payout record ID as idempotency key for uniqueness
+    const idempotencyKey = `payout-${createdPayout.id}`; // Use the payout record ID as idempotency key for uniqueness
 
     try {
       const stripeResponse = await this.stripeService.createPayout(
@@ -112,11 +119,13 @@ export class AdminPaymentsController {
         idempotencyKey,
       );
 
-      await this.payoutRepository.update(payoutRecord!.id, {
+      await this.payoutRepository.update(createdPayout.id, {
         status: PayoutStatus.SUCCESS,
         stripePayoutId: stripeResponse.id, // Assuming stripeService returns the payout object
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Stripe payout failed';
       // Revert the balance and update payout record to FAILED
       await this.dataSource.transaction(async (manager) => {
         await manager.increment(
@@ -127,10 +136,10 @@ export class AdminPaymentsController {
         );
         await manager.update(
           Payout,
-          { id: payoutRecord!.id },
+          { id: createdPayout.id },
           {
             status: PayoutStatus.FAILED,
-            errorMessage: err.message,
+            errorMessage,
           },
         );
       });

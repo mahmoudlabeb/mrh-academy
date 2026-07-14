@@ -1,17 +1,27 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { v2 as cloudinary } from 'cloudinary';
-import { DataSource, QueryFailedError, Repository, type DeepPartial } from 'typeorm';
+import {
+  DataSource,
+  QueryFailedError,
+  Repository,
+  type DeepPartial,
+} from 'typeorm';
 import { PaymentMethod, PaymentStatus } from '@mrh/types';
 import { Payment } from '../entities/payment.entity.js';
+import { Payout, PayoutStatus } from '../entities/payout.entity.js';
 import { StudentProfile } from '../entities/student-profile.entity.js';
+import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { User } from '../entities/user.entity.js';
+import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
+import { RequestPayoutDto } from './dto/request-payout.dto.js';
 import { StripeService } from './stripe/stripe.service.js';
 import { EmailService } from '../services/email.service.js';
 import { CommissionService } from '../services/commission.service.js';
@@ -25,6 +35,8 @@ const RECEIPT_MIME_TYPES = new Set([
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
@@ -32,6 +44,12 @@ export class PaymentsService {
     private readonly studentProfileRepository: Repository<StudentProfile>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Payout)
+    private readonly payoutRepository: Repository<Payout>,
+    @InjectRepository(TutorProfile)
+    private readonly tutorProfileRepository: Repository<TutorProfile>,
+    @InjectRepository(PaymentMethodConfig)
+    private readonly paymentMethodConfigRepository: Repository<PaymentMethodConfig>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
@@ -48,9 +66,7 @@ export class PaymentsService {
 
   private validateReceiptFile(file: Express.Multer.File) {
     if (!RECEIPT_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException(
-        'Receipt must be JPEG, PNG, WebP, or PDF',
-      );
+      throw new BadRequestException('Receipt must be JPEG, PNG, WebP, or PDF');
     }
   }
 
@@ -75,6 +91,15 @@ export class PaymentsService {
       }
     }
 
+    const config = await this.paymentMethodConfigRepository.findOne({
+      where: { type: dto.method, enabled: true },
+    });
+    if (!config) {
+      throw new BadRequestException(
+        `Payment method "${dto.method}" is not available or disabled`,
+      );
+    }
+
     const isCardPayment = dto.method === PaymentMethod.CARD;
     if (isCardPayment && !this.stripeService.isConfigured()) {
       throw new BadRequestException('Stripe payments are not configured');
@@ -95,13 +120,17 @@ export class PaymentsService {
     let receiptUrl: string | null = null;
     if (screenshotFile) {
       this.validateReceiptFile(screenshotFile);
-      receiptUrl = await this.uploadToCloudinary(screenshotFile.buffer, screenshotFile.mimetype);
+      receiptUrl = await this.uploadToCloudinary(
+        screenshotFile.buffer,
+        screenshotFile.mimetype,
+      );
     }
 
     const payment = this.paymentRepository.create({
       userId,
       amount: dto.amount,
       method: dto.method,
+      currency: dto.currency ?? 'USD',
       status: PaymentStatus.PENDING,
       receiptUrl,
       adminNote: dto.adminNote ?? null,
@@ -151,6 +180,15 @@ export class PaymentsService {
     });
   }
 
+  async getPayment(id: string) {
+    const payment = await this.paymentRepository.findOne({
+      where: { id },
+      relations: { user: true },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+    return payment;
+  }
+
   async getAllPayments() {
     return this.paymentRepository.find({
       relations: { user: true },
@@ -176,11 +214,14 @@ export class PaymentsService {
 
         payment.status = PaymentStatus.APPROVED;
         payment.adminNote = `Approved by ${adminId}`;
+        payment.rejectionReason = null;
         await manager.save(Payment, payment);
 
-        const balanceToAdd = await this.commissionService.amountToCredits(
-          payment.amount,
-        );
+        // Convert to credits based on currency
+        const amountInUsd =
+          payment.currency === 'EGP' ? payment.amount / 50 : payment.amount;
+        const balanceToAdd =
+          await this.commissionService.amountToCredits(amountInUsd);
         await manager.increment(
           StudentProfile,
           { userId: payment.userId },
@@ -204,7 +245,9 @@ export class PaymentsService {
 <p>Method: ${payment.method}</p>
 <p>Credits Added: ${balanceToAdd.toFixed(2)}</p>`,
             )
-            .catch(() => {});
+            .catch((err) =>
+              this.logger.error('Payment approval email failed', err),
+            );
         }
         return payment;
       });
@@ -226,14 +269,102 @@ export class PaymentsService {
       }
 
       payment.status = PaymentStatus.REJECTED;
-      payment.adminNote = reason ?? `Rejected by admin ${adminId}`;
+      payment.adminNote = reason
+        ? `Rejected: ${reason}`
+        : `Rejected by admin ${adminId}`;
+      payment.rejectionReason = reason ?? null;
       await manager.save(Payment, payment);
 
       return payment;
     });
   }
 
-  private uploadToCloudinary(buffer: Buffer, mimetype?: string): Promise<string> {
+  async requestPayout(tutorId: string, dto: RequestPayoutDto) {
+    return this.dataSource.transaction(async (manager) => {
+      const tutorProfile = await manager.findOne(TutorProfile, {
+        where: { userId: tutorId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!tutorProfile) throw new NotFoundException('Tutor profile not found');
+      if (tutorProfile.balance < dto.amount) {
+        throw new BadRequestException(
+          `Insufficient balance. Available: $${tutorProfile.balance.toFixed(2)}`,
+        );
+      }
+      await manager.decrement(
+        TutorProfile,
+        { userId: tutorId },
+        'balance',
+        dto.amount,
+      );
+      const payout = manager.create(Payout, {
+        tutorId,
+        amount: dto.amount,
+        method: dto.method,
+        accountDetails: dto.accountDetails,
+        status: PayoutStatus.PENDING,
+      });
+      return manager.save(Payout, payout);
+    });
+  }
+
+  async getTutorPayouts(tutorId: string) {
+    return this.payoutRepository.find({
+      where: { tutorId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async approvePayout(payoutId: string, adminId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const payout = await manager.findOne(Payout, {
+        where: { id: payoutId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payout) throw new NotFoundException('Payout not found');
+      if (payout.status !== PayoutStatus.PENDING) {
+        throw new BadRequestException('Payout is already processed');
+      }
+      payout.status = PayoutStatus.SUCCESS;
+      payout.adminNote = `Approved by admin ${adminId}`;
+      return manager.save(Payout, payout);
+    });
+  }
+
+  async rejectPayout(payoutId: string, adminId: string, reason: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const payout = await manager.findOne(Payout, {
+        where: { id: payoutId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payout) throw new NotFoundException('Payout not found');
+      if (payout.status !== PayoutStatus.PENDING) {
+        throw new BadRequestException('Payout already processed');
+      }
+      await manager.increment(
+        TutorProfile,
+        { userId: payout.tutorId },
+        'balance',
+        payout.amount,
+      );
+      payout.status = PayoutStatus.FAILED;
+      payout.adminNote = reason;
+      return manager.save(Payout, payout);
+    });
+  }
+
+  private uploadToCloudinary(
+    buffer: Buffer,
+    mimetype?: string,
+  ): Promise<string> {
+    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
+    if (!cloudName) {
+      // Fallback for local development when Cloudinary is not configured
+      return Promise.resolve(
+        'https://dummyimage.com/600x400/000/fff&text=Dummy+Receipt',
+      );
+    }
+
     return new Promise((resolve, reject) => {
       const options: any = {
         folder: 'mrh-academy/payments',
@@ -242,7 +373,7 @@ export class PaymentsService {
       if (mimetype === 'application/pdf') {
         options.format = 'pdf';
       }
-      
+
       const stream = cloudinary.uploader.upload_stream(
         options,
         (error, result) => {

@@ -17,11 +17,24 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
   const [isCallLoading, setIsCallLoading] = useState(false);
   const [callError, setCallError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'failed'>('idle');
 
   const rtcConfigRef = useRef<RTCConfiguration>({
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
+      ...(process.env.NEXT_PUBLIC_TURN_URL
+        ? [
+            {
+              urls: [
+                process.env.NEXT_PUBLIC_TURN_URL!,
+                process.env.NEXT_PUBLIC_TURN_URL_TLS!,
+              ],
+              username: process.env.NEXT_PUBLIC_TURN_USERNAME,
+              credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
+            },
+          ]
+        : []),
     ],
   });
 
@@ -59,13 +72,35 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
     };
 
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-        cleanupPeerConnection(peerId);
-        setRemoteStreams((prev) => {
-          const next = { ...prev };
-          delete next[peerId];
-          return next;
-        });
+      if (pc.iceConnectionState === 'checking') {
+        setConnectionStatus('connecting');
+      } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setConnectionStatus('connected');
+      } else if (pc.iceConnectionState === 'failed') {
+        console.warn('[WebRTC] ICE failed — attempting ICE restart');
+        setConnectionStatus('failed');
+        pc.restartIce();
+        setTimeout(() => {
+          if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
+            cleanupPeerConnection(peerId);
+            setRemoteStreams((prev) => {
+              const next = { ...prev };
+              delete next[peerId];
+              return next;
+            });
+          }
+        }, 10_000);
+      } else if (pc.iceConnectionState === 'disconnected') {
+        setTimeout(() => {
+          if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') {
+            cleanupPeerConnection(peerId);
+            setRemoteStreams((prev) => {
+              const next = { ...prev };
+              delete next[peerId];
+              return next;
+            });
+          }
+        }, 10_000);
       }
     };
 
@@ -139,12 +174,29 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
   }, [lessonId, peerUserId, createPeerConnection, startLocalStream]);
 
   const stopCall = useCallback((type: 'voice' | 'camera' | 'screen') => {
-    if (type === 'screen' && localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach((t) => t.stop());
-    }
-
     const socket = getSocket();
-    socket.emit(type === 'camera' ? 'webrtc_end' : 'webrtc_end', { lessonId });
+    socket.emit(type === 'camera' ? 'camera_end' : 'webrtc_end', { lessonId });
+
+    if (type === 'screen') {
+      if (localStreamRef.current) {
+        localStreamRef.current.getVideoTracks().forEach((t) => t.stop());
+      }
+    } else if (type === 'voice') {
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((t) => t.stop());
+        const hasCameraConnection = Array.from(peersRef.current.values()).some(
+          (peer) => peer.type === 'camera',
+        );
+        if (!hasCameraConnection) {
+          localStreamRef.current = null;
+        }
+      }
+    } else if (type === 'camera') {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+        localStreamRef.current = null;
+      }
+    }
 
     peersRef.current.forEach((peer, peerId) => {
       if (peer.type === type) {
@@ -174,32 +226,47 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
       if (payload.userId !== peerUserId) return;
       const pc = createPeerConnection(payload.userId, 'voice');
 
-      if (localStreamRef.current) {
+      try {
+        if (!localStreamRef.current) {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localStreamRef.current = stream;
+        }
         localStreamRef.current.getTracks().forEach((track) => {
           pc.addTrack(track, localStreamRef.current!);
         });
+      } catch (err) {
+        console.warn('Could not acquire microphone for incoming call:', err);
       }
 
       await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      const eventName = 'webrtc_answer';
-      socket.emit(eventName, {
+      socket.emit('webrtc_answer', {
         lessonId,
         targetUserId: payload.userId,
         answer: pc.localDescription,
       });
+      setActiveCall('voice');
     };
 
     const handleCameraOffer = async (payload: { userId: string; offer: RTCSessionDescriptionInit }) => {
       if (payload.userId !== peerUserId) return;
       const pc = createPeerConnection(payload.userId, 'camera');
 
-      if (localStreamRef.current) {
+      try {
+        if (!localStreamRef.current) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: { width: 640, height: 480 },
+          });
+          localStreamRef.current = stream;
+        }
         localStreamRef.current.getTracks().forEach((track) => {
           pc.addTrack(track, localStreamRef.current!);
         });
+      } catch (err) {
+        console.warn('Could not acquire camera for incoming call:', err);
       }
 
       await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
@@ -211,6 +278,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
         targetUserId: payload.userId,
         answer: pc.localDescription,
       });
+      setActiveCall('camera');
     };
 
     const handleAnswer = async (payload: { userId: string; answer: RTCSessionDescriptionInit }) => {
@@ -247,6 +315,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
     socket.on('camera_answer', handleAnswer);
     socket.on('camera_ice_candidate', handleIceCandidate);
     socket.on('webrtc_end', handleCallEnd);
+    socket.on('camera_end', handleCallEnd);
 
     return () => {
       socket.off('webrtc_offer', handleVoiceOffer);
@@ -256,6 +325,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
       socket.off('camera_answer', handleAnswer);
       socket.off('camera_ice_candidate', handleIceCandidate);
       socket.off('webrtc_end', handleCallEnd);
+      socket.off('camera_end', handleCallEnd);
     };
   }, [lessonId, peerUserId, createPeerConnection, cleanupPeerConnection]);
 
@@ -271,6 +341,7 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
     localStreamRef,
     isCallLoading,
     callError,
+    connectionStatus,
     startCall,
     stopCall,
     stopAllCalls,

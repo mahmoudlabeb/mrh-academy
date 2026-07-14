@@ -23,26 +23,6 @@ type TutorProfile = {
 function HeroSection() {
   return (
     <section className="relative pt-32 pb-24 overflow-hidden" style={{ background: '#0F3A40' }}>
-      {/* Video Background Layer */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[#0F3A40]"></div>
-        <iframe 
-          src="https://www.youtube.com/embed/W0LHTWG-UmQ?autoplay=1&mute=1&controls=0&loop=1&playlist=W0LHTWG-UmQ&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1" 
-          className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 opacity-15 mix-blend-screen pointer-events-none" 
-          frameBorder="0" 
-          allow="autoplay; encrypted-media" 
-          allowFullScreen>
-        </iframe>
-        {/* Overlay gradient to blend the video */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0F3A40]/50 to-[#0F3A40]"></div>
-      </div>
-
-      {/* Floating glass cards */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-1/4 right-1/4 w-64 h-64 rounded-full animate-float opacity-20" style={{ background: 'radial-gradient(circle, #D4A353 0%, transparent 70%)' }} />
-        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full animate-float opacity-15" style={{ background: 'radial-gradient(circle, #D4A353 0%, transparent 70%)', animationDelay: '2s' }} />
-      </div>
-
       <div className="mx-auto max-w-7xl px-4 sm:px-6 relative">
         <div className="text-center">
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-8" style={{ background: 'rgba(212, 163, 83,0.15)', color: '#D4A353', border: '1px solid rgba(212, 163, 83,0.3)' }}>
@@ -79,88 +59,6 @@ function HeroSection() {
             >
               كن معلمًا
             </Link>
-          </div>
-
-          {/* Showcase Cards (Video-like Animations) */}
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto text-right">
-            <div className="card-gold p-6 animate-slide-up hover:shadow-2xl transition-all hover:-translate-y-2 group" style={{ animationDelay: '0.1s' }}>
-              <div className="relative w-full h-40 mb-4 rounded-xl overflow-hidden border border-[rgba(212,163,83,0.3)] bg-[#0F3A40] flex items-center justify-center">
-                <div className="absolute inset-0 opacity-20 animate-scanline bg-gradient-to-b from-transparent via-[#D4A353]/30 to-transparent"></div>
-                
-                {/* Avatar with pulsing rings */}
-                <div className="relative z-10 w-24 h-24">
-                  <div className="absolute inset-0 rounded-full bg-[#D4A353] animate-ping-slow"></div>
-                  <Image src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&q=100&fit=crop&h=200" width={96} height={96} className="relative w-24 h-24 rounded-full object-cover shadow-lg border-2 border-[#D4A353] animate-breathe" alt="Teacher" />
-                </div>
-                
-                <span className="absolute top-3 right-3 badge text-[10px] animate-fade-in" style={{ background: '#0F3A40', color: '#D4A353', border: '1px solid #D4A353', animationDelay: '1s', opacity: 0 }}>4.99 ★</span>
-                <span className="absolute bottom-3 right-3 badge text-[10px] animate-slide-up" style={{ background: '#0F3A40', color: '#D4A353', border: '1px solid #D4A353', animationDelay: '1.2s', opacity: 0 }}>لغة عربية</span>
-                <span className="absolute bottom-3 left-3 badge text-[10px] animate-slide-up" style={{ background: '#0F3A40', color: '#D4A353', border: '1px solid #D4A353', animationDelay: '1.4s', opacity: 0 }}>لغة إنجليزية</span>
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-[#FFFFF0] group-hover:text-[#D4A353] transition-colors">ابحث عن معلمك المثالي</h3>
-              <p className="text-sm text-[#E4CC9C] opacity-90">تواصل مع معلمين خبراء من مختلف المجالات. ابحث حسب المادة، اللغة والسعر.</p>
-            </div>
-
-            <div className="card-gold p-6 animate-slide-up hover:shadow-2xl transition-all hover:-translate-y-2 group" style={{ animationDelay: '0.2s' }}>
-              <div className="relative w-full h-40 mb-4 rounded-xl overflow-hidden border border-[rgba(212,163,83,0.3)] bg-black">
-                {/* Slow zooming image mimicking video pan */}
-                <div className="absolute inset-0 animate-breathe" style={{ animationDuration: '10s' }}>
-                  <Image src="https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=800&q=100&fit=crop" fill className="object-cover opacity-80" alt="Video Call" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                </div>
-                
-                {/* Animated Audio Visualizer Overlays */}
-                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-end gap-1 h-8 z-10">
-                   <div className="w-1.5 bg-[#22c55e] rounded-full animate-audio-1"></div>
-                   <div className="w-1.5 bg-[#22c55e] rounded-full animate-audio-2"></div>
-                   <div className="w-1.5 bg-[#22c55e] rounded-full animate-audio-3"></div>
-                   <div className="w-1.5 bg-[#22c55e] rounded-full animate-audio-1" style={{ animationDelay: '0.2s' }}></div>
-                   <div className="w-1.5 bg-[#22c55e] rounded-full animate-audio-2" style={{ animationDelay: '0.4s' }}></div>
-                </div>
-
-                {/* Blinking REC dot */}
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full z-10">
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                  <span className="text-[10px] text-white font-bold tracking-wider">REC</span>
-                </div>
-
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                  <div className="w-6 h-6 rounded-full bg-[#0F3A40] border border-[#D4A353] flex items-center justify-center hover:scale-110 transition-transform"><div className="w-2 h-2 rounded-full bg-[#22c55e]"></div></div>
-                  <div className="w-6 h-6 rounded-full bg-[#0F3A40] border border-[#D4A353] flex items-center justify-center hover:scale-110 transition-transform"><div className="w-3 h-0.5 bg-[#D4A353]"></div></div>
-                  <div className="w-6 h-6 rounded-full bg-red-500 border border-red-600 flex items-center justify-center hover:scale-110 transition-transform"></div>
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-[#FFFFF0] group-hover:text-[#D4A353] transition-colors">فصول دراسية تفاعلية</h3>
-              <p className="text-sm text-[#E4CC9C] opacity-90">دروس فيديو بدقة عالية، سبورة بيضاء تفاعلية، كل ذلك مدمج بالداخل.</p>
-            </div>
-
-            <div className="card-gold p-6 animate-slide-up hover:shadow-2xl transition-all hover:-translate-y-2 group" style={{ animationDelay: '0.3s' }}>
-              <div className="relative w-full h-40 mb-4 rounded-xl overflow-hidden border border-[rgba(212,163,83,0.3)] bg-[#0F3A40] p-4 flex flex-col justify-between">
-                <h4 className="text-xs text-[#E4CC9C]">أيام الالتزام (Learning)</h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl font-bold text-[#FFFFF0]">24 يوماً</span>
-                  <span className="animate-bounce-soft">🔥</span>
-                </div>
-                
-                {/* Dynamic CSS Bar Chart */}
-                <div className="flex items-end h-14 gap-2 w-full px-2 mt-2 border-b border-[#D4A353]/30 pb-1">
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.2s', height: '0%', '--target-height': '40%' } as React.CSSProperties}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.4s', height: '0%', '--target-height': '70%' } as React.CSSProperties}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.6s', height: '0%', '--target-height': '50%' } as React.CSSProperties}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar" style={{ animationDelay: '0.8s', height: '0%', '--target-height': '90%' } as React.CSSProperties}></div>
-                  <div className="flex-1 bg-gradient-to-t from-[#B89754] to-[#F3E1B9] rounded-t-sm animate-chart-bar relative" style={{ animationDelay: '1.0s', height: '0%', '--target-height': '100%' } as React.CSSProperties}>
-                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#0F3A40] text-[#D4A353] border border-[#D4A353] text-[10px] px-1.5 py-0.5 rounded font-bold animate-fade-in" style={{ animationDelay: '2.5s', opacity: 0 }}>اليوم</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 mt-1">
-                  <div className="flex-1 bg-[#1D535B] rounded p-1 text-center"><span className="block text-[#FFFFF0] font-bold text-sm">48</span><span className="text-[10px] text-[#E4CC9C]">درس</span></div>
-                  <div className="flex-1 bg-[#1D535B] rounded p-1 text-center"><span className="block text-[#FFFFF0] font-bold text-sm">3</span><span className="text-[10px] text-[#E4CC9C]">مواد</span></div>
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-[#FFFFF0] group-hover:text-[#D4A353] transition-colors">تتبع تقدمك يومياً</h3>
-              <p className="text-sm text-[#E4CC9C] opacity-90">حافظ على زخمك، حقق أهدافك، واستمتع بإنجازاتك المستمرة كل يوم.</p>
-            </div>
           </div>
 
           {/* Stats */}

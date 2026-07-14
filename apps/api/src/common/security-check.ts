@@ -11,7 +11,9 @@ export function checkSecurityEnvironment(logger: Logger): void {
   if (nodeEnv === 'production') {
     if (!frontendUrl) {
       errors.push('FRONTEND_URL must be configured in production');
-    } else if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(frontendUrl)) {
+    } else if (
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(frontendUrl)
+    ) {
       errors.push('FRONTEND_URL cannot point to localhost in production');
     }
 

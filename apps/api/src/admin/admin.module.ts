@@ -10,6 +10,7 @@ import { AdminCoursesController } from './admin-courses.controller.js';
 import { AdminReviewsController } from './admin-reviews.controller.js';
 import { AdminImpersonationController } from './admin-impersonation.controller.js';
 import { AdminPaymentsController } from './admin-payments.controller.js';
+import { AdminPaymentMethodsController } from './admin-payment-methods.controller.js';
 import { AdminReportsController } from './admin-reports.controller.js';
 import { AdminEmployeesService } from './admin-employees.service.js';
 import { TutorsModule } from '../tutors/tutors.module.js';
@@ -27,6 +28,7 @@ import { Course } from '../entities/course.entity.js';
 import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
 import { Review } from '../entities/review.entity.js';
 import { Payment } from '../entities/payment.entity.js';
+import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
 import { Report } from '../entities/report.entity.js';
 import { Payout } from '../entities/payout.entity.js';
 
@@ -48,6 +50,7 @@ import { Payout } from '../entities/payout.entity.js';
       CourseEnrollment,
       Review,
       Payment,
+      PaymentMethodConfig,
       Report,
       Payout,
     ]),
@@ -64,6 +67,7 @@ import { Payout } from '../entities/payout.entity.js';
     AdminReviewsController,
     AdminImpersonationController,
     AdminPaymentsController,
+    AdminPaymentMethodsController,
     AdminReportsController,
   ],
 })

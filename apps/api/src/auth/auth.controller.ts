@@ -5,7 +5,6 @@ import {
   Delete,
   Body,
   Res,
-  Req,
   UseGuards,
   HttpCode,
   HttpStatus,

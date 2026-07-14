@@ -174,7 +174,7 @@ export class UsersService {
   async getNotificationPreferences(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: { id: true, notificationPreferences: true },
+      select: ['id', 'notificationPreferences'],
     });
     if (!user) {
       throw new UnauthorizedException('User not found');

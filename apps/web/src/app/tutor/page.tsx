@@ -163,8 +163,8 @@ function TutorPageContent() {
   const recentLessons = (allLessonsQuery.data ?? []).filter((l) => l.status !== 'pending').slice(0, 5);
 
   const approveLessonMutation = useMutation({
-    mutationFn: async (lessonId: string) => {
-      await apiClient.post(`/lessons/${lessonId}/approve`);
+    mutationFn: async ({ id, scheduledTime }: { id: string; scheduledTime: string }) => {
+      await apiClient.post(`/lessons/${id}/approve`, { scheduledTime });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tutor-all-lessons'] });
@@ -197,6 +197,7 @@ function TutorPageContent() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cancellingLessonId, setCancellingLessonId] = useState<string | null>(null);
+  const [approveTimes, setApproveTimes] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const connectQuery = useQuery({
@@ -373,40 +374,65 @@ function TutorPageContent() {
                   {t('طلبات دروس جديدة', 'New Lesson Requests')}
                 </h3>
                 <div className="space-y-3">
-                  {pendingLessons.map((lesson) => (
-                    <div key={lesson.id} className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.12)', color: 'var(--primary-color)' }}>
-                          {lesson.student?.firstName?.[0] ?? 'S'}
+                  {pendingLessons.map((lesson) => {
+                    const approveTime = approveTimes[lesson.id] || '';
+                    return (
+                      <div key={lesson.id} className="p-4 rounded-xl" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(212, 163, 83,0.12)', color: 'var(--primary-color)' }}>
+                              {lesson.student?.firstName?.[0] ?? 'S'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
+                                {lesson.student ? `${lesson.student.firstName ?? ''} ${lesson.student.lastName ?? ''}`.trim() : t('طالب', 'Student')}
+                              </p>
+                              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                {new Date(lesson.scheduledTime).toLocaleDateString()} &middot; {lesson.durationMinutes} {t('دقيقة', 'min')} &middot; ${lesson.price.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-                            {lesson.student ? `${lesson.student.firstName ?? ''} ${lesson.student.lastName ?? ''}`.trim() : t('طالب', 'Student')}
-                          </p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {new Date(lesson.scheduledTime).toLocaleDateString()} &middot; {lesson.durationMinutes} {t('دقيقة', 'min')} &middot; ${lesson.price.toFixed(2)}
-                          </p>
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="flex-1">
+                            <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>
+                              {t('اختر وقت الدرس', 'Choose lesson time')}
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={approveTime}
+                              onChange={(e) => setApproveTimes(prev => ({ ...prev, [lesson.id]: e.target.value }))}
+                              className="input-field w-full text-sm"
+                              min={new Date().toISOString().slice(0, 16)}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 mt-5">
+                            <button
+                              onClick={() => rejectLessonMutation.mutate(lesson.id)}
+                              disabled={rejectLessonMutation.isPending}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
+                              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                            >
+                              {t('رفض', 'Decline')}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!approveTime) {
+                                  alert(t('الرجاء اختيار وقت للدرس', 'Please select a time for the lesson'));
+                                  return;
+                                }
+                                approveLessonMutation.mutate({ id: lesson.id, scheduledTime: new Date(approveTime).toISOString() });
+                              }}
+                              disabled={approveLessonMutation.isPending || !approveTime}
+                              className="btn-primary px-4 py-1.5 text-xs"
+                            >
+                              {t('موافقة', 'Approve')}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => rejectLessonMutation.mutate(lesson.id)}
-                          disabled={rejectLessonMutation.isPending}
-                          className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
-                          style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
-                        >
-                          {t('رفض', 'Decline')}
-                        </button>
-                        <button
-                          onClick={() => approveLessonMutation.mutate(lesson.id)}
-                          disabled={approveLessonMutation.isPending}
-                          className="btn-primary px-4 py-1.5 text-xs"
-                        >
-                          {t('موافقة', 'Approve')}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

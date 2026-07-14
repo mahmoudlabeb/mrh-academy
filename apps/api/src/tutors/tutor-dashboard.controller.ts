@@ -40,7 +40,7 @@ export class TutorDashboardController {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      avatar: (user as any).avatar,
+      avatarUrl: user.avatarUrl,
       lessonCount,
     }));
   }

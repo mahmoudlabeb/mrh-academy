@@ -5,6 +5,8 @@ import {
   IsUrl,
   MinLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+import sanitizeHtml from 'sanitize-html';
 
 export class CreateArticleDto {
   @IsString()
@@ -13,6 +15,21 @@ export class CreateArticleDto {
 
   @IsString()
   @MinLength(10)
+  @Transform(({ value }) =>
+    sanitizeHtml(value as string, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+        'img',
+        'h1',
+        'h2',
+        'figure',
+      ]),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        img: ['src', 'alt', 'width', 'height'],
+        a: ['href', 'target', 'rel'],
+      },
+    }),
+  )
   content: string;
 
   @IsOptional()

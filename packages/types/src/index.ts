@@ -146,9 +146,11 @@ export const PaymentSchema = z.object({
   userId: z.string().uuid(),
   amount: z.number(),
   method: z.nativeEnum(PaymentMethod),
+  currency: z.string().default('USD'),
   status: z.nativeEnum(PaymentStatus).default(PaymentStatus.PENDING),
   receiptUrl: z.string().nullable(),
   adminNote: z.string().nullable(),
+  rejectionReason: z.string().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

@@ -112,9 +112,25 @@ export default function ClassroomPage() {
     localStreamRef,
     isCallLoading,
     callError,
+    connectionStatus,
     startCall,
     stopCall,
   } = useWebRTC(lessonId ?? '', user?.id || '', peerUser?.userId || null);
+
+  const [showFallback, setShowFallback] = useState(false);
+  const fallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (connectionStatus === 'failed') {
+      fallbackTimerRef.current = setTimeout(() => setShowFallback(true), 15_000);
+    } else {
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+      setShowFallback(false);
+    }
+    return () => {
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+    };
+  }, [connectionStatus]);
 
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -480,7 +496,7 @@ export default function ClassroomPage() {
     try {
       await apiClient.post('/reports', {
         lessonId,
-        subject: reportSubject,
+        issueType: reportSubject,
         description: reportDescription,
       });
       setShowReport(false);
@@ -607,6 +623,28 @@ export default function ClassroomPage() {
           </button>
         </div>
       </header>
+
+      {/* Google Meet Fallback Banner */}
+      {showFallback && (
+        <div
+          className="flex items-center justify-between px-4 py-3"
+          style={{ background: 'rgba(239,68,68,0.1)', borderBottom: '1px solid rgba(239,68,68,0.3)' }}
+        >
+          <p className="text-sm" style={{ color: '#ef4444' }}>
+            {t('تعذر الاتصال المباشر بسبب إعدادات الشبكة', 'Direct connection failed due to network settings')}
+          </p>
+          <a
+            href={lesson?.googleMeetUrl ??
+              `https://meet.google.com/new`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg, #F3E1B9, #B89754)', color: '#0F3A40' }}
+          >
+            {t('استمر عبر Google Meet', 'Continue via Google Meet')}
+          </a>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
