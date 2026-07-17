@@ -1,8 +1,8 @@
 import type { NextConfig } from 'next';
 
 const apiUrl =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') ||
-  'http://localhost:4000/api/v1';
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '').replace(/\/api\/v1$/, '') ||
+  'http://localhost:4000';
 
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${apiUrl}/:path*`,
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },

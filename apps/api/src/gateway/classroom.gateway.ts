@@ -183,7 +183,7 @@ export class ClassroomGateway
     }
     const classroom = await this.classroomRepository.findOne({
       where: { lessonId },
-      select: ['whiteboardSnapshot'],
+      select: ['whiteboardSnapshot', 'isActive'],
     });
     if (classroom && !classroom.isActive) {
       socket.emit('error_message', 'Classroom is closed');

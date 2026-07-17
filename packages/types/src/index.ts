@@ -28,6 +28,12 @@ export enum PaymentMethod {
   BANK = 'bank',
 }
 
+export enum PayoutStatus {
+  PENDING = 'pending',
+  SUCCESS = 'success',
+  FAILED = 'failed',
+}
+
 export enum CourseStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
@@ -104,9 +110,7 @@ export const LessonSchema = z.object({
   studentId: z.string().uuid(),
   scheduledTime: z.coerce.date(),
   endTime: z.coerce.date(),
-  durationMinutes: z.number().int().refine((value) => value === 25 || value === 50, {
-    message: 'durationMinutes must be 25 or 50',
-  }),
+  durationMinutes: z.union([z.literal(25), z.literal(50)]),
   price: z.number(),
   platformFee: z.number().nullable(),
   status: z.nativeEnum(LessonStatus).default(LessonStatus.PENDING),

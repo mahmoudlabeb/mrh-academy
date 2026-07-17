@@ -187,11 +187,11 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
       durationMinutes: 50,
     });
 
-    expect(result.scheduledTime.getUTCHours()).not.toBe(0);
-    expect(result.scheduledTime.getUTCMinutes()).not.toBe(0);
-    expect(result.scheduledTime.toISOString()).toBe(isoInput);
-    expect(result.endTime.getTime()).toBe(
-      result.scheduledTime.getTime() + 50 * 60000,
+    expect(result!.scheduledTime.getUTCHours()).not.toBe(0);
+    expect(result!.scheduledTime.getUTCMinutes()).not.toBe(0);
+    expect(result!.scheduledTime.toISOString()).toBe(isoInput);
+    expect(result!.endTime.getTime()).toBe(
+      result!.scheduledTime.getTime() + 50 * 60000,
     );
   });
 });

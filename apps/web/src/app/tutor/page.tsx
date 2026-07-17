@@ -163,8 +163,8 @@ function TutorPageContent() {
   const recentLessons = (allLessonsQuery.data ?? []).filter((l) => l.status !== 'pending').slice(0, 5);
 
   const approveLessonMutation = useMutation({
-    mutationFn: async ({ id, scheduledTime }: { id: string; scheduledTime: string }) => {
-      await apiClient.post(`/lessons/${id}/approve`, { scheduledTime });
+    mutationFn: async ({ id }: { id: string }) => {
+      await apiClient.post(`/lessons/${id}/approve`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tutor-all-lessons'] });
@@ -197,7 +197,6 @@ function TutorPageContent() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cancellingLessonId, setCancellingLessonId] = useState<string | null>(null);
-  const [approveTimes, setApproveTimes] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const connectQuery = useQuery({
@@ -329,6 +328,24 @@ function TutorPageContent() {
               </div>
             </div>
 
+            {/* Earnings & Payouts quick link */}
+            <Link href="/tutor/earnings" className="card-gold p-5 flex items-center justify-between group transition-all hover:-translate-y-0.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(212,163,83,0.15)' }}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#D4A353" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-semibold" style={{ color: 'var(--text-main)' }}>{t('الأرباح والسحب', 'Earnings & Payouts')}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{t('اطلع على رصيدك واطلب سحب أرباحك', 'View balance and request payouts')}</p>
+                </div>
+              </div>
+              <svg className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: '#D4A353' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+
             <div className="card-dark p-6">
               <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
                 {t('الحساب البنكي (Stripe Connect)', 'Stripe Connect Payouts')}
@@ -375,7 +392,6 @@ function TutorPageContent() {
                 </h3>
                 <div className="space-y-3">
                   {pendingLessons.map((lesson) => {
-                    const approveTime = approveTimes[lesson.id] || '';
                     return (
                       <div key={lesson.id} className="p-4 rounded-xl" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
                         <div className="flex items-center justify-between gap-4">
@@ -394,18 +410,6 @@ function TutorPageContent() {
                           </div>
                         </div>
                         <div className="mt-3 flex items-center gap-3">
-                          <div className="flex-1">
-                            <label className="text-xs mb-1 block" style={{ color: 'var(--text-muted)' }}>
-                              {t('اختر وقت الدرس', 'Choose lesson time')}
-                            </label>
-                            <input
-                              type="datetime-local"
-                              value={approveTime}
-                              onChange={(e) => setApproveTimes(prev => ({ ...prev, [lesson.id]: e.target.value }))}
-                              className="input-field w-full text-sm"
-                              min={new Date().toISOString().slice(0, 16)}
-                            />
-                          </div>
                           <div className="flex items-center gap-2 shrink-0 mt-5">
                             <button
                               onClick={() => rejectLessonMutation.mutate(lesson.id)}
@@ -417,13 +421,9 @@ function TutorPageContent() {
                             </button>
                             <button
                               onClick={() => {
-                                if (!approveTime) {
-                                  alert(t('الرجاء اختيار وقت للدرس', 'Please select a time for the lesson'));
-                                  return;
-                                }
-                                approveLessonMutation.mutate({ id: lesson.id, scheduledTime: new Date(approveTime).toISOString() });
+                                approveLessonMutation.mutate({ id: lesson.id });
                               }}
-                              disabled={approveLessonMutation.isPending || !approveTime}
+                              disabled={approveLessonMutation.isPending}
                               className="btn-primary px-4 py-1.5 text-xs"
                             >
                               {t('موافقة', 'Approve')}

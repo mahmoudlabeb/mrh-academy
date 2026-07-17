@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Body,
   UseGuards,
   Res,
@@ -12,7 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
-import { UserRole } from '@mrh/types';
+import { CourseStatus, UserRole } from '@mrh/types';
 import { TutorsService } from '../tutors/tutors.service.js';
 import { RejectTutorDto } from '../tutors/dto/reject-tutor.dto.js';
 import PDFDocument from 'pdfkit';
@@ -58,6 +59,24 @@ export class AdminTutorsController {
   @RequirePermissions('manage_tutors')
   async getTutor(@Param('id') id: string) {
     return this.tutorsService.findOneByUserId(id);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_tutors')
+  async updateTutor(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      bio?: string;
+      specialization?: string;
+      languages?: string[];
+      hourlyRate?: number;
+      status?: CourseStatus;
+    },
+  ) {
+    return this.tutorsService.updateTutorProfile(id, body);
   }
 
   @Post(':id/approve')

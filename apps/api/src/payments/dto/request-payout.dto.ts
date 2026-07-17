@@ -1,4 +1,4 @@
-import { IsNumber, Min, IsString, IsIn } from 'class-validator';
+import { IsNumber, Min, IsString, IsIn, MaxLength } from 'class-validator';
 
 export class RequestPayoutDto {
   @IsNumber()
@@ -10,5 +10,6 @@ export class RequestPayoutDto {
   method: string;
 
   @IsString()
+  @MaxLength(500)
   accountDetails: string;
 }

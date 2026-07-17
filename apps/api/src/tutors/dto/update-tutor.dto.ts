@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsArray, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  IsEnum,
+} from 'class-validator';
+import { CourseStatus } from '@mrh/types';
 
 export class UpdateTutorDto {
   @IsString()
@@ -20,4 +27,8 @@ export class UpdateTutorDto {
   @IsString()
   @IsOptional()
   videoUrl?: string;
+
+  @IsEnum(CourseStatus)
+  @IsOptional()
+  status?: CourseStatus;
 }

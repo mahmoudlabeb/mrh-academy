@@ -88,7 +88,7 @@ export class AuthService {
     );
   }
 
-  private async buildAuthResponse(user: User, existingSessionId?: string) {
+  async buildAuthResponse(user: User, existingSessionId?: string) {
     await this.clearRevocation(user.id);
 
     const base: Omit<JwtTokenPayload, 'type'> = {

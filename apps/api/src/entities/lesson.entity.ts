@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  AfterLoad,
 } from 'typeorm';
 import { LessonStatus } from '@mrh/types';
 import { ColumnNumericTransformer } from '../common/transformers/numeric.transformer.js';
@@ -57,6 +58,9 @@ export class Lesson {
   status: LessonStatus;
 
   @Column({ nullable: true })
+  roomId: string;
+
+  @Column({ nullable: true })
   meetUrl: string;
 
   @Column({ nullable: true })
@@ -81,4 +85,13 @@ export class Lesson {
   @ManyToOne(() => User)
   @JoinColumn({ name: 'studentId' })
   student: User;
+
+  @AfterLoad()
+  syncRoomId() {
+    if (this.roomId && !this.meetUrl) {
+      this.meetUrl = this.roomId;
+    } else if (!this.roomId && this.meetUrl) {
+      this.roomId = this.meetUrl;
+    }
+  }
 }

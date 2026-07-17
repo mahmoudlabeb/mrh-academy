@@ -10,6 +10,7 @@ export class CommissionService {
   private cachedTutorPromoRate: number | null = null;
   private cachedAcademyBaseRate: number | null = null;
   private cachedCreditPrice: number | null = null;
+  private cachedEgpRate: number | null = null;
   private cacheExpiresAt = 0;
 
   constructor(
@@ -32,7 +33,7 @@ export class CommissionService {
     const setting = await this.settingRepository.findOne({
       where: { key: 'course_tutor_promo_rate' },
     });
-    this.cachedTutorPromoRate = setting ? parseFloat(setting.value) : 0.02;
+    this.cachedTutorPromoRate = setting ? parseFloat(setting.value) : 0.05;
     this.touchCache();
     return this.cachedTutorPromoRate;
   }
@@ -44,7 +45,7 @@ export class CommissionService {
     const setting = await this.settingRepository.findOne({
       where: { key: 'course_academy_base_rate' },
     });
-    this.cachedAcademyBaseRate = setting ? parseFloat(setting.value) : 0.53;
+    this.cachedAcademyBaseRate = setting ? parseFloat(setting.value) : 0.54;
     this.touchCache();
     return this.cachedAcademyBaseRate;
   }
@@ -72,7 +73,21 @@ export class CommissionService {
     this.cachedTutorPromoRate = null;
     this.cachedAcademyBaseRate = null;
     this.cachedCreditPrice = null;
+    this.cachedEgpRate = null;
     this.cacheExpiresAt = 0;
+  }
+
+  async getEgpRate(): Promise<number> {
+    if (this.cachedEgpRate !== null && this.isCacheValid()) {
+      return this.cachedEgpRate;
+    }
+    const setting = await this.settingRepository.findOne({
+      where: { key: 'egp_to_usd_rate' },
+    });
+    const parsed = setting ? parseFloat(setting.value) : 50;
+    this.cachedEgpRate = Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
+    this.touchCache();
+    return this.cachedEgpRate;
   }
 
   calculateLessonFee(totalHours: number): number {

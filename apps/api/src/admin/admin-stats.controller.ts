@@ -5,7 +5,6 @@ import { UserRole } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
-import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
 import { TutorsService } from '../tutors/tutors.service.js';
 import { Lesson } from '../entities/lesson.entity.js';
 import { User } from '../entities/user.entity.js';
@@ -22,24 +21,21 @@ export class AdminStatsController {
 
   @Get('stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
-  @RequirePermissions('manage_tutors')
+  @Roles(UserRole.ADMIN)
   getStats() {
     return this.tutorsService.getAdminStats();
   }
 
   @Get('stats/dashboard')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
-  @RequirePermissions('manage_tutors')
+  @Roles(UserRole.ADMIN)
   getDashboardStats() {
     return this.tutorsService.getAdminStats();
   }
 
   @Get('activity/recent')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
-  @RequirePermissions('manage_tutors')
+  @Roles(UserRole.ADMIN)
   async getRecentActivity() {
     const lessons = await this.lessonRepository.find({
       relations: { tutor: true, student: true },

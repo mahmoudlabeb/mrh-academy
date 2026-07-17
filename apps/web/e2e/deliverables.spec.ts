@@ -36,10 +36,10 @@ test.describe('Client Deliverables — Student', () => {
   });
 
   test('student dashboard tabs', async ({ page }) => {
-    await expect(page.locator('text=Discover').or(page.locator('text=اكتشف'))).toBeVisible({ timeout: 10000 });
-    await page.click('text=Messages');
-    await page.click('text=Settings');
-    await expect(page.locator('text=Settings').or(page.locator('text=الإعدادات'))).toBeVisible();
+    await expect(page.locator('text=Discover').or(page.locator('text=اكتشف')).first()).toBeVisible({ timeout: 10000 });
+    await page.locator('text=Messages').or(page.locator('text=الرسائل')).first().click();
+    await page.locator('text=Settings').or(page.locator('text=الإعدادات')).first().click();
+    await expect(page.locator('text=Settings').or(page.locator('text=الإعدادات')).first()).toBeVisible();
   });
 
   test('book lesson page accessible', async ({ page }) => {
@@ -59,10 +59,10 @@ test.describe('Client Deliverables — Tutor', () => {
   });
 
   test('tutor dashboard sections', async ({ page }) => {
-    await expect(page.locator('text=Dashboard').or(page.locator('text=لوحة التحكم'))).toBeVisible({ timeout: 10000 });
-    await page.click('text=Messages');
-    await page.click('text=Students');
-    await page.click('text=Settings');
+    await expect(page.locator('text=Dashboard').or(page.locator('text=لوحة التحكم')).first()).toBeVisible({ timeout: 10000 });
+    await page.locator('text=Messages').or(page.locator('text=الرسائل')).first().click();
+    await page.locator('text=Students').or(page.locator('text=الطلاب')).first().click();
+    await page.locator('text=Settings').or(page.locator('text=الإعدادات')).first().click();
   });
 
   test('tutor availability page', async ({ page }) => {
@@ -78,7 +78,7 @@ test.describe('Client Deliverables — Admin', () => {
 
   test('admin panel loads', async ({ page }) => {
     await expect(page.locator('body')).toBeVisible();
-    await expect(page.locator('text=Tutors').or(page.locator('text=المعلمون')).or(page.locator('text=المعلمين'))).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Tutors').or(page.locator('text=المعلمون')).or(page.locator('text=المعلمين')).first()).toBeVisible({ timeout: 10000 });
   });
 });
 

@@ -35,14 +35,21 @@ export class PayoutController {
     return this.paymentsService.getTutorPayouts(user.id);
   }
 
+  /** Admin: list all payout requests */
+  @Get()
+  @Roles(UserRole.ADMIN)
+  async getAllPayouts() {
+    return this.paymentsService.getAllPayouts();
+  }
+
   @Patch(':id/approve')
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN)
   approvePayout(@Param('id') id: string, @CurrentUser() admin: { id: string }) {
     return this.paymentsService.approvePayout(id, admin.id);
   }
 
   @Patch(':id/reject')
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN)
   rejectPayout(
     @Param('id') id: string,
     @Body('reason') reason: string,

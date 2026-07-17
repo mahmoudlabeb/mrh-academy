@@ -13,6 +13,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 import { SessionGuard } from './auth/guards/session.guard.js';
+import { MaintenanceGuard } from './auth/guards/maintenance.guard.js';
 import { ReminderService } from './services/reminder.service.js';
 import { PayoutReconciliationService } from './services/payout-reconciliation.service.js';
 import { EmailService } from './services/email.service.js';
@@ -32,6 +33,7 @@ import { ClassroomModule } from './gateway/classroom.module.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { StudentsModule } from './students/students.module.js';
 import { SharedModule } from './shared/shared.module.js';
+import { Setting } from './entities/setting.entity.js';
 import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
 import * as dbEntities from './entities/index.js';
@@ -58,22 +60,25 @@ import * as dbEntities from './entities/index.js';
         GOOGLE_SERVICE_ACCOUNT_EMAIL: Joi.string().optional().allow(''),
         GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: Joi.string().optional().allow(''),
         GOOGLE_CALENDAR_IMPERSONATE_EMAIL: Joi.string().optional().allow(''),
-        CLOUDINARY_CLOUD_NAME: Joi.string().optional().allow(''),
-        CLOUDINARY_API_KEY: Joi.string().optional().allow(''),
-        CLOUDINARY_API_SECRET: Joi.string().optional().allow(''),
+        CLOUDINARY_CLOUD_NAME: Joi.string().required(),
+        CLOUDINARY_API_KEY: Joi.string().required(),
+        CLOUDINARY_API_SECRET: Joi.string().required(),
         STRIPE_SECRET_KEY: Joi.string().optional().allow(''),
         STRIPE_WEBHOOK_SECRET: Joi.string().optional().allow(''),
         STRIPE_PUBLISHABLE_KEY: Joi.string().optional().allow(''),
         BUNNY_API_KEY: Joi.string().optional().allow(''),
         BUNNY_LIBRARY_ID: Joi.string().optional().allow(''),
         BUNNY_CDN_HOSTNAME: Joi.string().optional().allow(''),
+        BUNNY_READONLY_API_KEY: Joi.string().optional().allow(''),
+        METERED_API_KEY: Joi.string().optional().allow(''),
+        METERED_APP_NAME: Joi.string().optional().allow(''),
         GEMINI_API_KEY: Joi.string().optional().allow(''),
-        SMTP_HOST: Joi.string().optional().allow(''),
-        SMTP_PORT: Joi.number().optional(),
-        SMTP_SECURE: Joi.string().valid('true', 'false').optional(),
-        SMTP_USER: Joi.string().optional().allow(''),
-        SMTP_PASS: Joi.string().optional().allow(''),
-        SMTP_FROM: Joi.string().optional().allow(''),
+        SMTP_HOST: Joi.string().required(),
+        SMTP_PORT: Joi.number().required(),
+        SMTP_SECURE: Joi.string().valid('true', 'false').required(),
+        SMTP_USER: Joi.string().required(),
+        SMTP_PASS: Joi.string().required(),
+        SMTP_FROM: Joi.string().required(),
         ADMIN_EMAILS: Joi.string().optional().allow(''),
         SUBADMIN_DEFAULT_PASSWORD: Joi.string().optional().allow(''),
         REFERRAL_SECRET: Joi.string().optional().allow(''),
@@ -129,10 +134,7 @@ import * as dbEntities from './entities/index.js';
       },
     }),
     ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 100,
-      },
+      { name: 'default', ttl: 60000, limit: 100 },
     ]),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([Lesson]),
@@ -179,6 +181,10 @@ import * as dbEntities from './entities/index.js';
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: MaintenanceGuard,
     },
   ],
 })

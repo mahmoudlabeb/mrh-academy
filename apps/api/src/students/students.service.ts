@@ -43,8 +43,11 @@ export class StudentsService {
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Student profile not found');
-    const creditPrice = await this.commissionService.getCreditPrice();
-    return { balance: profile.balance, creditPrice };
+    const [creditPrice, egpRate] = await Promise.all([
+      this.commissionService.getCreditPrice(),
+      this.commissionService.getEgpRate(),
+    ]);
+    return { balance: profile.balance, creditPrice, egpRate };
   }
 
   async getPaymentHistory(userId: string) {
@@ -60,11 +63,12 @@ export class StudentsService {
       order: { sortOrder: 'ASC' },
     });
     if (configs.length === 0) {
+      // Fallback uses PaymentMethod enum values — must match exactly
       return [
         { type: 'card', label: 'Credit Card', enabled: true, details: null },
         { type: 'paypal', label: 'PayPal', enabled: true, details: null },
         {
-          type: 'vodafone_cash',
+          type: 'vodafone',
           label: 'Vodafone Cash',
           enabled: true,
           details: '01000000000',
@@ -82,7 +86,7 @@ export class StudentsService {
           details: 'Configure in admin settings',
         },
         {
-          type: 'bank_transfer',
+          type: 'bank',
           label: 'Bank Transfer',
           enabled: true,
           details: 'Configure in admin settings',

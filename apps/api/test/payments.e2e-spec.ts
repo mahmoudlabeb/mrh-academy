@@ -1,7 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UserRole, LessonStatus, PaymentStatus } from '@mrh/types';
+import {
+  UserRole,
+  LessonStatus,
+  PaymentStatus,
+  PaymentMethod,
+} from '@mrh/types';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { Repository } from 'typeorm';
@@ -129,7 +134,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     await availabilityRepo.save(
       availabilityRepo.create({
         tutorId: tutorUser.id,
-        dayOfWeek: new Date(scheduledDay).getDay(),
+        dayOfWeek: new Date(scheduledDay).getUTCDay(),
         startTime: '00:00',
         endTime: '23:59',
       }),
@@ -178,7 +183,7 @@ describe('Payments & Booking Flow (e2e)', () => {
       paymentRepository.create({
         userId: studentUser.id,
         amount: 300,
-        method: 'bank',
+        method: PaymentMethod.BANK,
         currency: 'USD',
         status: PaymentStatus.PENDING,
       }),
@@ -203,7 +208,7 @@ describe('Payments & Booking Flow (e2e)', () => {
       .set('Authorization', `Bearer ${studentToken}`)
       .send({
         tutorId: tutorUser.id,
-        scheduledDay,
+        scheduledTime: scheduledDay,
         durationMinutes: 50,
       });
     if (res.status !== 201) console.error(res.body);

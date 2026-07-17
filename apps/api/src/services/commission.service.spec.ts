@@ -142,14 +142,14 @@ describe('CommissionService', () => {
         value: '10',
       });
       await service.getCreditPrice();
-      await service.getCourseTutorPromoRate();
-      await service.getCourseAcademyBaseRate();
+      await service['getCourseTutorPromoRate']();
+      await service['getCourseAcademyBaseRate']();
 
       service.invalidateCache();
 
       await service.getCreditPrice();
-      await service.getCourseTutorPromoRate();
-      await service.getCourseAcademyBaseRate();
+      await service['getCourseTutorPromoRate']();
+      await service['getCourseAcademyBaseRate']();
 
       expect(settingRepository.findOne).toHaveBeenCalledTimes(6);
     });

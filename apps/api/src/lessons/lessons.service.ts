@@ -130,6 +130,23 @@ export class LessonsService {
         throw new NotFoundException('Tutor not found');
       }
 
+      const overlapping = await manager
+        .createQueryBuilder(Lesson, 'l')
+        .setLock('pessimistic_read')
+        .where('l.tutorId = :tutorId', { tutorId: dto.tutorId })
+        .andWhere('l.status IN (:...statuses)', {
+          statuses: [LessonStatus.PENDING, LessonStatus.CONFIRMED],
+        })
+        .andWhere('l.scheduledTime < :endTime', { endTime })
+        .andWhere('l.endTime > :scheduledDate', { scheduledDate })
+        .getOne();
+
+      if (overlapping) {
+        throw new BadRequestException(
+          'Tutor already has a lesson at this time',
+        );
+      }
+
       const roomId = `room-${randomUUID()}`;
 
       const lessonEntity = manager.create(Lesson, {
@@ -140,6 +157,7 @@ export class LessonsService {
         durationMinutes: dto.durationMinutes,
         price,
         status: LessonStatus.PENDING,
+        roomId,
         meetUrl: roomId,
       });
       const saved = await manager.save(Lesson, lessonEntity);

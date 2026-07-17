@@ -23,14 +23,12 @@ export default defineConfig({
     trace: 'on-first-retry',
     actionTimeout: 15000,
     navigationTimeout: 30000,
-    extraHTTPHeaders: {
-      'X-MRH-Client': 'mrh-web',
-    },
+
   },
   webServer: process.env.SKIP_WEB_SERVER
     ? undefined
     : {
-        command: 'npm run dev',
+        command: 'pnpm dev',
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 180000,

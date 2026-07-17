@@ -12,7 +12,9 @@ import { AdminImpersonationController } from './admin-impersonation.controller.j
 import { AdminPaymentsController } from './admin-payments.controller.js';
 import { AdminPaymentMethodsController } from './admin-payment-methods.controller.js';
 import { AdminReportsController } from './admin-reports.controller.js';
+import { AdminSubAdminsController } from './admin-subadmins.controller.js';
 import { AdminEmployeesService } from './admin-employees.service.js';
+import { EmailService } from '../services/email.service.js';
 import { TutorsModule } from '../tutors/tutors.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
@@ -55,7 +57,7 @@ import { Payout } from '../entities/payout.entity.js';
       Payout,
     ]),
   ],
-  providers: [AdminEmployeesService],
+  providers: [AdminEmployeesService, EmailService],
   controllers: [
     AdminTutorsController,
     AdminStatsController,
@@ -69,6 +71,7 @@ import { Payout } from '../entities/payout.entity.js';
     AdminPaymentsController,
     AdminPaymentMethodsController,
     AdminReportsController,
+    AdminSubAdminsController,
   ],
 })
 export class AdminModule {}

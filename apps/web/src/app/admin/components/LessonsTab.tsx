@@ -32,7 +32,7 @@ export default function LessonsTab() {
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div className="flex gap-1 rounded-xl p-1" style={{ background: 'var(--bg-light)', border: '1px solid var(--border-color)' }}>
-          {['all', 'completed', 'cancelled', 'pending'].map((s) => (
+          {['all', 'completed', 'cancelled', 'confirmed', 'pending'].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -41,7 +41,7 @@ export default function LessonsTab() {
               }`}
               style={statusFilter === s ? { background: '#D4A353', color: '#0F3A40' } : { color: 'var(--text-muted)' }}
             >
-              {s === 'all' ? (lang === 'ar' ? 'الكل' : 'All') : s === 'completed' ? (lang === 'ar' ? 'مكتملة' : 'Completed') : s === 'cancelled' ? (lang === 'ar' ? 'ملغية' : 'Cancelled') : (lang === 'ar' ? 'معلقة' : 'Pending')}
+              {s === 'all' ? (lang === 'ar' ? 'الكل' : 'All') : s === 'completed' ? (lang === 'ar' ? 'مكتملة' : 'Completed') : s === 'cancelled' ? (lang === 'ar' ? 'ملغية' : 'Cancelled') : s === 'confirmed' ? (lang === 'ar' ? 'مؤكدة' : 'Confirmed') : (lang === 'ar' ? 'معلقة' : 'Pending')}
             </button>
           ))}
         </div>
@@ -89,8 +89,8 @@ export default function LessonsTab() {
                     <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{lesson.durationMinutes} {lang === 'ar' ? 'دقيقة' : 'min'}</td>
                     <td className="px-4 py-3">
                       <span className="badge text-xs"
-                        style={lesson.status === 'completed' ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' } : lesson.status === 'cancelled' ? { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' } : { background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
-                        {lesson.status === 'completed' ? (lang === 'ar' ? 'مكتملة' : 'Completed') : lesson.status === 'cancelled' ? (lang === 'ar' ? 'ملغية' : 'Cancelled') : (lang === 'ar' ? 'معلقة' : 'Pending')}
+                        style={lesson.status === 'completed' ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' } : lesson.status === 'cancelled' ? { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' } : lesson.status === 'confirmed' ? { background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.2)' } : { background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
+                        {lesson.status === 'completed' ? (lang === 'ar' ? 'مكتملة' : 'Completed') : lesson.status === 'cancelled' ? (lang === 'ar' ? 'ملغية' : 'Cancelled') : lesson.status === 'confirmed' ? (lang === 'ar' ? 'مؤكدة' : 'Confirmed') : (lang === 'ar' ? 'معلقة' : 'Pending')}
                       </span>
                     </td>
                     <td className="px-4 py-3">

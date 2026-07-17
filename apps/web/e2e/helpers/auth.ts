@@ -18,9 +18,28 @@ export async function loginAs(
 
   await page.context().clearCookies();
   await page.goto('/login');
-  await page.fill('input[name="email"]', email);
-  await page.fill('input[name="password"]', password);
-  await page.click('button[type="submit"]');
+  await page.waitForLoadState('networkidle');
+
   const rolePath = role === 'admin' ? 'admin' : role;
-  await expect(page).toHaveURL(new RegExp(`/${rolePath}`), { timeout: 15000 });
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.fill('input[name="email"]', email);
+    await page.fill('input[name="password"]', password);
+    await page.click('button[type="submit"]');
+
+    try {
+      await expect(page).toHaveURL(new RegExp(`/${rolePath}`), { timeout: 15000 });
+      return;
+    } catch {
+      // Check if form submitted natively (URL has query params)
+      const url = page.url();
+      if (url.includes('login?') || url === page.url()) {
+        // Wait for React to hydrate and retry
+        await page.waitForTimeout(1000);
+        continue;
+      }
+      throw new Error(`Login failed for ${role}. URL: ${url}`);
+    }
+  }
+  throw new Error(`Login failed for ${role} after 3 attempts. URL: ${page.url()}`);
 }

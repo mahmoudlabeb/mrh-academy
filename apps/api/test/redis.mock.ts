@@ -2,7 +2,7 @@ export class RedisServiceMock {
   public connected = true;
   private readonly store = new Map<string, string>();
 
-  set(key: string, value: string) {
+  async set(key: string, value: string, mode?: string, ttl?: number) {
     this.store.set(key, value);
   }
 

@@ -17,7 +17,7 @@ describe('TutorDashboardController phase 2 regression', () => {
       ]),
     };
     const controller = new TutorDashboardController(
-      lessonRepository as ConstructorParameters<
+      lessonRepository as unknown as ConstructorParameters<
         typeof TutorDashboardController
       >[0],
     );
@@ -29,6 +29,39 @@ describe('TutorDashboardController phase 2 regression', () => {
         lastName: 'Ali',
         email: 'sara@example.com',
         avatarUrl: 'https://cdn.example.com/sara.png',
+        lessonCount: 1,
+      },
+    ]);
+  });
+
+  it('returns avatarUrl: null when student has no avatar set (P2-B preservation)', async () => {
+    const lessonRepository = {
+      find: jest.fn().mockResolvedValue([
+        {
+          studentId: 'student-2',
+          student: {
+            id: 'student-2',
+            firstName: 'Noor',
+            lastName: 'Khaled',
+            email: 'noor@example.com',
+            avatarUrl: null,
+          },
+        },
+      ]),
+    };
+    const controller = new TutorDashboardController(
+      lessonRepository as unknown as ConstructorParameters<
+        typeof TutorDashboardController
+      >[0],
+    );
+
+    await expect(controller.getStudents({ id: 'tutor-1' })).resolves.toEqual([
+      {
+        id: 'student-2',
+        firstName: 'Noor',
+        lastName: 'Khaled',
+        email: 'noor@example.com',
+        avatarUrl: null,
         lessonCount: 1,
       },
     ]);

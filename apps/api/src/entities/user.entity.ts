@@ -60,6 +60,12 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Column({ nullable: true, type: 'varchar' })
+  inviteToken: string;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  inviteTokenExpires: Date;
+
   @DeleteDateColumn()
   deletedAt: Date;
 

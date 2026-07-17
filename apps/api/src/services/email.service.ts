@@ -2,11 +2,24 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
+interface EmailTask {
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
+  retries: number;
+}
+
 @Injectable()
 export class EmailService implements OnModuleInit {
   private readonly logger = new Logger(EmailService.name);
   private mailTransporter: nodemailer.Transporter;
   private isConfigured = false;
+  private queue: EmailTask[] = [];
+  private processing = false;
 
   constructor(private readonly configService: ConfigService) {
     const smtpUser = this.configService.get<string>('SMTP_USER');
@@ -42,18 +55,8 @@ export class EmailService implements OnModuleInit {
       this.logger.debug(`[Email skipped] To: ${to} | Subject: ${subject}`);
       return;
     }
-    try {
-      await this.mailTransporter.sendMail({
-        from:
-          this.configService.get<string>('SMTP_FROM') ||
-          'no-reply@mrh-academy.com',
-        to,
-        subject,
-        html,
-      });
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${to}: ${subject}`, error);
-    }
+    this.queue.push({ to, subject, html, retries: 0 });
+    this.processQueue();
   }
 
   async sendPlainEmail(to: string, subject: string, text: string) {
@@ -61,20 +64,51 @@ export class EmailService implements OnModuleInit {
       this.logger.debug(`[Email skipped] To: ${to} | Subject: ${subject}`);
       return;
     }
-    try {
-      await this.mailTransporter.sendMail({
-        from:
-          this.configService.get<string>('SMTP_FROM') ||
-          'no-reply@mrh-academy.com',
-        to,
-        subject,
-        text,
-      });
-    } catch (error) {
-      this.logger.error(
-        `Failed to send plain email to ${to}: ${subject}`,
-        error,
-      );
+    this.queue.push({ to, subject, text, retries: 0 });
+    this.processQueue();
+  }
+
+  private async processQueue() {
+    if (this.processing) return;
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const task = this.queue.shift();
+      if (!task) continue;
+
+      try {
+        if (task.html) {
+          await this.mailTransporter.sendMail({
+            from:
+              this.configService.get<string>('SMTP_FROM') ||
+              'no-reply@mrh-academy.com',
+            to: task.to,
+            subject: task.subject,
+            html: task.html,
+          });
+        } else {
+          await this.mailTransporter.sendMail({
+            from:
+              this.configService.get<string>('SMTP_FROM') ||
+              'no-reply@mrh-academy.com',
+            to: task.to,
+            subject: task.subject,
+            text: task.text,
+          });
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to send email to ${task.to}: ${task.subject}`,
+          error,
+        );
+        if (task.retries < MAX_RETRIES) {
+          this.logger.warn(`Retrying (${task.retries + 1}/${MAX_RETRIES})...`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+          this.queue.unshift({ ...task, retries: task.retries + 1 });
+        }
+      }
     }
+
+    this.processing = false;
   }
 }

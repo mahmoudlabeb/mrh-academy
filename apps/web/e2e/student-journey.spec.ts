@@ -23,10 +23,10 @@ test.describe('Student Journey', () => {
   test('student dashboard displays key sections', async ({ page }) => {
     await page.goto('/student');
     await expect(
-      page.locator('text=Discover').or(page.locator('text=اكتشف')),
+      page.locator('text=Discover').or(page.locator('text=اكتشف')).first(),
     ).toBeVisible({ timeout: 10000 });
     await expect(
-      page.locator('text=My Lessons').or(page.locator('text=دروسي')),
+      page.locator('text=My Lessons').or(page.locator('text=دروسي')).first(),
     ).toBeVisible({ timeout: 5000 });
   });
 

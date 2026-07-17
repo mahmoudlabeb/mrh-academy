@@ -37,31 +37,42 @@ export class AdminStudentsController {
       relations: { studentProfile: true },
     });
 
-    const result = await Promise.all(
-      students.map(async (student) => {
-        const lessonCount = await this.lessonRepository.count({
-          where: { studentId: student.id },
-        });
-        const completedLessons = await this.lessonRepository.count({
-          where: { studentId: student.id, status: LessonStatus.COMPLETED },
-        });
-        return {
-          id: student.id,
-          firstName: student.firstName,
-          lastName: student.lastName,
-          email: student.email,
-          phone: student.phone,
-          avatarUrl: student.avatarUrl,
-          isActive: student.isActive,
-          isVerified: student.isVerified,
-          createdAt: student.createdAt,
-          balance: student.studentProfile?.balance ?? 0,
-          preferredLanguage: student.studentProfile?.preferredLanguage ?? null,
-          totalLessons: lessonCount,
-          completedLessons,
-        };
-      }),
+    const lessonStats = await this.lessonRepository
+      .createQueryBuilder('lesson')
+      .select('lesson.studentId', 'studentId')
+      .addSelect('COUNT(lesson.id)', 'total')
+      .addSelect(
+        `SUM(CASE WHEN lesson.status = '${LessonStatus.COMPLETED}' THEN 1 ELSE 0 END)`,
+        'completed',
+      )
+      .groupBy('lesson.studentId')
+      .getRawMany();
+
+    const statsMap = new Map(
+      lessonStats.map((stat) => [
+        stat.studentId,
+        { total: Number(stat.total), completed: Number(stat.completed) },
+      ]),
     );
+
+    const result = students.map((student) => {
+      const stats = statsMap.get(student.id) || { total: 0, completed: 0 };
+      return {
+        id: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email,
+        phone: student.phone,
+        avatarUrl: student.avatarUrl,
+        isActive: student.isActive,
+        isVerified: student.isVerified,
+        createdAt: student.createdAt,
+        balance: student.studentProfile?.balance ?? 0,
+        preferredLanguage: student.studentProfile?.preferredLanguage ?? null,
+        totalLessons: stats.total,
+        completedLessons: stats.completed,
+      };
+    });
 
     return result;
   }

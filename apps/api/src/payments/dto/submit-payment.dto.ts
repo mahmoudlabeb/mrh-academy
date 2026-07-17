@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -15,12 +16,13 @@ export class SubmitPaymentDto {
 
   @Type(() => Number)
   @IsNumber()
-  @Min(1)
+  @Min(5)
   @Max(100000)
   amount: number;
 
   @IsOptional()
   @IsString()
+  @IsIn(['USD', 'EGP'])
   currency?: string;
 
   @IsOptional()

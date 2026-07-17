@@ -9,12 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { TutorProfile } from './tutor-profile.entity.js';
-
-export enum PayoutStatus {
-  PENDING = 'PENDING',
-  SUCCESS = 'SUCCESS',
-  FAILED = 'FAILED',
-}
+import { PayoutStatus } from '@mrh/types';
 
 @Entity('payouts')
 export class Payout {

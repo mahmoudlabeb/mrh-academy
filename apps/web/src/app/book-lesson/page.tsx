@@ -158,7 +158,11 @@ function BookLessonContent() {
   const bookMutation = useMutation({
     mutationFn: async () => {
       if (!selectedDate || !tutorId) throw new Error('Missing booking info');
-      const scheduledTime = `${formatDateToISO(selectedDate)}T${selectedTime}:00`;
+      const tzOffset = -new Date().getTimezoneOffset();
+      const sign = tzOffset >= 0 ? '+' : '-';
+      const pad = (n: number) => String(Math.abs(n)).padStart(2, '0');
+      const tz = `${sign}${pad(Math.floor(tzOffset / 60))}:${pad(tzOffset % 60)}`;
+      const scheduledTime = `${formatDateToISO(selectedDate)}T${selectedTime}:00${tz}`;
       const { data } = await apiClient.post('/lessons/book', {
         tutorId,
         scheduledTime,

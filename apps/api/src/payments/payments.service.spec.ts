@@ -70,6 +70,7 @@ describe('PaymentsService', () => {
   const commissionService = {
     amountToCredits: jest.fn((amount: number) => amount / 15),
     getCreditPrice: jest.fn(async () => 15),
+    getEgpRate: jest.fn(async () => 50),
   };
 
   beforeEach(async () => {

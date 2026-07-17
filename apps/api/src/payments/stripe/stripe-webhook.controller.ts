@@ -1,4 +1,10 @@
-import { Controller, Post, Req, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Req,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,6 +21,8 @@ import Stripe from 'stripe';
 @Public()
 @Controller('webhooks/stripe')
 export class StripeWebhookController {
+  private readonly logger = new Logger(StripeWebhookController.name);
+
   constructor(
     private readonly stripeService: StripeService,
     private readonly paymentsService: PaymentsService,
@@ -45,63 +53,71 @@ export class StripeWebhookController {
       return { received: true, skipped: 'duplicate event' };
     }
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
+    try {
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
 
-      if (session.payment_status !== 'paid') {
-        await this.recordProcessed(event);
-        return { received: true, skipped: 'payment not completed' };
+        if (session.payment_status !== 'paid') {
+          await this.recordProcessed(event);
+          return { received: true, skipped: 'payment not completed' };
+        }
+
+        const paymentId = session.metadata?.paymentId;
+        const userId = session.metadata?.userId;
+        if (!paymentId || !userId) {
+          await this.recordProcessed(event);
+          throw new BadRequestException('Missing payment metadata');
+        }
+
+        const payment = await this.paymentRepository.findOne({
+          where: { id: paymentId },
+        });
+        if (!payment) {
+          await this.recordProcessed(event);
+          throw new BadRequestException('Payment not found');
+        }
+        if (payment.userId !== userId) {
+          await this.recordProcessed(event);
+          throw new BadRequestException('Payment user mismatch');
+        }
+        if (payment.status !== PaymentStatus.PENDING) {
+          await this.recordProcessed(event);
+          return { received: true, skipped: 'already processed' };
+        }
+
+        const expectedCents = Math.round(payment.amount * 100);
+        if (
+          session.amount_total !== null &&
+          session.amount_total !== expectedCents
+        ) {
+          await this.recordProcessed(event);
+          throw new BadRequestException('Payment amount mismatch');
+        }
+
+        await this.paymentsService.approvePayment(paymentId, 'stripe-webhook');
       }
 
-      const paymentId = session.metadata?.paymentId;
-      const userId = session.metadata?.userId;
-      if (!paymentId || !userId) {
-        await this.recordProcessed(event);
-        throw new BadRequestException('Missing payment metadata');
-      }
-
-      const payment = await this.paymentRepository.findOne({
-        where: { id: paymentId },
-      });
-      if (!payment) {
-        await this.recordProcessed(event);
-        throw new BadRequestException('Payment not found');
-      }
-      if (payment.userId !== userId) {
-        await this.recordProcessed(event);
-        throw new BadRequestException('Payment user mismatch');
-      }
-      if (payment.status !== PaymentStatus.PENDING) {
-        await this.recordProcessed(event);
-        return { received: true, skipped: 'already processed' };
-      }
-
-      const expectedCents = Math.round(payment.amount * 100);
-      if (
-        session.amount_total !== null &&
-        session.amount_total !== expectedCents
-      ) {
-        await this.recordProcessed(event);
-        throw new BadRequestException('Payment amount mismatch');
-      }
-
-      await this.paymentsService.approvePayment(paymentId, 'stripe-webhook');
-    }
-
-    if (event.type === 'account.updated') {
-      const account = event.data.object;
-      const profile = await this.tutorProfileRepository.findOne({
-        where: { stripeAccountId: account.id },
-      });
-      if (profile) {
-        const onboardingComplete =
-          account.charges_enabled && account.payouts_enabled;
-        if (onboardingComplete !== profile.stripeOnboardingComplete) {
-          await this.tutorProfileRepository.update(profile.userId, {
-            stripeOnboardingComplete: onboardingComplete,
-          });
+      if (event.type === 'account.updated') {
+        const account = event.data.object;
+        const profile = await this.tutorProfileRepository.findOne({
+          where: { stripeAccountId: account.id },
+        });
+        if (profile) {
+          const onboardingComplete =
+            account.charges_enabled && account.payouts_enabled;
+          if (onboardingComplete !== profile.stripeOnboardingComplete) {
+            await this.tutorProfileRepository.update(profile.userId, {
+              stripeOnboardingComplete: onboardingComplete,
+            });
+          }
         }
       }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.error(
+        `Webhook processing failed for event ${event.id}:`,
+        err,
+      );
     }
 
     await this.recordProcessed(event);

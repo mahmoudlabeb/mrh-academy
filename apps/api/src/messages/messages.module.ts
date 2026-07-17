@@ -4,13 +4,19 @@ import { Message } from '../entities/message.entity.js';
 import { Lesson } from '../entities/lesson.entity.js';
 import { User } from '../entities/user.entity.js';
 import { Notification } from '../entities/notification.entity.js';
+import { AuthModule } from '../auth/auth.module.js';
 import { MessagesController } from './messages.controller.js';
 import { NotificationsController } from './notifications.controller.js';
 import { MessagesService } from './messages.service.js';
+import { MessagesGateway } from './messages.gateway.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Message, Lesson, User, Notification])],
+  imports: [
+    TypeOrmModule.forFeature([Message, Lesson, User, Notification]),
+    AuthModule,
+  ],
   controllers: [MessagesController, NotificationsController],
-  providers: [MessagesService],
+  providers: [MessagesService, MessagesGateway],
+  exports: [MessagesGateway],
 })
 export class MessagesModule {}

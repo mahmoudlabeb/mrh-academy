@@ -50,6 +50,8 @@ export class AdminImpersonationController {
       email: targetUser.email,
       role: targetUser.role,
       originalAdminId: admin.id,
+      type: 'access',
+      sessionId: 'impersonated-session',
     };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
 
@@ -57,9 +59,7 @@ export class AdminImpersonationController {
   }
 
   @Post('unimpersonate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @RequirePermissions('impersonate_users')
+  @UseGuards(JwtAuthGuard)
   async unimpersonate(@CurrentUser() admin: AdminUser) {
     if (!admin.originalAdminId) {
       throw new UnauthorizedException('Not currently impersonating');
@@ -76,6 +76,7 @@ export class AdminImpersonationController {
       sub: originalAdmin.id,
       email: originalAdmin.email,
       role: originalAdmin.role,
+      type: 'access',
     };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
 

@@ -15,7 +15,8 @@ import {
 } from 'typeorm';
 import { PaymentMethod, PaymentStatus } from '@mrh/types';
 import { Payment } from '../entities/payment.entity.js';
-import { Payout, PayoutStatus } from '../entities/payout.entity.js';
+import { Payout } from '../entities/payout.entity.js';
+import { PayoutStatus } from '@mrh/types';
 import { StudentProfile } from '../entities/student-profile.entity.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { User } from '../entities/user.entity.js';
@@ -162,12 +163,24 @@ export class PaymentsService {
 
     let checkoutUrl = undefined;
     if (dto.method === PaymentMethod.CARD) {
-      const session = await this.stripeService.createCheckoutSession(
-        userId,
-        dto.amount,
-        savedPayment.id,
-      );
-      checkoutUrl = session.url;
+      try {
+        const session = await this.stripeService.createCheckoutSession(
+          userId,
+          dto.amount,
+          savedPayment.id,
+        );
+        checkoutUrl = session.url;
+      } catch (stripeError) {
+        // Roll back the saved payment record and surface a clean error
+        await this.paymentRepository.delete(savedPayment.id);
+        this.logger.error(
+          'Stripe checkout session creation failed',
+          stripeError,
+        );
+        throw new BadRequestException(
+          'Card payment is currently unavailable. Please use another payment method.',
+        );
+      }
     }
 
     return { payment: savedPayment, checkoutUrl };
@@ -218,8 +231,11 @@ export class PaymentsService {
         await manager.save(Payment, payment);
 
         // Convert to credits based on currency
+        const egpRate = await this.commissionService.getEgpRate();
         const amountInUsd =
-          payment.currency === 'EGP' ? payment.amount / 50 : payment.amount;
+          payment.currency === 'EGP'
+            ? payment.amount / egpRate
+            : payment.amount;
         const balanceToAdd =
           await this.commissionService.amountToCredits(amountInUsd);
         await manager.increment(
@@ -280,6 +296,15 @@ export class PaymentsService {
   }
 
   async requestPayout(tutorId: string, dto: RequestPayoutDto) {
+    const existingPending = await this.payoutRepository.findOne({
+      where: { tutorId, status: PayoutStatus.PENDING },
+    });
+    if (existingPending) {
+      throw new BadRequestException(
+        'You already have a pending payout request. Please wait for it to be processed.',
+      );
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const tutorProfile = await manager.findOne(TutorProfile, {
         where: { userId: tutorId },
@@ -309,10 +334,40 @@ export class PaymentsService {
   }
 
   async getTutorPayouts(tutorId: string) {
-    return this.payoutRepository.find({
+    const payouts = await this.payoutRepository.find({
       where: { tutorId },
       order: { createdAt: 'DESC' },
     });
+    return payouts.map((p) => ({
+      ...p,
+      status: p.status,
+    }));
+  }
+
+  /** Admin: all payout requests with tutor user info */
+  async getAllPayouts() {
+    const payouts = await this.payoutRepository.find({
+      relations: { tutor: { user: true } as never },
+      order: { createdAt: 'DESC' },
+    });
+    return payouts.map((p) => ({
+      id: p.id,
+      tutorId: p.tutorId,
+      tutorName: (
+        p.tutor as unknown as {
+          user?: { firstName?: string; lastName?: string };
+        }
+      )?.user
+        ? `${(p.tutor as unknown as { user: { firstName: string; lastName: string } }).user.firstName} ${(p.tutor as unknown as { user: { firstName: string; lastName: string } }).user.lastName}`
+        : p.tutorId,
+      amount: Number(p.amount),
+      method: p.method,
+      accountDetails: p.accountDetails,
+      status: p.status,
+      adminNote: p.adminNote,
+      errorMessage: p.errorMessage,
+      createdAt: p.createdAt,
+    }));
   }
 
   async approvePayout(payoutId: string, adminId: string) {

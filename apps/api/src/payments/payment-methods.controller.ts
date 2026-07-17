@@ -17,11 +17,12 @@ export class PaymentMethodsController {
       order: { sortOrder: 'ASC' },
     });
     if (configs.length === 0) {
+      // Fallback uses PaymentMethod enum values — must match exactly
       return [
         { type: 'card', label: 'Credit Card', enabled: true, details: null },
         { type: 'paypal', label: 'PayPal', enabled: true, details: null },
         {
-          type: 'vodafone_cash',
+          type: 'vodafone',
           label: 'Vodafone Cash',
           enabled: true,
           details: '01000000000',
@@ -39,7 +40,7 @@ export class PaymentMethodsController {
           details: 'Configure in admin settings',
         },
         {
-          type: 'bank_transfer',
+          type: 'bank',
           label: 'Bank Transfer',
           enabled: true,
           details: 'Configure in admin settings',

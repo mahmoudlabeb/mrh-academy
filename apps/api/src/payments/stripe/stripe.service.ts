@@ -1,4 +1,9 @@
-import { Injectable, RawBodyRequest } from '@nestjs/common';
+import {
+  Injectable,
+  RawBodyRequest,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { Request } from 'express';
@@ -7,7 +12,8 @@ import { PLATFORM_CURRENCY } from '../../common/currency.util.js';
 const STRIPE_API_VERSION = '2026-06-24.dahlia';
 
 @Injectable()
-export class StripeService {
+export class StripeService implements OnModuleInit {
+  private readonly logger = new Logger(StripeService.name);
   private stripe: Stripe;
   private readonly secret?: string;
 
@@ -16,6 +22,14 @@ export class StripeService {
     this.stripe = new Stripe(this.secret || 'sk_test_placeholder', {
       apiVersion: STRIPE_API_VERSION,
     });
+  }
+
+  onModuleInit() {
+    if (!this.isConfigured()) {
+      this.logger.warn(
+        'STRIPE_SECRET_KEY is not configured. Stripe payments and payouts will be disabled.',
+      );
+    }
   }
 
   isConfigured() {
@@ -95,6 +109,9 @@ export class StripeService {
     amountCents: number,
     idempotencyKey?: string,
   ): Promise<Stripe.Transfer> {
+    if (!this.isConfigured()) {
+      throw new Error('Stripe is not configured. Cannot create payout.');
+    }
     return this.stripe.transfers.create(
       {
         amount: amountCents,

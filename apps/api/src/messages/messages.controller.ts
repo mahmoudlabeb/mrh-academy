@@ -10,11 +10,15 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { MessagesService } from './messages.service.js';
+import { MessagesGateway } from './messages.gateway.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 
 @Controller('messages')
 export class MessagesController {
-  constructor(private readonly messagesService: MessagesService) {}
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly messagesGateway: MessagesGateway,
+  ) {}
 
   @Get('contacts')
   @UseGuards(JwtAuthGuard)
@@ -46,10 +50,14 @@ export class MessagesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  sendMessage(
+  async sendMessage(
     @CurrentUser() user: { id: string },
     @Body() dto: SendMessageDto,
   ) {
-    return this.messagesService.sendMessage(user.id, dto);
+    const message = await this.messagesService.sendMessage(user.id, dto);
+    this.messagesGateway.server
+      ?.to(`user:${dto.receiverId}`)
+      .emit('new_message', message);
+    return message;
   }
 }

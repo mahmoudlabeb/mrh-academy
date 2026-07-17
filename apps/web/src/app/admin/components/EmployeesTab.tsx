@@ -35,6 +35,8 @@ export default function EmployeesTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [inviteModal, setInviteModal] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ firstName: '', lastName: '', email: '' });
 
   const employeesQuery = useQuery({
     queryKey: ['admin-employees'],
@@ -76,6 +78,26 @@ export default function EmployeesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
       closeModal();
+    },
+  });
+
+  const subadminsQuery = useQuery({
+    queryKey: ['admin-subadmins'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/admin/subadmins');
+      return data;
+    },
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: async (payload: typeof inviteForm) => {
+      const { data } = await apiClient.post('/admin/subadmins/invite', payload);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-subadmins'] });
+      setInviteModal(false);
+      setInviteForm({ firstName: '', lastName: '', email: '' });
     },
   });
 
@@ -237,6 +259,101 @@ export default function EmployeesTab() {
                 className="btn-primary"
               >
                 {(createMutation.isPending || updateMutation.isPending) ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ' : 'Save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite SubAdmin Section */}
+      <div className="card p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>
+            {lang === 'ar' ? 'دعوة مشرف فرعي' : 'Invite Sub-Admin'}
+          </h3>
+          <button onClick={() => setInviteModal(true)} className="btn-primary">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            {lang === 'ar' ? 'دعوة' : 'Invite'}
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: 'var(--bg-light)' }}>
+                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
+                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
+                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                <th className="text-right px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الصلاحيات' : 'Permissions'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subadminsQuery.isLoading ? (
+                <tr><td colSpan={4} className="px-4 py-3"><div className="h-5 skeleton rounded w-3/4" /></td></tr>
+              ) : subadminsQuery.data?.length === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لا يوجد مشرفون فرعيون' : 'No sub-admins'}</td></tr>
+              ) : (
+                subadminsQuery.data?.map((s: any) => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-main)' }}>{s.firstName} {s.lastName}</td>
+                    <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{s.email}</td>
+                    <td className="px-4 py-3">
+                      {s.isActive ? (
+                        <span className="badge text-xs" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>{lang === 'ar' ? 'نشط' : 'Active'}</span>
+                      ) : s.hasInviteToken ? (
+                        <span className="badge text-xs" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>{lang === 'ar' ? 'في انتظار القبول' : 'Pending'}</span>
+                      ) : (
+                        <span className="badge text-xs" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>{lang === 'ar' ? 'غير نشط' : 'Inactive'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1 flex-wrap">
+                        {(s.permissions || []).map((p: string) => (
+                          <span key={p} className="badge text-xs" style={{ background: 'var(--bg-light)', color: 'var(--text-muted)' }}>{p}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {inviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="w-full max-w-md rounded-2xl animate-scale-in" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
+            <div className="px-6 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
+              <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'دعوة مشرف فرعي' : 'Invite Sub-Admin'}</h3>
+              <button onClick={() => setInviteModal(false)} className="btn-ghost px-2 py-1" style={{ color: 'var(--text-muted)' }}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
+                <input className="input-field" type="email" value={inviteForm.email} onChange={(e) => setInviteForm(f => ({ ...f, email: e.target.value }))} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الاسم الأول' : 'First Name'}</label>
+                  <input className="input-field" value={inviteForm.firstName} onChange={(e) => setInviteForm(f => ({ ...f, firstName: e.target.value }))} required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'اسم العائلة' : 'Last Name'}</label>
+                  <input className="input-field" value={inviteForm.lastName} onChange={(e) => setInviteForm(f => ({ ...f, lastName: e.target.value }))} required />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-[var(--border-color)] flex justify-end gap-3">
+              <button type="button" onClick={() => setInviteModal(false)} className="btn-secondary">{lang === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+              <button
+                type="button"
+                onClick={() => inviteMutation.mutate(inviteForm)}
+                disabled={inviteMutation.isPending}
+                className="btn-primary"
+              >
+                {inviteMutation.isPending ? (lang === 'ar' ? 'جاري الإرسال...' : 'Sending...') : (lang === 'ar' ? 'إرسال الدعوة' : 'Send Invite')}
               </button>
             </div>
           </div>

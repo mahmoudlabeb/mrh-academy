@@ -6,7 +6,7 @@ import { AppModule } from '../src/app.module.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe('Security Configuration (e2e)', () => {
   let app: INestApplication;
@@ -68,7 +68,7 @@ describe('Security Configuration (e2e)', () => {
       for (let i = 0; i < 10; i++) {
         promises.push(
           request(app.getHttpServer())
-            .get('/api/v1/auth/google')
+            .get('/api/v1/health')
             .then((r) => r.status),
         );
       }

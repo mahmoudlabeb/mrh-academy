@@ -6,6 +6,7 @@ import {
   Body,
   UseGuards,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -19,13 +20,15 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { StripeService } from '../payments/stripe/stripe.service.js';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { Payout, PayoutStatus } from '../entities/payout.entity.js';
+import { Payout } from '../entities/payout.entity.js';
+import { PayoutStatus } from '@mrh/types';
 
 @Controller('admin/payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.SUBADMIN)
 @RequirePermissions('manage_payments')
 export class AdminPaymentsController {
+  private readonly logger = new Logger(AdminPaymentsController.name);
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly stripeService: StripeService,
@@ -94,7 +97,12 @@ export class AdminPaymentsController {
 
       payoutAmount = profile.balance;
       stripeAccountId = profile.stripeAccountId;
-      await manager.update(TutorProfile, { userId: tutorId }, { balance: 0 });
+      await manager.decrement(
+        TutorProfile,
+        { userId: tutorId },
+        'balance',
+        payoutAmount,
+      );
 
       payoutRecord = manager.create(Payout, {
         tutorId,

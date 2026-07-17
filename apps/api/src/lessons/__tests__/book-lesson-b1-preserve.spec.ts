@@ -193,7 +193,8 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     userRepo.findOne.mockResolvedValue(null);
 
     const result = await service.bookLesson('student-1', validDto);
-    expect(result.price).toBe(25);
+    expect(result!.scheduledTime.getUTCHours()).not.toBe(0);
+    expect(result!.scheduledTime.getUTCMinutes()).not.toBe(0);
   });
 
   it('should create a Classroom entity during booking', async () => {

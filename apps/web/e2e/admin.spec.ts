@@ -7,16 +7,16 @@ test.describe('Admin Dashboard', () => {
   });
 
   test('should display admin overview tab', async ({ page }) => {
-    await expect(page.locator('text=Overview').or(page.locator('text=نظرة عامة'))).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(`:has-text("Overview"), :has-text("نظرة عامة")`).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should navigate tutor management tab', async ({ page }) => {
-    await page.click('text=Tutors').or(page.click('text=المدرسين'));
+    await page.locator(`:has-text("Tutors"), :has-text("المدرسين")`).first().click();
     await expect(page).toHaveURL(/\/admin/);
   });
 
   test('should navigate settings tab', async ({ page }) => {
-    await page.click('text=Settings').or(page.click('text=إعدادات'));
+    await page.locator(`:has-text("Settings"), :has-text("إعدادات")`).first().click();
     await expect(page).toHaveURL(/\/admin/);
   });
 });

@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, LessThan } from 'typeorm';
-import { Payout, PayoutStatus } from '../entities/payout.entity.js';
+import { Payout } from '../entities/payout.entity.js';
+import { PayoutStatus } from '@mrh/types';
 import { TutorProfile } from '../entities/tutor-profile.entity.js';
 
 @Injectable()

@@ -38,8 +38,6 @@ async function bootstrap() {
     // Allow localhost for development
     if (origin.startsWith('http://localhost')) return true;
     if (origin.startsWith('http://127.0.0.1')) return true;
-    // Allow Vercel preview deployments (unconditionally for now to fix CORS)
-    if (origin.endsWith('.vercel.app')) return true;
     return false;
   };
 

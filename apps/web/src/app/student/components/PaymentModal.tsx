@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 
@@ -11,50 +11,51 @@ interface PaymentModalProps {
   creditPrice?: number;
 }
 
-const paymentMethods = [
-  { key: 'card', labelAr: 'بطاقة ائتمان', labelEn: 'Credit Card', icon: '💳' },
-  { key: 'paypal', labelAr: 'PayPal', labelEn: 'PayPal', icon: '🅿️' },
-  { key: 'vodafone', labelAr: 'فودافون كاش', labelEn: 'Vodafone Cash', icon: '📱' },
-  { key: 'instapay', labelAr: 'انستاباي', labelEn: 'Instapay', icon: '⚡' },
-  { key: 'binance', labelAr: 'بايننس', labelEn: 'Binance', icon: '🪙' },
-  { key: 'bank', labelAr: 'تحويل بنكي', labelEn: 'Bank Transfer', icon: '🏦' },
+// Backend PaymentMethod enum values — must match exactly
+const PAYMENT_METHODS = [
+  { key: 'card',     labelAr: 'بطاقة ائتمان', labelEn: 'Credit Card',   icon: '💳', requiresReceipt: false },
+  { key: 'paypal',   labelAr: 'PayPal',          labelEn: 'PayPal',        icon: '🅿️', requiresReceipt: false },
+  { key: 'vodafone', labelAr: 'فودافون كاش',   labelEn: 'Vodafone Cash', icon: '📱', requiresReceipt: true  },
+  { key: 'instapay', labelAr: 'انستاباي',       labelEn: 'Instapay',      icon: '⚡', requiresReceipt: true  },
+  { key: 'binance',  labelAr: 'بايننس',         labelEn: 'Binance',       icon: '🪙', requiresReceipt: true  },
+  { key: 'bank',     labelAr: 'تحويل بنكي',    labelEn: 'Bank Transfer', icon: '🏦', requiresReceipt: true  },
 ] as const;
 
-type PaymentMethod = (typeof paymentMethods)[number]['key'];
-
-const MANUAL_METHODS: PaymentMethod[] = ['vodafone', 'instapay', 'binance', 'bank'];
-
-type ApiPaymentMethod = {
-  type: PaymentMethod;
-  label: string;
-  enabled: boolean;
-  details?: string;
-};
+type MethodKey = typeof PAYMENT_METHODS[number]['key'];
 
 export default function PaymentModal({ onClose, currentBalance, creditPrice = 15 }: PaymentModalProps) {
   const { lang } = useLanguage();
   const queryClient = useQueryClient();
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
-  const [activeMethod, setActiveMethod] = useState<PaymentMethod>('card');
+  const [activeMethod, setActiveMethod] = useState<MethodKey>('card');
   const [currency, setCurrency] = useState<'USD' | 'EGP'>('USD');
   const [amount, setAmount] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const isManual = MANUAL_METHODS.includes(activeMethod);
+  const method = PAYMENT_METHODS.find(m => m.key === activeMethod)!;
+  const requiresReceipt = method.requiresReceipt;
 
-  const methodsQuery = useQuery({
-    queryKey: ['student-payment-methods'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<ApiPaymentMethod[]>('/students/payment-methods');
-      return data;
-    },
-  });
+  const amountNum = parseFloat(amount) || 0;
+  const amountInUsd = currency === 'EGP' ? amountNum / 50 : amountNum;
+  const credits = amountInUsd > 0 && creditPrice > 0
+    ? (amountInUsd / creditPrice).toFixed(2)
+    : '0.00';
+  const currentBalanceNum = parseFloat(currentBalance) || 0;
 
   const submitMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const { data } = await apiClient.post('/payments/submit', formData, {
+    mutationFn: async () => {
+      const formData = new FormData();
+      formData.append('amount', String(amountNum));
+      formData.append('method', activeMethod);
+      formData.append('currency', currency);
+      if (file) formData.append('screenshot', file);
+      formData.append('idempotencyKey', `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+      const { data } = await apiClient.post<{ checkoutUrl?: string }>('/payments/submit', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return data;
@@ -62,75 +63,97 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
     onSuccess: (data) => {
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
+        return;
+      }
+      if (requiresReceipt) {
+        setSubmitted(true);
       } else {
         queryClient.invalidateQueries({ queryKey: ['student-balance'] });
+        queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+        queryClient.invalidateQueries({ queryKey: ['payment-history'] });
         onClose();
       }
     },
+    onError: (error: { response?: { data?: { message?: string } } } & Error) => {
+      const msg = error?.response?.data?.message || error?.message || t('حدث خطأ أثناء إرسال الدفع', 'Payment error occurred');
+      alert(msg);
+    },
   });
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+    if (f && f.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setFilePreview(ev.target?.result as string);
+      reader.readAsDataURL(f);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
   const handleSubmit = () => {
-    const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount <= 0) {
+    if (!amountNum || amountNum < 1) {
       alert(t('الرجاء إدخال مبلغ صحيح', 'Please enter a valid amount'));
       return;
     }
-    if (isManual && !file) {
+    if (requiresReceipt && !file) {
       alert(t('الرجاء رفع صورة الإيصال', 'Please upload a receipt screenshot'));
       return;
     }
-    const formData = new FormData();
-    formData.append('amount', amount);
-    formData.append('method', activeMethod);
-    formData.append('currency', currency);
-    if (file) formData.append('screenshot', file);
-    submitMutation.mutate(formData);
+    submitMutation.mutate();
   };
 
-  const amountInUsd = currency === 'EGP' ? (parseFloat(amount) || 0) / 50 : (parseFloat(amount) || 0);
-  const credits = amountInUsd > 0 && creditPrice > 0
-    ? (amountInUsd / creditPrice).toFixed(2)
-    : '0.00';
-  const currentBalanceNum = parseFloat(currentBalance) || 0;
-
-  const methodDetails = methodsQuery.data?.find((m) => m.type === activeMethod);
-
-  const methodLabels: Record<PaymentMethod, { name: string; details?: string }> = {
-    card: {
-      name: lang === 'ar' ? 'بطاقة ائتمان' : 'Credit Card',
-      details: lang === 'ar' ? 'فيزا - ماستركارد' : 'Visa - Mastercard',
-    },
-    paypal: {
-      name: 'PayPal',
-      details: methodDetails?.details || (lang === 'ar' ? 'الدفع عبر PayPal' : 'Pay with PayPal'),
-    },
-    vodafone: {
-      name: lang === 'ar' ? 'فودافون كاش' : 'Vodafone Cash',
-      details: methodDetails?.details || t('01000000000', '01000000000'),
-    },
-    instapay: {
-      name: lang === 'ar' ? 'انستاباي' : 'Instapay',
-      details: methodDetails?.details || t('@mrh_academy', '@mrh_academy'),
-    },
-    binance: {
-      name: 'Binance',
-      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
-    },
-    bank: {
-      name: lang === 'ar' ? 'تحويل بنكي' : 'Bank Transfer',
-      details: methodDetails?.details || t('غير مُعد', 'Not configured'),
-    },
-  };
+  // Success state for manual methods
+  if (submitted) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+        <div
+          className="w-full max-w-md rounded-2xl shadow-2xl animate-scale-in p-8 text-center"
+          style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}
+        >
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(212,163,83,0.1)' }}>
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
+            {t('تم إرسال طلب الدفع', 'Payment Request Sent')}
+          </h3>
+          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
+            {t(
+              'سيتم مراجعة طلبك من قبل الإدارة وسيُحدَّث رصيدك عند الموافقة. عادةً خلال 24 ساعة.',
+              'Your request will be reviewed by admin and your balance updated upon approval. Usually within 24 hours.'
+            )}
+          </p>
+          <button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['payment-history'] });
+              onClose();
+            }}
+            className="btn-primary w-full py-3"
+          >
+            {t('حسناً، شكراً', 'Got it, thanks')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-lg rounded-2xl shadow-2xl animate-scale-in overflow-hidden"
         style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 pb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--text-main)' }}>{t('اشتراك', 'Subscribe')}</h2>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 pb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-main)' }}>{t('شحن الرصيد', 'Top Up Balance')}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -138,105 +161,114 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
-          <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'var(--bg-light)' }}>
+        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+          {/* Balance */}
+          <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-light)' }}>
             <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('الرصيد الحالي', 'Current Balance')}</span>
-            <span className="text-lg font-bold" style={{ color: '#D4A353' }}>{currentBalanceNum.toFixed(2)} {t('رصيد', 'Credits')}</span>
+            <span className="text-base font-bold" style={{ color: '#D4A353' }}>${currentBalanceNum.toFixed(2)}</span>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {paymentMethods.map((pm) => (
+          {/* Method selector */}
+          <div className="flex flex-wrap gap-2">
+            {PAYMENT_METHODS.map(pm => (
               <button
                 key={pm.key}
+                type="button"
                 onClick={() => setActiveMethod(pm.key)}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeMethod === pm.key ? 'ring-2 ring-[#D4A353]' : ''}`}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: activeMethod === pm.key ? 'var(--bg-light)' : 'transparent',
+                  background: activeMethod === pm.key ? 'rgba(212,163,83,0.15)' : 'var(--bg-light)',
+                  border: activeMethod === pm.key ? '2px solid #D4A353' : '1px solid var(--border-color)',
                   color: 'var(--text-main)',
-                  border: '1px solid var(--border-color)',
                 }}
               >
-                <span className="me-1">{pm.icon}</span>
-                {lang === 'ar' ? pm.labelAr : pm.labelEn}
+                <span>{pm.icon}</span>
+                <span className="hidden sm:inline">{lang === 'ar' ? pm.labelAr : pm.labelEn}</span>
               </button>
             ))}
           </div>
 
-          <div className="p-4 rounded-xl" style={{ background: 'var(--bg-light)' }}>
-            <p className="font-medium" style={{ color: 'var(--text-main)' }}>{methodLabels[activeMethod].name}</p>
-            {methodLabels[activeMethod].details && (
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{methodLabels[activeMethod].details}</p>
-            )}
-          </div>
-
+          {/* Amount + Currency */}
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                {t('المبلغ', 'Amount')}
-              </label>
+              <label className="block text-sm mb-1.5" style={{ color: 'var(--text-muted)' }}>{t('المبلغ', 'Amount')}</label>
               <input
                 type="number"
                 min="1"
                 step="0.01"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={e => setAmount(e.target.value)}
                 className="input-field w-full"
                 placeholder="0.00"
               />
             </div>
-            <div className="w-32">
-              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                {t('العملة', 'Currency')}
-              </label>
+            <div className="w-28">
+              <label className="block text-sm mb-1.5" style={{ color: 'var(--text-muted)' }}>{t('العملة', 'Currency')}</label>
               <select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value as 'USD' | 'EGP')}
+                onChange={e => setCurrency(e.target.value as 'USD' | 'EGP')}
                 className="input-field w-full"
               >
                 <option value="USD">USD $</option>
-                <option value="EGP">EGP E£</option>
+                <option value="EGP">EGP ج.م</option>
               </select>
             </div>
           </div>
 
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {t(`≈ ${credits} رصيد تعليمي`, `≈ ${credits} learning credits`)}
-            {currency === 'EGP' && t(' (معدل: 1 دولار = 50 جنيهاً)', ' (Rate: 1 USD = 50 EGP)')}
-          </p>
+          {amountNum > 0 && (
+            <p className="text-xs" style={{ color: '#D4A353' }}>
+              ≈ {credits} {t('رصيد تعليمي', 'credits')}
+              {currency === 'EGP' && <span className="ms-2 opacity-70">{t('(1 USD = 50 EGP)', '(1 USD = 50 EGP)')}</span>}
+            </p>
+          )}
 
-          {isManual && (
-            <div>
-              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
-                {t('صورة الإيصال أو المرفق', 'Receipt / Transfer Image')}
+          {/* Receipt upload */}
+          {requiresReceipt && (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium" style={{ color: 'var(--text-main)' }}>
+                {t('صورة الإيصال', 'Payment Receipt')}
+                <span className="text-xs ms-1" style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp,application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={handleFileChange}
                 className="input-field w-full text-sm"
               />
-              {file && (
-                <p className="text-xs mt-1" style={{ color: '#22c55e' }}>
-                  {t('✓ تم رفع الملف', '✓ File attached')}
-                </p>
+              {filePreview && (
+                <div className="relative inline-block mt-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={filePreview} alt="receipt" className="max-h-24 rounded-lg border" style={{ borderColor: 'var(--border-color)' }} />
+                  <button
+                    type="button"
+                    onClick={() => { setFile(null); setFilePreview(null); if (fileRef.current) fileRef.current.value = ''; }}
+                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs"
+                    style={{ background: '#ef4444' }}
+                  >×</button>
+                </div>
+              )}
+              {file && !filePreview && (
+                <p className="text-xs" style={{ color: '#22c55e' }}>✓ {file.name}</p>
               )}
             </div>
           )}
 
+          {/* Submit */}
           <button
+            type="button"
             onClick={handleSubmit}
-            disabled={submitMutation.isPending}
-            className="btn-primary w-full py-3"
+            disabled={submitMutation.isPending || !amountNum}
+            className="btn-primary w-full py-3 disabled:opacity-50"
           >
             {submitMutation.isPending
               ? t('جاري الإرسال...', 'Submitting...')
-              : isManual
+              : requiresReceipt
                 ? t('إرسال طلب الدفع', 'Submit Payment Request')
-                : t('إرسال الدفع', 'Submit Payment')}
+                : t('متابعة الدفع', 'Proceed to Payment')}
           </button>
 
-          {isManual && (
+          {requiresReceipt && (
             <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
               {t('سيتم مراجعة طلب الدفع من قبل الإدارة. ستتلقى إشعاراً عند الموافقة.', 'Your payment will be reviewed by admin. You will be notified upon approval.')}
             </p>

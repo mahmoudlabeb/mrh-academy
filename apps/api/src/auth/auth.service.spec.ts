@@ -11,6 +11,7 @@ import { User } from '../entities/user.entity.js';
 import { AuthService } from './auth.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { EmailService } from '../services/email.service.js';
+import { RegisterDto } from './dto/register.dto.js';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt', () => ({
