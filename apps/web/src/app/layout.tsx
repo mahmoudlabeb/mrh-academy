@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import '@/styles/animations.css';
+import '@/styles/components.css';
+import '@/styles/layout.css';
 import { Providers } from './providers';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { cairo, plusJakartaSans, tajawal, inter } from '@/lib/fonts';
 
 export const metadata: Metadata = {
   title: 'Mr.H Academy',
@@ -55,7 +59,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased min-h-screen dark-theme font-arabic">
+      <body className={`antialiased min-h-screen dark-theme font-arabic ${cairo.variable} ${plusJakartaSans.variable} ${tajawal.variable} ${inter.variable}`}>
         <Providers>
           <ErrorBoundary>{children}</ErrorBoundary>
         </Providers>

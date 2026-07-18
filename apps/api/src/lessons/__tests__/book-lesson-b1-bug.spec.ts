@@ -159,10 +159,17 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
       notes: null,
     };
 
+    const mockQueryBuilder = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
     const mockManager = {
       findOne: jest
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       create: jest.fn((_cls: any, data: any) => data),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.tutorId && data.studentId) {

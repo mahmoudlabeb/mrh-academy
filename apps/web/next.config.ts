@@ -63,6 +63,10 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(self), geolocation=()',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com https://ui-avatars.com https://randomuser.me; connect-src 'self' https:; media-src 'self' https://video.bunnycdn.com; frame-src 'self' https://hooks.stripe.com; worker-src 'self' blob:;",
+          },
         ],
       },
     ];

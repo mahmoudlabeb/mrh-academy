@@ -16,7 +16,7 @@ interface Lesson {
   duration: number;
   price: number;
   status: LessonStatus;
-  roomId?: string;
+  meetUrl?: string;
   googleMeetUrl?: string;
 }
 
@@ -139,8 +139,8 @@ export default function MyLessons() {
   }, {});
 
   const enterClassroom = (lesson: Lesson) => {
-    if (lesson.roomId) {
-      router.push(`/classroom/${lesson.roomId}`);
+    if (lesson.meetUrl) {
+      router.push(`/classroom/${lesson.meetUrl}`);
     }
   };
 
@@ -239,7 +239,7 @@ export default function MyLessons() {
                             : t('إلغاء', 'Cancel')}
                         </button>
                       )}
-                      {isJoinable(lesson.status) && lesson.roomId && (
+                      {isJoinable(lesson.status) && lesson.meetUrl && (
                         <button
                           type="button"
                           onClick={() => enterClassroom(lesson)}
@@ -346,7 +346,7 @@ export default function MyLessons() {
                           {lesson.duration} {t('دقيقة', 'min')}
                         </p>
                       </div>
-                      {lesson.roomId && (
+                      {lesson.meetUrl && (
                         <button
                           type="button"
                           onClick={() => enterClassroom(lesson)}

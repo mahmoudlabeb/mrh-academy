@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +9,8 @@ import { RedisService } from '../redis/redis.service.js';
 
 @Injectable()
 export class ReminderService {
+  private readonly logger = new Logger(ReminderService.name);
+
   constructor(
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
@@ -31,6 +33,8 @@ export class ReminderService {
       .andWhere('lesson.scheduledTime < :end', { end: in61Minutes })
       .getMany();
 
+    this.logger.log(`Reminder cron: found ${lessons.length} upcoming lesson(s)`);
+
     for (const lesson of lessons) {
       try {
         const key = `reminder:lesson:${lesson.id}`;
@@ -49,7 +53,7 @@ export class ReminderService {
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
             )
             .catch((err) =>
-              console.error('Reminder email delivery failed', err),
+              this.logger.error(`Reminder email delivery failed for student ${lesson.student?.email}`, err instanceof Error ? err.stack : err),
             );
         }
 
@@ -64,12 +68,12 @@ export class ReminderService {
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
             )
             .catch((err) =>
-              console.error('Reminder email delivery failed', err),
+              this.logger.error(`Reminder email delivery failed for tutor ${lesson.tutor?.email}`, err instanceof Error ? err.stack : err),
             );
         }
       } catch (err) {
         // Don't let a single lesson failure crash the entire cron job
-        console.error(`Reminder failed for lesson ${lesson.id}:`, err);
+        this.logger.error(`Reminder failed for lesson ${lesson.id}`, err instanceof Error ? err.stack : err);
       }
     }
   }

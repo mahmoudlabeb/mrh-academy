@@ -23,6 +23,14 @@ import { TutorProfile } from '../entities/tutor-profile.entity.js';
 import { Payout } from '../entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
 
+/**
+ * Stripe Connect Automated Payout System
+ * ───────────────────────────────────────
+ * For tutors who completed Stripe onboarding (stripeAccountId + onboardingComplete).
+ * Admin triggers payoutTutor() → Stripe transfer sent directly to tutor's bank.
+ *
+ * For manual payouts (no Stripe), see PayoutController in payments/payout.controller.ts.
+ */
 @Controller('admin/payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.SUBADMIN)

@@ -174,10 +174,17 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       },
     };
 
+    const mockQueryBuilder = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
     const mockManager = {
       findOne: jest
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       create: jest.fn((_e: any, d: any) => d),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.tutorId && data.studentId)
@@ -234,10 +241,17 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     };
 
     const classroomSave = jest.fn();
+    const mockQueryBuilder2 = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
     const mockManager = {
       findOne: jest
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder2),
       create: jest.fn((_e: any, d: any) => d),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.lessonId) {
@@ -297,10 +311,17 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       },
     };
 
+    const mockQueryBuilder3 = {
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
     const mockManager = {
       findOne: jest
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder3),
       create: jest.fn((_e: any, d: any) => d),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.tutorId && data.studentId)

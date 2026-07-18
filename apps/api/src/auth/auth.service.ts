@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -21,11 +22,13 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { RedisService } from '../redis/redis.service.js';
 import { EmailService } from '../services/email.service.js';
 
+const logger = new Logger('AuthService');
+
 function getAdminEmails(): string[] {
   const raw = process.env.ADMIN_EMAILS;
   if (!raw) {
     if (process.env.NODE_ENV === 'production') {
-      console.warn('ADMIN_EMAILS should be set in production');
+      logger.warn('ADMIN_EMAILS should be set in production');
     }
     return [];
   }

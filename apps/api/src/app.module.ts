@@ -36,6 +36,7 @@ import { SharedModule } from './shared/shared.module.js';
 import { Setting } from './entities/setting.entity.js';
 import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
+import { XssCleanMiddleware } from './common/xss-clean.middleware.js';
 import * as dbEntities from './entities/index.js';
 
 @Module({
@@ -190,6 +191,6 @@ import * as dbEntities from './entities/index.js';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CsrfOriginMiddleware).forRoutes('*');
+    consumer.apply(CsrfOriginMiddleware, XssCleanMiddleware).forRoutes('*');
   }
 }

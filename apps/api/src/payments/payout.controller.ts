@@ -15,6 +15,16 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PaymentsService } from './payments.service.js';
 import { RequestPayoutDto } from './dto/request-payout.dto.js';
 
+/**
+ * Manual (non-Stripe) Payout System
+ * ─────────────────────────────────
+ * Allows tutors to request manual payouts (bank transfer, Instapay, etc.).
+ * Flow: Tutor requests → Admin approves/rejects → Balance adjusted manually.
+ *
+ * For Stripe Connect automated payouts, see:
+ *   AdminPaymentsController.payoutTutor()  — admin triggers Stripe transfer
+ *   StripeConnectController                — handles Stripe onboarding
+ */
 @Controller('payouts')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PayoutController {

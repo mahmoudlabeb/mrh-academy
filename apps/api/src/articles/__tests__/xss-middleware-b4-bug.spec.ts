@@ -7,7 +7,7 @@ describe('B4 Bug Condition — XSS Middleware Strips HTML', () => {
     middleware = new XssCleanMiddleware();
   });
 
-  it('should strip < and > from rich-text content, leaving non-tag characters intact', () => {
+  it('should strip all HTML tags from rich-text content using sanitize-html', () => {
     const req = {
       body: { content: '<strong>bold</strong>' },
     } as any;
@@ -15,12 +15,11 @@ describe('B4 Bug Condition — XSS Middleware Strips HTML', () => {
 
     middleware.use(req, {} as any, next);
 
-    // <strong>bold</strong> -> strip < and > -> strongbold/strong
-    // The / and text content remain; only angle brackets are removed
-    expect(req.body.content).toBe('strongbold/strong');
+    // sanitize-html removes tags entirely, leaving only text content
+    expect(req.body.content).toBe('bold');
   });
 
-  it('should strip < and > from plain-text fields too (global scope)', () => {
+  it('should strip partial HTML from plain-text fields too (global scope)', () => {
     const req = {
       body: { title: 'Test <title>' },
     } as any;
@@ -28,10 +27,11 @@ describe('B4 Bug Condition — XSS Middleware Strips HTML', () => {
 
     middleware.use(req, {} as any, next);
 
-    expect(req.body.title).toBe('Test title');
+    // <title> is treated as a tag by sanitize-html and stripped; .trim() removes trailing space
+    expect(req.body.title).toBe('Test');
   });
 
-  it('should strip < and > from nested objects', () => {
+  it('should strip all HTML tags from nested objects', () => {
     const req = {
       body: { nested: { value: '<script>evil</script>' } },
     } as any;
@@ -39,6 +39,7 @@ describe('B4 Bug Condition — XSS Middleware Strips HTML', () => {
 
     middleware.use(req, {} as any, next);
 
-    expect(req.body.nested.value).toBe('scriptevil/script');
+    // script tags are stripped entirely, leaving no content
+    expect(req.body.nested.value).toBe('');
   });
 });

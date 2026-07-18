@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { RedisService } from '../redis/redis.service.js';
 
 @Injectable()
 export class TutorsService {
+  private readonly logger = new Logger(TutorsService.name);
   private mailTransporter: nodemailer.Transporter;
 
   constructor(
@@ -564,7 +566,7 @@ export class TutorsService {
         text,
       });
     } catch (error) {
-      console.error('Failed to send email:', error);
+      this.logger.error('Failed to send email', error instanceof Error ? error.stack : error);
     }
   }
 }

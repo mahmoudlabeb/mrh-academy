@@ -1,0 +1,120 @@
+/* =========================================
+   Animations — MRH Academy Design System
+   ========================================= */
+
+/* Base keyframes */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(212, 163, 83, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(212, 163, 83, 0.6); }
+}
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes bounce-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes rotate-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes zoom-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+/* Advanced Video-Like Animations */
+@keyframes audio-bar-1 { 0%, 100% { height: 20%; } 50% { height: 80%; } }
+@keyframes audio-bar-2 { 0%, 100% { height: 40%; } 50% { height: 100%; } }
+@keyframes audio-bar-3 { 0%, 100% { height: 60%; } 50% { height: 40%; } }
+.animate-audio-1 { animation: audio-bar-1 0.8s ease-in-out infinite; }
+.animate-audio-2 { animation: audio-bar-2 1.2s ease-in-out infinite; }
+.animate-audio-3 { animation: audio-bar-3 1s ease-in-out infinite; }
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.animate-breathe { animation: breathe 4s ease-in-out infinite; }
+
+@keyframes chart-fill {
+  0% { height: 0%; opacity: 0; }
+  100% { opacity: 1; }
+}
+.animate-chart-bar { animation: chart-fill 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+@keyframes ping-slow {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2); opacity: 0; }
+}
+.animate-ping-slow { animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.animate-scanline { animation: scanline 3s linear infinite; }
+
+/* Animation utility classes */
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-slide-up { animation: slide-up 0.5s ease-out forwards; }
+.animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+.animate-scale-in { animation: scale-in 0.3s ease-out forwards; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-gradient { animation: gradient-shift 3s ease infinite; background-size: 200% 200%; }
+.animate-bounce-soft { animation: bounce-soft 2s ease-in-out infinite; }
+.animate-rotate-slow { animation: rotate-slow 20s linear infinite; }
+.animate-slide-in-right { animation: slide-in-right 0.5s ease-out forwards; }
+.animate-slide-in-left { animation: slide-in-left 0.5s ease-out forwards; }
+.animate-zoom-in { animation: zoom-in 0.4s ease-out forwards; }
+.animate-wiggle { animation: wiggle 0.5s ease-in-out; }
+
+/* Stagger children animations */
+.stagger-children > * {
+  opacity: 0;
+  animation: slide-up 0.5s ease-out forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }

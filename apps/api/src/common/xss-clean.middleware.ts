@@ -1,11 +1,17 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
+import sanitizeHtml from 'sanitize-html';
 
-const UNSAFE_PATTERN = /[<>]/g;
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [],
+  allowedAttributes: {},
+  disallowedTagsMode: 'discard',
+  allowedSchemes: [],
+};
 
 function sanitizeValue(value: unknown): unknown {
   if (typeof value === 'string') {
-    return value.replace(UNSAFE_PATTERN, '').trim();
+    return sanitizeHtml(value, SANITIZE_OPTIONS).trim();
   }
   if (Array.isArray(value)) {
     return value.map(sanitizeValue);

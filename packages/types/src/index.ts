@@ -115,6 +115,7 @@ export const LessonSchema = z.object({
   platformFee: z.number().nullable(),
   status: z.nativeEnum(LessonStatus).default(LessonStatus.PENDING),
   meetUrl: z.string().nullable(),
+  googleMeetUrl: z.string().nullable(),
   notes: z.string().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),

@@ -1,0 +1,82 @@
+/* =========================================
+   Layout — MRH Academy Design System
+   ========================================= */
+
+/* Section padding */
+.section-padding {
+  padding-inline: 1rem;
+}
+@media (min-width: 640px) {
+  .section-padding {
+    padding-inline: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .section-padding {
+    padding-inline: 2rem;
+  }
+}
+
+/* Dashboard common styles */
+.dashboard-header {
+  background: var(--green-dark);
+  border-bottom: 1px solid var(--border-color);
+}
+.dashboard-header .logo {
+  color: var(--primary-color);
+  font-family: var(--font-inter), sans-serif;
+  font-weight: 800;
+}
+.dashboard-header .nav-link {
+  color: var(--text-main);
+  transition: color 0.3s ease;
+}
+.dashboard-header .nav-link:hover,
+.dashboard-header .nav-link.active {
+  color: var(--primary-color);
+}
+
+/* Navbar styles */
+.navbar-dark {
+  background: var(--green-dark);
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.navbar-dark .nav-link {
+  color: var(--text-main);
+  transition: color 0.3s ease;
+  position: relative;
+}
+.navbar-dark .nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--primary-color);
+  transition: width 0.3s ease;
+}
+.navbar-dark .nav-link:hover {
+  color: var(--primary-color);
+}
+.navbar-dark .nav-link:hover::after {
+  width: 100%;
+}
+
+/* Hero section */
+.hero-dark {
+  background: var(--green-dark);
+  color: var(--text-main);
+}
+.hero-dark .gold-accent {
+  color: var(--primary-color);
+}
+
+/* Footer */
+.footer-dark {
+  background: var(--green-dark);
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+}

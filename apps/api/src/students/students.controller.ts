@@ -79,7 +79,7 @@ export class StudentsController {
       duration: l.durationMinutes,
       price: l.price,
       status: l.status,
-      roomId: l.meetUrl,
+      meetUrl: l.meetUrl,
       googleMeetUrl: l.googleMeetUrl,
     }));
   }

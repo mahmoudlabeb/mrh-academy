@@ -2,19 +2,28 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import PDFDocument from 'pdfkit';
 import * as fs from 'node:fs';
+import { resolve } from 'node:path';
 import { reshapeForPdf } from '../shared/pdf-arabic.util.js';
 
 const ARABIC_FONT_NAME = 'ArabicFont';
+
+/** Resolve the Arabic font file path from env var or fallback locations */
+function resolveArabicFontPath(): string | null {
+  const candidates: (string | undefined)[] = [
+    process.env.ARABIC_PDF_FONT_PATH,
+    resolve(process.cwd(), 'assets/fonts/Amiri-Regular.ttf'),
+    resolve(process.cwd(), 'public/fonts/Amiri-Regular.ttf'),
+    resolve(process.cwd(), '../../assets/fonts/Amiri-Regular.ttf'),
+  ];
+  return candidates.find((c) => c && fs.existsSync(c)) ?? null;
+}
 
 @Injectable()
 export class InvoiceService {
   private readonly arabicFontPath: string | null = null;
 
-  constructor(private readonly configService: ConfigService) {
-    const fontPath = this.configService.get<string>('ARABIC_PDF_FONT_PATH');
-    if (fontPath && fs.existsSync(fontPath)) {
-      this.arabicFontPath = fontPath;
-    }
+  constructor() {
+    this.arabicFontPath = resolveArabicFontPath();
   }
 
   async generateInvoicePdf(invoiceData: {
