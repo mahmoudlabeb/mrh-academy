@@ -62,7 +62,27 @@ export class AuthService {
   ) {}
 
   private getAccessTokenExpiry(): string {
-    return this.configService.get<string>('JWT_EXPIRES_IN', '15m');
+    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN')
+      || this.configService.get<string>('JWT_EXPIRES_IN')
+      || '15m';
+  }
+
+  private getRefreshTokenExpiry(): string {
+    return this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
+  }
+
+  private parseDurationSeconds(expiry: string): number {
+    const match = expiry.match(/^(\d+)([smhd])$/);
+    if (!match) return 30 * 24 * 60 * 60;
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    switch (unit) {
+      case 's': return value;
+      case 'm': return value * 60;
+      case 'h': return value * 3600;
+      case 'd': return value * 86400;
+      default: return 30 * 24 * 60 * 60;
+    }
   }
 
   private async clearRevocation(userId: string) {
@@ -72,13 +92,14 @@ export class AuthService {
   private async establishStudentSession(
     userId: string,
     existingSessionId?: string,
+    ttlSeconds?: number,
   ): Promise<string> {
     const sessionId = existingSessionId ?? randomUUID();
     await this.redisService.set(
       `user_session:${userId}`,
       sessionId,
       'EX',
-      7 * 24 * 60 * 60,
+      ttlSeconds ?? 7 * 24 * 60 * 60,
     );
     return sessionId;
   }
@@ -93,7 +114,7 @@ export class AuthService {
   private signRefreshToken(base: Omit<JwtTokenPayload, 'type'>) {
     return this.jwtService.sign(
       { ...base, type: 'refresh' } satisfies JwtTokenPayload,
-      { expiresIn: '30d' },
+      { expiresIn: this.getRefreshTokenExpiry() as any },
     );
   }
 
@@ -110,6 +131,7 @@ export class AuthService {
       base.sessionId = await this.establishStudentSession(
         user.id,
         existingSessionId,
+        this.parseDurationSeconds(this.getRefreshTokenExpiry()),
       );
     }
 
@@ -351,7 +373,7 @@ export class AuthService {
       `refresh_blocklist:${userId}`,
       'revoked',
       'EX',
-      30 * 24 * 60 * 60,
+      this.parseDurationSeconds(this.getRefreshTokenExpiry()),
     );
   }
 

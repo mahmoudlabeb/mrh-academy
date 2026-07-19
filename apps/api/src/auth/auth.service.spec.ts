@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@mrh/types';
 import { User } from '../entities/user.entity.js';
 import { AuthService } from './auth.service.js';
@@ -92,6 +93,17 @@ describe('AuthService', () => {
         },
         { provide: RedisService, useValue: redisService },
         { provide: EmailService, useValue: emailService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'JWT_ACCESS_EXPIRES_IN') return '15m';
+              if (key === 'JWT_REFRESH_EXPIRES_IN') return '7d';
+              if (key === 'NODE_ENV') return 'test';
+              return undefined;
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -313,7 +325,7 @@ describe('AuthService', () => {
         'refresh_blocklist:user-1',
         'revoked',
         'EX',
-        30 * 24 * 60 * 60,
+        604800,
       );
     });
   });
