@@ -80,7 +80,7 @@ import * as dbEntities from './entities/index.js';
         SMTP_PASS: Joi.string().required(),
         SMTP_FROM: Joi.string().required(),
         ADMIN_EMAILS: Joi.string().optional().allow(''),
-        SUBADMIN_DEFAULT_PASSWORD: Joi.string().optional().allow(''),
+        SUBADMIN_DEFAULT_PASSWORD: Joi.string().optional().min(8),
         REFERRAL_SECRET: Joi.string().optional().allow(''),
         ARABIC_PDF_FONT_PATH: Joi.string().optional().allow(''),
         CONFIRM_BOOTSTRAP: Joi.string().optional().allow(''),

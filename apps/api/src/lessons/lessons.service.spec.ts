@@ -47,6 +47,7 @@ describe('LessonsService', () => {
   const lessonRepository = {
     find: jest.fn(),
     findOne: jest.fn(),
+    findAndCount: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
     update: jest.fn(),
