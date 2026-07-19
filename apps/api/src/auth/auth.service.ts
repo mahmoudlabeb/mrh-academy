@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository, QueryFailedError } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
 import { CourseStatus, UserRole } from '@mrh/types';
@@ -55,9 +56,14 @@ export class AuthService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
   ) {}
+
+  private getAccessTokenExpiry(): string {
+    return this.configService.get<string>('JWT_EXPIRES_IN', '15m');
+  }
 
   private async clearRevocation(userId: string) {
     await this.redisService.del(`refresh_blocklist:${userId}`);
@@ -80,7 +86,7 @@ export class AuthService {
   private signAccessToken(base: Omit<JwtTokenPayload, 'type'>) {
     return this.jwtService.sign(
       { ...base, type: 'access' } satisfies JwtTokenPayload,
-      { expiresIn: '15m' },
+      { expiresIn: this.getAccessTokenExpiry() as any },
     );
   }
 
