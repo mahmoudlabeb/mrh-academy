@@ -1,0 +1,37 @@
+# Defense-in-depth layer for apps/api. Root .gitignore remains the primary
+# authority. This file exists to prevent accidental commits of API-local
+# secrets, scripts, dumps, and audit artifacts.
+
+# Environment files (only the example is committable at the repo root)
+.env
+.env.*
+!.env.example
+
+# Secrets / connection scripts legacy
+*-passwords.mjs
+list-users.mjs
+fix-passwords.mjs
+check-passwords.mjs
+
+# DB dumps / audit artifacts
+dump.rdb
+*.sql
+*.dump
+_audit_query.sql
+
+# Build / cache
+dist/
+build/
+.cache/
+.temp/
+.tmp/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp

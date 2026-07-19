@@ -12,6 +12,22 @@ build/
 .env
 .env.*
 !.env.example
+# Block nested env files from being added explicitly (defense-in-depth)
+apps/*/.env
+apps/*/.env.*
+apps/*/.env.render
+!apps/api/.gitignore
+!apps/web/.gitignore
+
+# Secrets / DB connection scripts (defense-in-depth — block re-introduction)
+*-passwords.mjs
+list-users.mjs
+fix-passwords.mjs
+check-passwords.mjs
+*_audit_query.sql
+
+# Stray lockfile copies
+pnpm-lock.yaml.[0-9]*
 
 # Planning/Internal Docs
 *.md
