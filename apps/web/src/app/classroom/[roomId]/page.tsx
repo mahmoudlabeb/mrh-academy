@@ -480,7 +480,8 @@ export default function ClassroomPage() {
     const socket = getSocket();
     socket.emit('leave_lesson', { lessonId });
     disconnectSocket();
-    router.push('/student');
+    const redirectPath = user?.role === 'tutor' ? '/tutor' : '/student';
+    router.push(redirectPath);
   };
 
   const formatTime = (seconds: number) => {
