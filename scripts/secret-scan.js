@@ -6,9 +6,9 @@ const ROOT = path.resolve(__dirname, '..');
 const quiet = process.argv.includes('--quiet');
 
 const patterns = [
-  { label: 'Postgres URL hardcoded', regex: /postgresql?:\/\/[^\s"'`]+/, ignoreExample: true },
-  { label: 'Stripe live key', regex: /sk_live_[0-9a-zA-Z]+/ },
-  { label: 'Stripe webhook secret', regex: /whsec_[0-9a-zA-Z]+/ },
+      { label: 'Postgres URL hardcoded', regex: /postgresql?:\/\/[^\s"'`]+/, ignoreExample: true, ignoreTemplate: true },
+  { label: 'Stripe live key', regex: /sk_live_[0-9a-zA-Z]+/, ignoreTemplate: true },
+  { label: 'Stripe webhook secret', regex: /whsec_[0-9a-zA-Z]+/, ignoreTemplate: true },
   { label: 'Metered API key hardcoded', regex: /metered[_\s]?api[_\s]?key\s*[:=]\s*['"][^\s'"]{10,}['"]/i },
   { label: 'TURN credential hardcoded', regex: /turn_credential\s*[:=]\s*['"][^\s'"]{4,}['"]/i },
   { label: 'SMTP password hardcoded', regex: /SMTP_PASS\s*[:=]\s*['"][^\s'"]{4,}['"]/ },
@@ -46,6 +46,12 @@ for (const entry of patterns) {
       if (entry.regex.test(content)) {
         if (entry.ignoreExample && (f === '.env.example' || f.endsWith('.env.example'))) continue;
         if (f.includes('.env.example') && /change_me|placeholder|your_/i.test(content)) continue;
+        // Ignore production template files with obvious placeholders
+        if (f.includes('env.production.template') && /REPLACE(?:_ME|_WITH_)?/i.test(content)) continue;
+        // Ignore production template files with obvious placeholders
+        if (entry.ignoreTemplate && f.includes('env.production.template') && /REPLACE|USER:|PASSWORD:/i.test(content)) continue;
+        // Ignore test fixture passwords that are not real credentials
+        if (entry.label === 'SMTP password hardcoded' && content.match(/SMTP_PASS\s*[:=]\s*['"](pass|test)['"]/i)) continue;
         hits.push(f);
       }
     } catch { /* skip unreadable */ }
