@@ -854,6 +854,41 @@ ${studentRefundNote}`,
     return parts[0] * 60 + (parts[1] || 0);
   }
 
+  private getLocalDayAndMinutes(
+    date: Date,
+    timezone: string,
+  ): { dayOfWeek: number; minutes: number } {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(date);
+
+    const dayMap: Record<string, number> = {
+      sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+      thursday: 4, friday: 5, saturday: 6,
+    };
+
+    const dayStr =
+      parts.find((p) => p.type === 'weekday')?.value?.toLowerCase() || '';
+    const hour = parseInt(
+      parts.find((p) => p.type === 'hour')?.value || '0',
+      10,
+    );
+    const minute = parseInt(
+      parts.find((p) => p.type === 'minute')?.value || '0',
+      10,
+    );
+
+    return {
+      dayOfWeek: dayMap[dayStr] ?? date.getUTCDay(),
+      minutes: hour * 60 + minute,
+    };
+  }
+
   private async assertWithinAvailability(
     tutorId: string,
     scheduledDate: Date,
@@ -865,13 +900,20 @@ ${studentRefundNote}`,
     if (slots.length === 0) {
       throw new BadRequestException('Tutor has not set availability');
     }
-    const dayOfWeek = scheduledDate.getUTCDay();
-    const daySlots = slots.filter((s) => s.dayOfWeek === dayOfWeek);
+
+    const tutorUser = await this.userRepository.findOne({
+      where: { id: tutorId },
+      select: ['timezone'],
+    });
+    const timezone = tutorUser?.timezone || 'UTC';
+
+    const local = this.getLocalDayAndMinutes(scheduledDate, timezone);
+    const daySlots = slots.filter((s) => s.dayOfWeek === local.dayOfWeek);
     if (daySlots.length === 0) {
       throw new BadRequestException('Tutor is not available on this day');
     }
-    const startMin =
-      scheduledDate.getUTCHours() * 60 + scheduledDate.getUTCMinutes();
+
+    const startMin = local.minutes;
     const endMin = startMin + durationMinutes;
     const fits = daySlots.some((slot) => {
       const slotStart = this.timeToMinutes(slot.startTime);

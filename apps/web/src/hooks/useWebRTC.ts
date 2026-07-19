@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getSocket } from '@/lib/socket';
+import { apiClient } from '@/lib/api-client';
 
 interface PeerConnection {
   pc: RTCPeerConnection;
@@ -23,20 +24,28 @@ export function useWebRTC(lessonId: string, userId: string, peerUserId?: string 
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      ...(process.env.NEXT_PUBLIC_TURN_URL
-        ? [
-            {
-              urls: [
-                process.env.NEXT_PUBLIC_TURN_URL!,
-                process.env.NEXT_PUBLIC_TURN_URL_TLS!,
-              ],
-              username: process.env.NEXT_PUBLIC_TURN_USERNAME,
-              credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL,
-            },
-          ]
-        : []),
     ],
   });
+
+  useEffect(() => {
+    apiClient
+      .get('/turn-credentials')
+      .then((res) => {
+        const iceServers = res.data;
+        if (Array.isArray(iceServers) && iceServers.length > 0) {
+          const existing = rtcConfigRef.current.iceServers ?? [];
+          rtcConfigRef.current = {
+            iceServers: [
+              ...existing,
+              ...(iceServers as RTCIceServer[]),
+            ],
+          };
+        }
+      })
+      .catch(() => {
+        // Dynamic TURN unavailable; fall back to STUN-only
+      });
+  }, []);
 
   const stopCallRef = useRef<(type: 'voice' | 'camera' | 'screen') => void>(() => {});
 
