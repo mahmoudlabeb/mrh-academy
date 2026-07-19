@@ -7,12 +7,14 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { checkSecurityEnvironment } from './common/security-check.js';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   checkSecurityEnvironment(logger);
 
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  const configService = app.get(ConfigService);
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // Global Prefix for API
@@ -28,17 +30,17 @@ async function bootstrap() {
   );
 
   // CORS Configuration — strict lockdown in production
-  const nodeEnv = process.env.NODE_ENV || 'development';
-  const frontendUrl =
-    process.env.FRONTEND_URL ||
-    (nodeEnv === 'production' ? undefined : 'http://localhost:3000');
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+  const frontendUrl = configService.get<string>('FRONTEND_URL');
 
   const isOriginAllowed = (origin: string): boolean => {
     // Explicitly configured frontend URL
     if (frontendUrl && origin === frontendUrl) return true;
-    // Allow localhost for development
-    if (origin.startsWith('http://localhost')) return true;
-    if (origin.startsWith('http://127.0.0.1')) return true;
+    // Allow localhost/127.0.0.1 ONLY in non-production environments
+    if (nodeEnv !== 'production') {
+      if (origin.startsWith('http://localhost')) return true;
+      if (origin.startsWith('http://127.0.0.1')) return true;
+    }
     return false;
   };
 
@@ -113,7 +115,7 @@ async function bootstrap() {
   }
 
   // Start Server
-  const port = process.env.PORT || 4000;
+  const port = configService.get<number>('PORT', 4000);
   await app.listen(port);
   logger.log(`🚀 API Server running on port ${port}`);
 }
