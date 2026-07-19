@@ -29,6 +29,11 @@ check-passwords.mjs
 # Stray lockfile copies
 pnpm-lock.yaml.[0-9]*
 
+# History cleanup artifacts
+bfg-*.jar
+*.bundle
+replace.txt
+
 # Planning/Internal Docs
 *.md
 !README.md
@@ -54,6 +59,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 *.log
+*.err
+
+# Incident response scripts (temp)
+incident-*.js
+clear-*.js
 
 # OS
 .DS_Store
