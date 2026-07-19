@@ -123,7 +123,7 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
       {
         id: 'slot-1',
         tutorId: 'tutor-1',
-        dayOfWeek: dt.getDay(),
+        dayOfWeek: dt.getUTCDay(),
         startTime: '09:00',
         endTime: '17:00',
       },

@@ -113,7 +113,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
   });
 
   const isoTime = futureDate();
-  const dayOfWeek = new Date(isoTime).getDay();
+  const dayOfWeek = new Date(isoTime).getUTCDay();
   const validDto = {
     tutorId: 'tutor-1',
     scheduledTime: isoTime,
