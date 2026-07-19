@@ -134,9 +134,7 @@ import * as dbEntities from './entities/index.js';
         };
       },
     }),
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 100 },
-    ]),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([Lesson]),
     SharedModule,

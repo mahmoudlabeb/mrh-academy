@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { Setting } from '../../entities/setting.entity.js';
 import { UserRole } from '@mrh/types';

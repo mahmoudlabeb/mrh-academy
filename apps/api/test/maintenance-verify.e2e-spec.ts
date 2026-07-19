@@ -44,9 +44,11 @@ describe('Maintenance Guard Verification (e2e)', () => {
         firstName: 'Test',
         lastName: 'Admin',
       });
-    
+
     // update to admin
-    await dataSource.query(`UPDATE users SET role = 'admin' WHERE email = $1`, [adminEmail]);
+    await dataSource.query(`UPDATE users SET role = 'admin' WHERE email = $1`, [
+      adminEmail,
+    ]);
 
     // login to get admin token
     const adminLogin = await request(app.getHttpServer())
@@ -65,26 +67,34 @@ describe('Maintenance Guard Verification (e2e)', () => {
   it('verifies maintenance mode behavior', async () => {
     // Enable maintenance mode
     await dataSource.query(
-      `INSERT INTO settings (key, value) VALUES ('maintenance_mode', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'`
+      `INSERT INTO settings (key, value) VALUES ('maintenance_mode', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'`,
     );
 
     // Call non-admin endpoint with student token
     const studentRes = await request(app.getHttpServer())
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${studentToken}`);
-    
-    console.log('Student Response (Maintenance ON):', studentRes.status, studentRes.body);
+
+    console.log(
+      'Student Response (Maintenance ON):',
+      studentRes.status,
+      studentRes.body,
+    );
 
     // Call admin-authenticated endpoint with admin token
     const adminRes = await request(app.getHttpServer())
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${adminToken}`);
 
-    console.log('Admin Response (Maintenance ON):', adminRes.status, adminRes.body);
+    console.log(
+      'Admin Response (Maintenance ON):',
+      adminRes.status,
+      adminRes.body,
+    );
 
     // Disable maintenance mode
     await dataSource.query(
-      `UPDATE settings SET value = 'false' WHERE key = 'maintenance_mode'`
+      `UPDATE settings SET value = 'false' WHERE key = 'maintenance_mode'`,
     );
 
     // Call non-admin endpoint again
@@ -92,6 +102,10 @@ describe('Maintenance Guard Verification (e2e)', () => {
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${studentToken}`);
 
-    console.log('Student Response (Maintenance OFF):', studentResAfter.status, studentResAfter.body);
+    console.log(
+      'Student Response (Maintenance OFF):',
+      studentResAfter.status,
+      studentResAfter.body,
+    );
   });
 });

@@ -28,7 +28,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         : 'Internal server error';
 
     if (!(exception instanceof HttpException)) {
-      this.logger.error('Unhandled exception', exception instanceof Error ? exception.stack : undefined);
+      this.logger.error(
+        'Unhandled exception',
+        exception instanceof Error ? exception.stack : undefined,
+      );
     }
 
     const message =

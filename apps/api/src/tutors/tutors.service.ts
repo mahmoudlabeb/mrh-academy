@@ -566,7 +566,10 @@ export class TutorsService {
         text,
       });
     } catch (error) {
-      this.logger.error('Failed to send email', error instanceof Error ? error.stack : error);
+      this.logger.error(
+        'Failed to send email',
+        error instanceof Error ? error.stack : error,
+      );
     }
   }
 }

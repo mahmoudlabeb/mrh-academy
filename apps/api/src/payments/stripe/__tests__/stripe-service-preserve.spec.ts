@@ -13,8 +13,9 @@ describe('StripeService preservation (P2-J)', () => {
     const configService = new ConfigService({ STRIPE_SECRET_KEY: undefined });
 
     jest.isolateModules(() => {
-      const { StripeService } =
-        jest.requireActual('../stripe.service.js') as typeof import('../stripe.service.js');
+      const { StripeService } = jest.requireActual(
+        '../stripe.service.js',
+      ) as typeof import('../stripe.service.js');
       const service = new StripeService(configService);
       expect(service.isConfigured()).toBe(false);
     });

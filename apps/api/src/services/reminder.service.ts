@@ -33,7 +33,9 @@ export class ReminderService {
       .andWhere('lesson.scheduledTime < :end', { end: in61Minutes })
       .getMany();
 
-    this.logger.log(`Reminder cron: found ${lessons.length} upcoming lesson(s)`);
+    this.logger.log(
+      `Reminder cron: found ${lessons.length} upcoming lesson(s)`,
+    );
 
     for (const lesson of lessons) {
       try {
@@ -53,7 +55,10 @@ export class ReminderService {
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
             )
             .catch((err) =>
-              this.logger.error(`Reminder email delivery failed for student ${lesson.student?.email}`, err instanceof Error ? err.stack : err),
+              this.logger.error(
+                `Reminder email delivery failed for student ${lesson.student?.email}`,
+                err instanceof Error ? err.stack : err,
+              ),
             );
         }
 
@@ -68,12 +73,18 @@ export class ReminderService {
 <p>Duration: ${lesson.durationMinutes} minutes</p>`,
             )
             .catch((err) =>
-              this.logger.error(`Reminder email delivery failed for tutor ${lesson.tutor?.email}`, err instanceof Error ? err.stack : err),
+              this.logger.error(
+                `Reminder email delivery failed for tutor ${lesson.tutor?.email}`,
+                err instanceof Error ? err.stack : err,
+              ),
             );
         }
       } catch (err) {
         // Don't let a single lesson failure crash the entire cron job
-        this.logger.error(`Reminder failed for lesson ${lesson.id}`, err instanceof Error ? err.stack : err);
+        this.logger.error(
+          `Reminder failed for lesson ${lesson.id}`,
+          err instanceof Error ? err.stack : err,
+        );
       }
     }
   }

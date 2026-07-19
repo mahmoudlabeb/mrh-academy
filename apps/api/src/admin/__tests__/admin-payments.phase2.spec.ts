@@ -116,7 +116,10 @@ describe('AdminPaymentsController phase 2 regression', () => {
 
     const result = await controller.payoutTutor('tutor-1');
 
-    expect(result).toEqual({ message: 'Payout sent successfully', amount: 100 });
+    expect(result).toEqual({
+      message: 'Payout sent successfully',
+      amount: 100,
+    });
     expect(payoutRepo.update).toHaveBeenCalledWith('payout-1', {
       status: PayoutStatus.SUCCESS,
       stripePayoutId: 'po_stripe_1',

@@ -20,7 +20,10 @@ interface JwtPayload {
 
 const socketData = new WeakMap<Socket, { userId: string; role: string }>();
 
-function setMessageSocketData(socket: Socket, data: { userId: string; role: string }) {
+function setMessageSocketData(
+  socket: Socket,
+  data: { userId: string; role: string },
+) {
   socketData.set(socket, data);
 }
 
@@ -35,7 +38,9 @@ function getMessageSocketData(socket: Socket) {
     credentials: true,
   },
 })
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MessagesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -57,7 +62,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(String(token));
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(
+        String(token),
+      );
 
       if (payload.type && payload.type !== 'access') {
         socket.disconnect(true);
@@ -115,6 +122,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   isUserOnline(userId: string): boolean {
-    return this.connectedUsers.has(userId) && this.connectedUsers.get(userId)!.size > 0;
+    return (
+      this.connectedUsers.has(userId) &&
+      this.connectedUsers.get(userId)!.size > 0
+    );
   }
 }

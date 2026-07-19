@@ -64,7 +64,11 @@ describe('Messages (e2e)', () => {
     app.setGlobalPrefix('api/v1');
     app.use(helmet());
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 
@@ -138,7 +142,9 @@ describe('Messages (e2e)', () => {
       .expect(200);
 
     expect(Array.isArray(contactsRes.body)).toBe(true);
-    expect(contactsRes.body.some((c: any) => c.user?.id === sender.user.id)).toBe(true);
+    expect(
+      contactsRes.body.some((c: any) => c.user?.id === sender.user.id),
+    ).toBe(true);
 
     const convRes = await request(app.getHttpServer())
       .get(`/api/v1/messages/${sender.user.id}`)
@@ -182,7 +188,11 @@ describe('Courses (e2e)', () => {
     app.setGlobalPrefix('api/v1');
     app.use(helmet());
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 
@@ -258,7 +268,9 @@ describe('Courses (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(201);
 
-    const approvedCourse = await courseRepository.findOneByOrFail({ id: courseId });
+    const approvedCourse = await courseRepository.findOneByOrFail({
+      id: courseId,
+    });
     expect(approvedCourse.status).toBe(CourseStatus.APPROVED);
 
     const studentRes = await request(app.getHttpServer())
@@ -318,7 +330,9 @@ describe('Courses (e2e)', () => {
       .expect(200);
 
     expect(Array.isArray(enrollmentsRes.body)).toBe(true);
-    expect(enrollmentsRes.body.some((e: any) => e.courseId === courseId)).toBe(true);
+    expect(enrollmentsRes.body.some((e: any) => e.courseId === courseId)).toBe(
+      true,
+    );
 
     const myCoursesRes = await request(app.getHttpServer())
       .get('/api/v1/courses/my/courses')
@@ -356,7 +370,11 @@ describe('Vocabulary (e2e)', () => {
     app.setGlobalPrefix('api/v1');
     app.use(helmet());
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 
@@ -397,7 +415,9 @@ describe('Vocabulary (e2e)', () => {
 
     const wordId = (saveRes.body as { id: string }).id;
 
-    const savedWord = await vocabularyRepository.findOneByOrFail({ id: wordId });
+    const savedWord = await vocabularyRepository.findOneByOrFail({
+      id: wordId,
+    });
     expect(savedWord.word).toBe('ephemeral');
 
     const listRes = await request(app.getHttpServer())
@@ -413,7 +433,9 @@ describe('Vocabulary (e2e)', () => {
       .set('Authorization', `Bearer ${user.accessToken}`)
       .expect(200);
 
-    const deleted = await vocabularyRepository.findOne({ where: { id: wordId } });
+    const deleted = await vocabularyRepository.findOne({
+      where: { id: wordId },
+    });
     expect(deleted).toBeNull();
   });
 });
@@ -439,7 +461,11 @@ describe('Admin Impersonation (e2e)', () => {
     app.setGlobalPrefix('api/v1');
     app.use(helmet());
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 
@@ -482,9 +508,13 @@ describe('Admin Impersonation (e2e)', () => {
       .send({ userId: student.id })
       .expect(201);
 
-    const impersonatedToken = (impersonateRes.body as { accessToken: string }).accessToken;
+    const impersonatedToken = (impersonateRes.body as { accessToken: string })
+      .accessToken;
 
-    (redisService as any).set(`user_session:${student.id}`, 'impersonated-session');
+    (redisService as any).set(
+      `user_session:${student.id}`,
+      'impersonated-session',
+    );
 
     const meRes = await request(app.getHttpServer())
       .get('/api/v1/users/me')
@@ -499,7 +529,8 @@ describe('Admin Impersonation (e2e)', () => {
       .set('Authorization', `Bearer ${impersonatedToken}`)
       .expect(201);
 
-    const restoredToken = (unimpersonateRes.body as { accessToken: string }).accessToken;
+    const restoredToken = (unimpersonateRes.body as { accessToken: string })
+      .accessToken;
 
     const meRestored = await request(app.getHttpServer())
       .get('/api/v1/users/me')
@@ -532,7 +563,11 @@ describe('SubAdmin Invite (e2e)', () => {
     app.setGlobalPrefix('api/v1');
     app.use(helmet());
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 
@@ -574,7 +609,14 @@ describe('SubAdmin Invite (e2e)', () => {
 
     const invitedUser = await userRepository.findOne({
       where: { email: subEmail },
-      select: ['id', 'email', 'inviteToken', 'inviteTokenExpires', 'isActive', 'passwordHash'],
+      select: [
+        'id',
+        'email',
+        'inviteToken',
+        'inviteTokenExpires',
+        'isActive',
+        'passwordHash',
+      ],
     });
 
     expect(invitedUser).not.toBeNull();
@@ -591,7 +633,9 @@ describe('SubAdmin Invite (e2e)', () => {
     expect(authData.user.role).toBe(UserRole.SUBADMIN);
     expect(authData.user.email).toBe(subEmail);
 
-    const updatedUser = await userRepository.findOneByOrFail({ id: invitedUser!.id });
+    const updatedUser = await userRepository.findOneByOrFail({
+      id: invitedUser!.id,
+    });
     expect(updatedUser.isActive).toBe(true);
 
     const listRes = await request(app.getHttpServer())
@@ -624,7 +668,11 @@ describe('Admin Stats & Reports (e2e)', () => {
     app.setGlobalPrefix('api/v1');
     app.use(helmet());
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
 

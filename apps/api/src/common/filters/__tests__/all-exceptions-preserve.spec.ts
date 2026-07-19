@@ -26,7 +26,9 @@ describe('AllExceptionsFilter preservation (P2-H)', () => {
   it('still includes statusCode, error, timestamp, and path in error response', () => {
     const filter = new AllExceptionsFilter();
     const mockJson = jest.fn();
-    const mockResponse = { status: jest.fn().mockReturnValue({ json: mockJson }) };
+    const mockResponse = {
+      status: jest.fn().mockReturnValue({ json: mockJson }),
+    };
     const mockRequest = { url: '/api/v1/test' };
 
     const mockHost = {
@@ -51,7 +53,9 @@ describe('AllExceptionsFilter preservation (P2-H)', () => {
     const { HttpException, HttpStatus } = jest.requireActual('@nestjs/common');
     const filter = new AllExceptionsFilter();
     const mockJson = jest.fn();
-    const mockResponse = { status: jest.fn().mockReturnValue({ json: mockJson }) };
+    const mockResponse = {
+      status: jest.fn().mockReturnValue({ json: mockJson }),
+    };
     const mockRequest = { url: '/api/v1/lessons' };
 
     const mockHost = {
