@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -26,10 +26,10 @@ interface AvailabilitySlot {
 }
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-const DAY_LABELS_AR_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'] as const;
+const DAY_LABELS_AR_SHORT = ['ط£ط­ط¯', 'ط¥ط«ظ†ظٹظ†', 'ط«ظ„ط§ط«ط§ط،', 'ط£ط±ط¨ط¹ط§ط،', 'ط®ظ…ظٹط³', 'ط¬ظ…ط¹ط©', 'ط³ط¨طھ'] as const;
 const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  'ظٹظ†ط§ظٹط±', 'ظپط¨ط±ط§ظٹط±', 'ظ…ط§ط±ط³', 'ط£ط¨ط±ظٹظ„', 'ظ…ط§ظٹظˆ', 'ظٹظˆظ†ظٹظˆ',
+  'ظٹظˆظ„ظٹظˆ', 'ط£ط؛ط³ط·ط³', 'ط³ط¨طھظ…ط¨ط±', 'ط£ظƒطھظˆط¨ط±', 'ظ†ظˆظپظ…ط¨ط±', 'ط¯ظٹط³ظ…ط¨ط±',
 ];
 const MONTH_NAMES_EN = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -61,7 +61,7 @@ export const dynamic = 'force-dynamic';
 
 function BookLessonContent() {
   const searchParams = useSearchParams();
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const { user } = useAuth();
 
   const tutorId = searchParams.get('tutorId');
@@ -73,8 +73,6 @@ function BookLessonContent() {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
-
-  const t = (ar: string, en: string) => (lang === 'ar' ? ar : en);
 
   const { data: tutor, isLoading: tutorLoading, error: tutorError } = useQuery({
     queryKey: ['tutor', tutorId],
@@ -175,7 +173,7 @@ function BookLessonContent() {
     },
     onError: (err: Error) => {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      const msg = axiosErr?.response?.data?.message || err?.message || 'حدث خطأ أثناء الحجز';
+      const msg = axiosErr?.response?.data?.message || err?.message || 'ط­ط¯ط« ط®ط·ط£ ط£ط«ظ†ط§ط، ط§ظ„ط­ط¬ط²';
       setErrorMsg(msg);
     },
   });
@@ -213,13 +211,13 @@ function BookLessonContent() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
         <div className="text-center card p-12 max-w-md">
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('الحجز للطلاب فقط', 'Booking is for students only')}
+            {t('ط§ظ„ط­ط¬ط² ظ„ظ„ط·ظ„ط§ط¨ ظپظ‚ط·', 'Booking is for students only')}
           </h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('يجب تسجيل الدخول بحساب طالب لحجز درس.', 'You must be logged in as a student to book a lesson.')}
+            {t('ظٹط¬ط¨ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط¨ط­ط³ط§ط¨ ط·ط§ظ„ط¨ ظ„ط­ط¬ط² ط¯ط±ط³.', 'You must be logged in as a student to book a lesson.')}
           </p>
           <Link href={user.role === 'tutor' ? '/tutor' : user.role === 'admin' || user.role === 'subadmin' ? '/admin' : '/student'} className="btn-primary">
-            {t('العودة للوحة التحكم', 'Back to Dashboard')}
+            {t('ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…', 'Back to Dashboard')}
           </Link>
         </div>
       </div>
@@ -236,13 +234,13 @@ function BookLessonContent() {
             </svg>
           </div>
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('لم يتم اختيار معلم', 'No tutor selected')}
+            {t('ظ„ظ… ظٹطھظ… ط§ط®طھظٹط§ط± ظ…ط¹ظ„ظ…', 'No tutor selected')}
           </h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('الرجاء اختيار معلم أولاً من صفحة المعلمين.', 'Please select a tutor first from the tutors page.')}
+            {t('ط§ظ„ط±ط¬ط§ط، ط§ط®طھظٹط§ط± ظ…ط¹ظ„ظ… ط£ظˆظ„ط§ظ‹ ظ…ظ† طµظپط­ط© ط§ظ„ظ…ط¹ظ„ظ…ظٹظ†.', 'Please select a tutor first from the tutors page.')}
           </p>
           <Link href="/student/discover" className="btn-primary">
-            {t('تصفح المعلمين', 'Browse Tutors')}
+            {t('طھطµظپط­ ط§ظ„ظ…ط¹ظ„ظ…ظٹظ†', 'Browse Tutors')}
           </Link>
         </div>
       </div>
@@ -254,7 +252,7 @@ function BookLessonContent() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: '#D4A353' }} />
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري تحميل بيانات المعلم...', 'Loading tutor data...')}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ط¬ط§ط±ظٹ طھط­ظ…ظٹظ„ ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ…ط¹ظ„ظ…...', 'Loading tutor data...')}</p>
         </div>
       </div>
     );
@@ -270,17 +268,17 @@ function BookLessonContent() {
             </svg>
           </div>
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('تم إرسال طلب الحجز', 'Booking Request Sent')}
+            {t('طھظ… ط¥ط±ط³ط§ظ„ ط·ظ„ط¨ ط§ظ„ط­ط¬ط²', 'Booking Request Sent')}
           </h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('بانتظار موافقة المعلم على الحجز واختيار الوقت المناسب. سنرسل لك إشعاراً عند التأكيد.', 'Awaiting tutor approval and time selection. You will be notified once confirmed.')}
+            {t('ط¨ط§ظ†طھط¸ط§ط± ظ…ظˆط§ظپظ‚ط© ط§ظ„ظ…ط¹ظ„ظ… ط¹ظ„ظ‰ ط§ظ„ط­ط¬ط² ظˆط§ط®طھظٹط§ط± ط§ظ„ظˆظ‚طھ ط§ظ„ظ…ظ†ط§ط³ط¨. ط³ظ†ط±ط³ظ„ ظ„ظƒ ط¥ط´ط¹ط§ط±ط§ظ‹ ط¹ظ†ط¯ ط§ظ„طھط£ظƒظٹط¯.', 'Awaiting tutor approval and time selection. You will be notified once confirmed.')}
           </p>
           <div className="flex gap-3 justify-center">
             <Link href="/student?tab=lessons" className="btn-primary">
-              {t('عرض دروسي', 'My Lessons')}
+              {t('ط¹ط±ط¶ ط¯ط±ظˆط³ظٹ', 'My Lessons')}
             </Link>
             <Link href="/student/discover" className="btn-secondary">
-              {t('العودة للمعلمين', 'Back to Tutors')}
+              {t('ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظ…ط¹ظ„ظ…ظٹظ†', 'Back to Tutors')}
             </Link>
           </div>
         </div>
@@ -298,13 +296,13 @@ function BookLessonContent() {
             </svg>
           </div>
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('خطأ في تحميل المعلم', 'Error loading tutor')}
+            {t('ط®ط·ط£ ظپظٹ طھط­ظ…ظٹظ„ ط§ظ„ظ…ط¹ظ„ظ…', 'Error loading tutor')}
           </h2>
           <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('لم نتمكن من العثور على هذا المعلم. قد يكون غير متاح حالياً.', 'Could not find this tutor. They may not be available.')}
+            {t('ظ„ظ… ظ†طھظ…ظƒظ† ظ…ظ† ط§ظ„ط¹ط«ظˆط± ط¹ظ„ظ‰ ظ‡ط°ط§ ط§ظ„ظ…ط¹ظ„ظ…. ظ‚ط¯ ظٹظƒظˆظ† ط؛ظٹط± ظ…طھط§ط­ ط­ط§ظ„ظٹط§ظ‹.', 'Could not find this tutor. They may not be available.')}
           </p>
           <Link href="/student/discover" className="btn-primary">
-            {t('العودة للمعلمين', 'Back to Tutors')}
+            {t('ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظ…ط¹ظ„ظ…ظٹظ†', 'Back to Tutors')}
           </Link>
         </div>
       </div>
@@ -322,7 +320,7 @@ function BookLessonContent() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M15 19l-7-7 7-7' : 'M19 15l-7-7 7-7'} />
             </svg>
-            {t('العودة إلى المعلمين', 'Back to Tutors')}
+            {t('ط§ظ„ط¹ظˆط¯ط© ط¥ظ„ظ‰ ط§ظ„ظ…ط¹ظ„ظ…ظٹظ†', 'Back to Tutors')}
           </Link>
           <Link href="/" className="logo text-xl font-extrabold tracking-tight" style={{ color: '#D4A353', fontFamily: "'Inter', sans-serif" }}>
             MR.H
@@ -332,7 +330,7 @@ function BookLessonContent() {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-8 text-center animate-fade-in" style={{ color: 'var(--text-main)' }}>
-          {t('احجز درسًا', 'Book a Lesson')}
+          {t('ط§ط­ط¬ط² ط¯ط±ط³ظ‹ط§', 'Book a Lesson')}
         </h1>
 
         {errorMsg && (
@@ -366,7 +364,7 @@ function BookLessonContent() {
                       </span>
                     </div>
                     <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
-                      ${tutor.hourlyRate}/{t('ساعة', 'hr')}
+                      ${tutor.hourlyRate}/{t('ط³ط§ط¹ط©', 'hr')}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
@@ -382,7 +380,7 @@ function BookLessonContent() {
 
             <div className="card p-6 animate-slide-up">
               <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-                {t('مدة الدرس', 'Lesson Duration')}
+                {t('ظ…ط¯ط© ط§ظ„ط¯ط±ط³', 'Lesson Duration')}
               </h3>
               <div className="flex gap-3">
                 <button
@@ -394,7 +392,7 @@ function BookLessonContent() {
                   }`}
                   style={duration !== 25 ? { borderColor: 'var(--border-color)', background: 'var(--bg-light)' } : {}}
                 >
-                  {t('٢٥ دقيقة', '25 min')}
+                  {t('ظ¢ظ¥ ط¯ظ‚ظٹظ‚ط©', '25 min')}
                   <span className="block text-[10px] font-medium mt-0.5" style={{ opacity: 0.8 }}>
                     ${((tutor.hourlyRate * 25) / 60).toFixed(2)}
                   </span>
@@ -408,7 +406,7 @@ function BookLessonContent() {
                   }`}
                   style={duration !== 50 ? { borderColor: 'var(--border-color)', background: 'var(--bg-light)' } : {}}
                 >
-                  {t('٥٠ دقيقة', '50 min')}
+                  {t('ظ¥ظ  ط¯ظ‚ظٹظ‚ط©', '50 min')}
                   <span className="block text-[10px] font-medium mt-0.5" style={{ opacity: 0.8 }}>
                     ${((tutor.hourlyRate * 50) / 60).toFixed(2)}
                   </span>
@@ -419,7 +417,7 @@ function BookLessonContent() {
             <div className="card p-6 animate-slide-up">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
-                  {t('اختر التاريخ', 'Select Date')}
+                  {t('ط§ط®طھط± ط§ظ„طھط§ط±ظٹط®', 'Select Date')}
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
@@ -503,7 +501,7 @@ function BookLessonContent() {
                   </div>
                   <div>
                     <h3 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
-                      {t('اليوم والوقت المحدد', 'Selected Day & Time')}
+                      {t('ط§ظ„ظٹظˆظ… ظˆط§ظ„ظˆظ‚طھ ط§ظ„ظ…ط­ط¯ط¯', 'Selected Day & Time')}
                     </h3>
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -512,7 +510,7 @@ function BookLessonContent() {
                 </div>
                 <div className="mt-4">
                   <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>
-                    {t('اختر الوقت', 'Select Time')}
+                    {t('ط§ط®طھط± ط§ظ„ظˆظ‚طھ', 'Select Time')}
                   </label>
                   <input
                     type="time"
@@ -529,34 +527,34 @@ function BookLessonContent() {
           <div className="lg:col-span-2">
             <div className="card p-6 animate-slide-up sticky top-6" style={{ background: 'var(--bg-light)' }}>
               <h3 className="text-base font-bold mb-5" style={{ color: 'var(--text-main)' }}>
-                {t('ملخص الحجز', 'Booking Summary')}
+                {t('ظ…ظ„ط®طµ ط§ظ„ط­ط¬ط²', 'Booking Summary')}
               </h3>
 
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('المعلم', 'Tutor')}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ظ…ط¹ظ„ظ…', 'Tutor')}</span>
                   <span className="font-medium" style={{ color: 'var(--text-main)' }}>
                     {tutor.user.firstName} {tutor.user.lastName}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('المدة', 'Duration')}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ظ…ط¯ط©', 'Duration')}</span>
                   <span className="font-medium" style={{ color: 'var(--text-main)' }}>
-                    {duration === 25 ? t('٢٥ دقيقة', '25 min') : t('٥٠ دقيقة', '50 min')}
+                    {duration === 25 ? t('ظ¢ظ¥ ط¯ظ‚ظٹظ‚ط©', '25 min') : t('ظ¥ظ  ط¯ظ‚ظٹظ‚ط©', '50 min')}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('السعر', 'Rate')}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ط³ط¹ط±', 'Rate')}</span>
                   <span className="font-medium" style={{ color: 'var(--text-main)' }}>
-                    ${tutor.hourlyRate}/{t('ساعة', 'hr')}
+                    ${tutor.hourlyRate}/{t('ط³ط§ط¹ط©', 'hr')}
                   </span>
                 </div>
 
                 {selectedDate && (
                   <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--text-muted)' }}>{t('اليوم', 'Day')}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ظٹظˆظ…', 'Day')}</span>
                     <span className="font-medium" style={{ color: 'var(--text-main)' }}>
                       {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' })}
                     </span>
@@ -567,7 +565,7 @@ function BookLessonContent() {
 
                 <div className="flex items-center justify-between">
                   <span className="font-bold" style={{ color: 'var(--text-main)' }}>
-                    {t('الإجمالي', 'Total')}
+                    {t('ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ', 'Total')}
                   </span>
                   <span className="text-xl font-bold" style={{ color: '#D4A353' }}>
                     ${totalCost.toFixed(2)}
@@ -577,7 +575,7 @@ function BookLessonContent() {
                 <hr style={{ borderColor: 'var(--border-color)' }} />
 
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('الرصيد المتاح', 'Your Balance')}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ط±طµظٹط¯ ط§ظ„ظ…طھط§ط­', 'Your Balance')}</span>
                   <span className="font-medium" style={{ color: 'var(--text-main)' }}>
                     ${(balance ?? 0).toFixed(2)}
                   </span>
@@ -589,7 +587,7 @@ function BookLessonContent() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span style={{ color: '#ef4444' }}>
-                      {t('رصيدك غير كافٍ. يرجى شحن رصيدك للمتابعة.', 'Insufficient balance. Please add credits to continue.')}
+                      {t('ط±طµظٹط¯ظƒ ط؛ظٹط± ظƒط§ظپظچ. ظٹط±ط¬ظ‰ ط´ط­ظ† ط±طµظٹط¯ظƒ ظ„ظ„ظ…طھط§ط¨ط¹ط©.', 'Insufficient balance. Please add credits to continue.')}
                     </span>
                   </div>
                 )}
@@ -603,16 +601,16 @@ function BookLessonContent() {
                 {bookMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-[#0F3A40] border-t-transparent animate-spin" />
-                    {t('جاري الحجز...', 'Booking...')}
+                    {t('ط¬ط§ط±ظٹ ط§ظ„ط­ط¬ط²...', 'Booking...')}
                   </span>
                 ) : (
-                  t('احجز الآن', 'Book Now')
+                  t('ط§ط­ط¬ط² ط§ظ„ط¢ظ†', 'Book Now')
                 )}
               </button>
 
               {!selectedDate && (
                 <p className="text-xs text-center mt-3" style={{ color: 'var(--text-muted)' }}>
-                  {t('اختر تاريخاً ووقتاً للمتابعة', 'Select a date and time to continue')}
+                  {t('ط§ط®طھط± طھط§ط±ظٹط®ط§ظ‹ ظˆظˆظ‚طھط§ظ‹ ظ„ظ„ظ…طھط§ط¨ط¹ط©', 'Select a date and time to continue')}
                 </p>
               )}
             </div>
@@ -630,3 +628,5 @@ export default function BookLessonPage() {
     </React.Suspense>
   );
 }
+
+

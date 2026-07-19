@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -22,12 +22,8 @@ type LessonBrief = {
 };
 
 export default function Insights() {
-  const { lang } = useLanguage();
-  const isAr = lang === 'ar';
-
-  const t = (ar: string, en: string) => isAr ? ar : en;
-
-  const { data: stats, isLoading } = useQuery<TutorStats>({
+  const { t } = useLanguage();
+const { data: stats, isLoading } = useQuery<TutorStats>({
     queryKey: ['tutor', 'stats'],
     queryFn: async () => {
       const { data } = await apiClient.get('/tutors/me/stats');
@@ -62,7 +58,7 @@ export default function Insights() {
 
   const statCards = [
     {
-      labelAr: 'الدروس المكتملة',
+      labelAr: 'ط§ظ„ط¯ط±ظˆط³ ط§ظ„ظ…ظƒطھظ…ظ„ط©',
       labelEn: 'Completed Lessons',
       value: String(stats?.completedLessons ?? 0),
       color: '#D4A353',
@@ -73,7 +69,7 @@ export default function Insights() {
       ),
     },
     {
-      labelAr: 'الأرباح',
+      labelAr: 'ط§ظ„ط£ط±ط¨ط§ط­',
       labelEn: 'Earnings',
       value: `$${(stats?.totalEarnings ?? 0).toFixed(0)}`,
       color: '#22c55e',
@@ -84,9 +80,9 @@ export default function Insights() {
       ),
     },
     {
-      labelAr: 'متوسط التقييم',
+      labelAr: 'ظ…طھظˆط³ط· ط§ظ„طھظ‚ظٹظٹظ…',
       labelEn: 'Average Rating',
-      value: `${(stats?.averageRating ?? 0).toFixed(1)} ★`,
+      value: `${(stats?.averageRating ?? 0).toFixed(1)} âک…`,
       color: '#eab308',
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -95,7 +91,7 @@ export default function Insights() {
       ),
     },
     {
-      labelAr: 'إجمالي ساعات التدريس',
+      labelAr: 'ط¥ط¬ظ…ط§ظ„ظٹ ط³ط§ط¹ط§طھ ط§ظ„طھط¯ط±ظٹط³',
       labelEn: 'Total Hours Taught',
       value: `${(stats?.totalHoursTaught ?? 0).toFixed(1)}h`,
       color: '#6366f1',
@@ -110,8 +106,8 @@ export default function Insights() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{t('التحليلات', 'Insights')}</h2>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('تحليلات أدائك التعليمي.', 'Your teaching performance analytics.')}</p>
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„طھط­ظ„ظٹظ„ط§طھ', 'Insights')}</h2>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('طھط­ظ„ظٹظ„ط§طھ ط£ط¯ط§ط¦ظƒ ط§ظ„طھط¹ظ„ظٹظ…ظٹ.', 'Your teaching performance analytics.')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -129,10 +125,10 @@ export default function Insights() {
       </div>
 
       <div className="card-dark p-6">
-        <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('الدروس الأخيرة', 'Recent Lessons')}</h3>
+        <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط¯ط±ظˆط³ ط§ظ„ط£ط®ظٹط±ط©', 'Recent Lessons')}</h3>
         <div className="space-y-3">
           {recentLessons.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا توجد دروس حديثة', 'No recent lessons')}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ط¯ط±ظˆط³ ط­ط¯ظٹط«ط©', 'No recent lessons')}</p>
           ) : (
             recentLessons.map((lesson: LessonBrief) => (
               <div key={lesson.id} className="flex items-center gap-4 py-3 border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
@@ -141,7 +137,7 @@ export default function Insights() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-main)' }}>
-                    {lesson.student ? `${lesson.student.firstName} ${lesson.student.lastName}` : t('طالب', 'Student')}
+                    {lesson.student ? `${lesson.student.firstName} ${lesson.student.lastName}` : t('ط·ط§ظ„ط¨', 'Student')}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lesson.status}</p>
                 </div>
@@ -149,7 +145,7 @@ export default function Insights() {
                   <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                     {new Date(lesson.scheduledTime).toLocaleDateString()}
                   </p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lesson.durationMinutes} {t('دقيقة', 'min')}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lesson.durationMinutes} {t('ط¯ظ‚ظٹظ‚ط©', 'min')}</p>
                 </div>
               </div>
             ))
@@ -159,3 +155,5 @@ export default function Insights() {
     </div>
   );
 }
+
+

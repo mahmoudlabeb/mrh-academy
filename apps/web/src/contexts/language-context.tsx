@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import ar from '../translations/ar.json';
+import en from '../translations/en.json';
 
 type Language = 'ar' | 'en';
 
@@ -9,9 +11,18 @@ interface LanguageContextType {
   dir: 'rtl' | 'ltr';
   toggleLanguage: () => void;
   setLanguage: (lang: Language) => void;
+  t: (keyOrAr: string, enFallback?: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+const dict: Record<string, Record<Language, string>> = {};
+for (const [key, val] of Object.entries(ar)) {
+  dict[key] = { ar: val, en: (en as Record<string, string>)[key] ?? val };
+}
+for (const [key, val] of Object.entries(en)) {
+  if (!dict[key]) dict[key] = { ar: (ar as Record<string, string>)[key] ?? val, en: val };
+}
 
 function getInitialLanguage(): Language {
   if (typeof window !== 'undefined') {
@@ -58,8 +69,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
 
+  const t = useCallback((keyOrAr: string, enFallback?: string): string => {
+    if (enFallback !== undefined) {
+      return lang === 'ar' ? keyOrAr : enFallback;
+    }
+    return dict[keyOrAr]?.[lang] ?? keyOrAr;
+  }, [lang]);
+
   return (
-    <LanguageContext.Provider value={{ lang, dir, toggleLanguage, setLanguage }}>
+    <LanguageContext.Provider value={{ lang, dir, toggleLanguage, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

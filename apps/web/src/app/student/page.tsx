@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, type ReactNode, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -18,11 +18,11 @@ import NotificationsPanel from './components/NotificationsPanel';
 type Tab = 'discover' | 'lessons' | 'messages' | 'payments' | 'settings';
 
 const tabs: { key: Tab; labelAr: string; labelEn: string }[] = [
-  { key: 'discover', labelAr: 'اكتشف', labelEn: 'Discover' },
-  { key: 'lessons', labelAr: 'دروسي', labelEn: 'My Lessons' },
-  { key: 'payments', labelAr: 'المدفوعات', labelEn: 'Payments' },
-  { key: 'messages', labelAr: 'الرسائل', labelEn: 'Messages' },
-  { key: 'settings', labelAr: 'الإعدادات', labelEn: 'Settings' },
+  { key: 'discover', labelAr: 'ط§ظƒطھط´ظپ', labelEn: 'Discover' },
+  { key: 'lessons', labelAr: 'ط¯ط±ظˆط³ظٹ', labelEn: 'My Lessons' },
+  { key: 'payments', labelAr: 'ط§ظ„ظ…ط¯ظپظˆط¹ط§طھ', labelEn: 'Payments' },
+  { key: 'messages', labelAr: 'ط§ظ„ط±ط³ط§ط¦ظ„', labelEn: 'Messages' },
+  { key: 'settings', labelAr: 'ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ', labelEn: 'Settings' },
 ];
 
 const tabIcons: Record<Tab, ReactNode> = {
@@ -60,7 +60,7 @@ function StudentDashboardContent() {
   const searchParams = useSearchParams();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { lang, toggleLanguage } = useLanguage();
+  const { t, lang, toggleLanguage } = useLanguage();
   const initialTab = (searchParams.get('tab') as Tab) || 'discover';
   const [activeTab, setActiveTab] = useState<Tab>(
     ['discover', 'lessons', 'payments', 'messages', 'settings'].includes(initialTab)
@@ -70,8 +70,6 @@ function StudentDashboardContent() {
   const [showPayment, setShowPayment] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
   const { data: balance } = useQuery({
     queryKey: ['student-balance'],
@@ -108,10 +106,10 @@ function StudentDashboardContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('اكتشف المعلمين', 'Discover Tutors')}</h2>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t('ابحث وصنف واعثر على المعلم المثالي لأهدافك التعليمية.', 'Search, filter, and find the perfect tutor for your learning goals.')}</p>
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('ط§ظƒطھط´ظپ ط§ظ„ظ…ط¹ظ„ظ…ظٹظ†', 'Discover Tutors')}</h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t('ط§ط¨ط­ط« ظˆطµظ†ظپ ظˆط§ط¹ط«ط± ط¹ظ„ظ‰ ط§ظ„ظ…ط¹ظ„ظ… ط§ظ„ظ…ط«ط§ظ„ظٹ ظ„ط£ظ‡ط¯ط§ظپظƒ ط§ظ„طھط¹ظ„ظٹظ…ظٹط©.', 'Search, filter, and find the perfect tutor for your learning goals.')}</p>
               <span className="link inline-flex items-center gap-1 mt-4 text-sm">
-                {t('ابحث عن معلم', 'Find a Tutor')}
+                {t('ط§ط¨ط­ط« ط¹ظ† ظ…ط¹ظ„ظ…', 'Find a Tutor')}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M14 5l-7 7 7 7' : 'M10 19l-7-7m0 0l7-7m-7 7h18'} />
                 </svg>
@@ -123,10 +121,10 @@ function StudentDashboardContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('الدروس الأخيرة', 'Recent Lessons')}</h2>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t('عرض الدروس السابقة وجدولتها.', 'View and schedule your past and upcoming lessons.')}</p>
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط¯ط±ظˆط³ ط§ظ„ط£ط®ظٹط±ط©', 'Recent Lessons')}</h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t('ط¹ط±ط¶ ط§ظ„ط¯ط±ظˆط³ ط§ظ„ط³ط§ط¨ظ‚ط© ظˆط¬ط¯ظˆظ„طھظ‡ط§.', 'View and schedule your past and upcoming lessons.')}</p>
               <span className="link inline-flex items-center gap-1 mt-4 text-sm">
-                {t('عرض الدروس', 'View Lessons')}
+                {t('ط¹ط±ط¶ ط§ظ„ط¯ط±ظˆط³', 'View Lessons')}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M14 5l-7 7 7 7' : 'M10 19l-7-7m0 0l7-7m-7 7h18'} />
                 </svg>
@@ -138,10 +136,10 @@ function StudentDashboardContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('أفضل المعلمين', 'Top Tutors')}</h2>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t('أفضل المعلمين تقييماً على المنصة.', 'Highest rated tutors on the platform.')}</p>
+              <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>{t('ط£ظپط¶ظ„ ط§ظ„ظ…ط¹ظ„ظ…ظٹظ†', 'Top Tutors')}</h2>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{t('ط£ظپط¶ظ„ ط§ظ„ظ…ط¹ظ„ظ…ظٹظ† طھظ‚ظٹظٹظ…ط§ظ‹ ط¹ظ„ظ‰ ط§ظ„ظ…ظ†طµط©.', 'Highest rated tutors on the platform.')}</p>
               <span className="link inline-flex items-center gap-1 mt-4 text-sm">
-                {t('استعرض', 'Browse')}
+                {t('ط§ط³طھط¹ط±ط¶', 'Browse')}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M14 5l-7 7 7 7' : 'M10 19l-7-7m0 0l7-7m-7 7h18'} />
                 </svg>
@@ -169,10 +167,10 @@ function StudentDashboardContent() {
               <Link href="/" className="logo text-lg md:text-xl font-extrabold tracking-tight" style={{ color: '#D4A353', fontFamily: "'Inter', sans-serif" }}>MR.H</Link>
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(212, 163, 83,0.12)' }}>
                 <span className="text-sm font-bold" style={{ color: '#D4A353' }}>{balance?.balance ?? '0.00'}</span>
-                <span className="text-xs" style={{ color: '#E4CC9C' }}>{t('رصيد', 'Credits')}</span>
+                <span className="text-xs" style={{ color: '#E4CC9C' }}>{t('ط±طµظٹط¯', 'Credits')}</span>
               </div>
               <button onClick={() => setShowPayment(true)} className="btn-primary text-xs md:text-sm px-3 md:px-4 py-1.5">
-                {t('اشتراك', 'Subscribe')}
+                {t('ط§ط´طھط±ط§ظƒ', 'Subscribe')}
               </button>
             </div>
 
@@ -181,7 +179,7 @@ function StudentDashboardContent() {
                 type="button"
                 onClick={() => setShowNotifications(true)}
                 className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
-                title={t('الإشعارات', 'Notifications')}
+                title={t('ط§ظ„ط¥ط´ط¹ط§ط±ط§طھ', 'Notifications')}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#FFFFF0">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
@@ -197,7 +195,7 @@ function StudentDashboardContent() {
                 type="button"
                 onClick={() => setActiveTab('messages')}
                 className="relative p-2 rounded-lg hover:bg-white/5 transition-colors"
-                title={t('الرسائل', 'Messages')}
+                title={t('ط§ظ„ط±ط³ط§ط¦ظ„', 'Messages')}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#FFFFF0">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
@@ -244,16 +242,16 @@ function StudentDashboardContent() {
                       </div>
                       <button onClick={() => { setShowProfileMenu(false); setActiveTab('settings'); }} className="w-full text-right px-4 py-2.5 text-sm hover:bg-white/5 transition-colors flex items-center gap-2" style={{ color: 'var(--text-main)' }}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                        {t('الإعدادات', 'Settings')}
+                        {t('ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ', 'Settings')}
                       </button>
                       <Link href="/become-teacher" className="block px-4 py-2.5 text-sm hover:bg-white/5 transition-colors flex items-center gap-2" style={{ color: 'var(--text-main)' }} onClick={() => setShowProfileMenu(false)}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" /></svg>
-                        {t('التحول إلى معلم', 'Switch to Tutor')}
+                        {t('ط§ظ„طھط­ظˆظ„ ط¥ظ„ظ‰ ظ…ط¹ظ„ظ…', 'Switch to Tutor')}
                       </Link>
                       <hr style={{ borderColor: 'var(--border-color)' }} />
                       <button onClick={() => { setShowProfileMenu(false); logout(); }} className="w-full text-right px-4 py-2.5 text-sm hover:bg-white/5 transition-colors flex items-center gap-2" style={{ color: '#ef4444' }}>
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>
-                        {t('تسجيل الخروج', 'Logout')}
+                        {t('طھط³ط¬ظٹظ„ ط§ظ„ط®ط±ظˆط¬', 'Logout')}
                       </button>
                     </div>
                   </>
@@ -315,3 +313,4 @@ export default function StudentDashboard() {
     </Suspense>
   );
 }
+

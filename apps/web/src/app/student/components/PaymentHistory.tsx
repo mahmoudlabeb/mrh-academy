@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -17,15 +17,13 @@ type PaymentRecord = {
 };
 
 const statusConfig: Record<string, { labelAr: string; labelEn: string; bg: string; color: string }> = {
-  approved: { labelAr: 'مقبول', labelEn: 'Approved', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  pending: { labelAr: 'قيد الانتظار', labelEn: 'Pending', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
-  rejected: { labelAr: 'مرفوض', labelEn: 'Rejected', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+  approved: { labelAr: 'ظ…ظ‚ط¨ظˆظ„', labelEn: 'Approved', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
+  pending: { labelAr: 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', labelEn: 'Pending', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
+  rejected: { labelAr: 'ظ…ط±ظپظˆط¶', labelEn: 'Rejected', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
 export default function PaymentHistory() {
-  const { lang } = useLanguage();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
-
+  const { t, lang } = useLanguage();
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ['payment-history'],
     queryFn: async () => {
@@ -55,8 +53,8 @@ export default function PaymentHistory() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('لا توجد مدفوعات', 'No payment history')}</p>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('قم بعملية اشتراك لبدء التعلم', 'Subscribe to start learning')}</p>
+        <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ظ…ط¯ظپظˆط¹ط§طھ', 'No payment history')}</p>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('ظ‚ظ… ط¨ط¹ظ…ظ„ظٹط© ط§ط´طھط±ط§ظƒ ظ„ط¨ط¯ط، ط§ظ„طھط¹ظ„ظ…', 'Subscribe to start learning')}</p>
       </div>
     );
   }
@@ -81,7 +79,7 @@ export default function PaymentHistory() {
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                     <span>{new Date(payment.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    <span>·</span>
+                    <span>آ·</span>
                     <span className="badge text-[10px]" style={{ background: 'rgba(212, 163, 83,0.1)', color: '#D4A353' }}>{payment.method}</span>
                   </div>
                 </div>
@@ -95,7 +93,7 @@ export default function PaymentHistory() {
             {isRejected && payment.rejectionReason && (
               <div className="mt-3 p-3 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
                 <p className="font-semibold" style={{ color: '#ef4444' }}>
-                  {t('سبب الرفض:', 'Rejection reason:')}
+                  {t('ط³ط¨ط¨ ط§ظ„ط±ظپط¶:', 'Rejection reason:')}
                 </p>
                 <p className="mt-1" style={{ color: 'var(--text-muted)' }}>{payment.rejectionReason}</p>
               </div>
@@ -108,7 +106,7 @@ export default function PaymentHistory() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                {t('عرض الإيصال', 'View Receipt')}
+                {t('ط¹ط±ط¶ ط§ظ„ط¥ظٹطµط§ظ„', 'View Receipt')}
               </a>
             )}
           </div>

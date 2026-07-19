@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -18,10 +18,8 @@ interface NotificationsPanelProps {
 }
 
 export default function NotificationsPanel({ onClose }: NotificationsPanelProps) {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
-  const t = (ar: string, en: string) => (lang === 'ar' ? ar : en);
-
   const { data: notifications = [], isLoading } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
@@ -58,7 +56,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-          <h3 className="font-bold" style={{ color: 'var(--text-main)' }}>{t('الإشعارات', 'Notifications')}</h3>
+          <h3 className="font-bold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط¥ط´ط¹ط§ط±ط§طھ', 'Notifications')}</h3>
           <div className="flex items-center gap-2">
             {notifications.some((n) => !n.isRead) && (
               <button
@@ -67,7 +65,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                 disabled={markAllMutation.isPending}
                 className="text-xs link"
               >
-                {t('قراءة الكل', 'Mark all read')}
+                {t('ظ‚ط±ط§ط،ط© ط§ظ„ظƒظ„', 'Mark all read')}
               </button>
             )}
             <button type="button" onClick={onClose} className="p-1 rounded-lg hover:bg-white/5" style={{ color: 'var(--text-muted)' }}>
@@ -80,9 +78,9 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
 
         <div className="max-h-96 overflow-y-auto">
           {isLoading ? (
-            <div className="p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري التحميل...', 'Loading...')}</div>
+            <div className="p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{t('ط¬ط§ط±ظٹ ط§ظ„طھط­ظ…ظٹظ„...', 'Loading...')}</div>
           ) : notifications.length === 0 ? (
-            <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا توجد إشعارات', 'No notifications')}</div>
+            <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ط¥ط´ط¹ط§ط±ط§طھ', 'No notifications')}</div>
           ) : (
             notifications.map((notification) => (
               <button
@@ -110,3 +108,5 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     </div>
   );
 }
+
+

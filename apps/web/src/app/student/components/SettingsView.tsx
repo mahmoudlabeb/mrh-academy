@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
@@ -25,19 +25,18 @@ interface PaymentRecord {
 }
 
 const sections: { key: SettingsSection; labelAr: string; labelEn: string }[] = [
-  { key: 'profile', labelAr: 'الملف الشخصي', labelEn: 'Profile' },
-  { key: 'email', labelAr: 'تغيير البريد', labelEn: 'Change Email' },
-  { key: 'password', labelAr: 'كلمة المرور', labelEn: 'Password' },
-  { key: 'payments', labelAr: 'طرق الدفع', labelEn: 'Payment Methods' },
-  { key: 'history', labelAr: 'سجل الدفع', labelEn: 'Payment History' },
-  { key: 'notifications', labelAr: 'الإشعارات', labelEn: 'Notifications' },
-  { key: 'danger', labelAr: 'حذف الحساب', labelEn: 'Delete Account' },
+  { key: 'profile', labelAr: 'ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ', labelEn: 'Profile' },
+  { key: 'email', labelAr: 'طھط؛ظٹظٹط± ط§ظ„ط¨ط±ظٹط¯', labelEn: 'Change Email' },
+  { key: 'password', labelAr: 'ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', labelEn: 'Password' },
+  { key: 'payments', labelAr: 'ط·ط±ظ‚ ط§ظ„ط¯ظپط¹', labelEn: 'Payment Methods' },
+  { key: 'history', labelAr: 'ط³ط¬ظ„ ط§ظ„ط¯ظپط¹', labelEn: 'Payment History' },
+  { key: 'notifications', labelAr: 'ط§ظ„ط¥ط´ط¹ط§ط±ط§طھ', labelEn: 'Notifications' },
+  { key: 'danger', labelAr: 'ط­ط°ظپ ط§ظ„ط­ط³ط§ط¨', labelEn: 'Delete Account' },
 ];
 
 export default function SettingsView() {
   const { user } = useAuth();
-  const { lang } = useLanguage();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
+  const { t, lang } = useLanguage();
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -78,7 +77,7 @@ export default function SettingsView() {
       const { data: res } = await apiClient.put('/students/profile', data);
       return res;
     },
-    onSuccess: () => showSuccess(t('تم تحديث الملف الشخصي', 'Profile updated successfully')),
+    onSuccess: () => showSuccess(t('طھظ… طھط­ط¯ظٹط« ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ', 'Profile updated successfully')),
   });
 
   const changeEmailMutation = useMutation({
@@ -90,7 +89,7 @@ export default function SettingsView() {
       return res;
     },
     onSuccess: () => {
-      showSuccess(t('تم تغيير البريد الإلكتروني', 'Email changed successfully'));
+      showSuccess(t('طھظ… طھط؛ظٹظٹط± ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ', 'Email changed successfully'));
       setEmailForm({ newEmail: '', password: '' });
     },
   });
@@ -101,7 +100,7 @@ export default function SettingsView() {
       return res;
     },
     onSuccess: () => {
-      showSuccess(t('تم تغيير كلمة المرور', 'Password changed successfully'));
+      showSuccess(t('طھظ… طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Password changed successfully'));
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     },
   });
@@ -121,29 +120,29 @@ export default function SettingsView() {
       case 'profile':
         return (
           <div className="card p-6 space-y-5">
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('الملف الشخصي', 'Profile')}</h3>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ', 'Profile')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('الاسم الأول', 'First Name')}</label>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط§ط³ظ… ط§ظ„ط£ظˆظ„', 'First Name')}</label>
                 <input type="text" value={profileForm.firstName} onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })} className="input-field text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('الاسم الأخير', 'Last Name')}</label>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط§ط³ظ… ط§ظ„ط£ط®ظٹط±', 'Last Name')}</label>
                 <input type="text" value={profileForm.lastName} onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })} className="input-field text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('رقم الهاتف', 'Phone')}</label>
-                <input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder={t('أدخل رقم الهاتف', 'Enter phone number')} className="input-field text-sm" />
+                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ', 'Phone')}</label>
+                <input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} placeholder={t('ط£ط¯ط®ظ„ ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ', 'Enter phone number')} className="input-field text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('المنطقة الزمنية', 'Timezone')}</label>
+                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ظ†ط·ظ‚ط© ط§ظ„ط²ظ…ظ†ظٹط©', 'Timezone')}</label>
                 <select value={profileForm.timezone} onChange={(e) => setProfileForm({ ...profileForm, timezone: e.target.value })} className="input-field text-sm">
                   <option value={profileForm.timezone}>{profileForm.timezone}</option>
                 </select>
               </div>
             </div>
             <button onClick={() => updateProfileMutation.mutate(profileForm)} disabled={updateProfileMutation.isPending} className="btn-primary mt-2">
-              {updateProfileMutation.isPending ? t('جاري الحفظ...', 'Saving...') : t('حفظ التغييرات', 'Save Changes')}
+              {updateProfileMutation.isPending ? t('ط¬ط§ط±ظٹ ط§ظ„ط­ظپط¸...', 'Saving...') : t('ط­ظپط¸ ط§ظ„طھط؛ظٹظٹط±ط§طھ', 'Save Changes')}
             </button>
           </div>
         );
@@ -151,20 +150,20 @@ export default function SettingsView() {
       case 'email':
         return (
           <div className="card p-6 space-y-4">
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('تغيير البريد الإلكتروني', 'Change Email')}</h3>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('طھط؛ظٹظٹط± ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ', 'Change Email')}</h3>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {t('البريد الحالي:', 'Current email:')} <span className="font-semibold" style={{ color: 'var(--text-main)' }}>{user?.email}</span>
+              {t('ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط­ط§ظ„ظٹ:', 'Current email:')} <span className="font-semibold" style={{ color: 'var(--text-main)' }}>{user?.email}</span>
             </p>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('البريد الجديد', 'New Email')}</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¬ط¯ظٹط¯', 'New Email')}</label>
               <input type="email" value={emailForm.newEmail} onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })} className="input-field text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('كلمة المرور للتأكيد', 'Password to confirm')}</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ظ„ظ„طھط£ظƒظٹط¯', 'Password to confirm')}</label>
               <input type="password" value={emailForm.password} onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })} className="input-field text-sm" />
             </div>
             <button onClick={() => changeEmailMutation.mutate(emailForm)} disabled={changeEmailMutation.isPending || !emailForm.newEmail || !emailForm.password} className="btn-primary">
-              {t('تغيير البريد', 'Change Email')}
+              {t('طھط؛ظٹظٹط± ط§ظ„ط¨ط±ظٹط¯', 'Change Email')}
             </button>
           </div>
         );
@@ -172,23 +171,23 @@ export default function SettingsView() {
       case 'password':
         return (
           <div className="card p-6 space-y-4">
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('تغيير كلمة المرور', 'Change Password')}</h3>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Change Password')}</h3>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('كلمة المرور الحالية', 'Current Password')}</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط­ط§ظ„ظٹط©', 'Current Password')}</label>
               <input type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} className="input-field text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('كلمة المرور الجديدة', 'New Password')}</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط¬ط¯ظٹط¯ط©', 'New Password')}</label>
               <input type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} className="input-field text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('تأكيد كلمة المرور', 'Confirm New Password')}</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('طھط£ظƒظٹط¯ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Confirm New Password')}</label>
               <input type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })} className="input-field text-sm" />
             </div>
             <button
               onClick={() => {
                 if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-                  alert(t('كلمة المرور غير متطابقة', 'Passwords do not match'));
+                  alert(t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©', 'Passwords do not match'));
                   return;
                 }
                 changePasswordMutation.mutate({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
@@ -196,7 +195,7 @@ export default function SettingsView() {
               disabled={changePasswordMutation.isPending || !passwordForm.currentPassword || !passwordForm.newPassword}
               className="btn-primary"
             >
-              {t('تغيير كلمة المرور', 'Change Password')}
+              {t('طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Change Password')}
             </button>
           </div>
         );
@@ -204,10 +203,10 @@ export default function SettingsView() {
       case 'payments':
         return (
           <div className="card p-6 space-y-4">
-            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('طرق الدفع', 'Payment Methods')}</h3>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('ط·ط±ظ‚ ط§ظ„ط¯ظپط¹', 'Payment Methods')}</h3>
             {paymentMethods.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا توجد طرق دفع مضافة', 'No payment methods added yet')}</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ط·ط±ظ‚ ط¯ظپط¹ ظ…ط¶ط§ظپط©', 'No payment methods added yet')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -226,7 +225,7 @@ export default function SettingsView() {
                     </div>
                     {pm.isDefault && (
                       <span className="badge text-[10px]" style={{ background: 'rgba(212, 163, 83,0.1)', color: '#D4A353' }}>
-                        {t('افتراضي', 'Default')}
+                        {t('ط§ظپطھط±ط§ط¶ظٹ', 'Default')}
                       </span>
                     )}
                   </div>
@@ -239,10 +238,10 @@ export default function SettingsView() {
       case 'history':
         return (
           <div className="card p-6">
-            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('سجل الدفع', 'Payment History')}</h3>
+            <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('ط³ط¬ظ„ ط§ظ„ط¯ظپط¹', 'Payment History')}</h3>
             {paymentHistory.length === 0 ? (
               <div className="py-8 text-center">
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا توجد معاملات بعد', 'No transactions yet')}</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ظ…ط¹ط§ظ…ظ„ط§طھ ط¨ط¹ط¯', 'No transactions yet')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -263,7 +262,7 @@ export default function SettingsView() {
                           color: record.status === 'approved' ? '#22c55e' : '#ef4444',
                         }}
                       >
-                        {record.status === 'approved' ? t('مكتمل', 'Approved') : t('فشل', 'Failed')}
+                        {record.status === 'approved' ? t('ظ…ظƒطھظ…ظ„', 'Approved') : t('ظپط´ظ„', 'Failed')}
                       </span>
                     </div>
                   </div>
@@ -281,31 +280,31 @@ export default function SettingsView() {
       case 'danger':
         return (
           <div className="card p-6 space-y-4" style={{ borderColor: 'rgba(239,68,68,0.3)' }}>
-            <h3 className="text-lg font-bold" style={{ color: '#ef4444' }}>{t('حذف الحساب', 'Delete Account')}</h3>
+            <h3 className="text-lg font-bold" style={{ color: '#ef4444' }}>{t('ط­ط°ظپ ط§ظ„ط­ط³ط§ط¨', 'Delete Account')}</h3>
             <div className="p-4 rounded-xl" style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                {t('حذف حسابك سيؤدي إلى إزالة جميع بياناتك بشكل دائم. لا يمكن التراجع عن هذا الإجراء.', 'Deleting your account will permanently remove all your data. This action cannot be undone.')}
+                {t('ط­ط°ظپ ط­ط³ط§ط¨ظƒ ط³ظٹط¤ط¯ظٹ ط¥ظ„ظ‰ ط¥ط²ط§ظ„ط© ط¬ظ…ظٹط¹ ط¨ظٹط§ظ†ط§طھظƒ ط¨ط´ظƒظ„ ط¯ط§ط¦ظ…. ظ„ط§ ظٹظ…ظƒظ† ط§ظ„طھط±ط§ط¬ط¹ ط¹ظ† ظ‡ط°ط§ ط§ظ„ط¥ط¬ط±ط§ط،.', 'Deleting your account will permanently remove all your data. This action cannot be undone.')}
               </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                {t('اكتب "حذف" لتأكيد الحذف', 'Type "delete" to confirm')}
+                {t('ط§ظƒطھط¨ "ط­ط°ظپ" ظ„طھط£ظƒظٹط¯ ط§ظ„ط­ط°ظپ', 'Type "delete" to confirm')}
               </label>
               <input
                 type="text"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
                 className="input-field text-sm"
-                placeholder={t('حذف', 'delete')}
+                placeholder={t('ط­ط°ظپ', 'delete')}
               />
             </div>
             <button
               onClick={() => deleteAccountMutation.mutate()}
-              disabled={deleteConfirm !== (lang === 'ar' ? 'حذف' : 'delete') || deleteAccountMutation.isPending}
+              disabled={deleteConfirm !== (lang === 'ar' ? 'ط­ط°ظپ' : 'delete') || deleteAccountMutation.isPending}
               className="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
               style={{ background: '#ef4444' }}
             >
-              {deleteAccountMutation.isPending ? t('جاري الحذف...', 'Deleting...') : t('حذف الحساب', 'Delete Account')}
+              {deleteAccountMutation.isPending ? t('ط¬ط§ط±ظٹ ط§ظ„ط­ط°ظپ...', 'Deleting...') : t('ط­ط°ظپ ط§ظ„ط­ط³ط§ط¨', 'Delete Account')}
             </button>
           </div>
         );
@@ -342,3 +341,4 @@ export default function SettingsView() {
     </div>
   );
 }
+

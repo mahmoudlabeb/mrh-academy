@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -14,10 +14,8 @@ type PaymentMethod = {
 };
 
 export default function PaymentMethodsManager() {
-  const { lang } = useLanguage();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
-
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
   const { data: methods = [] } = useQuery<PaymentMethod[]>({
     queryKey: ['admin-payment-methods'],
@@ -37,11 +35,11 @@ export default function PaymentMethodsManager() {
   return (
     <div>
       <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-        {t('إدارة طرق الدفع', 'Payment Methods Management')}
+        {t('ط¥ط¯ط§ط±ط© ط·ط±ظ‚ ط§ظ„ط¯ظپط¹', 'Payment Methods Management')}
       </h2>
 
       <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-        {t('فعّل أو عطّل طرق الدفع المتاحة للطلاب.', 'Enable or disable available payment methods for students.')}
+        {t('ظپط¹ظ‘ظ„ ط£ظˆ ط¹ط·ظ‘ظ„ ط·ط±ظ‚ ط§ظ„ط¯ظپط¹ ط§ظ„ظ…طھط§ط­ط© ظ„ظ„ط·ظ„ط§ط¨.', 'Enable or disable available payment methods for students.')}
       </p>
 
       <div className="flex flex-col gap-3">
@@ -91,3 +89,5 @@ export default function PaymentMethodsManager() {
     </div>
   );
 }
+
+

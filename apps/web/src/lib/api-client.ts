@@ -41,6 +41,20 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Translate error message if available
+    if (error.response?.data?.message) {
+      const { translateError } = await import('./i18n');
+      const lang = (typeof window !== 'undefined' ? localStorage.getItem('lang_pref') : 'ar') || 'ar';
+      
+      let msg = error.response.data.message;
+      if (Array.isArray(msg)) {
+        msg = msg.map(m => translateError(m, lang as any)).join(', ');
+      } else {
+        msg = translateError(msg, lang as any);
+      }
+      error.response.data.message = msg;
+    }
+
     const originalRequest = error.config;
     if (
       error.response &&

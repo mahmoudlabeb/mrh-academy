@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
@@ -13,11 +13,8 @@ type StudentInfo = {
 };
 
 export default function StudentsList() {
-  const { lang } = useLanguage();
+  const { t } = useLanguage();
   const router = useRouter();
-  const isAr = lang === 'ar';
-
-  const t = (ar: string, en: string) => isAr ? ar : en;
 
   const { data: students = [], isLoading } = useQuery<StudentInfo[]>({
     queryKey: ['tutor', 'students'],
@@ -49,14 +46,14 @@ export default function StudentsList() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{t('الطلاب', 'Students')}</h2>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('الطلاب الذين حجزوا دروسًا معك.', 'Students who have booked lessons with you.')}</p>
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط·ظ„ط§ط¨', 'Students')}</h2>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ط·ظ„ط§ط¨ ط§ظ„ط°ظٹظ† ط­ط¬ط²ظˆط§ ط¯ط±ظˆط³ظ‹ط§ ظ…ط¹ظƒ.', 'Students who have booked lessons with you.')}</p>
       </div>
 
       <div className="space-y-3">
         {students.length === 0 ? (
           <div className="card-dark p-12 text-center">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا يوجد طلاب بعد', 'No students yet')}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ ظٹظˆط¬ط¯ ط·ظ„ط§ط¨ ط¨ط¹ط¯', 'No students yet')}</p>
           </div>
         ) : (
           students.map((student) => (
@@ -72,10 +69,10 @@ export default function StudentsList() {
                 <p className="font-semibold" style={{ color: 'var(--text-main)' }}>{student.user.firstName} {student.user.lastName}</p>
                 <div className="flex items-center gap-4 mt-1">
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {t('الدروس:', 'Lessons:')} <span className="font-medium" style={{ color: 'var(--text-main)' }}>{student.lessonCount}</span>
+                    {t('ط§ظ„ط¯ط±ظˆط³:', 'Lessons:')} <span className="font-medium" style={{ color: 'var(--text-main)' }}>{student.lessonCount}</span>
                   </span>
                   <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {t('الساعات:', 'Hours:')} <span className="font-medium" style={{ color: 'var(--text-main)' }}>{student.totalHours.toFixed(1)}</span>
+                    {t('ط§ظ„ط³ط§ط¹ط§طھ:', 'Hours:')} <span className="font-medium" style={{ color: 'var(--text-main)' }}>{student.totalHours.toFixed(1)}</span>
                   </span>
                 </div>
               </div>
@@ -87,7 +84,7 @@ export default function StudentsList() {
                 <svg className="w-3.5 h-3.5 ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
                 </svg>
-                {t('تواصل', 'Contact')}
+                {t('طھظˆط§طµظ„', 'Contact')}
               </button>
             </div>
           ))
@@ -96,3 +93,4 @@ export default function StudentsList() {
     </div>
   );
 }
+

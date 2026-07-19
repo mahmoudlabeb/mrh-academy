@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -8,11 +8,10 @@ import Navbar from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
 
 function ResetPasswordForm() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
   const isAr = lang === 'ar';
 
   const [newPassword, setNewPassword] = useState('');
@@ -25,13 +24,13 @@ function ResetPasswordForm() {
     return (
       <div className="text-center">
         <h3 className="text-xl font-bold mb-2 text-red-500">
-          {t('رابط غير صالح', 'Invalid Link')}
+          {t('ط±ط§ط¨ط· ط؛ظٹط± طµط§ظ„ط­', 'Invalid Link')}
         </h3>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-          {t('رابط استعادة كلمة المرور غير صالح أو منتهي الصلاحية.', 'The password reset link is invalid or has expired.')}
+          {t('ط±ط§ط¨ط· ط§ط³طھط¹ط§ط¯ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± طµط§ظ„ط­ ط£ظˆ ظ…ظ†طھظ‡ظٹ ط§ظ„طµظ„ط§ط­ظٹط©.', 'The password reset link is invalid or has expired.')}
         </p>
         <Link href={isAr ? '/forgot-password' : '/en/forgot-password'} className="btn-primary w-full">
-          {t('طلب رابط جديد', 'Request New Link')}
+          {t('ط·ظ„ط¨ ط±ط§ط¨ط· ط¬ط¯ظٹط¯', 'Request New Link')}
         </Link>
       </div>
     );
@@ -40,7 +39,7 @@ function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError(t('كلمات المرور غير متطابقة', 'Passwords do not match'));
+      setError(t('ظƒظ„ظ…ط§طھ ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©', 'Passwords do not match'));
       return;
     }
 
@@ -55,7 +54,7 @@ function ResetPasswordForm() {
       }, 3000);
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || t('حدث خطأ', 'An error occurred'));
+      setError(error.response?.data?.message || t('ط­ط¯ط« ط®ط·ط£', 'An error occurred'));
     } finally {
       setLoading(false);
     }
@@ -70,10 +69,10 @@ function ResetPasswordForm() {
           </svg>
         </div>
         <h3 className="text-xl font-bold mb-2 text-green-500">
-          {t('تم تغيير كلمة المرور بنجاح!', 'Password Changed Successfully!')}
+          {t('طھظ… طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط¨ظ†ط¬ط§ط­!', 'Password Changed Successfully!')}
         </h3>
         <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-          {t('سيتم تحويلك إلى صفحة تسجيل الدخول...', 'Redirecting to login page...')}
+          {t('ط³ظٹطھظ… طھط­ظˆظٹظ„ظƒ ط¥ظ„ظ‰ طµظپط­ط© طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„...', 'Redirecting to login page...')}
         </p>
       </div>
     );
@@ -89,7 +88,7 @@ function ResetPasswordForm() {
 
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold">
-          {t('كلمة المرور الجديدة', 'New Password')}
+          {t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط¬ط¯ظٹط¯ط©', 'New Password')}
         </label>
         <input
           type="password"
@@ -97,14 +96,14 @@ function ResetPasswordForm() {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           className="input-field"
-          placeholder="••••••••"
+          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
           minLength={6}
         />
       </div>
 
       <div className="space-y-1.5">
         <label className="block text-sm font-semibold">
-          {t('تأكيد كلمة المرور', 'Confirm Password')}
+          {t('طھط£ظƒظٹط¯ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Confirm Password')}
         </label>
         <input
           type="password"
@@ -112,7 +111,7 @@ function ResetPasswordForm() {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           className="input-field"
-          placeholder="••••••••"
+          placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
           minLength={6}
         />
       </div>
@@ -125,7 +124,7 @@ function ResetPasswordForm() {
         {loading ? (
           <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
         ) : (
-          t('تغيير كلمة المرور', 'Change Password')
+          t('طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Change Password')
         )}
       </button>
     </form>
@@ -133,9 +132,7 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
-  const { lang } = useLanguage();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
-
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-main)' }}>
       <Navbar />
@@ -144,7 +141,7 @@ export default function ResetPasswordPage() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2 gradient-text logo-font">Mr.H Academy</h1>
             <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-              {t('تغيير كلمة المرور', 'Reset Password')}
+              {t('طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Reset Password')}
             </p>
           </div>
           
@@ -156,3 +153,5 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
+
+

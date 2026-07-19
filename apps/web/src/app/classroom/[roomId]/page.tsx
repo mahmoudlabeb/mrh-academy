@@ -55,10 +55,8 @@ export default function ClassroomPage() {
   const roomId = params.roomId as string;
   const router = useRouter();
   const { user } = useAuth();
-  const { lang, dir } = useLanguage();
+  const { lang, dir, t } = useLanguage();
   const isRtl = dir === 'rtl';
-
-  const t = (ar: string, en: string) => (dir === 'rtl' ? ar : en);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);

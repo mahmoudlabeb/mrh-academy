@@ -1,18 +1,18 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 
-// Backend PaymentMethod enum values — must match exactly
+// Backend PaymentMethod enum values â€” must match exactly
 const PAYMENT_METHODS = [
-  { key: 'card',     labelAr: 'بطاقة ائتمان',  labelEn: 'Credit Card',    icon: '💳', requiresReceipt: false },
-  { key: 'paypal',   labelAr: 'PayPal',          labelEn: 'PayPal',         icon: '🅿️', requiresReceipt: false },
-  { key: 'vodafone', labelAr: 'فودافون كاش',    labelEn: 'Vodafone Cash',  icon: '📱', requiresReceipt: true  },
-  { key: 'instapay', labelAr: 'انستاباي',        labelEn: 'Instapay',       icon: '⚡', requiresReceipt: true  },
-  { key: 'binance',  labelAr: 'بايننس',          labelEn: 'Binance',        icon: '🪙', requiresReceipt: true  },
-  { key: 'bank',     labelAr: 'تحويل بنكي',     labelEn: 'Bank Transfer',  icon: '🏦', requiresReceipt: true  },
+  { key: 'card',     labelAr: 'ط¨ط·ط§ظ‚ط© ط§ط¦طھظ…ط§ظ†',  labelEn: 'Credit Card',    icon: 'ًں’³', requiresReceipt: false },
+  { key: 'paypal',   labelAr: 'PayPal',          labelEn: 'PayPal',         icon: 'ًں…؟ï¸ڈ', requiresReceipt: false },
+  { key: 'vodafone', labelAr: 'ظپظˆط¯ط§ظپظˆظ† ظƒط§ط´',    labelEn: 'Vodafone Cash',  icon: 'ًں“±', requiresReceipt: true  },
+  { key: 'instapay', labelAr: 'ط§ظ†ط³طھط§ط¨ط§ظٹ',        labelEn: 'Instapay',       icon: 'âڑ،', requiresReceipt: true  },
+  { key: 'binance',  labelAr: 'ط¨ط§ظٹظ†ظ†ط³',          labelEn: 'Binance',        icon: 'ًںھ™', requiresReceipt: true  },
+  { key: 'bank',     labelAr: 'طھط­ظˆظٹظ„ ط¨ظ†ظƒظٹ',     labelEn: 'Bank Transfer',  icon: 'ًںڈ¦', requiresReceipt: true  },
 ] as const;
 
 type MethodKey = typeof PAYMENT_METHODS[number]['key'];
@@ -32,16 +32,14 @@ type PaymentRecord = {
 type BalanceData = { balance: number; creditPrice: number; egpRate: number };
 
 const statusConfig: Record<string, { ar: string; en: string; bg: string; color: string }> = {
-  approved: { ar: 'مقبول',       en: 'Approved', bg: 'rgba(34,197,94,0.1)',  color: '#22c55e' },
-  pending:  { ar: 'قيد الانتظار', en: 'Pending',  bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
-  rejected: { ar: 'مرفوض',       en: 'Rejected', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+  approved: { ar: 'ظ…ظ‚ط¨ظˆظ„',       en: 'Approved', bg: 'rgba(34,197,94,0.1)',  color: '#22c55e' },
+  pending:  { ar: 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', en: 'Pending',  bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
+  rejected: { ar: 'ظ…ط±ظپظˆط¶',       en: 'Rejected', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
 export default function StudentWalletPage() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
-
   // Form state
   const [selectedMethod, setSelectedMethod] = useState<MethodKey>('card');
   const [amount, setAmount] = useState('');
@@ -100,8 +98,8 @@ export default function StudentWalletPage() {
       queryClient.invalidateQueries({ queryKey: ['student-balance'] });
       setSuccessMsg(
         requiresReceipt
-          ? t('تم إرسال طلب الدفع. سيتم مراجعته من قبل الإدارة.', 'Payment request submitted. Admin will review it shortly.')
-          : t('تم إرسال طلب الدفع بنجاح', 'Payment submitted successfully')
+          ? t('طھظ… ط¥ط±ط³ط§ظ„ ط·ظ„ط¨ ط§ظ„ط¯ظپط¹. ط³ظٹطھظ… ظ…ط±ط§ط¬ط¹طھظ‡ ظ…ظ† ظ‚ط¨ظ„ ط§ظ„ط¥ط¯ط§ط±ط©.', 'Payment request submitted. Admin will review it shortly.')
+          : t('طھظ… ط¥ط±ط³ط§ظ„ ط·ظ„ط¨ ط§ظ„ط¯ظپط¹ ط¨ظ†ط¬ط§ط­', 'Payment submitted successfully')
       );
       // Reset form
       setAmount('');
@@ -111,7 +109,7 @@ export default function StudentWalletPage() {
       if (fileRef.current) fileRef.current.value = '';
     },
     onError: (error: { response?: { data?: { message?: string } } } & Error) => {
-      const msg = error?.response?.data?.message || error?.message || t('حدث خطأ', 'An error occurred');
+      const msg = error?.response?.data?.message || error?.message || t('ط­ط¯ط« ط®ط·ط£', 'An error occurred');
       alert(msg);
     },
   });
@@ -138,10 +136,10 @@ export default function StudentWalletPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>
-          {t('المحفظة', 'Wallet')}
+          {t('ط§ظ„ظ…ط­ظپط¸ط©', 'Wallet')}
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          {t('اشحن رصيدك لحجز الدروس', 'Top up your balance to book lessons')}
+          {t('ط§ط´ط­ظ† ط±طµظٹط¯ظƒ ظ„ط­ط¬ط² ط§ظ„ط¯ط±ظˆط³', 'Top up your balance to book lessons')}
         </p>
       </div>
 
@@ -151,12 +149,12 @@ export default function StudentWalletPage() {
           <div className="h-12 w-32 skeleton rounded mx-auto" />
         ) : (
           <>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('الرصيد الحالي', 'Current Balance')}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ط±طµظٹط¯ ط§ظ„ط­ط§ظ„ظٹ', 'Current Balance')}</p>
             <p className="text-4xl font-bold mt-1" style={{ color: '#D4A353' }}>
               ${Number(balance?.balance ?? 0).toFixed(2)}
             </p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              1 {t('ائتمان', 'credit')} = ${balance?.creditPrice ?? 15}
+              1 {t('ط§ط¦طھظ…ط§ظ†', 'credit')} = ${balance?.creditPrice ?? 15}
             </p>
           </>
         )}
@@ -170,7 +168,7 @@ export default function StudentWalletPage() {
             <p className="text-sm font-semibold" style={{ color: '#22c55e' }}>{successMsg}</p>
             {requiresReceipt && (
               <p className="text-xs mt-1" style={{ color: '#22c55e' }}>
-                {t('سترى تحديث الرصيد بعد موافقة الإدارة.', 'Your balance will update once admin approves.')}
+                {t('ط³طھط±ظ‰ طھط­ط¯ظٹط« ط§ظ„ط±طµظٹط¯ ط¨ط¹ط¯ ظ…ظˆط§ظپظ‚ط© ط§ظ„ط¥ط¯ط§ط±ط©.', 'Your balance will update once admin approves.')}
               </p>
             )}
           </div>
@@ -182,11 +180,11 @@ export default function StudentWalletPage() {
 
       {/* Payment form */}
       <div className="card p-6 space-y-5">
-        <h2 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('اشحن رصيدك', 'Top Up Balance')}</h2>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('ط§ط´ط­ظ† ط±طµظٹط¯ظƒ', 'Top Up Balance')}</h2>
 
         {/* Method selector */}
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>{t('طريقة الدفع', 'Payment Method')}</label>
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>{t('ط·ط±ظٹظ‚ط© ط§ظ„ط¯ظپط¹', 'Payment Method')}</label>
           <div className="flex flex-wrap gap-2">
             {PAYMENT_METHODS.map((pm) => (
               <button
@@ -210,7 +208,7 @@ export default function StudentWalletPage() {
         {/* Amount + currency */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('المبلغ', 'Amount')}</label>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ط¨ظ„ط؛', 'Amount')}</label>
             <input
               type="number"
               min="5"
@@ -220,17 +218,17 @@ export default function StudentWalletPage() {
               className="input-field w-full"
               placeholder="0.00"
             />
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('الحد الأدنى 5', 'Minimum 5')}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ط­ط¯ ط§ظ„ط£ط¯ظ†ظ‰ 5', 'Minimum 5')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('العملة', 'Currency')}</label>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط¹ظ…ظ„ط©', 'Currency')}</label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value as 'USD' | 'EGP')}
               className="input-field w-full"
             >
               <option value="USD">USD $</option>
-              <option value="EGP">EGP ج.م</option>
+              <option value="EGP">EGP ط¬.ظ…</option>
             </select>
           </div>
         </div>
@@ -238,7 +236,7 @@ export default function StudentWalletPage() {
         {/* Credits preview */}
         {amountNum > 0 && (
           <p className="text-sm font-medium" style={{ color: '#D4A353' }}>
-            ≈ {credits} {t('رصيد تعليمي', 'credits')}
+            â‰ˆ {credits} {t('ط±طµظٹط¯ طھط¹ظ„ظٹظ…ظٹ', 'credits')}
             {currency === 'EGP' && (
               <span className="text-xs ms-2" style={{ color: 'var(--text-muted)' }}>
                 {t('(1 USD = 50 EGP)', '(1 USD = 50 EGP)')}
@@ -251,11 +249,11 @@ export default function StudentWalletPage() {
         {requiresReceipt && (
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-light)', border: '1px solid var(--border-color)' }}>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>
-              {t('صورة الإيصال / التحويل', 'Payment Receipt / Transfer Screenshot')}
+              {t('طµظˆط±ط© ط§ظ„ط¥ظٹطµط§ظ„ / ط§ظ„طھط­ظˆظٹظ„', 'Payment Receipt / Transfer Screenshot')}
               <span className="text-xs ms-1" style={{ color: '#ef4444' }}>*</span>
             </label>
             <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-              {t('أرفق صورة إثبات الدفع. سيتم مراجعتها من قبل الإدارة لتفعيل الرصيد.', 'Attach proof of payment. Admin will review it to activate your balance.')}
+              {t('ط£ط±ظپظ‚ طµظˆط±ط© ط¥ط«ط¨ط§طھ ط§ظ„ط¯ظپط¹. ط³ظٹطھظ… ظ…ط±ط§ط¬ط¹طھظ‡ط§ ظ…ظ† ظ‚ط¨ظ„ ط§ظ„ط¥ط¯ط§ط±ط© ظ„طھظپط¹ظٹظ„ ط§ظ„ط±طµظٹط¯.', 'Attach proof of payment. Admin will review it to activate your balance.')}
             </p>
             <input
               ref={fileRef}
@@ -274,12 +272,12 @@ export default function StudentWalletPage() {
                   onClick={() => { setFile(null); setFilePreview(null); if (fileRef.current) fileRef.current.value = ''; }}
                   className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs"
                   style={{ background: '#ef4444' }}
-                >×</button>
+                >أ—</button>
               </div>
             )}
             {file && !filePreview && (
               <p className="text-xs mt-2" style={{ color: '#22c55e' }}>
-                ✓ {file.name}
+                âœ“ {file.name}
               </p>
             )}
           </div>
@@ -288,13 +286,13 @@ export default function StudentWalletPage() {
         {/* Admin note */}
         <div>
           <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-            {t('ملاحظة للإدارة (اختياري)', 'Note for admin (optional)')}
+            {t('ظ…ظ„ط§ط­ط¸ط© ظ„ظ„ط¥ط¯ط§ط±ط© (ط§ط®طھظٹط§ط±ظٹ)', 'Note for admin (optional)')}
           </label>
           <input
             value={adminNote}
             onChange={(e) => setAdminNote(e.target.value)}
             className="input-field w-full"
-            placeholder={t('مثل: دفعت عبر فودافون على الرقم 01000000000', 'e.g. Paid via Vodafone to 01000000000')}
+            placeholder={t('ظ…ط«ظ„: ط¯ظپط¹طھ ط¹ط¨ط± ظپظˆط¯ط§ظپظˆظ† ط¹ظ„ظ‰ ط§ظ„ط±ظ‚ظ… 01000000000', 'e.g. Paid via Vodafone to 01000000000')}
           />
         </div>
 
@@ -310,11 +308,11 @@ export default function StudentWalletPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              {t('جاري الإرسال...', 'Submitting...')}
+              {t('ط¬ط§ط±ظٹ ط§ظ„ط¥ط±ط³ط§ظ„...', 'Submitting...')}
             </span>
           ) : requiresReceipt
-            ? t('إرسال طلب الدفع', 'Submit Payment Request')
-            : t('متابعة الدفع', 'Proceed to Payment')}
+            ? t('ط¥ط±ط³ط§ظ„ ط·ظ„ط¨ ط§ظ„ط¯ظپط¹', 'Submit Payment Request')
+            : t('ظ…طھط§ط¨ط¹ط© ط§ظ„ط¯ظپط¹', 'Proceed to Payment')}
         </button>
 
         {requiresReceipt && (
@@ -322,7 +320,7 @@ export default function StudentWalletPage() {
             <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#D4A353"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {t(
-                'بعد الإرسال، ستنتظر موافقة الإدارة على الدفع. يتم مراجعة الطلبات خلال 24 ساعة عادةً.',
+                'ط¨ط¹ط¯ ط§ظ„ط¥ط±ط³ط§ظ„طŒ ط³طھظ†طھط¸ط± ظ…ظˆط§ظپظ‚ط© ط§ظ„ط¥ط¯ط§ط±ط© ط¹ظ„ظ‰ ط§ظ„ط¯ظپط¹. ظٹطھظ… ظ…ط±ط§ط¬ط¹ط© ط§ظ„ط·ظ„ط¨ط§طھ ط®ظ„ط§ظ„ 24 ط³ط§ط¹ط© ط¹ط§ط¯ط©ظ‹.',
                 'After submitting, you will wait for admin approval. Requests are usually reviewed within 24 hours.'
               )}
             </p>
@@ -333,7 +331,7 @@ export default function StudentWalletPage() {
       {/* Payment history */}
       <div>
         <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-          {t('سجل المدفوعات', 'Payment History')}
+          {t('ط³ط¬ظ„ ط§ظ„ظ…ط¯ظپظˆط¹ط§طھ', 'Payment History')}
         </h2>
 
         {historyLoading ? (
@@ -350,7 +348,7 @@ export default function StudentWalletPage() {
             <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(212,163,83,0.1)' }}>
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="#D4A353"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m0 0v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5m18 0v9a2.25 2.25 0 01-2.25 2.25h-.75m-13.5-7.5h3.75m-3.75 3h3.75m-3.75 3h3.75" /></svg>
             </div>
-            <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('لا توجد مدفوعات بعد', 'No payments yet')}</p>
+            <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ظ…ط¯ظپظˆط¹ط§طھ ط¨ط¹ط¯', 'No payments yet')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -371,7 +369,7 @@ export default function StudentWalletPage() {
                         </p>
                         <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           <span>{payment.method}</span>
-                          <span>·</span>
+                          <span>آ·</span>
                           <span>{new Date(payment.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
                       </div>
@@ -383,14 +381,14 @@ export default function StudentWalletPage() {
 
                   {payment.status === 'rejected' && payment.rejectionReason && (
                     <div className="mt-3 p-3 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                      <span className="font-semibold">{t('سبب الرفض: ', 'Rejected: ')}</span>
+                      <span className="font-semibold">{t('ط³ط¨ط¨ ط§ظ„ط±ظپط¶: ', 'Rejected: ')}</span>
                       {payment.rejectionReason}
                     </div>
                   )}
 
                   {payment.status === 'pending' && (
                     <p className="text-xs mt-2" style={{ color: '#eab308' }}>
-                      {t('⏳ قيد المراجعة من قبل الإدارة', '⏳ Pending admin review')}
+                      {t('âڈ³ ظ‚ظٹط¯ ط§ظ„ظ…ط±ط§ط¬ط¹ط© ظ…ظ† ظ‚ط¨ظ„ ط§ظ„ط¥ط¯ط§ط±ط©', 'âڈ³ Pending admin review')}
                     </p>
                   )}
 
@@ -405,7 +403,7 @@ export default function StudentWalletPage() {
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      {t('عرض الإيصال', 'View Receipt')}
+                      {t('ط¹ط±ط¶ ط§ظ„ط¥ظٹطµط§ظ„', 'View Receipt')}
                     </a>
                   )}
                 </div>
@@ -417,3 +415,4 @@ export default function StudentWalletPage() {
     </div>
   );
 }
+

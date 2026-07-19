@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -32,10 +32,10 @@ interface FavoriteTutor {
 type SubTab = 'history' | 'calendar' | 'favorites';
 
 const statusConfig: Record<string, { labelAr: string; labelEn: string; bg: string; color: string }> = {
-  confirmed: { labelAr: 'مؤكد', labelEn: 'Confirmed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  pending: { labelAr: 'بانتظار الموافقة', labelEn: 'Awaiting Approval', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
-  completed: { labelAr: 'مكتمل', labelEn: 'Completed', bg: 'rgba(59,130,246,0.1)', color: '#3b82f6' },
-  cancelled: { labelAr: 'ملغي', labelEn: 'Cancelled', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+  confirmed: { labelAr: 'ظ…ط¤ظƒط¯', labelEn: 'Confirmed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
+  pending: { labelAr: 'ط¨ط§ظ†طھط¸ط§ط± ط§ظ„ظ…ظˆط§ظپظ‚ط©', labelEn: 'Awaiting Approval', bg: 'rgba(234,179,8,0.1)', color: '#eab308' },
+  completed: { labelAr: 'ظ…ظƒطھظ…ظ„', labelEn: 'Completed', bg: 'rgba(59,130,246,0.1)', color: '#3b82f6' },
+  cancelled: { labelAr: 'ظ…ظ„ط؛ظٹ', labelEn: 'Cancelled', bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
 const CANCELLATION_REFUND_HOURS = 24;
@@ -54,17 +54,16 @@ function willRefundOnCancel(lesson: Lesson) {
 }
 
 export default function MyLessons() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
   const [subTab, setSubTab] = useState<SubTab>('history');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const subTabs: { key: SubTab; labelAr: string; labelEn: string }[] = [
-    { key: 'history', labelAr: 'سجل الدروس', labelEn: 'Lesson History' },
-    { key: 'calendar', labelAr: 'التقويم', labelEn: 'Schedule Calendar' },
-    { key: 'favorites', labelAr: 'المعلمون المفضلون', labelEn: 'Favorite Tutors' },
+    { key: 'history', labelAr: 'ط³ط¬ظ„ ط§ظ„ط¯ط±ظˆط³', labelEn: 'Lesson History' },
+    { key: 'calendar', labelAr: 'ط§ظ„طھظ‚ظˆظٹظ…', labelEn: 'Schedule Calendar' },
+    { key: 'favorites', labelAr: 'ط§ظ„ظ…ط¹ظ„ظ…ظˆظ† ط§ظ„ظ…ظپط¶ظ„ظˆظ†', labelEn: 'Favorite Tutors' },
   ];
 
   const { data: lessons = [], isLoading: loadingLessons } = useQuery({
@@ -95,11 +94,11 @@ export default function MyLessons() {
       queryClient.invalidateQueries({ queryKey: ['student-balance'] });
       const msg = data.refunded
         ? t(
-            `تم إلغاء الدرس واسترداد $${data.refundAmount.toFixed(2)} إلى رصيدك.`,
+            `طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط¯ط±ط³ ظˆط§ط³طھط±ط¯ط§ط¯ $${data.refundAmount.toFixed(2)} ط¥ظ„ظ‰ ط±طµظٹط¯ظƒ.`,
             `Lesson cancelled. $${data.refundAmount.toFixed(2)} was refunded to your balance.`,
           )
         : t(
-            'تم إلغاء الدرس. لا يوجد استرداد لأن الإلغاء كان خلال 24 ساعة من موعد الدرس.',
+            'طھظ… ط¥ظ„ط؛ط§ط، ط§ظ„ط¯ط±ط³. ظ„ط§ ظٹظˆط¬ط¯ ط§ط³طھط±ط¯ط§ط¯ ظ„ط£ظ† ط§ظ„ط¥ظ„ط؛ط§ط، ظƒط§ظ† ط®ظ„ط§ظ„ 24 ط³ط§ط¹ط© ظ…ظ† ظ…ظˆط¹ط¯ ط§ظ„ط¯ط±ط³.',
             'Lesson cancelled. No refund because cancellation was within 24 hours of the lesson.',
           );
       alert(msg);
@@ -107,7 +106,7 @@ export default function MyLessons() {
     onError: (error: unknown) => {
       const message =
         (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        t('تعذر إلغاء الدرس', 'Failed to cancel lesson');
+        t('طھط¹ط°ط± ط¥ظ„ط؛ط§ط، ط§ظ„ط¯ط±ط³', 'Failed to cancel lesson');
       alert(message);
     },
     onSettled: () => setCancellingId(null),
@@ -118,11 +117,11 @@ export default function MyLessons() {
     const confirmed = window.confirm(
       refund
         ? t(
-            `هل تريد إلغاء الدرس مع ${lesson.tutorName}؟ سيتم استرداد $${lesson.price.toFixed(2)} إلى رصيدك.`,
+            `ظ‡ظ„ طھط±ظٹط¯ ط¥ظ„ط؛ط§ط، ط§ظ„ط¯ط±ط³ ظ…ط¹ ${lesson.tutorName}طں ط³ظٹطھظ… ط§ط³طھط±ط¯ط§ط¯ $${lesson.price.toFixed(2)} ط¥ظ„ظ‰ ط±طµظٹط¯ظƒ.`,
             `Cancel your lesson with ${lesson.tutorName}? $${lesson.price.toFixed(2)} will be refunded to your balance.`,
           )
         : t(
-            `هل تريد إلغاء الدرس مع ${lesson.tutorName}؟ لن يتم استرداد المبلغ لأن الإلغاء خلال 24 ساعة من الموعد.`,
+            `ظ‡ظ„ طھط±ظٹط¯ ط¥ظ„ط؛ط§ط، ط§ظ„ط¯ط±ط³ ظ…ط¹ ${lesson.tutorName}طں ظ„ظ† ظٹطھظ… ط§ط³طھط±ط¯ط§ط¯ ط§ظ„ظ…ط¨ظ„ط؛ ظ„ط£ظ† ط§ظ„ط¥ظ„ط؛ط§ط، ط®ظ„ط§ظ„ 24 ط³ط§ط¹ط© ظ…ظ† ط§ظ„ظ…ظˆط¹ط¯.`,
             `Cancel your lesson with ${lesson.tutorName}? No refund will be issued because this is within 24 hours of the lesson.`,
           ),
     );
@@ -194,8 +193,8 @@ export default function MyLessons() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                 </svg>
               </div>
-              <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('لا توجد دروس بعد', 'No lessons yet')}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('احجز درساً مع معلم للبدء', 'Book a lesson with a tutor to get started')}</p>
+              <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ط¯ط±ظˆط³ ط¨ط¹ط¯', 'No lessons yet')}</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('ط§ط­ط¬ط² ط¯ط±ط³ط§ظ‹ ظ…ط¹ ظ…ط¹ظ„ظ… ظ„ظ„ط¨ط¯ط،', 'Book a lesson with a tutor to get started')}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -214,7 +213,7 @@ export default function MyLessons() {
                         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{lesson.subject}</p>
                         <div className="flex items-center gap-3 mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                           <span>{new Date(lesson.date).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                          <span>{lesson.duration} {t('دقيقة', 'min')}</span>
+                          <span>{lesson.duration} {t('ط¯ظ‚ظٹظ‚ط©', 'min')}</span>
                           <span style={{ color: '#D4A353' }}>${lesson.price}</span>
                         </div>
                       </div>
@@ -235,8 +234,8 @@ export default function MyLessons() {
                           }}
                         >
                           {cancellingId === lesson.id
-                            ? t('جاري الإلغاء...', 'Cancelling...')
-                            : t('إلغاء', 'Cancel')}
+                            ? t('ط¬ط§ط±ظٹ ط§ظ„ط¥ظ„ط؛ط§ط،...', 'Cancelling...')
+                            : t('ط¥ظ„ط؛ط§ط،', 'Cancel')}
                         </button>
                       )}
                       {isJoinable(lesson.status) && lesson.meetUrl && (
@@ -245,7 +244,7 @@ export default function MyLessons() {
                           onClick={() => enterClassroom(lesson)}
                           className="btn-primary text-xs px-4 py-2"
                         >
-                          {t('دخول الفصل', 'Enter Classroom')}
+                          {t('ط¯ط®ظˆظ„ ط§ظ„ظپطµظ„', 'Enter Classroom')}
                         </button>
                       )}
                       {isJoinable(lesson.status) && lesson.googleMeetUrl && (
@@ -288,12 +287,12 @@ export default function MyLessons() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                 </svg>
               </div>
-              <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('لا توجد دروس مجدولة', 'No scheduled lessons')}</p>
+              <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ط¯ط±ظˆط³ ظ…ط¬ط¯ظˆظ„ط©', 'No scheduled lessons')}</p>
             </div>
           ) : (
             <div className="card p-6">
               <div className="grid grid-cols-7 gap-1 mb-4">
-                {(lang === 'ar' ? ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map((d) => (
+                {(lang === 'ar' ? ['ط­', 'ظ†', 'ط«', 'ط±', 'ط®', 'ط¬', 'ط³'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map((d) => (
                   <div key={d} className="text-center text-xs font-semibold py-2" style={{ color: 'var(--text-muted)' }}>
                     {d}
                   </div>
@@ -328,7 +327,7 @@ export default function MyLessons() {
 
               <div className="space-y-2 mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
                 <p className="text-sm font-semibold mb-3" style={{ color: 'var(--text-main)' }}>
-                  {t('الدروس القادمة', 'Upcoming Lessons')}
+                  {t('ط§ظ„ط¯ط±ظˆط³ ط§ظ„ظ‚ط§ط¯ظ…ط©', 'Upcoming Lessons')}
                 </p>
                 {lessons
                   .filter((l) => isJoinable(l.status))
@@ -342,8 +341,8 @@ export default function MyLessons() {
                         <p className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>{lesson.tutorName}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           {new Date(lesson.date).toLocaleTimeString(lang === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                          {' · '}
-                          {lesson.duration} {t('دقيقة', 'min')}
+                          {' آ· '}
+                          {lesson.duration} {t('ط¯ظ‚ظٹظ‚ط©', 'min')}
                         </p>
                       </div>
                       {lesson.meetUrl && (
@@ -352,7 +351,7 @@ export default function MyLessons() {
                           onClick={() => enterClassroom(lesson)}
                           className="btn-primary text-xs px-3 py-1.5"
                         >
-                          {t('دخول', 'Join')}
+                          {t('ط¯ط®ظˆظ„', 'Join')}
                         </button>
                       )}
                       {isCancellable(lesson) && (
@@ -367,8 +366,8 @@ export default function MyLessons() {
                           }}
                         >
                           {cancellingId === lesson.id
-                            ? t('جاري الإلغاء...', 'Cancelling...')
-                            : t('إلغاء', 'Cancel')}
+                            ? t('ط¬ط§ط±ظٹ ط§ظ„ط¥ظ„ط؛ط§ط،...', 'Cancelling...')
+                            : t('ط¥ظ„ط؛ط§ط،', 'Cancel')}
                         </button>
                       )}
                     </div>
@@ -403,8 +402,8 @@ export default function MyLessons() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
                 </svg>
               </div>
-              <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('لا يوجد معلمون مفضلون', 'No favorite tutors')}</p>
-              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('ابحث عن معلمين وأضفهم إلى المفضلة', 'Search for tutors and add them to favorites')}</p>
+              <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ ظٹظˆط¬ط¯ ظ…ط¹ظ„ظ…ظˆظ† ظ…ظپط¶ظ„ظˆظ†', 'No favorite tutors')}</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('ط§ط¨ط­ط« ط¹ظ† ظ…ط¹ظ„ظ…ظٹظ† ظˆط£ط¶ظپظ‡ظ… ط¥ظ„ظ‰ ط§ظ„ظ…ظپط¶ظ„ط©', 'Search for tutors and add them to favorites')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -421,10 +420,10 @@ export default function MyLessons() {
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1 text-sm">
-                      <span style={{ color: '#D4A353' }}>{'★'.repeat(Math.round(tutor.averageRating))}</span>
+                      <span style={{ color: '#D4A353' }}>{'âک…'.repeat(Math.round(tutor.averageRating))}</span>
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({tutor.averageRating.toFixed(1)})</span>
                     </div>
-                    <span className="text-sm font-bold" style={{ color: '#D4A353' }}>${tutor.hourlyRate}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{t('ساعة', 'hr')}</span></span>
+                    <span className="text-sm font-bold" style={{ color: '#D4A353' }}>${tutor.hourlyRate}<span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/{t('ط³ط§ط¹ط©', 'hr')}</span></span>
                   </div>
                 </div>
               ))}
@@ -435,3 +434,4 @@ export default function MyLessons() {
     </div>
   );
 }
+

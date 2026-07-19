@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,15 +19,14 @@ type Payout = {
 };
 
 const statusConfig: Record<string, { ar: string; en: string; bg: string; color: string }> = {
-  pending: { ar: 'قيد الانتظار', en: 'Pending',   bg: 'rgba(234,179,8,0.1)',  color: '#eab308' },
-  success: { ar: 'مكتمل',        en: 'Completed',  bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  failed:  { ar: 'فشل',          en: 'Failed',     bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+  pending: { ar: 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', en: 'Pending',   bg: 'rgba(234,179,8,0.1)',  color: '#eab308' },
+  success: { ar: 'ظ…ظƒطھظ…ظ„',        en: 'Completed',  bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
+  failed:  { ar: 'ظپط´ظ„',          en: 'Failed',     bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
 export default function AdminPayoutsPage() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
   const { data: payouts = [], isLoading } = useQuery<Payout[]>({
@@ -63,7 +62,7 @@ export default function AdminPayoutsPage() {
 
   const handleReject = (payout: Payout) => {
     const reason = rejectReasons[payout.id]?.trim() || '';
-    if (!reason && !window.confirm(t('رفض بدون سبب؟', 'Reject without a reason?'))) return;
+    if (!reason && !window.confirm(t('ط±ظپط¶ ط¨ط¯ظˆظ† ط³ط¨ط¨طں', 'Reject without a reason?'))) return;
     rejectMutation.mutate({ id: payout.id, reason: reason || 'No reason provided' });
   };
 
@@ -82,17 +81,17 @@ export default function AdminPayoutsPage() {
     <div className="space-y-8">
       <div>
         <h2 className="text-xl font-bold mb-1" style={{ color: 'var(--text-main)' }}>
-          {t('طلبات سحب الأرباح', 'Tutor Payout Requests')}
+          {t('ط·ظ„ط¨ط§طھ ط³ط­ط¨ ط§ظ„ط£ط±ط¨ط§ط­', 'Tutor Payout Requests')}
         </h2>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {t('راجع واعتمد أو ارفض طلبات سحب أرباح المدرسين.', 'Review and approve or reject tutor payout requests.')}
+          {t('ط±ط§ط¬ط¹ ظˆط§ط¹طھظ…ط¯ ط£ظˆ ط§ط±ظپط¶ ط·ظ„ط¨ط§طھ ط³ط­ط¨ ط£ط±ط¨ط§ط­ ط§ظ„ظ…ط¯ط±ط³ظٹظ†.', 'Review and approve or reject tutor payout requests.')}
         </p>
       </div>
 
       {/* Pending */}
       <div>
         <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-main)' }}>
-          {t('قيد الانتظار', 'Pending')}
+          {t('ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', 'Pending')}
           {pending.length > 0 && (
             <span className="ms-2 px-2 py-0.5 text-xs rounded-full font-bold" style={{ background: '#eab308', color: '#000' }}>
               {pending.length}
@@ -102,7 +101,7 @@ export default function AdminPayoutsPage() {
 
         {pending.length === 0 ? (
           <div className="card p-8 text-center" style={{ color: 'var(--text-muted)' }}>
-            {t('لا توجد طلبات سحب معلقة', 'No pending payout requests')}
+            {t('ظ„ط§ طھظˆط¬ط¯ ط·ظ„ط¨ط§طھ ط³ط­ط¨ ظ…ط¹ظ„ظ‚ط©', 'No pending payout requests')}
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -115,18 +114,18 @@ export default function AdminPayoutsPage() {
                         ${payout.amount.toFixed(2)}
                       </p>
                       <span className="badge text-xs" style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.2)' }}>
-                        {t('قيد الانتظار', 'Pending')}
+                        {t('ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', 'Pending')}
                       </span>
                     </div>
                     <p className="font-semibold" style={{ color: 'var(--text-main)' }}>{payout.tutorName}</p>
                     {payout.method && (
                       <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                        {t('الطريقة:', 'Method:')} {payout.method}
+                        {t('ط§ظ„ط·ط±ظٹظ‚ط©:', 'Method:')} {payout.method}
                       </p>
                     )}
                     {payout.accountDetails && (
                       <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                        {t('تفاصيل الحساب:', 'Account:')} {payout.accountDetails}
+                        {t('طھظپط§طµظٹظ„ ط§ظ„ط­ط³ط§ط¨:', 'Account:')} {payout.accountDetails}
                       </p>
                     )}
                     <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
@@ -141,12 +140,12 @@ export default function AdminPayoutsPage() {
                       className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-all"
                       style={{ background: 'linear-gradient(135deg, #F3E1B9, #B89754)', color: '#0F3A40' }}
                     >
-                      {t('اعتماد', 'Approve')}
+                      {t('ط§ط¹طھظ…ط§ط¯', 'Approve')}
                     </button>
                     <div className="flex gap-1">
                       <input
                         type="text"
-                        placeholder={t('سبب الرفض...', 'Reason...')}
+                        placeholder={t('ط³ط¨ط¨ ط§ظ„ط±ظپط¶...', 'Reason...')}
                         value={rejectReasons[payout.id] ?? ''}
                         onChange={e => setRejectReasons(prev => ({ ...prev, [payout.id]: e.target.value }))}
                         className="text-xs px-2 py-1.5 rounded-lg flex-1 min-w-0"
@@ -158,7 +157,7 @@ export default function AdminPayoutsPage() {
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-50"
                         style={{ borderColor: 'rgba(239,68,68,0.4)', color: '#ef4444' }}
                       >
-                        {t('رفض', 'Reject')}
+                        {t('ط±ظپط¶', 'Reject')}
                       </button>
                     </div>
                   </div>
@@ -173,18 +172,18 @@ export default function AdminPayoutsPage() {
       {processed.length > 0 && (
         <div>
           <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--text-main)' }}>
-            {t('السابق', 'History')}
+            {t('ط§ظ„ط³ط§ط¨ظ‚', 'History')}
           </h3>
           <div className="card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ background: 'var(--bg-light)' }}>
-                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('المدرس', 'Tutor')}</th>
-                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('المبلغ', 'Amount')}</th>
-                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('الطريقة', 'Method')}</th>
-                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('الحالة', 'Status')}</th>
-                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('التاريخ', 'Date')}</th>
+                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ط¯ط±ط³', 'Tutor')}</th>
+                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ط¨ظ„ط؛', 'Amount')}</th>
+                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط·ط±ظٹظ‚ط©', 'Method')}</th>
+                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط­ط§ظ„ط©', 'Status')}</th>
+                    <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„طھط§ط±ظٹط®', 'Date')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -194,7 +193,7 @@ export default function AdminPayoutsPage() {
                       <tr key={payout.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                         <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-main)' }}>{payout.tutorName}</td>
                         <td className="px-4 py-3 font-bold" style={{ color: '#22c55e' }}>${payout.amount.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{payout.method ?? '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{payout.method ?? 'â€”'}</td>
                         <td className="px-4 py-3">
                           <span className="badge text-xs" style={{ background: cfg.bg, color: cfg.color }}>
                             {lang === 'ar' ? cfg.ar : cfg.en}
@@ -215,3 +214,4 @@ export default function AdminPayoutsPage() {
     </div>
   );
 }
+

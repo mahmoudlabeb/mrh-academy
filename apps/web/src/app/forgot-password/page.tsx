@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -7,8 +7,7 @@ import Navbar from '@/components/layout/Navbar';
 import { apiClient } from '@/lib/api-client';
 
 export default function ForgotPasswordPage() {
-  const { lang } = useLanguage();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
+  const { t, lang } = useLanguage();
   const isAr = lang === 'ar';
 
   const [email, setEmail] = useState('');
@@ -26,7 +25,7 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
-      setError(error.response?.data?.message || t('حدث خطأ', 'An error occurred'));
+      setError(error.response?.data?.message || t('ط­ط¯ط« ط®ط·ط£', 'An error occurred'));
     } finally {
       setLoading(false);
     }
@@ -40,7 +39,7 @@ export default function ForgotPasswordPage() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2 gradient-text logo-font">Mr.H Academy</h1>
             <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-              {t('استعادة كلمة المرور', 'Forgot Password')}
+              {t('ط§ط³طھط¹ط§ط¯ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Forgot Password')}
             </p>
           </div>
 
@@ -52,13 +51,13 @@ export default function ForgotPasswordPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-bold mb-2 text-green-500">
-                {t('تم إرسال الرابط', 'Link Sent!')}
+                {t('طھظ… ط¥ط±ط³ط§ظ„ ط§ظ„ط±ط§ط¨ط·', 'Link Sent!')}
               </h3>
               <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-                {t('يرجى التحقق من بريدك الإلكتروني للحصول على رابط استعادة كلمة المرور.', 'Please check your email for the password reset link.')}
+                {t('ظٹط±ط¬ظ‰ ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط¨ط±ظٹط¯ظƒ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ ظ„ظ„ط­طµظˆظ„ ط¹ظ„ظ‰ ط±ط§ط¨ط· ط§ط³طھط¹ط§ط¯ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±.', 'Please check your email for the password reset link.')}
               </p>
               <Link href={isAr ? '/login' : '/en/login'} className="btn-primary w-full">
-                {t('العودة لتسجيل الدخول', 'Return to Login')}
+                {t('ط§ظ„ط¹ظˆط¯ط© ظ„طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„', 'Return to Login')}
               </Link>
             </div>
           ) : (
@@ -71,7 +70,7 @@ export default function ForgotPasswordPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-semibold">
-                  {t('البريد الإلكتروني', 'Email')}
+                  {t('ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ', 'Email')}
                 </label>
                 <input
                   type="email"
@@ -79,7 +78,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-field"
-                  placeholder={t('أدخل بريدك الإلكتروني', 'Enter your email')}
+                  placeholder={t('ط£ط¯ط®ظ„ ط¨ط±ظٹط¯ظƒ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ', 'Enter your email')}
                 />
               </div>
 
@@ -91,13 +90,13 @@ export default function ForgotPasswordPage() {
                 {loading ? (
                   <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
                 ) : (
-                  t('إرسال رابط الاستعادة', 'Send Reset Link')
+                  t('ط¥ط±ط³ط§ظ„ ط±ط§ط¨ط· ط§ظ„ط§ط³طھط¹ط§ط¯ط©', 'Send Reset Link')
                 )}
               </button>
 
               <div className="text-center mt-6">
                 <Link href={isAr ? '/login' : '/en/login'} className="link text-sm font-semibold">
-                  {t('العودة لتسجيل الدخول', 'Return to Login')}
+                  {t('ط§ظ„ط¹ظˆط¯ط© ظ„طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„', 'Return to Login')}
                 </Link>
               </div>
             </form>
@@ -107,3 +106,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

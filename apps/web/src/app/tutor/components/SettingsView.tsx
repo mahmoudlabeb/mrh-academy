@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,11 +15,8 @@ type TutorProfile = {
 };
 
 export default function SettingsView() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
-  const isAr = lang === 'ar';
-  const t = (ar: string, en: string) => (isAr ? ar : en);
-
   const [bio, setBio] = useState('');
   const [specialization, setSpecialization] = useState('');
   const [teachingLanguages, setTeachingLanguages] = useState('');
@@ -67,10 +64,10 @@ export default function SettingsView() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tutor-profile'] });
-      setProfileMessage(t('تم حفظ الملف الشخصي', 'Profile saved'));
+      setProfileMessage(t('طھظ… ط­ظپط¸ ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ', 'Profile saved'));
     },
     onError: () => {
-      setProfileMessage(t('فشل الحفظ', 'Save failed'));
+      setProfileMessage(t('ظپط´ظ„ ط§ظ„ط­ظپط¸', 'Save failed'));
     },
   });
 
@@ -85,7 +82,7 @@ export default function SettingsView() {
       });
     },
     onSuccess: () => {
-      setPasswordMessage(t('تم تغيير كلمة المرور', 'Password changed'));
+      setPasswordMessage(t('طھظ… طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Password changed'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -93,8 +90,8 @@ export default function SettingsView() {
     onError: (err: Error) => {
       setPasswordMessage(
         err.message === 'mismatch'
-          ? t('كلمات المرور غير متطابقة', 'Passwords do not match')
-          : t('فشل تغيير كلمة المرور', 'Password change failed'),
+          ? t('ظƒظ„ظ…ط§طھ ط§ظ„ظ…ط±ظˆط± ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ط©', 'Passwords do not match')
+          : t('ظپط´ظ„ طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Password change failed'),
       );
     },
   });
@@ -103,55 +100,55 @@ export default function SettingsView() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>
-          {t('الإعدادات', 'Settings')}
+          {t('ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ', 'Settings')}
         </h2>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          {t('إدارة إعدادات حسابك.', 'Manage your account settings.')}
+          {t('ط¥ط¯ط§ط±ط© ط¥ط¹ط¯ط§ط¯ط§طھ ط­ط³ط§ط¨ظƒ.', 'Manage your account settings.')}
         </p>
       </div>
 
       <div className="card-dark p-6 space-y-5">
         <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>
-          {t('الملف الشخصي', 'Profile')}
+          {t('ط§ظ„ظ…ظ„ظپ ط§ظ„ط´ط®طµظٹ', 'Profile')}
         </h3>
         <div>
           <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-            {t('السيرة الذاتية', 'Bio')}
+            {t('ط§ظ„ط³ظٹط±ط© ط§ظ„ط°ط§طھظٹط©', 'Bio')}
           </label>
           <textarea
             className="input-field resize-none"
             rows={3}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            placeholder={t('قدم نفسك للطلاب...', 'Introduce yourself to students...')}
+            placeholder={t('ظ‚ط¯ظ… ظ†ظپط³ظƒ ظ„ظ„ط·ظ„ط§ط¨...', 'Introduce yourself to students...')}
           />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-            {t('التخصص', 'Specialization')}
+            {t('ط§ظ„طھط®طµطµ', 'Specialization')}
           </label>
           <input
             className="input-field"
             value={specialization}
             onChange={(e) => setSpecialization(e.target.value)}
-            placeholder={t('مثال: قواعد، محادثة', 'e.g. Grammar, Conversation')}
+            placeholder={t('ظ…ط«ط§ظ„: ظ‚ظˆط§ط¹ط¯طŒ ظ…ط­ط§ط¯ط«ط©', 'e.g. Grammar, Conversation')}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('لغات التدريس', 'Teaching Languages')}
+              {t('ظ„ط؛ط§طھ ط§ظ„طھط¯ط±ظٹط³', 'Teaching Languages')}
             </label>
             <input
               className="input-field"
               value={teachingLanguages}
               onChange={(e) => setTeachingLanguages(e.target.value)}
-              placeholder={t('العربية، الإنجليزية', 'Arabic, English')}
+              placeholder={t('ط§ظ„ط¹ط±ط¨ظٹط©طŒ ط§ظ„ط¥ظ†ط¬ظ„ظٹط²ظٹط©', 'Arabic, English')}
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('السعر للساعة ($)', 'Hourly Rate ($)')}
+              {t('ط§ظ„ط³ط¹ط± ظ„ظ„ط³ط§ط¹ط© ($)', 'Hourly Rate ($)')}
             </label>
             <input
               className="input-field"
@@ -171,17 +168,17 @@ export default function SettingsView() {
           disabled={saveProfileMutation.isPending}
           onClick={() => saveProfileMutation.mutate()}
         >
-          {t('حفظ التغييرات', 'Save Changes')}
+          {t('ط­ظپط¸ ط§ظ„طھط؛ظٹظٹط±ط§طھ', 'Save Changes')}
         </button>
       </div>
 
       <div className="card-dark p-6 space-y-5">
         <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>
-          {t('تغيير كلمة المرور', 'Change Password')}
+          {t('طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Change Password')}
         </h3>
         <div>
           <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-            {t('كلمة المرور الحالية', 'Current Password')}
+            {t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط­ط§ظ„ظٹط©', 'Current Password')}
           </label>
           <input
             className="input-field"
@@ -193,7 +190,7 @@ export default function SettingsView() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('كلمة المرور الجديدة', 'New Password')}
+              {t('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط¬ط¯ظٹط¯ط©', 'New Password')}
             </label>
             <input
               className="input-field"
@@ -204,7 +201,7 @@ export default function SettingsView() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('تأكيد كلمة المرور', 'Confirm Password')}
+              {t('طھط£ظƒظٹط¯ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Confirm Password')}
             </label>
             <input
               className="input-field"
@@ -223,21 +220,21 @@ export default function SettingsView() {
           disabled={changePasswordMutation.isPending}
           onClick={() => changePasswordMutation.mutate()}
         >
-          {t('تغيير كلمة المرور', 'Change Password')}
+          {t('طھط؛ظٹظٹط± ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±', 'Change Password')}
         </button>
       </div>
 
       <div className="card-dark p-6 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>
-            {t('إدارة المواعيد', 'Manage Availability')}
+            {t('ط¥ط¯ط§ط±ط© ط§ظ„ظ…ظˆط§ط¹ظٹط¯', 'Manage Availability')}
           </h3>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            {t('حدد أوقات التدريس المتاحة.', 'Set your available teaching hours.')}
+            {t('ط­ط¯ط¯ ط£ظˆظ‚ط§طھ ط§ظ„طھط¯ط±ظٹط³ ط§ظ„ظ…طھط§ط­ط©.', 'Set your available teaching hours.')}
           </p>
         </div>
         <Link href="/tutor/availability" className="btn-outline-gold text-sm px-4 py-2">
-          {t('فتح التقويم', 'Open Calendar')}
+          {t('ظپطھط­ ط§ظ„طھظ‚ظˆظٹظ…', 'Open Calendar')}
         </Link>
       </div>
 
@@ -247,3 +244,5 @@ export default function SettingsView() {
     </div>
   );
 }
+
+

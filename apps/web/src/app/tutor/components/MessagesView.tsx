@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,9 +21,8 @@ type MessageData = {
 };
 
 export default function MessagesView({ initialSelectedUserId }: { initialSelectedUserId?: string | null }) {
-  const { lang } = useLanguage();
-  const isAr = lang === 'ar';
-  const queryClient = useQueryClient();
+  const { t } = useLanguage();
+const queryClient = useQueryClient();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(initialSelectedUserId || null);
   const [messageInput, setMessageInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -33,8 +32,6 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
       setSelectedUserId(initialSelectedUserId);
     }
   }, [initialSelectedUserId]);
-
-  const t = (ar: string, en: string) => isAr ? ar : en;
 
   const { data: contacts = [], isLoading: loadingContacts } = useQuery<Contact[]>({
     queryKey: ['messages', 'contacts'],
@@ -83,7 +80,7 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
     <div className="flex h-[calc(100vh-140px)] rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-color)', background: 'var(--bg-main)' }}>
       <div className="w-72 flex-shrink-0 border-l overflow-y-auto" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-light)' }}>
         <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-          <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('الرسائل', 'Messages')}</h3>
+          <h3 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط±ط³ط§ط¦ظ„', 'Messages')}</h3>
         </div>
         {loadingContacts ? (
           <div className="p-4 space-y-3">
@@ -99,7 +96,7 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
           </div>
         ) : contacts.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا توجد محادثات', 'No conversations')}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ظ„ط§ طھظˆط¬ط¯ ظ…ط­ط§ط¯ط«ط§طھ', 'No conversations')}</p>
           </div>
         ) : (
           contacts.map((contact) => (
@@ -129,7 +126,7 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
                   )}
                 </div>
                 <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  {contact.lastMessage?.content ?? t('بدون رسائل', 'No messages')}
+                  {contact.lastMessage?.content ?? t('ط¨ط¯ظˆظ† ط±ط³ط§ط¦ظ„', 'No messages')}
                 </p>
               </div>
               {contact.unreadCount > 0 && (
@@ -167,7 +164,7 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ابدأ المحادثة', 'Start the conversation')}</p>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ط§ط¨ط¯ط£ ط§ظ„ظ…ط­ط§ط¯ط«ط©', 'Start the conversation')}</p>
                 </div>
               ) : (
                 messages.map((msg) => {
@@ -199,7 +196,7 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
-                  placeholder={t('اكتب رسالة...', 'Type a message...')}
+                  placeholder={t('ط§ظƒطھط¨ ط±ط³ط§ظ„ط©...', 'Type a message...')}
                   disabled={sendMutation.isPending}
                 />
                 <button onClick={handleSend} className="btn-primary px-4" disabled={sendMutation.isPending || !messageInput.trim()}>
@@ -212,10 +209,12 @@ export default function MessagesView({ initialSelectedUserId }: { initialSelecte
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p style={{ color: 'var(--text-muted)' }}>{t('اختر محادثة', 'Select a conversation')}</p>
+            <p style={{ color: 'var(--text-muted)' }}>{t('ط§ط®طھط± ظ…ط­ط§ط¯ط«ط©', 'Select a conversation')}</p>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+

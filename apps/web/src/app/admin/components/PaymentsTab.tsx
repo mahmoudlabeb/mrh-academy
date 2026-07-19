@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,14 +21,12 @@ type Payment = {
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 
 export default function PaymentsTab() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   // Per-payment reject reasons to avoid shared-state bug
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [receiptModal, setReceiptModal] = useState<string | null>(null);
-
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
   const paymentsQuery = useQuery({
     queryKey: ['admin-payments'],
@@ -68,7 +66,7 @@ export default function PaymentsTab() {
   const handleReject = (payment: Payment) => {
     const reason = rejectReasons[payment.id]?.trim();
     if (!reason) {
-      if (!window.confirm(t('رفض بدون سبب؟', 'Reject without a reason?'))) return;
+      if (!window.confirm(t('ط±ظپط¶ ط¨ط¯ظˆظ† ط³ط¨ط¨طں', 'Reject without a reason?'))) return;
     }
     rejectMutation.mutate({ id: payment.id, reason: reason || undefined });
   };
@@ -81,10 +79,10 @@ export default function PaymentsTab() {
   const pendingCount = allPayments.filter(p => p.status === 'pending').length;
 
   const filters: { key: StatusFilter; ar: string; en: string }[] = [
-    { key: 'all',      ar: 'الكل',         en: 'All' },
-    { key: 'pending',  ar: 'قيد الانتظار', en: 'Pending' },
-    { key: 'approved', ar: 'مقبول',         en: 'Approved' },
-    { key: 'rejected', ar: 'مرفوض',         en: 'Rejected' },
+    { key: 'all',      ar: 'ط§ظ„ظƒظ„',         en: 'All' },
+    { key: 'pending',  ar: 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', en: 'Pending' },
+    { key: 'approved', ar: 'ظ…ظ‚ط¨ظˆظ„',         en: 'Approved' },
+    { key: 'rejected', ar: 'ظ…ط±ظپظˆط¶',         en: 'Rejected' },
   ];
 
   return (
@@ -93,11 +91,11 @@ export default function PaymentsTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {t('سجل المدفوعات والاشتراكات', 'Payment & subscription log')}
+            {t('ط³ط¬ظ„ ط§ظ„ظ…ط¯ظپظˆط¹ط§طھ ظˆط§ظ„ط§ط´طھط±ط§ظƒط§طھ', 'Payment & subscription log')}
           </p>
           {pendingCount > 0 && (
             <p className="text-xs mt-1 font-semibold" style={{ color: '#eab308' }}>
-              {pendingCount} {t('طلب بانتظار المراجعة', 'payment(s) pending review')}
+              {pendingCount} {t('ط·ظ„ط¨ ط¨ط§ظ†طھط¸ط§ط± ط§ظ„ظ…ط±ط§ط¬ط¹ط©', 'payment(s) pending review')}
             </p>
           )}
         </div>
@@ -130,13 +128,13 @@ export default function PaymentsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ background: 'var(--bg-light)' }}>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('التاريخ', 'Date')}</th>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('المستخدم', 'User')}</th>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('المبلغ', 'Amount')}</th>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('الطريقة', 'Method')}</th>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('الحالة', 'Status')}</th>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('الإيصال', 'Receipt')}</th>
-                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('إجراءات', 'Actions')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„طھط§ط±ظٹط®', 'Date')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ط³طھط®ط¯ظ…', 'User')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ظ…ط¨ظ„ط؛', 'Amount')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط·ط±ظٹظ‚ط©', 'Method')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط­ط§ظ„ط©', 'Status')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط§ظ„ط¥ظٹطµط§ظ„', 'Receipt')}</th>
+                <th className="text-start px-4 py-3 font-semibold" style={{ color: 'var(--text-main)' }}>{t('ط¥ط¬ط±ط§ط،ط§طھ', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -153,7 +151,7 @@ export default function PaymentsTab() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
-                    {t('لا توجد مدفوعات', 'No payments found')}
+                    {t('ظ„ط§ طھظˆط¬ط¯ ظ…ط¯ظپظˆط¹ط§طھ', 'No payments found')}
                   </td>
                 </tr>
               ) : (
@@ -185,10 +183,10 @@ export default function PaymentsTab() {
                               : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }
                         }>
                         {payment.status === 'approved'
-                          ? t('مقبول', 'Approved')
+                          ? t('ظ…ظ‚ط¨ظˆظ„', 'Approved')
                           : payment.status === 'pending'
-                            ? t('قيد الانتظار', 'Pending')
-                            : t('مرفوض', 'Rejected')}
+                            ? t('ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', 'Pending')
+                            : t('ظ…ط±ظپظˆط¶', 'Rejected')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -202,10 +200,10 @@ export default function PaymentsTab() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
-                          {t('عرض', 'View')}
+                          {t('ط¹ط±ط¶', 'View')}
                         </button>
                       ) : (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>â€”</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -218,7 +216,7 @@ export default function PaymentsTab() {
                               className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all disabled:opacity-50"
                               style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
                             >
-                              {t('اعتماد', 'Approve')}
+                              {t('ط§ط¹طھظ…ط§ط¯', 'Approve')}
                             </button>
                             <button
                               onClick={() => handleReject(payment)}
@@ -226,13 +224,13 @@ export default function PaymentsTab() {
                               className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all disabled:opacity-50"
                               style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
                             >
-                              {t('رفض', 'Reject')}
+                              {t('ط±ظپط¶', 'Reject')}
                             </button>
                           </div>
-                          {/* Per-payment reject reason input — fixes shared state bug */}
+                          {/* Per-payment reject reason input â€” fixes shared state bug */}
                           <input
                             type="text"
-                            placeholder={t('سبب الرفض...', 'Rejection reason...')}
+                            placeholder={t('ط³ط¨ط¨ ط§ظ„ط±ظپط¶...', 'Rejection reason...')}
                             value={rejectReasons[payment.id] ?? ''}
                             onChange={(e) => setRejectReasons(prev => ({ ...prev, [payment.id]: e.target.value }))}
                             className="text-xs px-2 py-1 rounded-lg w-40"
@@ -265,7 +263,7 @@ export default function PaymentsTab() {
             <button
               onClick={() => setReceiptModal(null)}
               className="absolute -top-10 right-0 text-white text-2xl font-bold opacity-70 hover:opacity-100"
-            >×</button>
+            >أ—</button>
             {receiptModal.toLowerCase().includes('.pdf') ? (
               <iframe src={receiptModal} className="w-full h-96 rounded-xl" title="receipt" />
             ) : (
@@ -279,7 +277,7 @@ export default function PaymentsTab() {
               className="mt-3 inline-flex items-center gap-2 text-sm px-4 py-2 rounded-lg"
               style={{ background: 'rgba(212,163,83,0.15)', color: '#D4A353', border: '1px solid rgba(212,163,83,0.3)' }}
             >
-              {t('فتح في تبويب جديد', 'Open in new tab')}
+              {t('ظپطھط­ ظپظٹ طھط¨ظˆظٹط¨ ط¬ط¯ظٹط¯', 'Open in new tab')}
             </a>
           </div>
         </div>
@@ -287,3 +285,4 @@ export default function PaymentsTab() {
     </div>
   );
 }
+

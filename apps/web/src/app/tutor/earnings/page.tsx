@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,25 +24,23 @@ type Payout = {
 };
 
 const PAYOUT_METHODS = [
-  { key: 'bank_transfer', labelAr: 'تحويل بنكي', labelEn: 'Bank Transfer' },
+  { key: 'bank_transfer', labelAr: 'طھط­ظˆظٹظ„ ط¨ظ†ظƒظٹ', labelEn: 'Bank Transfer' },
   { key: 'paypal',        labelAr: 'PayPal',       labelEn: 'PayPal' },
-  { key: 'vodafone_cash', labelAr: 'فودافون كاش',  labelEn: 'Vodafone Cash' },
-  { key: 'instapay',      labelAr: 'انستاباي',     labelEn: 'Instapay' },
+  { key: 'vodafone_cash', labelAr: 'ظپظˆط¯ط§ظپظˆظ† ظƒط§ط´',  labelEn: 'Vodafone Cash' },
+  { key: 'instapay',      labelAr: 'ط§ظ†ط³طھط§ط¨ط§ظٹ',     labelEn: 'Instapay' },
 ] as const;
 
 type PayoutMethod = typeof PAYOUT_METHODS[number]['key'];
 
 const statusConfig: Record<string, { ar: string; en: string; bg: string; color: string }> = {
-  pending: { ar: 'قيد الانتظار', en: 'Pending',  bg: 'rgba(234,179,8,0.1)',  color: '#eab308' },
-  success: { ar: 'مكتمل',        en: 'Completed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  failed:  { ar: 'فشل',          en: 'Failed',    bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+  pending: { ar: 'ظ‚ظٹط¯ ط§ظ„ط§ظ†طھط¸ط§ط±', en: 'Pending',  bg: 'rgba(234,179,8,0.1)',  color: '#eab308' },
+  success: { ar: 'ظ…ظƒطھظ…ظ„',        en: 'Completed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
+  failed:  { ar: 'ظپط´ظ„',          en: 'Failed',    bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
 };
 
 export default function TutorEarningsPage() {
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
-
   const [showPayoutForm, setShowPayoutForm] = useState(false);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PayoutMethod>('bank_transfer');
@@ -77,13 +75,13 @@ export default function TutorEarningsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-payouts'] });
       queryClient.invalidateQueries({ queryKey: ['tutor-profile-balance'] });
-      setSuccessMsg(t('تم إرسال طلب السحب. سيتم مراجعته من قبل الإدارة.', 'Payout request submitted. Admin will review it.'));
+      setSuccessMsg(t('طھظ… ط¥ط±ط³ط§ظ„ ط·ظ„ط¨ ط§ظ„ط³ط­ط¨. ط³ظٹطھظ… ظ…ط±ط§ط¬ط¹طھظ‡ ظ…ظ† ظ‚ط¨ظ„ ط§ظ„ط¥ط¯ط§ط±ط©.', 'Payout request submitted. Admin will review it.'));
       setAmount('');
       setAccountDetails('');
       setShowPayoutForm(false);
     },
     onError: (error: { response?: { data?: { message?: string } } } & Error) => {
-      const msg = error?.response?.data?.message || error?.message || t('حدث خطأ', 'An error occurred');
+      const msg = error?.response?.data?.message || error?.message || t('ط­ط¯ط« ط®ط·ط£', 'An error occurred');
       alert(msg);
     },
   });
@@ -97,15 +95,15 @@ export default function TutorEarningsPage() {
       {/* Back link */}
       <Link href="/tutor" className="inline-flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        {t('العودة للوحة التحكم', 'Back to Dashboard')}
+        {t('ط§ظ„ط¹ظˆط¯ط© ظ„ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…', 'Back to Dashboard')}
       </Link>
 
       <div>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>
-          {t('الأرباح والسحب', 'Earnings & Payouts')}
+          {t('ط§ظ„ط£ط±ط¨ط§ط­ ظˆط§ظ„ط³ط­ط¨', 'Earnings & Payouts')}
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          {t('تتراكم أرباحك بعد اكتمال كل درس', 'Your earnings accumulate after each completed lesson')}
+          {t('طھطھط±ط§ظƒظ… ط£ط±ط¨ط§ط­ظƒ ط¨ط¹ط¯ ط§ظƒطھظ…ط§ظ„ ظƒظ„ ط¯ط±ط³', 'Your earnings accumulate after each completed lesson')}
         </p>
       </div>
 
@@ -113,7 +111,7 @@ export default function TutorEarningsPage() {
       <div className="card-gold p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('الرصيد المتاح', 'Available Balance')}</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('ط§ظ„ط±طµظٹط¯ ط§ظ„ظ…طھط§ط­', 'Available Balance')}</p>
             {profileQuery.isLoading ? (
               <div className="h-10 w-28 skeleton rounded mt-1" />
             ) : (
@@ -127,18 +125,18 @@ export default function TutorEarningsPage() {
               onClick={() => setShowPayoutForm(!showPayoutForm)}
               className="btn-primary px-5 py-2.5"
             >
-              {showPayoutForm ? t('إلغاء', 'Cancel') : t('طلب سحب', 'Request Payout')}
+              {showPayoutForm ? t('ط¥ظ„ط؛ط§ط،', 'Cancel') : t('ط·ظ„ط¨ ط³ط­ط¨', 'Request Payout')}
             </button>
           )}
         </div>
         {balance < 10 && balance > 0 && (
           <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-            {t('الحد الأدنى للسحب هو $10', 'Minimum payout amount is $10')}
+            {t('ط§ظ„ط­ط¯ ط§ظ„ط£ط¯ظ†ظ‰ ظ„ظ„ط³ط­ط¨ ظ‡ظˆ $10', 'Minimum payout amount is $10')}
           </p>
         )}
         {balance === 0 && !profileQuery.isLoading && (
           <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-            {t('لا يوجد رصيد للسحب حالياً. أكمل دروساً لكسب الأرباح.', 'No balance to withdraw. Complete lessons to earn.')}
+            {t('ظ„ط§ ظٹظˆط¬ط¯ ط±طµظٹط¯ ظ„ظ„ط³ط­ط¨ ط­ط§ظ„ظٹط§ظ‹. ط£ظƒظ…ظ„ ط¯ط±ظˆط³ط§ظ‹ ظ„ظƒط³ط¨ ط§ظ„ط£ط±ط¨ط§ط­.', 'No balance to withdraw. Complete lessons to earn.')}
           </p>
         )}
       </div>
@@ -158,12 +156,12 @@ export default function TutorEarningsPage() {
       {showPayoutForm && (
         <div className="card p-6 space-y-4">
           <h2 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
-            {t('طلب سحب أرباح', 'Request Payout')}
+            {t('ط·ظ„ط¨ ط³ط­ط¨ ط£ط±ط¨ط§ط­', 'Request Payout')}
           </h2>
 
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('المبلغ (USD)', 'Amount (USD)')}
+              {t('ط§ظ„ظ…ط¨ظ„ط؛ (USD)', 'Amount (USD)')}
             </label>
             <input
               type="number"
@@ -176,13 +174,13 @@ export default function TutorEarningsPage() {
               placeholder="0.00"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              {t(`الرصيد المتاح: $${balance.toFixed(2)} · الحد الأدنى: $10`, `Available: $${balance.toFixed(2)} · Minimum: $10`)}
+              {t(`ط§ظ„ط±طµظٹط¯ ط§ظ„ظ…طھط§ط­: $${balance.toFixed(2)} آ· ط§ظ„ط­ط¯ ط§ظ„ط£ط¯ظ†ظ‰: $10`, `Available: $${balance.toFixed(2)} آ· Minimum: $10`)}
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>
-              {t('طريقة الدفع', 'Payout Method')}
+              {t('ط·ط±ظٹظ‚ط© ط§ظ„ط¯ظپط¹', 'Payout Method')}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {PAYOUT_METHODS.map(pm => (
@@ -212,7 +210,7 @@ export default function TutorEarningsPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('تفاصيل الحساب', 'Account Details')}
+              {t('طھظپط§طµظٹظ„ ط§ظ„ط­ط³ط§ط¨', 'Account Details')}
             </label>
             <input
               value={accountDetails}
@@ -220,12 +218,12 @@ export default function TutorEarningsPage() {
               className="input-field w-full"
               placeholder={
                 method === 'bank_transfer'
-                  ? t('رقم الحساب / IBAN', 'Account number / IBAN')
+                  ? t('ط±ظ‚ظ… ط§ظ„ط­ط³ط§ط¨ / IBAN', 'Account number / IBAN')
                   : method === 'paypal'
                     ? 'PayPal email'
                     : method === 'vodafone_cash'
-                      ? t('رقم الهاتف', 'Phone number')
-                      : t('رقم الهاتف / معرف الحساب', 'Phone / Account ID')
+                      ? t('ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ', 'Phone number')
+                      : t('ط±ظ‚ظ… ط§ظ„ظ‡ط§طھظپ / ظ…ط¹ط±ظپ ط§ظ„ط­ط³ط§ط¨', 'Phone / Account ID')
               }
             />
           </div>
@@ -242,9 +240,9 @@ export default function TutorEarningsPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                {t('جاري الإرسال...', 'Submitting...')}
+                {t('ط¬ط§ط±ظٹ ط§ظ„ط¥ط±ط³ط§ظ„...', 'Submitting...')}
               </span>
-            ) : t('إرسال طلب السحب', 'Submit Payout Request')}
+            ) : t('ط¥ط±ط³ط§ظ„ ط·ظ„ط¨ ط§ظ„ط³ط­ط¨', 'Submit Payout Request')}
           </button>
         </div>
       )}
@@ -252,7 +250,7 @@ export default function TutorEarningsPage() {
       {/* Payout history */}
       <div>
         <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-          {t('سجل السحوبات', 'Payout History')}
+          {t('ط³ط¬ظ„ ط§ظ„ط³ط­ظˆط¨ط§طھ', 'Payout History')}
         </h2>
 
         {payoutsQuery.isLoading ? (
@@ -272,7 +270,7 @@ export default function TutorEarningsPage() {
               </svg>
             </div>
             <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>
-              {t('لا توجد سحوبات بعد', 'No payouts yet')}
+              {t('ظ„ط§ طھظˆط¬ط¯ ط³ط­ظˆط¨ط§طھ ط¨ط¹ط¯', 'No payouts yet')}
             </p>
           </div>
         ) : (
@@ -294,9 +292,9 @@ export default function TutorEarningsPage() {
                         </p>
                         <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           <span>{payout.method}</span>
-                          <span>·</span>
+                          <span>آ·</span>
                           <span>{payout.accountDetails}</span>
-                          <span>·</span>
+                          <span>آ·</span>
                           <span>{new Date(payout.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
                       </div>
@@ -324,3 +322,4 @@ export default function TutorEarningsPage() {
     </div>
   );
 }
+
