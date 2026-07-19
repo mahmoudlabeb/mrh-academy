@@ -4,10 +4,12 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
-import { Injectable, UseGuards } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { ConfigService } from '@nestjs/config';
 import { MessagesService } from './messages.service.js';
 
 interface JwtPayload {
@@ -31,25 +33,32 @@ function getMessageSocketData(socket: Socket) {
   return socketData.get(socket) ?? { userId: '', role: '' };
 }
 
-@WebSocketGateway({
-  namespace: '/messages',
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  },
-})
+@WebSocketGateway({ namespace: '/messages' })
 export class MessagesGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
   server: Server;
 
+  private readonly logger = new Logger(MessagesGateway.name);
   private connectedUsers = new Map<string, Set<string>>();
 
   constructor(
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
     private readonly messagesService: MessagesService,
   ) {}
+
+  afterInit(server: Server) {
+    const origin = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    server.engine.on('initial_headers', (headers: Record<string, string>) => {
+      headers['Access-Control-Allow-Origin'] = origin;
+    });
+    this.logger.log(`WebSocket /messages CORS configured: ${origin}`);
+  }
 
   async handleConnection(socket: Socket) {
     try {

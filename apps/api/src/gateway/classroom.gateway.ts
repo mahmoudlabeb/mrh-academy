@@ -4,8 +4,9 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
-import { Injectable, OnApplicationShutdown } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import sanitizeHtml from 'sanitize-html';
@@ -43,19 +44,18 @@ interface JwtHandshakePayload {
 }
 
 @Injectable()
-@WebSocketGateway({
-  namespace: '/classroom',
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  },
-})
+@WebSocketGateway({ namespace: '/classroom' })
 export class ClassroomGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, OnApplicationShutdown
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnApplicationShutdown
 {
   private static readonly MAX_ACTIONS_PER_PAGE = 2000;
   private static readonly MAX_WHITEBOARD_PAGES = 50;
   private static readonly MAX_CHAT_PER_MINUTE = 30;
+  private readonly logger = new Logger(ClassroomGateway.name);
   @WebSocketServer()
   server: Server;
 
@@ -92,6 +92,17 @@ export class ClassroomGateway
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
+
+  afterInit(server: Server) {
+    const origin = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    server.engine.on('initial_headers', (headers: Record<string, string>) => {
+      headers['Access-Control-Allow-Origin'] = origin;
+    });
+    this.logger.log(`WebSocket /classroom CORS configured: ${origin}`);
+  }
 
   async handleConnection(socket: Socket) {
     try {

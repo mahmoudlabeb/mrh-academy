@@ -36,7 +36,6 @@ import { Setting } from './entities/setting.entity.js';
 import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
 import { XssCleanMiddleware } from './common/xss-clean.middleware.js';
-import * as dbEntities from './entities/index.js';
 
 @Module({
   imports: [
@@ -127,7 +126,6 @@ import * as dbEntities from './entities/index.js';
                 ssl: false,
               }),
           autoLoadEntities: true,
-          entities: Object.values(dbEntities),
           synchronize: dbSynchronize && nodeEnv !== 'production',
           migrations: ['dist/database/migrations/*.js'],
           migrationsRun: runMigrations,
@@ -188,6 +186,6 @@ import * as dbEntities from './entities/index.js';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CsrfOriginMiddleware, XssCleanMiddleware).forRoutes('*');
+    consumer.apply(CsrfOriginMiddleware, XssCleanMiddleware).forRoutes('{*path}');
   }
 }
