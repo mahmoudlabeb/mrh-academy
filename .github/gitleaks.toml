@@ -1,0 +1,44 @@
+title = "MRH Academy gitleaks config"
+
+# Extend default rules. All default rules remain active.
+# Add custom patterns specific to this project.
+
+[[rules]]
+id = "mrh-database-url"
+description = "Hardcoded PostgreSQL connection string (MRH custom)"
+regex = '''(?i)(?:postgres|postgresql)://[^\s"']+'''
+tags = ["mrh", "database"]
+
+[[rules]]
+id = "mrh-metered-api-key"
+description = "Metered TURN API key (MRH custom)"
+regex = '''(?i)metered[_\s]?api[_\s]?key\s*[:=]\s*['"][^\s'"]+['"]'''
+tags = ["mrh", "turn"]
+
+[[rules]]
+id = "mrh-turn-credential"
+description = "Hardcoded TURN credential (MRH custom)"
+regex = '''(?i)turn_credential\s*[:=]\s*['"][^\s'"]+['"]'''
+tags = ["mrh", "turn"]
+
+[[rules]]  
+id = "mrh-stripe-webhook-revealed"
+description = "Stripe webhook secret exposed"
+regex = '''whsec_[0-9a-zA-Z]{10,}'''
+tags = ["mrh", "stripe"]
+
+[[rules]]
+id = "mrh-upstash-token"
+description = "Upstash Redis token exposed"
+regex = '''UPSTASH_REDIS_REST_TOKEN\s*[:=]\s*['"][^\s'"]+'''
+tags = ["mrh", "upstash"]
+
+[allowlist]
+# Files that are allowed to contain placeholder/template values
+files = [
+  '''(^|/)\.env\.example$''',
+  '''env\.production\.template$''',
+  '''__tests__/''',
+  '''\.spec\.ts$''',
+  '''secret-scan\.js$''',
+]

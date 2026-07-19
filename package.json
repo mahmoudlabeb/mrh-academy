@@ -17,7 +17,6 @@
     "test:e2e": "cd apps/api && pnpm test:e2e"
   },
   "devDependencies": {
-    "gitleaks": "^1.0.0",
     "javascript-obfuscator": "^4.1.1",
     "prettier": "^3.2.5",
     "turbo": "^2.0.0"
