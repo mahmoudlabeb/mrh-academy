@@ -5,6 +5,7 @@ import {
   Header,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
@@ -29,8 +30,14 @@ export class LessonsController {
 
   @Get()
   @Roles(UserRole.STUDENT, UserRole.TUTOR)
-  getMyLessons(@CurrentUser() user: AuthenticatedUser) {
-    return this.lessonsService.findUserLessons(user.id, user.role);
+  getMyLessons(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const p = Math.max(1, parseInt(page || '1', 10) || 1);
+    const l = Math.min(100, Math.max(1, parseInt(limit || '20', 10) || 20));
+    return this.lessonsService.findUserLessons(user.id, user.role, p, l);
   }
 
   @Post('book')

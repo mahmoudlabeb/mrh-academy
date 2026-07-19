@@ -48,11 +48,12 @@ export class LessonsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findUserLessons(userId: string, role: UserRole) {
+  async findUserLessons(userId: string, role: UserRole, page = 1, limit = 20) {
     const where =
       role === UserRole.TUTOR ? { tutorId: userId } : { studentId: userId };
+    const skip = (page - 1) * limit;
 
-    return this.lessonRepository.find({
+    const [data, total] = await this.lessonRepository.findAndCount({
       where,
       relations: {
         tutor: true,
@@ -83,7 +84,11 @@ export class LessonsService {
         },
       },
       order: { scheduledTime: 'DESC' },
+      skip,
+      take: limit,
     });
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async bookLesson(studentId: string, dto: BookLessonDto) {

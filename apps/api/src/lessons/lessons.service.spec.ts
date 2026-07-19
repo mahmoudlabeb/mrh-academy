@@ -721,18 +721,28 @@ describe('LessonsService', () => {
   });
 
   describe('findUserLessons', () => {
-    it('returns lessons for a student', async () => {
+    it('returns paginated lessons for a student', async () => {
       const lessons = [{ id: 'lesson-1' }];
-      lessonRepository.find.mockResolvedValue(lessons);
+      lessonRepository.findAndCount.mockResolvedValue([lessons, 1]);
 
       const result = await service.findUserLessons(
         'student-1',
         UserRole.STUDENT,
       );
 
-      expect(result).toEqual(lessons);
-      expect(lessonRepository.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { studentId: 'student-1' } }),
+      expect(result).toEqual({
+        data: lessons,
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
+      expect(lessonRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { studentId: 'student-1' },
+          skip: 0,
+          take: 20,
+        }),
       );
     });
   });

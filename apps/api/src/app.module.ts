@@ -17,7 +17,6 @@ import { MaintenanceGuard } from './auth/guards/maintenance.guard.js';
 import { ReminderService } from './services/reminder.service.js';
 import { PayoutReconciliationService } from './services/payout-reconciliation.service.js';
 import { EmailService } from './services/email.service.js';
-import { Lesson } from './entities/lesson.entity.js';
 import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 import { TutorsModule } from './tutors/tutors.module.js';
@@ -136,7 +135,6 @@ import * as dbEntities from './entities/index.js';
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([Lesson]),
     SharedModule,
     RedisModule,
     AuthModule,
