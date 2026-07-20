@@ -39,7 +39,7 @@ export default function TutorLessonsPage() {
 
   const approveMutation = useMutation({
     mutationFn: async (lessonId: string) => {
-      const { data } = await apiClient.patch(`/lessons/${lessonId}/approve`);
+      const { data } = await apiClient.post(`/lessons/${lessonId}/approve`);
       return data;
     },
     onSuccess: () => {
@@ -53,7 +53,7 @@ export default function TutorLessonsPage() {
 
   const rejectMutation = useMutation({
     mutationFn: async (lessonId: string) => {
-      const { data } = await apiClient.patch(`/lessons/${lessonId}/reject`);
+      const { data } = await apiClient.post(`/lessons/${lessonId}/reject`);
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tutor-lessons-page'] }),
