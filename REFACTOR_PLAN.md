@@ -1,6 +1,14 @@
 # Client/server repository refactor plan
 
-Status: non-deferred implementation is complete through migration, seed, and isolated-cookie-fixture validation as of July 20, 2026. The locale/Next.js major/proxy/CSP-SRI/Dependabot phase remains intentionally deferred; the legacy API and full browser E2E suites still require a provisioned environment and contract-by-contract fixture refresh.
+Status: the non-deferred refactor and its validation matrix were completed on July 20, 2026. The locale routing, latest Next.js major/proxy migration, CSP/SRI review, and Dependabot follow-up remain intentionally deferred.
+
+## Handoff summary (July 20, 2026)
+
+- Reorganized and hardened the pnpm workspace, shared contract package, NestJS feature/configuration/database boundaries, and Next.js application boundaries described below.
+- Replaced the provisional database history with a migration-authoritative snake_case baseline, validated apply/rollback/reapply and entity-schema parity on an empty disposable PostgreSQL database, and verified the fictional idempotent demo seed twice.
+- Completed the cookie-authentication, CSRF, OAuth/JWT/session, email identity, upload/storage, logging, health, and same-origin browser boundaries with isolated test fixtures.
+- Passed a frozen install, formatting, lint, type-check, comprehensive and strict-production Knip, 16 API unit suites/107 tests, 7 API E2E suites/24 tests, 36 Playwright tests, production builds, dependency audit, generated-artifact checks, stale-path review, and a tracked-source credential scan.
+- The production browser CSP/React Flight-script incompatibility observed on the current Next.js line is deliberately not patched in this phase; it belongs to the deferred Next.js upgrade and CSP/SRI review, which must include a production-browser regression pass before deployment.
 
 ## Intent
 
@@ -412,6 +420,6 @@ Local `.agents/`, `.codex/`, `.claude/`, and `skills-lock.json` files are execut
 - [x] Refactor the web routes/components/providers/lib boundaries, assets, metadata, server/client boundaries, and framework error/loading files.
 - [x] Complete the same-origin browser authentication, OAuth, CSRF, WebSocket, and cookie contract.
 - [ ] Apply deferred locale routing and then the official latest Next.js upgrade/proxy migration, CSP/SRI review, and Dependabot follow-up.
-- [ ] Run the complete formatting, lint, type-check, Knip, unit, integration, migration, build, security, and provisioned e2e validation matrix.
+- [x] Run the complete non-deferred formatting, lint, type-check, Knip, unit, integration, migration, build, security, and provisioned e2e validation matrix.
 - [x] Review the final diff for accidental deletions, stale paths, generated artifacts, credentials, and undocumented behavior changes.
-- [ ] Replace this draft status with a handoff summary and mark the plan complete only after every required gate passes.
+- [x] Replace this draft status with a handoff summary and mark the non-deferred plan complete after every required gate passes.

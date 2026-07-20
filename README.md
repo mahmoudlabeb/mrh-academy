@@ -138,9 +138,13 @@ pnpm --filter @mrh/api test
 # API e2e
 pnpm --filter @mrh/api test:e2e
 
-# Playwright e2e (requires running API + seeded DB)
+# Playwright e2e (requires a running API + migrated disposable test DB)
 pnpm --filter @mrh/web test:e2e
 ```
+
+API and browser E2E fixtures create unique `.example` users for each run and do
+not require shared demo accounts. The browser suite cleans up those users during
+global teardown. See the application READMEs for the required test environment.
 
 ---
 

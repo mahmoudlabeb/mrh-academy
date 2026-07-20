@@ -39,17 +39,17 @@ DEMO_SEED_PASSWORD='use-a-local-password-at-least-15-chars' \
   pnpm --filter @mrh/api db:seed:demo
 ```
 
-API E2E tests require a migrated disposable PostgreSQL database, Redis, and a
-32-character test JWT secret. The isolated fixture smoke test creates a fresh
-`.example` user per run and authenticates through the real CSRF and HttpOnly
-cookie boundary; it does not depend on demo accounts:
+API E2E tests require a migrated disposable PostgreSQL database and a
+32-character test JWT secret. The suites create isolated `.example` users and
+authenticate through the real CSRF and HttpOnly-cookie boundary; they do not
+depend on demo accounts or external email/Redis services:
 
 ```bash
 NODE_ENV=test \
 DATABASE_URL='postgresql://user:password@localhost:5432/mrh_academy_e2e' \
 JWT_SECRET='a-local-test-secret-with-at-least-32-characters' \
-  pnpm --filter @mrh/api test:e2e -- \
-    test/isolated-fixtures.e2e-spec.ts --runInBand
+  pnpm --filter @mrh/api exec jest \
+    --config ./test/jest-e2e.json --runInBand
 ```
 
 ## Verification
