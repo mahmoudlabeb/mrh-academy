@@ -10,10 +10,14 @@ const COMPROMISED_PASSWORDS = new Set([
 
 export function assertPasswordAllowed(password: string) {
   if (password.length < 15 || password.length > 128) {
-    throw new BadRequestException('Password must be between 15 and 128 characters');
+    throw new BadRequestException(
+      'Password must be between 15 and 128 characters',
+    );
   }
   if (COMPROMISED_PASSWORDS.has(password.toLowerCase())) {
-    throw new BadRequestException('Choose a password that is not commonly used');
+    throw new BadRequestException(
+      'Choose a password that is not commonly used',
+    );
   }
 }
 

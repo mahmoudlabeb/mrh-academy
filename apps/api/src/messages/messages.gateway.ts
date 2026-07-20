@@ -10,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service.js';
 import { websocketCors } from '../config/websocket.config.js';
+import { RedisService } from '../redis/redis.service.js';
+import { getSocketAccessToken } from '../auth/socket-token.js';
 
 interface JwtPayload {
   sub: string;
@@ -17,6 +19,8 @@ interface JwtPayload {
   role: string;
   sessionId?: string;
   type?: string;
+  jti: string;
+  tokenVersion: string;
 }
 
 const socketData = new WeakMap<Socket, { userId: string; role: string }>();
@@ -47,13 +51,12 @@ export class MessagesGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly messagesService: MessagesService,
+    private readonly redisService: RedisService,
   ) {}
 
   async handleConnection(socket: Socket) {
     try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.replace('Bearer ', '');
+      const token = getSocketAccessToken(socket);
 
       if (!token) {
         socket.disconnect(true);
@@ -64,7 +67,12 @@ export class MessagesGateway
         String(token),
       );
 
-      if (payload.type && payload.type !== 'access') {
+      if (
+        payload.type !== 'access' ||
+        !payload.jti ||
+        (await this.redisService.get(`refresh_version:${payload.sub}`)) !==
+          payload.tokenVersion
+      ) {
         socket.disconnect(true);
         return;
       }

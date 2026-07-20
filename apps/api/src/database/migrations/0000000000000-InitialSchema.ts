@@ -85,7 +85,7 @@ export class InitialSchema0000000000000 implements MigrationInterface {
       CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "email" character varying NOT NULL,
-        "password_hash" character varying NOT NULL,
+        "password_hash" character varying,
         "role" "users_role_enum" NOT NULL DEFAULT 'student',
         "first_name" character varying NOT NULL,
         "last_name" character varying NOT NULL,
@@ -488,8 +488,16 @@ export class InitialSchema0000000000000 implements MigrationInterface {
       ],
       ['lessons', 'idx_lessons_tutor_id', '("tutor_id")'],
       ['lessons', 'idx_lessons_student_id', '("student_id")'],
-      ['classroom_messages', 'idx_classroom_messages_lesson_id', '("lesson_id")'],
-      ['classroom_messages', 'idx_classroom_messages_sender_id', '("sender_id")'],
+      [
+        'classroom_messages',
+        'idx_classroom_messages_lesson_id',
+        '("lesson_id")',
+      ],
+      [
+        'classroom_messages',
+        'idx_classroom_messages_sender_id',
+        '("sender_id")',
+      ],
       ['payments', 'idx_payments_user_id', '("user_id")'],
       ['messages', 'idx_messages_sender_id', '("sender_id")'],
       ['messages', 'idx_messages_receiver_id', '("receiver_id")'],
@@ -501,7 +509,11 @@ export class InitialSchema0000000000000 implements MigrationInterface {
         'idx_course_enrollments_student_id',
         '("student_id")',
       ],
-      ['course_enrollments', 'idx_course_enrollments_course_id', '("course_id")'],
+      [
+        'course_enrollments',
+        'idx_course_enrollments_course_id',
+        '("course_id")',
+      ],
       [
         'course_lesson_completions',
         'idx_course_lesson_completions_enrollment_id',
@@ -525,9 +537,17 @@ export class InitialSchema0000000000000 implements MigrationInterface {
       ['vocabulary_words', 'idx_vocabulary_words_user_id', '("user_id")'],
       ['payouts', 'idx_payouts_tutor_id', '("tutor_id")'],
       ['course_promo_codes', 'idx_course_promo_codes_tutor_id', '("tutor_id")'],
-      ['course_promo_codes', 'idx_course_promo_codes_course_id', '("course_id")'],
+      [
+        'course_promo_codes',
+        'idx_course_promo_codes_course_id',
+        '("course_id")',
+      ],
       ['lesson_books', 'idx_lesson_books_lesson_id', '("lesson_id")'],
-      ['student_favorites', 'idx_student_favorites_student_id', '("student_id")'],
+      [
+        'student_favorites',
+        'idx_student_favorites_student_id',
+        '("student_id")',
+      ],
       ['student_favorites', 'idx_student_favorites_tutor_id', '("tutor_id")'],
     ];
 

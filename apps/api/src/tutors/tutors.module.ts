@@ -10,6 +10,7 @@ import { Review } from '../reviews/entities/review.entity.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { Report } from '../reports/entities/report.entity.js';
+import { StorageModule } from '../integrations/storage/storage.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { Report } from '../reports/entities/report.entity.js';
       Report,
     ]),
     AvailabilityModule,
+    StorageModule,
   ],
   providers: [TutorsService],
   controllers: [TutorsController, TutorDashboardController],

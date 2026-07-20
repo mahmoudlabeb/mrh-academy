@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
+import { Inject } from '@nestjs/common';
 import { DataSource, In, Repository } from 'typeorm';
 import { LessonStatus, UserRole } from '@mrh/types';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
@@ -25,6 +25,12 @@ import {
   NotificationPreferences,
 } from '../common/types/notification-preferences.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
+import { randomBytes, createHash } from 'node:crypto';
+import { EmailService } from '../integrations/email/email.service.js';
+import {
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from '../integrations/storage/object-storage.js';
 
 type AvatarFile = {
   buffer: Buffer;
@@ -43,13 +49,9 @@ export class UsersService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
-  ) {
-    cloudinary.config({
-      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
-    });
-  }
+    private readonly emailService: EmailService,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+  ) {}
 
   async getMe(userId: string) {
     const user = await this.userRepository.findOne({
@@ -96,7 +98,7 @@ export class UsersService {
     // Google-only accounts have no password
     if (!user.passwordHash) {
       throw new BadRequestException(
-        'Password change is not available for accounts linked via Google',
+        'Password change requires Google reauthentication',
       );
     }
 
@@ -149,16 +151,80 @@ export class UsersService {
       }
     }
 
-    user.email = dto.newEmail;
+    if (!user.passwordHash) {
+      const recentlyReauthenticated = await this.redisService.get(
+        `google_reauth:${userId}`,
+      );
+      if (!recentlyReauthenticated) {
+        throw new UnauthorizedException(
+          'Reauthenticate with Google before changing your email',
+        );
+      }
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await this.redisService.set(
+      `email_change:${tokenHash}`,
+      JSON.stringify({ userId, newEmail: dto.newEmail.trim().toLowerCase() }),
+      'EX',
+      user.role === UserRole.ADMIN || user.role === UserRole.SUBADMIN
+        ? 10 * 60
+        : 30 * 60,
+    );
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const confirmationUrl = `${frontendUrl}/confirm-email?token=${encodeURIComponent(token)}`;
+    await this.emailService.sendEmail(
+      user.email,
+      'Confirm your MRH Academy email change',
+      `<p>A request was made to change your account email to ${dto.newEmail}.</p><p>Confirm it here: <a href="${confirmationUrl}">${confirmationUrl}</a></p>`,
+    );
+    return { message: 'Check your new email address to confirm the change' };
+  }
+
+  async confirmEmailChange(token: string) {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const encoded = await this.redisService.getDel(`email_change:${tokenHash}`);
+    if (!encoded)
+      throw new BadRequestException('Invalid or expired email change token');
+    const pending = JSON.parse(encoded) as { userId: string; newEmail: string };
+    const conflict = await this.userRepository.findOne({
+      where: { email: pending.newEmail },
+    });
+    if (conflict && conflict.id !== pending.userId) {
+      throw new ConflictException('Email is already registered');
+    }
+    const user = await this.userRepository.findOne({
+      where: { id: pending.userId },
+    });
+    if (!user) throw new BadRequestException('Invalid email change request');
+    const previousEmail = user.email;
+    user.email = pending.newEmail;
+    user.isVerified = true;
     try {
-      const updated = await this.userRepository.save(user);
-      return this.sanitizeUser(updated);
+      await this.userRepository.save(user);
     } catch (error: unknown) {
       if (this.isEmailConflict(error)) {
         throw new ConflictException('Email is already registered');
       }
       throw error;
     }
+    await this.redisService.del(`user_session:${user.id}`);
+    await this.redisService.set(
+      `refresh_version:${user.id}`,
+      randomBytes(16).toString('hex'),
+      'EX',
+      30 * 24 * 60 * 60,
+    );
+    await this.emailService.sendEmail(
+      previousEmail,
+      'Your MRH Academy email was changed',
+      '<p>Your account email was changed. If you did not request this, contact support immediately.</p>',
+    );
+    return { message: 'Email changed successfully' };
   }
 
   async updateAvatar(userId: string, file: AvatarFile | undefined) {
@@ -168,14 +234,22 @@ export class UsersService {
     if (file.size > this.maxAvatarSize) {
       throw new BadRequestException('Avatar file must be 2MB or smaller');
     }
+    if (!this.isSupportedImage(file.buffer, file.mimetype)) {
+      throw new BadRequestException(
+        'Avatar content does not match its image type',
+      );
+    }
 
-    const uploadResult = await this.uploadToCloudinary(file.buffer);
-
-    await this.userRepository.update(userId, {
-      avatarUrl: uploadResult.secure_url,
+    const uploadResult = await this.storage.upload(file.buffer, {
+      folder: 'mrh-academy/avatars',
+      resourceType: 'image',
     });
 
-    return { avatarUrl: uploadResult.secure_url };
+    await this.userRepository.update(userId, {
+      avatarUrl: uploadResult.secureUrl,
+    });
+
+    return { avatarUrl: uploadResult.secureUrl };
   }
 
   async getNotificationPreferences(userId: string) {
@@ -286,24 +360,16 @@ export class UsersService {
     );
   }
 
-  private uploadToCloudinary(buffer: Buffer): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: 'mrh-academy/avatars' },
-        (error, result) => {
-          if (error || !result) {
-            reject(
-              error instanceof Error
-                ? error
-                : new Error('Cloudinary upload failed'),
-            );
-            return;
-          }
-          resolve(result);
-        },
-      );
-      stream.end(buffer);
-    });
+  private isSupportedImage(buffer: Buffer, mime: string) {
+    if (mime === 'image/jpeg') {
+      return buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
+    }
+    if (mime === 'image/png') {
+      return buffer
+        .subarray(0, 8)
+        .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    }
+    return mime === 'image/webp' && buffer.subarray(0, 4).toString() === 'RIFF';
   }
 
   private sanitizeUser(user: User) {

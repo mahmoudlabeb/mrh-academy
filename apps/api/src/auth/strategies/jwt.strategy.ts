@@ -5,11 +5,13 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../users/entities/user.entity.js';
+import { JWT_ALGORITHM, getJwtVerifyOptions } from '../jwt-profile.js';
+import { RedisService } from '../../redis/redis.service.js';
 
 interface JwtPayload {
   sub: string;
-  email: string;
-  role: User['role'];
+  jti: string;
+  tokenVersion: string;
   sessionId?: string;
   type?: 'access' | 'refresh';
   originalAdminId?: string;
@@ -20,6 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
+    private readonly redisService: RedisService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -28,11 +31,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       ]),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET')!,
+      algorithms: [JWT_ALGORITHM],
+      issuer: getJwtVerifyOptions(configService).issuer,
+      audience: getJwtVerifyOptions(configService).audience as string,
     });
   }
 
   async validate(payload: JwtPayload) {
-    if (payload.type && payload.type !== 'access') {
+    if (payload.type !== 'access' || !payload.jti || !payload.tokenVersion) {
       throw new UnauthorizedException('Access token required');
     }
 
@@ -45,9 +51,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         'User no longer exists or has been purged.',
       );
     }
+    // A version change invalidates every access and refresh token for the user.
+    // Redis failure is fail-closed for authenticated requests.
+    const activeVersion = await this.redisService.get(
+      `refresh_version:${user.id}`,
+    );
+    if (!activeVersion || activeVersion !== payload.tokenVersion) {
+      throw new UnauthorizedException('Session has been revoked');
+    }
     return {
       id: payload.sub,
-      email: payload.email,
+      email: user.email,
       role: user.role,
       sessionId: payload.sessionId,
       originalAdminId: payload.originalAdminId,

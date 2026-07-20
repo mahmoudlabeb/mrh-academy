@@ -22,6 +22,7 @@ import {
   setClassroomSocketData,
 } from '../common/types/classroom-socket.js';
 import { websocketCors } from '../config/websocket.config.js';
+import { getSocketAccessToken } from '../auth/socket-token.js';
 
 interface ConnectedClient {
   socketId: string;
@@ -41,6 +42,8 @@ interface JwtHandshakePayload {
   role: string;
   sessionId?: string;
   type?: 'access' | 'refresh';
+  jti: string;
+  tokenVersion: string;
 }
 
 @Injectable()
@@ -93,9 +96,7 @@ export class ClassroomGateway
 
   async handleConnection(socket: Socket) {
     try {
-      const token =
-        socket.handshake.auth?.token ||
-        socket.handshake.headers?.authorization?.replace('Bearer ', '');
+      const token = getSocketAccessToken(socket);
 
       if (!token) {
         socket.disconnect(true);
@@ -106,7 +107,12 @@ export class ClassroomGateway
         String(token),
       );
 
-      if (payload.type && payload.type !== 'access') {
+      if (
+        payload.type !== 'access' ||
+        !payload.jti ||
+        (await this.redisService.get(`refresh_version:${payload.sub}`)) !==
+          payload.tokenVersion
+      ) {
         socket.disconnect(true);
         return;
       }

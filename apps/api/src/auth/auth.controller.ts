@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { GoogleConfigGuard } from './guards/google-config.guard.js';
 import type { Request, Response } from 'express';
@@ -26,6 +25,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { Public } from './decorators/public.decorator.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { GoogleAuthExceptionFilter } from './filters/google-auth-exception.filter.js';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard.js';
+import { TokenDto } from './dto/token.dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -73,8 +74,8 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.register(dto);
-    this.setAuthCookies(response, result);
-    return { user: result.user };
+    this.clearAuthCookies(response);
+    return result;
   }
 
   @Public()
@@ -148,8 +149,22 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('verify-email')
+  verifyEmail(@Body() dto: TokenDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  @Post('resend-verification')
+  resendVerification(@Body() dto: ForgotPasswordDto) {
+    return this.authService.resendVerification(dto.email);
+  }
+
+  @Public()
   @Get('google')
-  @UseGuards(GoogleConfigGuard, AuthGuard('google'))
+  @UseGuards(GoogleConfigGuard, GoogleOAuthGuard)
   @UseFilters(GoogleAuthExceptionFilter)
   async googleAuth() {
     // Passport redirects to Google
@@ -157,7 +172,7 @@ export class AuthController {
 
   @Public()
   @Get('google/callback')
-  @UseGuards(GoogleConfigGuard, AuthGuard('google'))
+  @UseGuards(GoogleConfigGuard, GoogleOAuthGuard)
   @UseFilters(GoogleAuthExceptionFilter)
   async googleCallback(@CurrentUser() profile: any, @Res() res: Response) {
     const result = await this.authService.handleGoogleLogin(profile);

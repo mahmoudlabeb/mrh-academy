@@ -9,7 +9,12 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository, QueryFailedError } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 import { CourseStatus, UserRole } from '@mrh/types';
 import { User } from '../users/entities/user.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
@@ -25,14 +30,15 @@ import {
   hashPassword,
   verifyPassword,
 } from './password.js';
-
+import { getJwtSignOptions, getJwtVerifyOptions } from './jwt-profile.js';
 
 type JwtTokenPayload = {
   sub: string;
-  email: string;
-  role: UserRole;
+  jti: string;
   sessionId?: string;
   type: 'access' | 'refresh';
+  familyId?: string;
+  tokenVersion: string;
   originalAdminId?: string;
 };
 
@@ -64,8 +70,85 @@ export class AuthService {
       .filter(Boolean);
   }
 
-  private async clearRevocation(userId: string) {
-    await this.redisService.del(`refresh_blocklist:${userId}`);
+  private hashToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private tokensMatch(left: string, right: string) {
+    const leftBuffer = Buffer.from(left);
+    const rightBuffer = Buffer.from(right);
+    return (
+      leftBuffer.length === rightBuffer.length &&
+      timingSafeEqual(leftBuffer, rightBuffer)
+    );
+  }
+
+  private async sendVerificationEmail(user: User) {
+    const token = randomBytes(32).toString('base64url');
+    await this.redisService.set(
+      `email_verification:${this.hashToken(token)}`,
+      user.id,
+      'EX',
+      24 * 60 * 60,
+    );
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const verifyUrl = `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
+    await this.emailService.sendEmail(
+      user.email,
+      'Verify your MRH Academy email',
+      `<p>Confirm your email address by opening <a href="${verifyUrl}">this link</a>.</p><p>This link expires in 24 hours.</p>`,
+    );
+  }
+
+  async verifyEmail(token: string) {
+    const key = `email_verification:${this.hashToken(token)}`;
+    const userId = await this.redisService.getDel(key);
+    if (!userId)
+      throw new BadRequestException('Invalid or expired verification token');
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('Invalid verification token');
+    user.isVerified = true;
+    await this.userRepository.save(user);
+    return { message: 'Email verified successfully' };
+  }
+
+  async resendVerification(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
+    if (user && !user.isVerified && user.passwordHash) {
+      await this.sendVerificationEmail(user);
+    }
+    return {
+      message: 'If that email requires verification, a link has been sent',
+    };
+  }
+
+  private async getTokenVersion(userId: string): Promise<string> {
+    const key = `refresh_version:${userId}`;
+    const existing = await this.redisService.get(key);
+    if (existing) return existing;
+
+    const created = randomUUID();
+    if (typeof (this.redisService as any).setNX === 'function') {
+      await this.redisService.setNX(key, created, 30 * 24 * 60 * 60);
+      return (await this.redisService.get(key)) ?? created;
+    }
+    await this.redisService.set(key, created, 'EX', 30 * 24 * 60 * 60);
+    return created;
+  }
+
+  private async revokeSessions(userId: string) {
+    await this.redisService.del(`user_session:${userId}`);
+    await this.redisService.set(
+      `refresh_version:${userId}`,
+      randomUUID(),
+      'EX',
+      30 * 24 * 60 * 60,
+    );
   }
 
   private async establishStudentSession(
@@ -82,27 +165,33 @@ export class AuthService {
     return sessionId;
   }
 
-  private signAccessToken(base: Omit<JwtTokenPayload, 'type'>) {
+  private signAccessToken(base: Omit<JwtTokenPayload, 'type' | 'jti'>) {
     return this.jwtService.sign(
-      { ...base, type: 'access' } satisfies JwtTokenPayload,
-      { expiresIn: this.getAccessTokenExpiry() as any },
+      { ...base, jti: randomUUID(), type: 'access' } satisfies JwtTokenPayload,
+      {
+        ...getJwtSignOptions(this.configService),
+        expiresIn: this.getAccessTokenExpiry() as any,
+      },
     );
   }
 
-  private signRefreshToken(base: Omit<JwtTokenPayload, 'type'>) {
-    return this.jwtService.sign(
-      { ...base, type: 'refresh' } satisfies JwtTokenPayload,
-      { expiresIn: '30d' },
+  private signRefreshToken(base: Omit<JwtTokenPayload, 'type' | 'jti'>) {
+    const jti = randomUUID();
+    const token = this.jwtService.sign(
+      { ...base, jti, type: 'refresh' } satisfies JwtTokenPayload,
+      { ...getJwtSignOptions(this.configService), expiresIn: '30d' },
     );
+    return { jti, token };
   }
 
-  async buildAuthResponse(user: User, existingSessionId?: string) {
-    await this.clearRevocation(user.id);
-
-    const base: Omit<JwtTokenPayload, 'type'> = {
+  async buildAuthResponse(
+    user: User,
+    existingSessionId?: string,
+    existingFamilyId?: string,
+  ) {
+    const base: Omit<JwtTokenPayload, 'type' | 'jti'> = {
       sub: user.id,
-      email: user.email,
-      role: user.role,
+      tokenVersion: await this.getTokenVersion(user.id),
     };
 
     if (user.role === UserRole.STUDENT) {
@@ -113,9 +202,20 @@ export class AuthService {
     }
 
     const accessToken = this.signAccessToken(base);
-    const refreshToken = this.signRefreshToken(base);
+    const familyId = existingFamilyId ?? randomUUID();
+    const refresh = this.signRefreshToken({ ...base, familyId });
+    await this.redisService.set(
+      `refresh_token:${familyId}:${refresh.jti}`,
+      this.hashToken(refresh.token),
+      'EX',
+      30 * 24 * 60 * 60,
+    );
     const { passwordHash: _passwordHash, ...safeUser } = user;
-    return { accessToken, refreshToken, user: safeUser };
+    return {
+      accessToken,
+      refreshToken: refresh.token,
+      user: safeUser,
+    };
   }
 
   async register(dto: RegisterDto) {
@@ -173,7 +273,12 @@ export class AuthService {
         return savedUser;
       });
 
-      return this.buildAuthResponse(result);
+      await this.sendVerificationEmail(result);
+      const { passwordHash: _passwordHash, ...safeUser } = result;
+      return {
+        user: safeUser,
+        verificationRequired: true,
+      };
     } catch (error: unknown) {
       if (
         error instanceof QueryFailedError &&
@@ -196,10 +301,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const isPasswordValid = await verifyPassword(
-      user.passwordHash,
-      dto.password,
-    );
+    if (!user.isVerified && user.passwordHash) {
+      throw new UnauthorizedException(
+        'Please verify your email address before signing in',
+      );
+    }
+
+    const isPasswordValid = user.passwordHash
+      ? await verifyPassword(user.passwordHash, dto.password)
+      : false;
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -269,7 +379,7 @@ export class AuthService {
           avatarUrl: googleProfile.avatarUrl,
           role: UserRole.STUDENT,
           isVerified: true,
-          passwordHash: await hashPassword(`${randomUUID()}${randomUUID()}`),
+          passwordHash: null,
         });
 
         const savedUser = await this.dataSource.transaction(async (manager) => {
@@ -285,6 +395,7 @@ export class AuthService {
       }
     }
 
+    await this.redisService.set(`google_reauth:${user.id}`, '1', 'EX', 10 * 60);
     return this.buildAuthResponse(user);
   }
 
@@ -299,14 +410,19 @@ export class AuthService {
       };
     }
 
-    const token = randomUUID();
-    await this.redisService.set(`reset_token:${token}`, dto.email, 'EX', 3600);
+    const token = randomBytes(32).toString('base64url');
+    await this.redisService.set(
+      `password_reset:${this.hashToken(token)}`,
+      dto.email.trim().toLowerCase(),
+      'EX',
+      15 * 60,
+    );
 
     const frontendUrl = this.configService.get<string>(
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+    const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
 
     await this.emailService.sendEmail(
       dto.email,
@@ -323,7 +439,9 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const email = await this.redisService.get(`reset_token:${dto.token}`);
+    const email = await this.redisService.getDel(
+      `password_reset:${this.hashToken(dto.token)}`,
+    );
     if (!email) {
       throw new BadRequestException('Invalid or expired reset token');
     }
@@ -343,20 +461,18 @@ export class AuthService {
     user.passwordHash = hashedPassword;
     await this.userRepository.save(user);
 
-    await this.redisService.del(`reset_token:${dto.token}`);
-    await this.clearRevocation(user.id);
+    await this.revokeSessions(user.id);
+    await this.emailService.sendEmail(
+      user.email,
+      'Your MRH Academy password was changed',
+      '<p>Your password was changed successfully. If you did not make this change, contact support immediately.</p>',
+    );
 
     return { message: 'Password reset successfully' };
   }
 
   async logout(userId: string) {
-    await this.redisService.del(`user_session:${userId}`);
-    await this.redisService.set(
-      `refresh_blocklist:${userId}`,
-      'revoked',
-      'EX',
-      30 * 24 * 60 * 60,
-    );
+    await this.revokeSessions(userId);
   }
 
   async deleteAccount(userId: string) {
@@ -366,10 +482,49 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string) {
     try {
-      const decoded = this.jwtService.verify(refreshToken);
+      const decoded = this.jwtService.verify<JwtTokenPayload>(
+        refreshToken,
+        getJwtVerifyOptions(this.configService),
+      );
 
-      if (decoded.type && decoded.type !== 'refresh') {
+      if (
+        decoded.type !== 'refresh' ||
+        !decoded.jti ||
+        !decoded.familyId ||
+        !decoded.tokenVersion
+      ) {
         throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      if (
+        await this.redisService.get(
+          `refresh_family_revoked:${decoded.familyId}`,
+        )
+      ) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
+      const currentVersion = await this.redisService.get(
+        `refresh_version:${decoded.sub}`,
+      );
+      if (!currentVersion || currentVersion !== decoded.tokenVersion) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
+      const storedHash = await this.redisService.getDel(
+        `refresh_token:${decoded.familyId}:${decoded.jti}`,
+      );
+      if (
+        !storedHash ||
+        !this.tokensMatch(storedHash, this.hashToken(refreshToken))
+      ) {
+        await this.redisService.set(
+          `refresh_family_revoked:${decoded.familyId}`,
+          'reused',
+          'EX',
+          30 * 24 * 60 * 60,
+        );
+        throw new UnauthorizedException('Refresh token reuse detected');
       }
 
       const user = await this.userRepository.findOne({
@@ -378,13 +533,6 @@ export class AuthService {
 
       if (!user) {
         throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      const blocklisted = await this.redisService.get(
-        `refresh_blocklist:${user.id}`,
-      );
-      if (blocklisted) {
-        throw new UnauthorizedException('Refresh token has been revoked');
       }
 
       if (user.role === UserRole.STUDENT) {
@@ -401,7 +549,7 @@ export class AuthService {
         }
       }
 
-      return this.buildAuthResponse(user, decoded.sessionId);
+      return this.buildAuthResponse(user, decoded.sessionId, decoded.familyId);
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

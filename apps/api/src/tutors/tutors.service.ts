@@ -5,10 +5,10 @@ import {
   Logger,
   NotFoundException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { v2 as cloudinary } from 'cloudinary';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { CourseStatus, LessonStatus, UserRole } from '@mrh/types';
@@ -20,6 +20,10 @@ import { Payment } from '../payments/entities/payment.entity.js';
 import { Report } from '../reports/entities/report.entity.js';
 import { ApplyTutorDto, UpdateTutorDto } from './dto/index.js';
 import { RedisService } from '../redis/redis.service.js';
+import {
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from '../integrations/storage/object-storage.js';
 
 @Injectable()
 export class TutorsService {
@@ -41,13 +45,8 @@ export class TutorsService {
     private readonly reportRepository: Repository<Report>,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {
-    cloudinary.config({
-      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
-    });
-
     const smtpUser = this.configService.get<string>('SMTP_USER');
     const smtpPass = this.configService.get<string>('SMTP_PASS');
 
@@ -298,19 +297,15 @@ export class TutorsService {
   }
 
   async uploadDocumentToCloudinary(buffer: Buffer): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: 'mrh-academy/tutor-documents', resource_type: 'raw' },
-        (error, result) => {
-          if (error || !result) {
-            reject(new Error('Cloudinary upload failed'));
-            return;
-          }
-          resolve(result.secure_url);
-        },
-      );
-      stream.end(buffer);
+    if (buffer.subarray(0, 4).toString() !== '%PDF') {
+      throw new BadRequestException('Tutor document is not a valid PDF');
+    }
+    const upload = await this.storage.upload(buffer, {
+      folder: 'mrh-academy/tutor-documents',
+      resourceType: 'raw',
+      accessMode: 'authenticated',
     });
+    return upload.secureUrl;
   }
 
   async findAllPending() {

@@ -15,6 +15,10 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { User } from '../users/entities/user.entity.js';
+import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../redis/redis.service.js';
+import { randomUUID } from 'node:crypto';
+import { getJwtSignOptions } from '../auth/jwt-profile.js';
 
 interface AdminUser {
   id: string;
@@ -28,6 +32,8 @@ export class AdminImpersonationController {
     private readonly jwtService: JwtService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly config: ConfigService,
+    private readonly redis: RedisService,
   ) {}
 
   @Post()
@@ -45,15 +51,27 @@ export class AdminImpersonationController {
       throw new UnauthorizedException('Target user not found');
     }
 
+    const tokenVersion =
+      (await this.redis.get(`refresh_version:${targetUser.id}`)) ??
+      randomUUID();
+    await this.redis.set(
+      `refresh_version:${targetUser.id}`,
+      tokenVersion,
+      'EX',
+      30 * 24 * 60 * 60,
+    );
     const payload: Record<string, string> = {
       sub: targetUser.id,
-      email: targetUser.email,
-      role: targetUser.role,
       originalAdminId: admin.id,
       type: 'access',
       sessionId: 'impersonated-session',
+      tokenVersion,
+      jti: randomUUID(),
     };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const accessToken = this.jwtService.sign(payload, {
+      ...getJwtSignOptions(this.config),
+      expiresIn: '1h',
+    });
 
     return { accessToken, user: targetUser };
   }
@@ -72,13 +90,25 @@ export class AdminImpersonationController {
       throw new UnauthorizedException('Original admin account not found');
     }
 
+    const tokenVersion =
+      (await this.redis.get(`refresh_version:${originalAdmin.id}`)) ??
+      randomUUID();
+    await this.redis.set(
+      `refresh_version:${originalAdmin.id}`,
+      tokenVersion,
+      'EX',
+      30 * 24 * 60 * 60,
+    );
     const payload: Record<string, string> = {
       sub: originalAdmin.id,
-      email: originalAdmin.email,
-      role: originalAdmin.role,
       type: 'access',
+      tokenVersion,
+      jti: randomUUID(),
     };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, {
+      ...getJwtSignOptions(this.config),
+      expiresIn: '15m',
+    });
 
     return { accessToken, user: originalAdmin };
   }

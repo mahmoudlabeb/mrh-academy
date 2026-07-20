@@ -1,11 +1,16 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, VerifyCallback } from 'passport-google-oauth20';
+import { Strategy } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
+import type { Request } from 'express';
+import { google } from 'googleapis';
+
+type OAuthRequest = Request & { oauthNonce?: string };
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   private readonly googleEnabled: boolean;
+  private readonly clientId: string;
 
   constructor(configService: ConfigService) {
     const clientID = configService.get<string>('GOOGLE_CLIENT_ID');
@@ -18,23 +23,30 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientID: clientID ?? 'missing',
       clientSecret: clientSecret ?? 'missing',
       callbackURL: callbackURL ?? 'http://localhost/missing',
-      scope: ['profile', 'email'],
-      state: true,
+      scope: ['openid', 'profile', 'email'],
+      state: false,
+      passReqToCallback: true,
     });
 
     this.googleEnabled = enabled;
+    this.clientId = clientID ?? 'missing';
   }
 
-  validate(
+  authorizationParams(options: { nonce?: string } = {}) {
+    return options.nonce ? { nonce: options.nonce } : {};
+  }
+
+  async validate(
+    request: OAuthRequest,
     _accessToken: string,
     _refreshToken: string,
+    params: { id_token?: string },
     profile: {
       id: string;
       emails: Array<{ value: string }>;
       name: { givenName: string; familyName: string };
       photos: Array<{ value: string }>;
     },
-    _done: VerifyCallback,
   ) {
     if (!this.googleEnabled) {
       throw new UnauthorizedException(
@@ -45,6 +57,22 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const email = emails?.[0]?.value;
     if (!email) {
       throw new UnauthorizedException('Google account has no email address');
+    }
+    if (!params.id_token || !request.oauthNonce) {
+      throw new UnauthorizedException('Google identity proof is missing');
+    }
+    const ticket = await new google.auth.OAuth2().verifyIdToken({
+      idToken: params.id_token,
+      audience: this.clientId,
+    });
+    const identity = ticket.getPayload();
+    if (
+      !identity ||
+      identity.sub !== id ||
+      identity.nonce !== request.oauthNonce ||
+      identity.email_verified !== true
+    ) {
+      throw new UnauthorizedException('Google identity verification failed');
     }
     return {
       googleId: id,

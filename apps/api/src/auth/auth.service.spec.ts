@@ -14,6 +14,7 @@ import { EmailService } from '../integrations/email/email.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import * as argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 
 jest.mock('argon2', () => ({
   argon2id: 2,
@@ -42,6 +43,8 @@ describe('AuthService', () => {
 
   const redisService = {
     get: jest.fn(),
+    getDel: jest.fn(),
+    setNX: jest.fn().mockResolvedValue(true),
     set: jest.fn(),
     del: jest.fn(),
   };
@@ -78,6 +81,9 @@ describe('AuthService', () => {
                   role: UserRole.STUDENT,
                   type: 'refresh',
                   sessionId: 'session-1',
+                  jti: 'refresh-jti',
+                  familyId: 'family-1',
+                  tokenVersion: 'version-1',
                 };
               if (token === 'expired-refresh') throw new Error('jwt expired');
               if (token === 'student-refresh')
@@ -87,6 +93,9 @@ describe('AuthService', () => {
                   role: UserRole.STUDENT,
                   type: 'refresh',
                   sessionId: 'session-1',
+                  jti: 'refresh-jti',
+                  familyId: 'family-1',
+                  tokenVersion: 'version-1',
                 };
               throw new UnauthorizedException('Invalid token');
             }),
@@ -108,7 +117,7 @@ describe('AuthService', () => {
   describe('register', () => {
     const registerDto: RegisterDto = {
       email: 'new@test.com',
-      password: 'StrongPass1',
+      password: 'StrongPasswordForTests',
       firstName: 'New',
       lastName: 'User',
       role: 'student',
@@ -141,8 +150,7 @@ describe('AuthService', () => {
       const result = await service.register(registerDto);
 
       expect(result.user.role).toBe(UserRole.STUDENT);
-      expect(result.accessToken).toBeDefined();
-      expect(result.refreshToken).toBeDefined();
+      expect(result.verificationRequired).toBe(true);
     });
 
     it('registers a tutor role and creates tutor profile', async () => {
@@ -182,6 +190,7 @@ describe('AuthService', () => {
           email: 'test@test.com',
           role: UserRole.STUDENT,
           passwordHash: 'hashed-password',
+          isVerified: true,
           firstName: 'Test',
           lastName: 'User',
         }),
@@ -279,7 +288,7 @@ describe('AuthService', () => {
 
   describe('resetPassword', () => {
     it('resets password with valid token', async () => {
-      redisService.get.mockResolvedValue('test@test.com');
+      redisService.getDel.mockResolvedValue('test@test.com');
       const queryBuilder = {
         addSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -293,28 +302,30 @@ describe('AuthService', () => {
 
       const result = await service.resetPassword({
         token: 'valid-token',
-        newPassword: 'NewPass1',
+        newPassword: 'NewPasswordThatIsLongEnough',
       });
 
-      expect(redisService.del).toHaveBeenCalledWith('reset_token:valid-token');
       expect(result.message).toContain('Password reset successfully');
     });
 
     it('throws if token is invalid', async () => {
-      redisService.get.mockResolvedValue(null);
+      redisService.getDel.mockResolvedValue(null);
       await expect(
-        service.resetPassword({ token: 'bad-token', newPassword: 'NewPass1' }),
+        service.resetPassword({
+          token: 'bad-token',
+          newPassword: 'NewPasswordThatIsLongEnough',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('logout', () => {
-    it('clears session and sets refresh blocklist', async () => {
+    it('clears session and rotates the refresh version', async () => {
       await service.logout('user-1');
       expect(redisService.del).toHaveBeenCalledWith('user_session:user-1');
       expect(redisService.set).toHaveBeenCalledWith(
-        'refresh_blocklist:user-1',
-        'revoked',
+        'refresh_version:user-1',
+        expect.any(String),
         'EX',
         30 * 24 * 60 * 60,
       );
@@ -332,13 +343,18 @@ describe('AuthService', () => {
   describe('refreshTokens', () => {
     it('returns new tokens with valid refresh token', async () => {
       userRepository.findOne.mockResolvedValue({
-        id: 'user-1',
+        id: 'student-1',
         email: 'test@test.com',
         role: UserRole.STUDENT,
       });
-      redisService.get
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('session-1');
+      redisService.get.mockImplementation(async (key: string) => {
+        if (key === 'refresh_version:student-1') return 'version-1';
+        if (key === 'user_session:student-1') return 'session-1';
+        return null;
+      });
+      redisService.getDel.mockResolvedValue(
+        createHash('sha256').update('student-refresh').digest('hex'),
+      );
 
       const result = await service.refreshTokens('student-refresh');
       expect(result.accessToken).toBeDefined();

@@ -18,6 +18,7 @@ import { StripeConnectController } from './stripe/stripe-connect.controller.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CommissionService } from './commission.service.js';
 import { PayoutReconciliationService } from './payout-reconciliation.service.js';
+import { StorageModule } from '../integrations/storage/storage.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PayoutReconciliationService } from './payout-reconciliation.service.js'
       TutorProfile,
       User,
     ]),
+    StorageModule,
   ],
   controllers: [
     PaymentsController,

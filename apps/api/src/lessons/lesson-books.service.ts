@@ -7,9 +7,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
+import { Inject } from '@nestjs/common';
 import { LessonBook } from './entities/lesson-book.entity.js';
 import { LessonsService } from './lessons.service.js';
+import {
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from '../integrations/storage/object-storage.js';
 
 const MAX_BOOK_BYTES = 20 * 1024 * 1024;
 const MAX_PAGES = 300;
@@ -21,13 +25,8 @@ export class LessonBooksService {
     private readonly lessonBookRepository: Repository<LessonBook>,
     private readonly lessonsService: LessonsService,
     private readonly configService: ConfigService,
-  ) {
-    cloudinary.config({
-      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
-    });
-  }
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+  ) {}
 
   private ensureCloudinaryConfigured() {
     const configured = Boolean(
@@ -95,7 +94,14 @@ export class LessonBooksService {
       throw new BadRequestException('Only PDF books are supported');
     }
 
-    const upload = await this.uploadPdfToCloudinary(file.buffer);
+    if (file.buffer.subarray(0, 4).toString() !== '%PDF') {
+      throw new BadRequestException('Book content is not a valid PDF');
+    }
+    const upload = await this.storage.upload(file.buffer, {
+      folder: 'mrh-academy/classroom-books',
+      resourceType: 'image',
+      accessMode: 'authenticated',
+    });
     const pageCount = Math.min(upload.pages ?? 1, MAX_PAGES);
     const bookTitle =
       title?.trim() ||
@@ -106,7 +112,7 @@ export class LessonBooksService {
       lessonId,
       uploadedBy: tutorId,
       title: bookTitle.slice(0, 255),
-      cloudinaryPublicId: upload.public_id,
+      cloudinaryPublicId: upload.publicId,
       pageCount,
       mimeType: mime,
     });
@@ -125,15 +131,12 @@ export class LessonBooksService {
 
     await this.lessonBookRepository.remove(book);
 
-    if (this.isCloudinaryConfigured()) {
-      try {
-        await cloudinary.uploader.destroy(book.cloudinaryPublicId, {
-          resource_type: 'image',
-          type: 'authenticated',
-        });
-      } catch {
-        // ignore cleanup failures
-      }
+    try {
+      await this.storage.destroy(book.cloudinaryPublicId, {
+        resourceType: 'image',
+      });
+    } catch {
+      // Object cleanup is best-effort after the database record is removed.
     }
 
     return { deleted: true };
@@ -158,11 +161,8 @@ export class LessonBooksService {
       throw new BadRequestException('Invalid page number');
     }
 
-    const signedUrl = cloudinary.url(book.cloudinaryPublicId, {
-      resource_type: 'image',
-      type: 'authenticated',
-      sign_url: true,
-      secure: true,
+    const signedUrl = this.storage.signedUrl(book.cloudinaryPublicId, {
+      resourceType: 'image',
       transformation: [
         {
           page,
@@ -179,34 +179,5 @@ export class LessonBooksService {
     }
 
     return Buffer.from(await response.arrayBuffer());
-  }
-
-  private isCloudinaryConfigured() {
-    return Boolean(
-      this.configService.get<string>('CLOUDINARY_CLOUD_NAME') &&
-      this.configService.get<string>('CLOUDINARY_API_KEY') &&
-      this.configService.get<string>('CLOUDINARY_API_SECRET'),
-    );
-  }
-
-  private uploadPdfToCloudinary(buffer: Buffer): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'mrh-academy/classroom-books',
-          resource_type: 'image',
-          type: 'authenticated',
-          access_mode: 'authenticated',
-        },
-        (error, result) => {
-          if (error || !result) {
-            reject(new BadRequestException('Failed to upload book'));
-            return;
-          }
-          resolve(result);
-        },
-      );
-      stream.end(buffer);
-    });
   }
 }

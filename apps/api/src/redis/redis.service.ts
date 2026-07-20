@@ -72,6 +72,21 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async getDel(key: string): Promise<string | null> {
+    if (!this.connected) {
+      const value = await this.get(key);
+      this.fallbackCache.delete(key);
+      return value;
+    }
+    try {
+      return await this.redis.getdel(key);
+    } catch (err) {
+      this.logger.error('Redis getDel error', err);
+      this.connected = false;
+      return null;
+    }
+  }
+
   async del(key: string) {
     if (!this.connected) {
       this.fallbackCache.delete(key);

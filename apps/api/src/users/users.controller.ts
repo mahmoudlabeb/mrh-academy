@@ -20,6 +20,8 @@ import {
   UpdateProfileDto,
 } from './dto/index.js';
 import { UsersService } from './users.service.js';
+import { TokenDto } from '../auth/dto/token.dto.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 
 type AuthenticatedUser = { id: string; role: string };
 type AvatarFile = {
@@ -31,6 +33,12 @@ type AvatarFile = {
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Public()
+  @Post('confirm-email')
+  confirmEmailChange(@Body() dto: TokenDto) {
+    return this.usersService.confirmEmailChange(dto.token);
+  }
 
   @Get('me')
   getMe(@CurrentUser() user: AuthenticatedUser) {

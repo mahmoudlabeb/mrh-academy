@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { v2 as cloudinary } from 'cloudinary';
+import { Inject } from '@nestjs/common';
 import {
   DataSource,
   QueryFailedError,
@@ -26,6 +26,10 @@ import { RequestPayoutDto } from './dto/request-payout.dto.js';
 import { StripeService } from './stripe/stripe.service.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CommissionService } from './commission.service.js';
+import {
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from '../integrations/storage/object-storage.js';
 
 const RECEIPT_MIME_TYPES = new Set([
   'image/jpeg',
@@ -57,18 +61,25 @@ export class PaymentsService {
     private readonly stripeService: StripeService,
     private readonly emailService: EmailService,
     private readonly commissionService: CommissionService,
-  ) {
-    cloudinary.config({
-      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
-    });
-  }
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+  ) {}
 
   private validateReceiptFile(file: Express.Multer.File) {
     if (!RECEIPT_MIME_TYPES.has(file.mimetype)) {
       throw new BadRequestException('Receipt must be JPEG, PNG, WebP, or PDF');
     }
+    const signature = file.buffer.subarray(0, 8);
+    const valid =
+      (file.mimetype === 'application/pdf' &&
+        signature.subarray(0, 4).toString() === '%PDF') ||
+      (file.mimetype === 'image/jpeg' &&
+        signature.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) ||
+      (file.mimetype === 'image/png' &&
+        signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
+      (file.mimetype === 'image/webp' &&
+        signature.subarray(0, 4).toString() === 'RIFF');
+    if (!valid)
+      throw new BadRequestException('Receipt content does not match its type');
   }
 
   async submitPayment(
@@ -412,38 +423,11 @@ export class PaymentsService {
     buffer: Buffer,
     mimetype?: string,
   ): Promise<string> {
-    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
-    if (!cloudName) {
-      // Fallback for local development when Cloudinary is not configured
-      return Promise.resolve(
-        'https://dummyimage.com/600x400/000/fff&text=Dummy+Receipt',
-      );
-    }
-
-    return new Promise((resolve, reject) => {
-      const options: any = {
+    return this.storage
+      .upload(buffer, {
         folder: 'mrh-academy/payments',
-        resource_type: 'auto',
-      };
-      if (mimetype === 'application/pdf') {
-        options.format = 'pdf';
-      }
-
-      const stream = cloudinary.uploader.upload_stream(
-        options,
-        (error, result) => {
-          if (error || !result) {
-            reject(
-              error instanceof Error
-                ? error
-                : new Error('Cloudinary upload failed'),
-            );
-            return;
-          }
-          resolve(result.secure_url);
-        },
-      );
-      stream.end(buffer);
-    });
+        resourceType: 'auto',
+      })
+      .then((result) => result.secureUrl);
   }
 }

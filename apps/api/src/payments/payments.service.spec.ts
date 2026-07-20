@@ -12,6 +12,7 @@ import { EmailService } from '../integrations/email/email.service';
 import { CommissionService } from './commission.service';
 import { PaymentsService } from './payments.service';
 import { StripeService } from './stripe/stripe.service';
+import { OBJECT_STORAGE } from '../integrations/storage/object-storage';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -72,6 +73,11 @@ describe('PaymentsService', () => {
     getCreditPrice: jest.fn(async () => 15),
     getEgpRate: jest.fn(async () => 50),
   };
+  const objectStorage = {
+    upload: jest.fn(),
+    destroy: jest.fn(),
+    signedUrl: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -98,6 +104,7 @@ describe('PaymentsService', () => {
         { provide: StripeService, useValue: stripeService },
         { provide: EmailService, useValue: emailService },
         { provide: CommissionService, useValue: commissionService },
+        { provide: OBJECT_STORAGE, useValue: objectStorage },
       ],
     }).compile();
 

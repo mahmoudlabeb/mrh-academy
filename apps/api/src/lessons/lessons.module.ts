@@ -16,11 +16,13 @@ import { LessonBooksService } from './lesson-books.service.js';
 import { ReminderService } from './reminder.service.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { RedisModule } from '../redis/redis.module.js';
+import { StorageModule } from '../integrations/storage/storage.module.js';
 
 @Module({
   imports: [
     PaymentsModule,
     RedisModule,
+    StorageModule,
     TypeOrmModule.forFeature([
       Lesson,
       LessonBook,
