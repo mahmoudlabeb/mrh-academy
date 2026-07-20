@@ -88,7 +88,10 @@ async function seedDemoData() {
         if (fixture.role === UserRole.STUDENT) {
           await manager.save(
             StudentProfile,
-            manager.create(StudentProfile, { userId: user.id }),
+            manager.create(StudentProfile, {
+              userId: user.id,
+              balance: 100,
+            }),
           );
         } else if (fixture.role === UserRole.TUTOR) {
           await manager.save(
