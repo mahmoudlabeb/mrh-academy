@@ -1,6 +1,6 @@
 # Client/server repository refactor plan
 
-Status: non-deferred implementation complete as of July 20, 2026. The locale/Next.js major/proxy/CSP-SRI/Dependabot phase remains intentionally deferred, and database-backed migration/E2E gates still require provisioned PostgreSQL and Redis services.
+Status: non-deferred implementation is complete through migration, seed, and isolated-cookie-fixture validation as of July 20, 2026. The locale/Next.js major/proxy/CSP-SRI/Dependabot phase remains intentionally deferred; the legacy API and full browser E2E suites still require a provisioned environment and contract-by-contract fixture refresh.
 
 ## Intent
 
@@ -406,8 +406,8 @@ Local `.agents/`, `.codex/`, `.claude/`, and `skills-lock.json` files are execut
 - [x] Refactor root workspace metadata, Node/pnpm pins, scripts, ignores, formatting, Knip, CI, and environment templates.
 - [x] Rename and harden workspace package manifests and the compiled `@mrh/types` contract.
 - [x] Move API features, entities, integrations, classroom gateway, payment/lesson utilities, configuration, health, assets, lifecycle handling, and logging.
-- [ ] Replace provisional TypeORM migrations with the verified snake_case baseline and remove synchronization/bootstrap paths.
-- [ ] Replace seed data with safe reference/demo seed commands and isolated e2e fixtures.
+- [x] Replace provisional TypeORM migrations with the verified snake_case baseline and remove synchronization/bootstrap paths.
+- [x] Replace seed data with safe reference/demo seed commands and isolated e2e fixtures.
 - [x] Implement the accepted API security/runtime policies and update their regression tests.
 - [x] Refactor the web routes/components/providers/lib boundaries, assets, metadata, server/client boundaries, and framework error/loading files.
 - [x] Complete the same-origin browser authentication, OAuth, CSRF, WebSocket, and cookie contract.
