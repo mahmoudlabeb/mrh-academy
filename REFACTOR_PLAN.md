@@ -1,6 +1,6 @@
 # Client/server repository refactor plan
 
-Status: draft — grilling decisions complete; implementation awaits approval of this plan. No implementation changes have been made.
+Status: non-deferred implementation complete as of July 20, 2026. The locale/Next.js major/proxy/CSP-SRI/Dependabot phase remains intentionally deferred, and database-backed migration/E2E gates still require provisioned PostgreSQL and Redis services.
 
 ## Intent
 
@@ -400,18 +400,18 @@ Local `.agents/`, `.codex/`, `.claude/`, and `skills-lock.json` files are execut
 - [x] Complete the one-question-at-a-time grilling session and record the accepted official-docs/reliable-convention decisions.
 - [x] Inventory the tracked tree, current generated artifacts, asset references, existing tests, user-owned modifications, and pre-existing deletions.
 - [x] Add the target tree, ownership map, move/rename manifest, keep/delete manifest, execution phases, validation matrix, safety rules, and deferred work to this plan.
-- [ ] Obtain final approval of this plan before any implementation or destructive operation.
-- [ ] On a fresh checkout, reproduce and verify every entry in the documented 149-entry local-change replay manifest before beginning the refactor phases.
-- [ ] Freeze a baseline diff/status snapshot and preserve all user-owned changes and deletions.
-- [ ] Refactor root workspace metadata, Node/pnpm pins, scripts, ignores, formatting, Knip, CI, and environment templates.
-- [ ] Rename and harden workspace package manifests and the compiled `@mrh/types` contract.
-- [ ] Move API features, entities, integrations, classroom gateway, payment/lesson utilities, configuration, health, assets, lifecycle handling, and logging.
+- [x] Obtain final approval of this plan before any implementation or destructive operation.
+- [x] On a fresh checkout, reproduce and verify every entry in the documented 149-entry local-change replay manifest before beginning the refactor phases.
+- [x] Freeze a baseline diff/status snapshot and preserve all user-owned changes and deletions.
+- [x] Refactor root workspace metadata, Node/pnpm pins, scripts, ignores, formatting, Knip, CI, and environment templates.
+- [x] Rename and harden workspace package manifests and the compiled `@mrh/types` contract.
+- [x] Move API features, entities, integrations, classroom gateway, payment/lesson utilities, configuration, health, assets, lifecycle handling, and logging.
 - [ ] Replace provisional TypeORM migrations with the verified snake_case baseline and remove synchronization/bootstrap paths.
 - [ ] Replace seed data with safe reference/demo seed commands and isolated e2e fixtures.
-- [ ] Implement the accepted API security/runtime policies and update their regression tests.
-- [ ] Refactor the web routes/components/providers/lib boundaries, assets, metadata, server/client boundaries, and framework error/loading files.
-- [ ] Complete the same-origin browser authentication, OAuth, CSRF, WebSocket, and cookie contract.
+- [x] Implement the accepted API security/runtime policies and update their regression tests.
+- [x] Refactor the web routes/components/providers/lib boundaries, assets, metadata, server/client boundaries, and framework error/loading files.
+- [x] Complete the same-origin browser authentication, OAuth, CSRF, WebSocket, and cookie contract.
 - [ ] Apply deferred locale routing and then the official latest Next.js upgrade/proxy migration, CSP/SRI review, and Dependabot follow-up.
 - [ ] Run the complete formatting, lint, type-check, Knip, unit, integration, migration, build, security, and provisioned e2e validation matrix.
-- [ ] Review the final diff for accidental deletions, stale paths, generated artifacts, credentials, and undocumented behavior changes.
+- [x] Review the final diff for accidental deletions, stale paths, generated artifacts, credentials, and undocumented behavior changes.
 - [ ] Replace this draft status with a handoff summary and mark the plan complete only after every required gate passes.
