@@ -73,7 +73,10 @@ apiClient.interceptors.response.use(
       await refreshPromise;
       return apiClient(originalRequest);
     } catch (refreshError) {
-      window.location.assign("/login");
+      const isSessionProbe =
+        originalRequest.method?.toLowerCase() === "get" &&
+        originalRequest.url?.endsWith("/users/me");
+      if (!isSessionProbe) window.location.assign("/login");
       return Promise.reject(refreshError);
     }
   },
