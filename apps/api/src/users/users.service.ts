@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
 import { DataSource, In, Repository } from 'typeorm';
 import { LessonStatus, UserRole } from '@mrh/types';
@@ -25,6 +24,7 @@ import {
   mergeNotificationPreferences,
   NotificationPreferences,
 } from '../common/types/notification-preferences.js';
+import { hashPassword, verifyPassword } from '../auth/password.js';
 
 type AvatarFile = {
   buffer: Buffer;
@@ -100,7 +100,7 @@ export class UsersService {
       );
     }
 
-    const isPasswordValid = await bcrypt.compare(
+    const isPasswordValid = await verifyPassword(
       dto.currentPassword,
       user.passwordHash,
     );
@@ -108,8 +108,15 @@ export class UsersService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
-    user.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    user.passwordHash = await hashPassword(dto.newPassword);
     await this.userRepository.save(user);
+    await this.redisService.del(`user_session:${userId}`);
+    await this.redisService.set(
+      `refresh_blocklist:${userId}`,
+      'revoked',
+      'EX',
+      30 * 24 * 60 * 60,
+    );
 
     return { message: 'Password updated successfully' };
   }
@@ -133,7 +140,7 @@ export class UsersService {
     }
 
     if (user.passwordHash) {
-      const isPasswordValid = await bcrypt.compare(
+      const isPasswordValid = await verifyPassword(
         dto.currentPassword,
         user.passwordHash,
       );

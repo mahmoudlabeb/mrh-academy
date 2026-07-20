@@ -76,6 +76,6 @@ export class TutorProfile {
   updatedAt: Date;
 
   @OneToOne('User', (user: any) => user.tutorProfile)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }

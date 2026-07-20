@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole, CourseStatus, LessonStatus } from '@mrh/types';
-import * as bcrypt from 'bcrypt';
+import { hash } from 'argon2';
 import helmet from 'helmet';
 import request from 'supertest';
 import { Repository } from 'typeorm';
@@ -33,7 +33,7 @@ async function createUser(
     Pick<User, 'email' | 'firstName' | 'lastName' | 'role'>,
 ) {
   const user = userRepository.create({
-    passwordHash: await bcrypt.hash(password, 12),
+    passwordHash: await hash(password),
     isVerified: true,
     ...input,
   });

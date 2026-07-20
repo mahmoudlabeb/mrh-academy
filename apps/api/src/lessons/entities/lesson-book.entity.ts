@@ -37,6 +37,6 @@ export class LessonBook {
   createdAt: Date;
 
   @ManyToOne(() => Lesson, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'lessonId' })
+  @JoinColumn({ name: 'lesson_id' })
   lesson: Lesson;
 }

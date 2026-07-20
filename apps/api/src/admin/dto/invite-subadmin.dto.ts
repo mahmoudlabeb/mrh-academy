@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class InviteSubAdminDto {
   @IsEmail()
@@ -18,6 +18,7 @@ export class AcceptInviteDto {
   token: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(15)
+  @MaxLength(128)
   password: string;
 }

@@ -24,6 +24,6 @@ export class SubAdminProfile {
   updatedAt: Date;
 
   @OneToOne('User', (user: any) => user.subAdminProfile)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }

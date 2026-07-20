@@ -36,10 +36,10 @@ export class CourseLessonCompletion {
   updatedAt: Date;
 
   @ManyToOne(() => CourseEnrollment)
-  @JoinColumn({ name: 'enrollmentId' })
+  @JoinColumn({ name: 'enrollment_id' })
   enrollment: CourseEnrollment;
 
   @ManyToOne(() => CourseLesson)
-  @JoinColumn({ name: 'courseLessonId' })
+  @JoinColumn({ name: 'course_lesson_id' })
   courseLesson: CourseLesson;
 }

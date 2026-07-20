@@ -34,10 +34,10 @@ export class ClassroomMessage {
   updatedAt: Date;
 
   @ManyToOne(() => Lesson)
-  @JoinColumn({ name: 'lessonId' })
+  @JoinColumn({ name: 'lesson_id' })
   lesson: Lesson;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'senderId' })
+  @JoinColumn({ name: 'sender_id' })
   sender: User;
 }

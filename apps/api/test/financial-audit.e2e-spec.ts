@@ -6,7 +6,7 @@ import { DataSource } from 'typeorm';
 import { UserRole, CourseStatus, LessonStatus } from '@mrh/types';
 import { RedisService } from '../src/redis/redis.service';
 import { RedisServiceMock } from './redis.mock';
-import * as bcrypt from 'bcrypt';
+import { hash } from 'argon2';
 
 jest.setTimeout(60000);
 
@@ -33,7 +33,7 @@ describe('Financial Audit (e2e)', () => {
     dataSource = app.get(DataSource);
 
     // Create admin
-    const passwordHash = await bcrypt.hash('Test1234', 12);
+    const passwordHash = await hash('Test1234');
     const adminEmail = `admin-audit-${Date.now()}@test.com`;
     await dataSource.query(
       `INSERT INTO users (email, "passwordHash", "firstName", "lastName", role, "isVerified") VALUES ($1, $2, $3, $4, $5, $6)`,

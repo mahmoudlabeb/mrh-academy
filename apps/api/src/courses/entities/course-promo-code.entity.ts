@@ -20,7 +20,7 @@ export class CoursePromoCode {
   tutorId: string;
 
   @ManyToOne(() => TutorProfile)
-  @JoinColumn({ name: 'tutorId' })
+  @JoinColumn({ name: 'tutor_id' })
   tutor: TutorProfile;
 
   @Index()
@@ -28,7 +28,7 @@ export class CoursePromoCode {
   courseId: string;
 
   @ManyToOne(() => Course)
-  @JoinColumn({ name: 'courseId' })
+  @JoinColumn({ name: 'course_id' })
   course: Course;
 
   @Column({ unique: true })

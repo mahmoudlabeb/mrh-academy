@@ -3,14 +3,12 @@ import {
   BadRequestException,
   ConflictException,
   UnauthorizedException,
-  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository, QueryFailedError } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
 import { CourseStatus, UserRole } from '@mrh/types';
 import { User } from '../users/entities/user.entity.js';
@@ -22,22 +20,12 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { RedisService } from '../redis/redis.service.js';
 import { EmailService } from '../integrations/email/email.service.js';
+import {
+  assertPasswordAllowed,
+  hashPassword,
+  verifyPassword,
+} from './password.js';
 
-const logger = new Logger('AuthService');
-
-function getAdminEmails(): string[] {
-  const raw = process.env.ADMIN_EMAILS;
-  if (!raw) {
-    if (process.env.NODE_ENV === 'production') {
-      logger.warn('ADMIN_EMAILS should be set in production');
-    }
-    return [];
-  }
-  return raw
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
 
 type JwtTokenPayload = {
   sub: string;
@@ -63,6 +51,17 @@ export class AuthService {
 
   private getAccessTokenExpiry(): string {
     return this.configService.get<string>('JWT_EXPIRES_IN', '15m');
+  }
+
+  private validatePassword(password: string) {
+    assertPasswordAllowed(password);
+  }
+
+  private getAdminEmails(): string[] {
+    return (this.configService.get<string>('ADMIN_EMAILS') ?? '')
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean);
   }
 
   private async clearRevocation(userId: string) {
@@ -127,8 +126,9 @@ export class AuthService {
       throw new ConflictException('Email is already registered');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 12);
-    const adminEmails = getAdminEmails();
+    this.validatePassword(dto.password);
+    const hashedPassword = await hashPassword(dto.password);
+    const adminEmails = this.getAdminEmails();
     const isOwner = adminEmails.includes(dto.email.toLowerCase());
 
     let role: UserRole;
@@ -196,9 +196,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      dto.password,
+    const isPasswordValid = await verifyPassword(
       user.passwordHash,
+      dto.password,
     );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
@@ -269,7 +269,7 @@ export class AuthService {
           avatarUrl: googleProfile.avatarUrl,
           role: UserRole.STUDENT,
           isVerified: true,
-          passwordHash: await bcrypt.hash(randomUUID(), 12),
+          passwordHash: await hashPassword(`${randomUUID()}${randomUUID()}`),
         });
 
         const savedUser = await this.dataSource.transaction(async (manager) => {
@@ -302,7 +302,10 @@ export class AuthService {
     const token = randomUUID();
     await this.redisService.set(`reset_token:${token}`, dto.email, 'EX', 3600);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     await this.emailService.sendEmail(
@@ -335,7 +338,8 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 12);
+    this.validatePassword(dto.newPassword);
+    const hashedPassword = await hashPassword(dto.newPassword);
     user.passwordHash = hashedPassword;
     await this.userRepository.save(user);
 

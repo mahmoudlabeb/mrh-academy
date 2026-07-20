@@ -18,6 +18,8 @@ const EXPECTED_TABLES = [
   'classrooms',
   'classroom_messages',
   'payments',
+  'payment_method_configs',
+  'processed_webhook_events',
   'messages',
   'notifications',
   'courses',
@@ -41,7 +43,20 @@ async function validateMigrations() {
     process.exit(1);
   }
 
-  const dbName = process.env.DATABASE_NAME ?? 'mrh_academy_db';
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Refusing to validate migrations in production');
+    process.exit(1);
+  }
+
+  const dbName = process.env.DATABASE_URL
+    ? new URL(process.env.DATABASE_URL).pathname.slice(1)
+    : (process.env.DATABASE_NAME ?? '');
+  if (!/(test|validate|migrate)/i.test(dbName)) {
+    console.error(
+      `Refusing to reset database "${dbName}": its name must include test, validate, or migrate`,
+    );
+    process.exit(1);
+  }
 
   await AppDataSource.initialize();
 
@@ -76,6 +91,30 @@ async function validateMigrations() {
 
   if (unexpected.length > 0) {
     console.warn('Unexpected extra tables:', unexpected.join(', '));
+  }
+
+  const mixedCaseIdentifiers = await AppDataSource.query<{
+    kind: string;
+    identifier: string;
+  }[]>(`
+    SELECT 'column' AS kind, column_name AS identifier
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND column_name <> lower(column_name)
+    UNION ALL
+    SELECT 'constraint', constraint_name
+    FROM information_schema.table_constraints
+    WHERE constraint_schema = 'public' AND constraint_name <> lower(constraint_name)
+    UNION ALL
+    SELECT 'index', indexname
+    FROM pg_indexes
+    WHERE schemaname = 'public' AND indexname <> lower(indexname)
+  `);
+
+  if (mixedCaseIdentifiers.length > 0) {
+    const summary = mixedCaseIdentifiers
+      .map(({ kind, identifier }) => `${kind}:${identifier}`)
+      .join(', ');
+    throw new Error(`Mixed-case PostgreSQL identifiers found: ${summary}`);
   }
 
   console.log(`Validation passed: ${found.size} tables present.`);

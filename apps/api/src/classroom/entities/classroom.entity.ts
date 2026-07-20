@@ -33,6 +33,6 @@ export class Classroom {
   updatedAt: Date;
 
   @OneToOne(() => Lesson)
-  @JoinColumn({ name: 'lessonId' })
+  @JoinColumn({ name: 'lesson_id' })
   lesson: Lesson;
 }

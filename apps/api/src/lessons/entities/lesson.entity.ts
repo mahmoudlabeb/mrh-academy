@@ -15,7 +15,7 @@ import { ColumnNumericTransformer } from '../../common/transformers/numeric.tran
 import { User } from '../../users/entities/user.entity.js';
 
 @Entity('lessons')
-@Check('CHK_lessons_duration_minutes', '"durationMinutes" IN (25, 50)')
+@Check('chk_lessons_duration_minutes', '"duration_minutes" IN (25, 50)')
 export class Lesson {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -79,11 +79,11 @@ export class Lesson {
   updatedAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'tutorId' })
+  @JoinColumn({ name: 'tutor_id' })
   tutor: User;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'studentId' })
+  @JoinColumn({ name: 'student_id' })
   student: User;
 
   @AfterLoad()

@@ -21,7 +21,7 @@ export class Payout {
   tutorId: string;
 
   @ManyToOne(() => TutorProfile)
-  @JoinColumn({ name: 'tutorId', referencedColumnName: 'userId' })
+  @JoinColumn({ name: 'tutor_id', referencedColumnName: 'userId' })
   tutor: TutorProfile;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })

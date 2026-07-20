@@ -7,7 +7,7 @@ import {
   PaymentStatus,
   PaymentMethod,
 } from '@mrh/types';
-import * as bcrypt from 'bcrypt';
+import { hash } from 'argon2';
 import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
@@ -75,7 +75,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     );
     await userRepository.query(`TRUNCATE TABLE users CASCADE`);
 
-    const passwordHash = await bcrypt.hash('Test1234', 12);
+    const passwordHash = await hash('Test1234');
 
     await userRepository.save(
       userRepository.create({

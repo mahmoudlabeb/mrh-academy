@@ -39,10 +39,10 @@ export class Message {
   updatedAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'senderId' })
+  @JoinColumn({ name: 'sender_id' })
   sender: User;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'receiverId' })
+  @JoinColumn({ name: 'receiver_id' })
   receiver: User;
 }

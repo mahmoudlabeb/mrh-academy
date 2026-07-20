@@ -28,10 +28,10 @@ export class StudentFavorite {
   createdAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'studentId' })
+  @JoinColumn({ name: 'student_id' })
   student: User;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'tutorId' })
+  @JoinColumn({ name: 'tutor_id' })
   tutor: User;
 }

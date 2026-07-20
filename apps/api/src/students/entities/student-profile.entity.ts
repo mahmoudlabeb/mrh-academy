@@ -34,6 +34,6 @@ export class StudentProfile {
   updatedAt: Date;
 
   @OneToOne('User', (user: any) => user.studentProfile)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }

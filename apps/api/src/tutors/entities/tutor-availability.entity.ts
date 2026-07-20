@@ -38,6 +38,6 @@ export class TutorAvailability {
   updatedAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'tutorId' })
+  @JoinColumn({ name: 'tutor_id' })
   tutor: User;
 }

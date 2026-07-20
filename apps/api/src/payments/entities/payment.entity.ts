@@ -57,6 +57,6 @@ export class Payment {
   updatedAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }

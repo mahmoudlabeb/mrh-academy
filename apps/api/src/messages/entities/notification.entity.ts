@@ -38,6 +38,6 @@ export class Notification {
   updatedAt: Date;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 }

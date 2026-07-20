@@ -10,7 +10,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'node:crypto';
-import * as bcrypt from 'bcrypt';
 import { UserRole } from '@mrh/types';
 import { User } from '../users/entities/user.entity.js';
 import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
@@ -23,6 +22,8 @@ import {
   InviteSubAdminDto,
   AcceptInviteDto,
 } from './dto/invite-subadmin.dto.js';
+import { ConfigService } from '@nestjs/config';
+import { hashPassword } from '../auth/password.js';
 
 @Controller('admin/subadmins')
 export class AdminSubAdminsController {
@@ -33,6 +34,7 @@ export class AdminSubAdminsController {
     private readonly subAdminRepository: Repository<SubAdminProfile>,
     private readonly emailService: EmailService,
     private readonly authService: AuthService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get()
@@ -75,7 +77,7 @@ export class AdminSubAdminsController {
       lastName: dto.lastName.trim(),
       role: UserRole.SUBADMIN,
       isActive: false,
-      passwordHash: await bcrypt.hash(randomUUID(), 12),
+      passwordHash: await hashPassword(`${randomUUID()}${randomUUID()}`),
       inviteToken,
       inviteTokenExpires: expiresAt,
     });
@@ -88,7 +90,10 @@ export class AdminSubAdminsController {
       }),
     );
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
     const inviteLink = `${frontendUrl}/invite/accept?token=${inviteToken}`;
 
     await this.emailService.sendEmail(
@@ -122,7 +127,7 @@ export class AdminSubAdminsController {
       throw new UnauthorizedException('Invitation token has expired');
     }
 
-    user.passwordHash = await bcrypt.hash(dto.password, 12);
+    user.passwordHash = await hashPassword(dto.password);
     user.isActive = true;
     (user as any).inviteToken = null;
     (user as any).inviteTokenExpires = null;

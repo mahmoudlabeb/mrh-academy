@@ -12,11 +12,13 @@ import { AuthService } from './auth.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { RegisterDto } from './dto/register.dto.js';
-import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
+import { ConfigService } from '@nestjs/config';
 
-jest.mock('bcrypt', () => ({
+jest.mock('argon2', () => ({
+  argon2id: 2,
   hash: jest.fn().mockResolvedValue('hashed-password'),
-  compare: jest.fn().mockResolvedValue(true),
+  verify: jest.fn().mockResolvedValue(true),
 }));
 
 describe('AuthService', () => {
@@ -92,6 +94,7 @@ describe('AuthService', () => {
         },
         { provide: RedisService, useValue: redisService },
         { provide: EmailService, useValue: emailService },
+        { provide: ConfigService, useValue: new ConfigService({}) },
       ],
     }).compile();
 
@@ -214,7 +217,7 @@ describe('AuthService', () => {
         }),
       };
       userRepository.createQueryBuilder.mockReturnValue(queryBuilder);
-      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+      (argon2.verify as jest.Mock).mockResolvedValueOnce(false);
 
       await expect(service.login(loginDto)).rejects.toThrow(
         UnauthorizedException,
