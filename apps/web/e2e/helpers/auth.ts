@@ -1,45 +1,24 @@
-import { Page, expect } from '@playwright/test';
+import { Page, expect } from "@playwright/test";
+import { E2ERole, readE2EFixtures } from "./fixtures";
 
-export async function loginAs(
-  page: Page,
-  role: 'admin' | 'student' | 'tutor',
-) {
-  const emailKey = `TEST_${role.toUpperCase()}_EMAIL`;
-  const passwordKey = `TEST_${role.toUpperCase()}_PASSWORD`;
-  const email = process.env[emailKey];
-  const password = process.env[passwordKey];
-
-  if (!email) {
-    throw new Error(`Missing env var: ${emailKey}`);
-  }
-  if (!password) {
-    throw new Error(`Missing env var: ${passwordKey}`);
-  }
-
+export async function loginAs(page: Page, role: E2ERole) {
+  const fixture = (await readE2EFixtures()).roles[role];
   await page.context().clearCookies();
-  await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.context().addCookies(fixture.cookies);
+  await page.goto(fixture.homePath);
+  await expect(page).toHaveURL(new RegExp(`${fixture.homePath}(?:$|[/?#])`));
+}
 
-  const rolePath = role === 'admin' ? 'admin' : role;
+export async function loginThroughUi(page: Page, role: E2ERole) {
+  const fixture = (await readE2EFixtures()).roles[role];
+  await page.context().clearCookies();
+  await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+  await page.fill('input[name="email"]', fixture.email);
+  await page.fill('input[name="password"]', fixture.password);
+  await page.click('button[type="submit"]');
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await page.fill('input[name="email"]', email);
-    await page.fill('input[name="password"]', password);
-    await page.click('button[type="submit"]');
-
-    try {
-      await expect(page).toHaveURL(new RegExp(`/${rolePath}`), { timeout: 15000 });
-      return;
-    } catch {
-      // Check if form submitted natively (URL has query params)
-      const url = page.url();
-      if (url.includes('login?') || url === page.url()) {
-        // Wait for React to hydrate and retry
-        await page.waitForTimeout(1000);
-        continue;
-      }
-      throw new Error(`Login failed for ${role}. URL: ${url}`);
-    }
-  }
-  throw new Error(`Login failed for ${role} after 3 attempts. URL: ${page.url()}`);
+  await expect(page).toHaveURL(new RegExp(`${fixture.homePath}(?:$|[/?#])`), {
+    timeout: 15000,
+  });
 }

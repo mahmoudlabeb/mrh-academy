@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { loginAs } from './helpers/auth';
+import { test, expect } from "@playwright/test";
+import { loginAs } from "./helpers/auth";
 
 /**
  * End-to-end smoke tests mapped to client deliverables.
@@ -7,85 +7,105 @@ import { loginAs } from './helpers/auth';
  *   BASE_URL=https://mrh-academy-1.vercel.app npx playwright test deliverables.spec.ts
  */
 
-test.describe('Client Deliverables — Public', () => {
-  test('homepage loads', async ({ page }) => {
-    await page.goto('/');
+test.describe("Client Deliverables — Public", () => {
+  test("homepage loads", async ({ page }) => {
+    await page.goto("/");
     await expect(page).toHaveTitle(/.+/);
   });
 
-  test('login page loads', async ({ page }) => {
-    await page.goto('/login');
+  test("login page loads", async ({ page }) => {
+    await page.goto("/login");
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
   });
 
-  test('register page loads', async ({ page }) => {
-    await page.goto('/register');
+  test("register page loads", async ({ page }) => {
+    await page.goto("/register");
     await expect(page.locator('input[name="email"]')).toBeVisible();
   });
 
-  test('vocabulary page loads', async ({ page }) => {
-    await page.goto('/vocabulary');
-    await expect(page.locator('body')).toBeVisible();
+  test("vocabulary page loads", async ({ page }) => {
+    await page.goto("/vocabulary");
+    await expect(page.locator("body")).toBeVisible();
   });
 });
 
-test.describe('Client Deliverables — Student', () => {
+test.describe("Client Deliverables — Student", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'student');
+    await loginAs(page, "student");
   });
 
-  test('student dashboard tabs', async ({ page }) => {
-    await expect(page.locator('text=Discover').or(page.locator('text=اكتشف')).first()).toBeVisible({ timeout: 10000 });
-    await page.locator('text=Messages').or(page.locator('text=الرسائل')).first().click();
-    await page.locator('text=Settings').or(page.locator('text=الإعدادات')).first().click();
-    await expect(page.locator('text=Settings').or(page.locator('text=الإعدادات')).first()).toBeVisible();
+  test("student dashboard tabs", async ({ page }) => {
+    await expect(
+      page.locator("text=Discover").or(page.locator("text=اكتشف")).first(),
+    ).toBeVisible({ timeout: 10000 });
+    await page
+      .locator("text=Messages")
+      .or(page.locator("text=الرسائل"))
+      .first()
+      .click();
+    await page
+      .locator("text=Settings")
+      .or(page.locator("text=الإعدادات"))
+      .first()
+      .click();
+    await expect(
+      page.locator("text=Settings").or(page.locator("text=الإعدادات")).first(),
+    ).toBeVisible();
   });
 
-  test('book lesson page accessible', async ({ page }) => {
-    await page.goto('/book-lesson');
-    await expect(page.locator('body')).toBeVisible();
+  test("book lesson page accessible", async ({ page }) => {
+    await page.goto("/book-lesson");
+    await expect(page.locator("body")).toBeVisible();
   });
 
-  test('courses page requires auth then loads', async ({ page }) => {
-    await page.goto('/courses');
-    await expect(page.locator('body')).toBeVisible();
+  test("courses page requires auth then loads", async ({ page }) => {
+    await page.goto("/courses");
+    await expect(page.locator("body")).toBeVisible();
   });
 });
 
-test.describe('Client Deliverables — Tutor', () => {
+test.describe("Client Deliverables — Tutor", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'tutor');
+    await loginAs(page, "tutor");
   });
 
-  test('tutor dashboard sections', async ({ page }) => {
-    await expect(page.locator('text=Dashboard').or(page.locator('text=لوحة التحكم')).first()).toBeVisible({ timeout: 10000 });
-    await page.locator('text=Messages').or(page.locator('text=الرسائل')).first().click();
-    await page.locator('text=Students').or(page.locator('text=الطلاب')).first().click();
-    await page.locator('text=Settings').or(page.locator('text=الإعدادات')).first().click();
+  test("tutor dashboard sections", async ({ page }) => {
+    await expect(
+      page.getByRole("button", { name: /^(Dashboard|لوحة التحكم)$/i }),
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: /^(Messages|الرسائل)$/i }).click();
+    await page.getByRole("button", { name: /^(Students|الطلاب)$/i }).click();
+    await page.getByRole("button", { name: /^(Settings|الإعدادات)$/i }).click();
   });
 
-  test('tutor availability page', async ({ page }) => {
-    await page.goto('/tutor/availability');
-    await expect(page.locator('body')).toBeVisible();
+  test("tutor availability page", async ({ page }) => {
+    await page.goto("/tutor/availability");
+    await expect(page.locator("body")).toBeVisible();
   });
 });
 
-test.describe('Client Deliverables — Admin', () => {
+test.describe("Client Deliverables — Admin", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'admin');
+    await loginAs(page, "admin");
   });
 
-  test('admin panel loads', async ({ page }) => {
-    await expect(page.locator('body')).toBeVisible();
-    await expect(page.locator('text=Tutors').or(page.locator('text=المعلمون')).or(page.locator('text=المعلمين')).first()).toBeVisible({ timeout: 10000 });
+  test("admin panel loads", async ({ page }) => {
+    await expect(page.locator("body")).toBeVisible();
+    await expect(
+      page
+        .locator("text=Tutors")
+        .or(page.locator("text=المعلمون"))
+        .or(page.locator("text=المعلمين"))
+        .first(),
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 
-test.describe('Client Deliverables — Become Teacher', () => {
-  test('redirects unauthenticated users to login', async ({ page }) => {
+test.describe("Client Deliverables — Become Teacher", () => {
+  test("redirects unauthenticated users to login", async ({ page }) => {
     await page.context().clearCookies();
-    await page.goto('/become-teacher');
+    await page.goto("/become-teacher");
     await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
   });
 });

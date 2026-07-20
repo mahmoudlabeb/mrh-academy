@@ -1,26 +1,24 @@
-import { test, expect } from '@playwright/test';
-import { loginAs } from './helpers/auth';
+import { test, expect } from "@playwright/test";
+import { loginAs } from "./helpers/auth";
 
-test.describe('Tutor Journey', () => {
+test.describe("Tutor Journey", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAs(page, 'tutor');
+    await loginAs(page, "tutor");
   });
 
-  test('tutor dashboard shows overview and navigation', async ({ page }) => {
-    await page.goto('/tutor');
+  test("tutor dashboard shows overview and navigation", async ({ page }) => {
+    await page.goto("/tutor");
     await expect(
-      page
-        .locator('text=Dashboard')
-        .or(page.locator('text=لوحة التحكم')),
+      page.getByRole("button", { name: /^(Dashboard|لوحة التحكم)$/i }),
     ).toBeVisible({ timeout: 10000 });
     await expect(
-      page.locator('text=Students').or(page.locator('text=الطلاب')),
+      page.getByRole("button", { name: /^(Students|الطلاب)$/i }),
     ).toBeVisible({ timeout: 5000 });
   });
 
-  test('tutor can manage availability', async ({ page }) => {
-    await page.goto('/tutor/availability');
-    await expect(page.locator('body')).toBeVisible({ timeout: 10000 });
+  test("tutor can manage availability", async ({ page }) => {
+    await page.goto("/tutor/availability");
+    await expect(page.locator("body")).toBeVisible({ timeout: 10000 });
 
     const timeSlot = page
       .locator(
