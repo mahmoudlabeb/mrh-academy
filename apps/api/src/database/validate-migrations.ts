@@ -105,11 +105,15 @@ async function validateMigrations() {
     UNION ALL
     SELECT 'constraint', constraint_name
     FROM information_schema.table_constraints
-    WHERE constraint_schema = 'public' AND constraint_name <> lower(constraint_name)
+    WHERE constraint_schema = 'public'
+      AND table_name <> 'migrations'
+      AND constraint_name <> lower(constraint_name)
     UNION ALL
     SELECT 'index', indexname
     FROM pg_indexes
-    WHERE schemaname = 'public' AND indexname <> lower(indexname)
+    WHERE schemaname = 'public'
+      AND tablename <> 'migrations'
+      AND indexname <> lower(indexname)
   `);
 
   if (mixedCaseIdentifiers.length > 0) {

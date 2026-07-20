@@ -41,6 +41,7 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
 ### Installation
 
 1. Clone and install:
+
    ```bash
    git clone https://github.com/mahmoudlabeb/mrh-academy.git
    cd mrh-academy
@@ -48,10 +49,12 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
    ```
 
 2. Configure each application:
+
    ```bash
    cp apps/api/.env.example apps/api/.env
    cp apps/web/.env.example apps/web/.env.local
    ```
+
    Edit the application-owned files with your PostgreSQL, Redis, JWT, and integration keys.
 
 3. Run migrations and start both workspaces:
@@ -94,19 +97,20 @@ pnpm db:backup
 
 ### Required environment variables (production)
 
-| Variable | Notes |
-|----------|-------|
-| `NODE_ENV` | `production` |
-| `JWT_SECRET` | 32+ random characters |
-| `FRONTEND_URL` | Your frontend URL (CORS/CSRF locked to this) |
-| `API_UPSTREAM_URL` | Server-only API origin used by the Next rewrite |
-| `NEXT_PUBLIC_WS_URL` | Dedicated API origin used by browser WebSockets |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis for session locking |
-| `ADMIN_EMAILS` | Comma-separated admin emails |
-| `SUBADMIN_DEFAULT_PASSWORD` | Required in production |
-| `STRIPE_SECRET_KEY` | For card payments |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
+| Variable                    | Notes                                                 |
+| --------------------------- | ----------------------------------------------------- |
+| `NODE_ENV`                  | `production`                                          |
+| `JWT_SECRET`                | 32+ random characters                                 |
+| `FRONTEND_URL`              | Your frontend URL (CORS/CSRF locked to this)          |
+| `API_UPSTREAM_URL`          | Server-only API origin used by the Next rewrite       |
+| `NEXT_PUBLIC_WS_URL`        | Dedicated API origin used by browser WebSockets       |
+| `DATABASE_URL`              | PostgreSQL connection string                          |
+| `DATABASE_SSL`              | `true` only when the PostgreSQL endpoint requires TLS |
+| `REDIS_URL`                 | Redis for session locking                             |
+| `ADMIN_EMAILS`              | Comma-separated admin emails                          |
+| `SUBADMIN_DEFAULT_PASSWORD` | Required in production                                |
+| `STRIPE_SECRET_KEY`         | For card payments                                     |
+| `STRIPE_WEBHOOK_SECRET`     | Stripe webhook verification                           |
 
 See `apps/api/.env.example` and `apps/web/.env.example` for the complete
 application-owned configuration lists.
@@ -139,4 +143,5 @@ pnpm --filter @mrh/web test:e2e
 ```
 
 ---
+
 Built for MRH Academy.

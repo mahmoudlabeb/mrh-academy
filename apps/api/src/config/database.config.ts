@@ -2,12 +2,13 @@ import { registerAs } from '@nestjs/config';
 
 export const databaseConfig = registerAs('database', () => {
   const url = process.env.DATABASE_URL;
+  const sslEnabled = process.env.DATABASE_SSL === 'true';
   const rejectUnauthorized =
     process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false';
 
   return {
     connection: url
-      ? { url, ssl: { rejectUnauthorized } }
+      ? { url, ssl: sslEnabled ? { rejectUnauthorized } : false }
       : {
           host: process.env.DATABASE_HOST ?? 'localhost',
           port: Number(process.env.DATABASE_PORT ?? 5432),

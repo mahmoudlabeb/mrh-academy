@@ -7,6 +7,7 @@ export const environmentValidationSchema = Joi.object({
   PORT: Joi.number().default(4000),
   FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
   DATABASE_URL: Joi.string().optional().allow(''),
+  DATABASE_SSL: Joi.string().valid('true', 'false').default('false'),
   DATABASE_HOST: Joi.string().default('localhost'),
   DATABASE_PORT: Joi.number().default(5432),
   DATABASE_USER: Joi.string().default('mrh_admin'),

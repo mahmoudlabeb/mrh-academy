@@ -4,6 +4,7 @@ import { SnakeNamingStrategy } from '../common/database/snake-naming.strategy.js
 
 const dbUrl = process.env.DATABASE_URL;
 const nodeEnv = process.env.NODE_ENV ?? 'development';
+const sslEnabled = process.env.DATABASE_SSL === 'true';
 const sslRejectUnauthorized =
   process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false';
 
@@ -12,7 +13,7 @@ export const AppDataSource = new DataSource({
   ...(dbUrl
     ? {
         url: dbUrl,
-        ssl: { rejectUnauthorized: sslRejectUnauthorized },
+        ssl: sslEnabled ? { rejectUnauthorized: sslRejectUnauthorized } : false,
       }
     : {
         host: process.env.DATABASE_HOST ?? 'localhost',

@@ -30,8 +30,8 @@ async function ensureForeignKey(
   `);
 }
 
-export class InitialSchema0000000000000 implements MigrationInterface {
-  name = 'InitialSchema0000000000000';
+export class InitialSchema1784505600000 implements MigrationInterface {
+  name = 'InitialSchema1784505600000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await ensureEnum(queryRunner, 'users_role_enum', [
@@ -85,7 +85,7 @@ export class InitialSchema0000000000000 implements MigrationInterface {
       CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "email" character varying NOT NULL,
-        "password_hash" character varying,
+        "password_hash" text,
         "role" "users_role_enum" NOT NULL DEFAULT 'student',
         "first_name" character varying NOT NULL,
         "last_name" character varying NOT NULL,
@@ -93,6 +93,8 @@ export class InitialSchema0000000000000 implements MigrationInterface {
         "timezone" character varying NOT NULL DEFAULT 'Africa/Cairo',
         "google_id" character varying,
         "avatar_url" character varying,
+        "invite_token" character varying,
+        "invite_token_expires" TIMESTAMP,
         "is_verified" boolean NOT NULL DEFAULT false,
         "is_active" boolean NOT NULL DEFAULT true,
         "notification_preferences" jsonb NOT NULL DEFAULT '{}',
@@ -195,6 +197,7 @@ export class InitialSchema0000000000000 implements MigrationInterface {
         "price" numeric(10,2) NOT NULL,
         "platform_fee" numeric(10,2),
         "status" "lessons_status_enum" NOT NULL DEFAULT 'pending',
+        "room_id" character varying,
         "meet_url" character varying,
         "google_meet_url" character varying,
         "calendar_event_id" character varying,
