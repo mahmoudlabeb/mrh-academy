@@ -21,6 +21,10 @@ type LessonBrief = {
   durationMinutes: number;
 };
 
+type PaginatedLessons = {
+  data: LessonBrief[];
+};
+
 export default function Insights() {
   const { lang } = useLanguage();
   const isAr = lang === 'ar';
@@ -38,8 +42,8 @@ export default function Insights() {
   const { data: recentLessons = [] } = useQuery<LessonBrief[]>({
     queryKey: ['tutor', 'recent-lessons'],
     queryFn: async () => {
-      const { data } = await apiClient.get('/lessons');
-      return (data ?? []).slice(0, 5);
+      const { data } = await apiClient.get<PaginatedLessons>('/lessons');
+      return (data.data ?? []).slice(0, 5);
     },
   });
 

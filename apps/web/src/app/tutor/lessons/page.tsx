@@ -17,6 +17,10 @@ type Lesson = {
   googleMeetUrl: string | null;
 };
 
+type PaginatedLessons = {
+  data: Lesson[];
+};
+
 export default function TutorLessonsPage() {
   const { lang } = useLanguage();
   const queryClient = useQueryClient();
@@ -28,8 +32,8 @@ export default function TutorLessonsPage() {
   const { data: lessons = [], isLoading } = useQuery<Lesson[]>({
     queryKey: ['tutor-lessons-page'],
     queryFn: async () => {
-      const { data } = await apiClient.get<Lesson[]>('/lessons');
-      return data;
+      const { data } = await apiClient.get<PaginatedLessons>('/lessons');
+      return data.data ?? [];
     },
   });
 

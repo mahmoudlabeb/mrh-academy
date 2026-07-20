@@ -23,6 +23,24 @@ type TutorStats = {
   studentCount: number;
 };
 
+type TutorLesson = {
+  id: string;
+  status: string;
+  scheduledTime: string;
+  durationMinutes: number;
+  price: number;
+  meetUrl?: string;
+  student?: { firstName?: string; lastName?: string };
+};
+
+type PaginatedLessons = {
+  data: TutorLesson[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 type DashboardSection = 'dashboard' | 'messages' | 'calendar' | 'students' | 'classroom' | 'insights' | 'profile' | 'settings';
 
 const SIDEBAR_ITEMS: { key: DashboardSection; labelAr: string; labelEn: string }[] = [
@@ -147,15 +165,8 @@ function TutorPageContent() {
   const allLessonsQuery = useQuery({
     queryKey: ['tutor-all-lessons'],
     queryFn: async () => {
-      const { data } = await apiClient.get<Array<{
-        id: string;
-        status: string;
-        scheduledTime: string;
-        durationMinutes: number;
-        price: number;
-        student?: { firstName?: string; lastName?: string };
-      }>>('/lessons');
-      return data ?? [];
+      const { data } = await apiClient.get<PaginatedLessons>('/lessons');
+      return data.data ?? [];
     },
   });
 
@@ -184,14 +195,8 @@ function TutorPageContent() {
   const activeLessonsQuery = useQuery({
     queryKey: ['tutor-active-lessons'],
     queryFn: async () => {
-      const { data } = await apiClient.get<Array<{
-        id: string;
-        status: string;
-        scheduledTime: string;
-        meetUrl?: string;
-        student?: { firstName?: string; lastName?: string };
-      }>>('/lessons');
-      return (data ?? []).filter((l) => l.status === 'confirmed' && l.meetUrl);
+      const { data } = await apiClient.get<PaginatedLessons>('/lessons');
+      return (data.data ?? []).filter((l) => l.status === 'confirmed' && l.meetUrl);
     },
   });
 
