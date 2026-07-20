@@ -19,6 +19,7 @@ import { EmailService } from '../integrations/email/email.service.js';
 import { CommissionService } from './commission.service.js';
 import { PayoutReconciliationService } from './payout-reconciliation.service.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
+import { Setting } from '../admin/entities/setting.entity.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { StorageModule } from '../integrations/storage/storage.module.js';
       StudentProfile,
       TutorProfile,
       User,
+      Setting,
     ]),
     StorageModule,
   ],
