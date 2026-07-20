@@ -35,15 +35,13 @@ describe('Maintenance Guard Verification (e2e)', () => {
 
     // 2. Create an admin and get token (we might need to manually set role to admin)
     const adminEmail = `admin-${Date.now()}@test.com`;
-    const adminRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: adminEmail,
-        password: 'Password123!',
-        role: 'student', // register as student first
-        firstName: 'Test',
-        lastName: 'Admin',
-      });
+    await request(app.getHttpServer()).post('/api/v1/auth/register').send({
+      email: adminEmail,
+      password: 'Password123!',
+      role: 'student', // register as student first
+      firstName: 'Test',
+      lastName: 'Admin',
+    });
 
     // update to admin
     await dataSource.query(`UPDATE users SET role = 'admin' WHERE email = $1`, [

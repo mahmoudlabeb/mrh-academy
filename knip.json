@@ -1,0 +1,47 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.js", "ecosystem.config.js!"],
+      "project": ["*.{js,ts}"]
+    },
+    "apps/api": {
+      "entry": ["src/main.ts!", "src/database/**/*.ts!", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": ["next.config.ts!", "src/app/**/{page,layout,error,loading,not-found,sitemap}.tsx", "src/middleware.ts!"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/types": {
+      "entry": ["src/index.ts!"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignoreDependencies": [
+    "@nestjs/jwt",
+    "@nestjs/passport",
+    "@nestjs/platform-socket.io",
+    "@nestjs/schedule",
+    "@nestjs/terminus",
+    "@nestjs/throttler",
+    "@nestjs/typeorm",
+    "@types/multer",
+    "arabic-reshaper",
+    "axios",
+    "bidi-js",
+    "cloudinary",
+    "eslint-config-next",
+    "googleapis",
+    "joi",
+    "nodemailer",
+    "passport",
+    "passport-google-oauth20",
+    "passport-jwt",
+    "pdfkit",
+    "sanitize-html",
+    "socket.io",
+    "socket.io-client",
+    "stripe"
+  ]
+}

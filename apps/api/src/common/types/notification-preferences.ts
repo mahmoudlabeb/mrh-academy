@@ -8,7 +8,7 @@ export type NotificationPreferences = {
   payment_updates?: boolean;
 };
 
-export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   email: true,
   sms: false,
   browser: true,

@@ -24,7 +24,7 @@ function resolveSubAdminPassword(config: ConfigService): string {
   return randomBytes(12).toString('base64url');
 }
 
-export type EmployeeDto = {
+type EmployeeDto = {
   firstName: string;
   lastName: string;
   email: string;

@@ -10,7 +10,9 @@ export class TurnCredentialsController {
   ) {}
 
   @Get()
-  async getIceServers() {
+  async getIceServers(): Promise<
+    Array<{ urls: string | string[]; username?: string; credential?: string }>
+  > {
     return this.turnCredentialsService.getIceServers();
   }
 }

@@ -6,5 +6,6 @@ export const authConfig = registerAs('auth', () => ({
   issuer: process.env.JWT_ISSUER ?? 'mrh-academy-api',
   audience: process.env.JWT_AUDIENCE ?? 'mrh-academy-web',
   secureCookies:
-    process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
+    process.env.COOKIE_SECURE === 'true' ||
+    process.env.NODE_ENV === 'production',
 }));

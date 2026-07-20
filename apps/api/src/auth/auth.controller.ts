@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { GoogleConfigGuard } from './guards/google-config.guard.js';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';

@@ -55,15 +55,14 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.80.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.3",
-    "stripe": "^22.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
+    "postcss": "^8.5.10",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -72,7 +71,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
     "jest": "^30.0.0",
-    "tailwindcss": "^4",
     "ts-jest": "^29.2.5",
     "typescript": "^5"
   }

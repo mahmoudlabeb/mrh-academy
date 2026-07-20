@@ -40,7 +40,9 @@ export class SnakeNamingStrategy
     firstPropertyName: string,
     _secondPropertyName: string,
   ): string {
-    return snakeCase(`${firstTableName}_${firstPropertyName}_${secondTableName}`);
+    return snakeCase(
+      `${firstTableName}_${firstPropertyName}_${secondTableName}`,
+    );
   }
 
   joinTableColumnName(

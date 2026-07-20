@@ -132,10 +132,7 @@ export class PaymentsService {
     let receiptUrl: string | null = null;
     if (screenshotFile) {
       this.validateReceiptFile(screenshotFile);
-      receiptUrl = await this.uploadToCloudinary(
-        screenshotFile.buffer,
-        screenshotFile.mimetype,
-      );
+      receiptUrl = await this.uploadToCloudinary(screenshotFile.buffer);
     }
 
     const payment = this.paymentRepository.create({
@@ -419,10 +416,7 @@ export class PaymentsService {
     });
   }
 
-  private uploadToCloudinary(
-    buffer: Buffer,
-    mimetype?: string,
-  ): Promise<string> {
+  private uploadToCloudinary(buffer: Buffer): Promise<string> {
     return this.storage
       .upload(buffer, {
         folder: 'mrh-academy/payments',

@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { google } from 'googleapis';
 import { randomUUID, createHash } from 'node:crypto';
 
-export type LessonMeetLinkInput = {
+type LessonMeetLinkInput = {
   summary: string;
   description: string;
   start: Date;
@@ -12,7 +12,7 @@ export type LessonMeetLinkInput = {
   studentEmail: string;
 };
 
-export type LessonMeetLinkResult = {
+type LessonMeetLinkResult = {
   meetUrl: string;
   calendarEventId?: string;
 };

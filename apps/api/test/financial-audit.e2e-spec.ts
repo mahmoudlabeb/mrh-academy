@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { UserRole, CourseStatus, LessonStatus } from '@mrh/types';
+import { UserRole, CourseStatus } from '@mrh/types';
 import { RedisService } from '../src/redis/redis.service';
 import { RedisServiceMock } from './redis.mock';
 import { hash } from 'argon2';
@@ -13,7 +13,6 @@ jest.setTimeout(60000);
 describe('Financial Audit (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
-  let adminToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -40,10 +39,9 @@ describe('Financial Audit (e2e)', () => {
       [adminEmail, passwordHash, 'Admin', 'Audit', UserRole.ADMIN, true],
     );
 
-    const adminLoginRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/login')
       .send({ email: adminEmail, password: 'Test1234' });
-    adminToken = adminLoginRes.body.accessToken;
   });
 
   afterAll(async () => {
@@ -166,7 +164,6 @@ describe('Financial Audit (e2e)', () => {
       bookAdjRes.status,
       JSON.stringify(bookAdjRes.body),
     );
-    const lessonAdjId = bookAdjRes.body.id;
 
     // 7. Reject the first lesson as tutor
     const rejectRes = await request(app.getHttpServer())

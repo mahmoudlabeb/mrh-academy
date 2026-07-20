@@ -9,13 +9,11 @@ import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { User } from '../src/users/entities/user.entity.js';
-import { TutorProfile } from '../src/tutors/entities/tutor-profile.entity.js';
 import { StudentProfile } from '../src/students/entities/student-profile.entity.js';
 import { Course } from '../src/courses/entities/course.entity.js';
 import { CourseEnrollment } from '../src/courses/entities/course-enrollment.entity.js';
 import { CourseLesson } from '../src/courses/entities/course-lesson.entity.js';
 import { VocabularyWord } from '../src/vocabulary/entities/vocabulary-word.entity.js';
-import { SubAdminProfile } from '../src/admin/entities/sub-admin-profile.entity.js';
 import { Lesson } from '../src/lessons/entities/lesson.entity.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
@@ -50,7 +48,6 @@ describe('Messages (e2e)', () => {
   let userRepository: Repository<User>;
   let lessonRepository: Repository<Lesson>;
   let studentProfileRepository: Repository<StudentProfile>;
-  let lesson: Lesson;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -111,7 +108,7 @@ describe('Messages (e2e)', () => {
     );
 
     const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    lesson = await lessonRepository.save(
+    await lessonRepository.save(
       lessonRepository.create({
         studentId: sender.user.id,
         tutorId: receiver.id,
@@ -354,9 +351,7 @@ describe('Courses (e2e)', () => {
 // ────────────────────────────────────────────────────────────
 describe('Vocabulary (e2e)', () => {
   let app: INestApplication;
-  let userRepository: Repository<User>;
   let vocabularyRepository: Repository<VocabularyWord>;
-  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -378,9 +373,7 @@ describe('Vocabulary (e2e)', () => {
     );
     await app.init();
 
-    userRepository = app.get(getRepositoryToken(User));
     vocabularyRepository = app.get(getRepositoryToken(VocabularyWord));
-    jwtService = app.get(JwtService);
   });
 
   afterAll(async () => {
@@ -548,7 +541,6 @@ describe('Admin Impersonation (e2e)', () => {
 describe('SubAdmin Invite (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-  let subAdminRepository: Repository<SubAdminProfile>;
   let jwtService: JwtService;
 
   beforeAll(async () => {
@@ -572,7 +564,6 @@ describe('SubAdmin Invite (e2e)', () => {
     await app.init();
 
     userRepository = app.get(getRepositoryToken(User));
-    subAdminRepository = app.get(getRepositoryToken(SubAdminProfile));
     jwtService = app.get(JwtService);
   });
 
@@ -724,7 +715,7 @@ describe('Admin Stats & Reports (e2e)', () => {
 
     expect(Array.isArray(activityRes.body)).toBe(true);
 
-    const unauthorizedRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .get('/api/v1/admin/stats')
       .set('Authorization', `Bearer `)
       .expect(401);

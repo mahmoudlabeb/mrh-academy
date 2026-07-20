@@ -93,10 +93,12 @@ async function validateMigrations() {
     console.warn('Unexpected extra tables:', unexpected.join(', '));
   }
 
-  const mixedCaseIdentifiers = await AppDataSource.query<{
-    kind: string;
-    identifier: string;
-  }[]>(`
+  const mixedCaseIdentifiers = await AppDataSource.query<
+    {
+      kind: string;
+      identifier: string;
+    }[]
+  >(`
     SELECT 'column' AS kind, column_name AS identifier
     FROM information_schema.columns
     WHERE table_schema = 'public' AND column_name <> lower(column_name)

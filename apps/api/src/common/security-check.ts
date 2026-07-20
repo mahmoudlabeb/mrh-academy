@@ -19,6 +19,8 @@ export function checkSecurityEnvironment(
       /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(frontendUrl)
     ) {
       errors.push('FRONTEND_URL cannot point to localhost in production');
+    } else if (!/^https:\/\//i.test(frontendUrl)) {
+      errors.push('FRONTEND_URL must use HTTPS in production');
     }
 
     if (!jwtSecret || jwtSecret.length < 32) {

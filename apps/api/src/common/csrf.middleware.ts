@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 
-export const CSRF_COOKIE = 'mrh_csrf';
-export const CSRF_HEADER = 'x-csrf-token';
+const CSRF_COOKIE = 'mrh_csrf';
+const CSRF_HEADER = 'x-csrf-token';
 
 @Injectable()
 export class CsrfOriginMiddleware implements NestMiddleware {

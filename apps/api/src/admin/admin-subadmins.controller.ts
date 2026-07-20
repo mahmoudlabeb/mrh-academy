@@ -15,7 +15,6 @@ import { User } from '../users/entities/user.entity.js';
 import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
-import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import {

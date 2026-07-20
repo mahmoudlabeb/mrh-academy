@@ -10,7 +10,7 @@ import {
 } from "react";
 import { apiClient } from "@/lib/api-client";
 
-export interface User {
+interface User {
   id: string;
   email: string;
   role: "student" | "tutor" | "admin" | "subadmin" | string;

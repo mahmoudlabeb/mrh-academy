@@ -19,6 +19,7 @@ apps/*/.env.*
 apps/*/.env.render
 !apps/api/.gitignore
 !apps/web/.gitignore
+!apps/*/.env.example
 
 # Secrets / DB connection scripts (defense-in-depth — block re-introduction)
 *-passwords.mjs
@@ -35,11 +36,9 @@ bfg-*.jar
 *.bundle
 replace.txt
 
-# Planning/Internal Docs
-*.md
-!README.md
-!SECURITY.md
-!REFACTOR_PLAN.md
+# Generated documentation artifacts
+*-report.md
+*-handover.md
 
 # IDE files
 .vscode

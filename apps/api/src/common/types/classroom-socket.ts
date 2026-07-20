@@ -1,6 +1,6 @@
 import type { Socket } from 'socket.io';
 
-export interface ClassroomSocketData {
+interface ClassroomSocketData {
   userId: string;
   role: string;
   currentLesson: string | null;

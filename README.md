@@ -99,6 +99,8 @@ pnpm db:backup
 | `NODE_ENV` | `production` |
 | `JWT_SECRET` | 32+ random characters |
 | `FRONTEND_URL` | Your frontend URL (CORS/CSRF locked to this) |
+| `API_UPSTREAM_URL` | Server-only API origin used by the Next rewrite |
+| `NEXT_PUBLIC_WS_URL` | Dedicated API origin used by browser WebSockets |
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis for session locking |
 | `ADMIN_EMAILS` | Comma-separated admin emails |

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export interface IceServer {
+interface IceServer {
   urls: string | string[];
   username?: string;
   credential?: string;

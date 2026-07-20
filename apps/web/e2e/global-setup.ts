@@ -1,4 +1,4 @@
-const apiURL = process.env.API_URL || 'http://localhost:4000/api/v1';
+const apiURL = `${(process.env.API_UPSTREAM_URL || "http://localhost:4000").replace(/\/+$/, "")}/api/v1`;
 
 async function waitForHealth(url: string, attempts = 30) {
   for (let i = 0; i < attempts; i++) {
@@ -11,7 +11,7 @@ async function waitForHealth(url: string, attempts = 30) {
     await new Promise((r) => setTimeout(r, 2000));
   }
   throw new Error(
-    `API not reachable at ${url}/health — start the API (port 4000) or set API_URL.`,
+    `API not reachable at ${url}/health — start the API (port 4000) or set API_UPSTREAM_URL.`,
   );
 }
 
