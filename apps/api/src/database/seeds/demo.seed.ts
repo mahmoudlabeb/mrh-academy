@@ -4,6 +4,21 @@ import { AppDataSource } from '../data-source.js';
 import { User } from '../../users/entities/user.entity.js';
 import { StudentProfile } from '../../students/entities/student-profile.entity.js';
 import { TutorProfile } from '../../tutors/entities/tutor-profile.entity.js';
+import { SubAdminProfile } from '../../admin/entities/sub-admin-profile.entity.js';
+import { Employee } from '../../admin/entities/employee.entity.js';
+
+const allSubAdminPermissions = [
+  'manage_tutors',
+  'manage_students',
+  'manage_courses',
+  'manage_lessons',
+  'manage_payments',
+  'manage_reviews',
+  'manage_employees',
+  'manage_settings',
+  'view_reports',
+  'impersonate_users',
+] as const;
 
 const demoUsers = [
   {
@@ -17,6 +32,26 @@ const demoUsers = [
     firstName: 'Demo',
     lastName: 'Tutor',
     role: UserRole.TUTOR,
+    tutorStatus: CourseStatus.APPROVED,
+  },
+  {
+    email: 'tutor.pending@mrh-academy.example',
+    firstName: 'Pending',
+    lastName: 'Tutor',
+    role: UserRole.TUTOR,
+    tutorStatus: CourseStatus.PENDING,
+  },
+  {
+    email: 'admin.one@mrh-academy.example',
+    firstName: 'Demo',
+    lastName: 'Admin',
+    role: UserRole.ADMIN,
+  },
+  {
+    email: 'subadmin.one@mrh-academy.example',
+    firstName: 'Demo',
+    lastName: 'SubAdmin',
+    role: UserRole.SUBADMIN,
   },
 ] as const;
 
@@ -55,7 +90,7 @@ async function seedDemoData() {
             StudentProfile,
             manager.create(StudentProfile, { userId: user.id }),
           );
-        } else {
+        } else if (fixture.role === UserRole.TUTOR) {
           await manager.save(
             TutorProfile,
             manager.create(TutorProfile, {
@@ -64,7 +99,24 @@ async function seedDemoData() {
               specialization: 'Demo curriculum',
               languages: ['Arabic', 'English'],
               hourlyRate: 15,
-              status: CourseStatus.APPROVED,
+              status: fixture.tutorStatus,
+            }),
+          );
+        } else if (fixture.role === UserRole.SUBADMIN) {
+          await manager.save(
+            SubAdminProfile,
+            manager.create(SubAdminProfile, {
+              userId: user.id,
+              assignedPermissions: [...allSubAdminPermissions],
+            }),
+          );
+          await manager.save(
+            Employee,
+            manager.create(Employee, {
+              name: `${fixture.firstName} ${fixture.lastName}`,
+              email: fixture.email,
+              roleTitle: 'Demo Operations Manager',
+              permissions: JSON.stringify(allSubAdminPermissions),
             }),
           );
         }
