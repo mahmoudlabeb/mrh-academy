@@ -9,6 +9,7 @@ import { User } from '../entities/user.entity.js';
 import { TutorAvailability } from '../entities/tutor-availability.entity.js';
 import { CalendarService } from '../services/calendar.service.js';
 import { EmailService } from '../services/email.service.js';
+import { ReminderService } from '../services/reminder.service.js';
 import { LessonsController } from './lessons.controller.js';
 import { LessonBooksController } from './lesson-books.controller.js';
 import { LessonsService } from './lessons.service.js';
@@ -32,7 +33,8 @@ import { LessonBooksService } from './lesson-books.service.js';
     LessonBooksService,
     CalendarService,
     EmailService,
+    ReminderService,
   ],
-  exports: [LessonsService],
+  exports: [LessonsService, ReminderService],
 })
 export class LessonsModule {}

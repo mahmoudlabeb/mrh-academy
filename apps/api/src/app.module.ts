@@ -14,7 +14,6 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
 import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 import { SessionGuard } from './auth/guards/session.guard.js';
 import { MaintenanceGuard } from './auth/guards/maintenance.guard.js';
-import { ReminderService } from './services/reminder.service.js';
 import { PayoutReconciliationService } from './services/payout-reconciliation.service.js';
 import { EmailService } from './services/email.service.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -155,7 +154,6 @@ import { XssCleanMiddleware } from './common/xss-clean.middleware.js';
   controllers: [AppController],
   providers: [
     AppService,
-    ReminderService,
     PayoutReconciliationService,
     EmailService,
     {
