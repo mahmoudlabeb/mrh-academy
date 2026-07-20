@@ -25,9 +25,9 @@ const ARABIC_FONT_NAME = 'Arabic';
 function resolveArabicFontPath() {
   const candidates = [
     process.env.ARABIC_PDF_FONT_PATH,
-    resolve(process.cwd(), 'assets/fonts/Amiri-Regular.ttf'),
+    resolve(process.cwd(), 'dist/assets/fonts/Amiri-Regular.ttf'),
     resolve(process.cwd(), 'public/fonts/Amiri-Regular.ttf'),
-    resolve(process.cwd(), '../../assets/fonts/Amiri-Regular.ttf'),
+    resolve(process.cwd(), 'src/assets/fonts/Amiri-Regular.ttf'),
   ].filter(Boolean) as string[];
 
   return candidates.find((candidate) => existsSync(candidate));

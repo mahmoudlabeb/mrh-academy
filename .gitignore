@@ -7,6 +7,7 @@ node_modules/
 dist/
 .next/
 build/
+.turbo/
 
 # Environment variables
 .env
@@ -38,6 +39,7 @@ replace.txt
 *.md
 !README.md
 !SECURITY.md
+!REFACTOR_PLAN.md
 
 # IDE files
 .vscode
@@ -74,6 +76,21 @@ Thumbs.db
 .temp
 .tmp
 
-test_large.jpg
+# Local agent/tool metadata
+.kiro/
+.codex/
+.agents/
+.claude/
+skills-lock.json
 
-Preview Frontend Live Testing QA Report
+# Generated test and diagnostics output
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+lint-report.json
+lint_errors.txt
+lint_output.txt
+backups/
+
+test_large.jpg

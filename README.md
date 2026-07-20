@@ -16,7 +16,7 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
 
 - **Frontend:** Next.js 15, React 19, Tailwind CSS v4
 - **Backend:** NestJS 11, TypeORM, PostgreSQL, Redis, Socket.IO
-- **Monorepo:** Turborepo, pnpm
+- **Monorepo:** Turborepo, pnpm 11, Node.js 24 LTS
 
 ## Project Structure
 
@@ -26,16 +26,15 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
 │   └── api/        # NestJS API
 ├── packages/
 │   └── types/      # Shared TypeScript types
-├── scripts/        # Backup, deployment helpers
-└── docs/           # Setup guides (including Arabic)
+└── scripts/        # Repository-wide maintenance helpers
 ```
 
-## Quick Start (Windows, no Docker)
+## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
+- Node.js 24 LTS
+- pnpm 11 (the exact version is pinned in `package.json`)
 - PostgreSQL
 - Redis
 
@@ -48,34 +47,29 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
    pnpm install
    ```
 
-2. Copy environment file:
+2. Configure each application:
    ```bash
-   copy .env.example .env
+   cp apps/api/.env.example apps/api/.env
+   cp apps/web/.env.example apps/web/.env.local
    ```
-   Edit `.env` at the repo root with your PostgreSQL, Redis, JWT, and integration keys.
+   Edit the application-owned files with your PostgreSQL, Redis, JWT, and integration keys.
 
-3. Run migrations and seed:
+3. Run migrations and start both workspaces:
    ```bash
-   cd apps/api
-   pnpm run migration:run
-   pnpm run seed
-   ```
-
-4. Start development:
-   ```bash
-   pnpm run dev
+   pnpm --filter @mrh/api migration:run
+   pnpm dev
    ```
    - Web: http://localhost:3000
    - API: http://localhost:4000
    - Swagger (dev): http://localhost:4000/api/docs
 
-## Demo Accounts (password: `123456`)
+Demo fixtures are opt-in and require `DEMO_SEED_PASSWORD` in the API's local
+environment. They use fictional `.example` identities and never reset an
+existing password:
 
-| Role | Email |
-|------|-------|
-| Admin | admin@mrhacademy.com |
-| Tutor | Sarah.alazzeh87@gmail.com |
-| Student | student@demo.com |
+```bash
+pnpm --filter @mrh/api db:seed:demo
+```
 
 ## Production Deployment
 
@@ -94,12 +88,8 @@ pm2 start ecosystem.config.js --env production
 
 ### Database Backup
 
-```powershell
-# Windows
-.\scripts\backup-db.ps1
-
-# Linux/macOS
-./scripts/backup-db.sh
+```bash
+pnpm db:backup
 ```
 
 ### Required environment variables (production)
@@ -116,11 +106,8 @@ pm2 start ecosystem.config.js --env production
 | `STRIPE_SECRET_KEY` | For card payments |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification |
 
-See `.env.example` for the full list including Gemini, Bunny.net, Google OAuth, and SMTP.
-
-### Arabic setup guide
-
-See [docs/SETUP_AR.md](./docs/SETUP_AR.md)
+See `apps/api/.env.example` and `apps/web/.env.example` for the complete
+application-owned configuration lists.
 
 ### Health checks
 
@@ -132,14 +119,21 @@ curl http://localhost:4000/api/v1/health/integrations
 ## Testing
 
 ```bash
+# Workspace checks
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+
 # API unit tests
-cd apps/api && pnpm test
+pnpm --filter @mrh/api test
 
 # API e2e
-cd apps/api && pnpm run test:e2e
+pnpm --filter @mrh/api test:e2e
 
 # Playwright e2e (requires running API + seeded DB)
-cd apps/web && pnpm run test:e2e
+pnpm --filter @mrh/web test:e2e
 ```
 
 ---
