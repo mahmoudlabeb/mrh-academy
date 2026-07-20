@@ -12,9 +12,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
-import { User } from '../entities/user.entity.js';
-import { StudentProfile } from '../entities/student-profile.entity.js';
-import { Lesson } from '../entities/lesson.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { StudentProfile } from '../students/entities/student-profile.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
 
 @Controller('admin/students')
 export class AdminStudentsController {

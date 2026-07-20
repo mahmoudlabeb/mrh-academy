@@ -16,7 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { CoursesService } from './courses.service.js';
 import { CreateCourseDto } from './dto/create-course.dto.js';
 import { EnrollCourseDto } from './dto/enroll-course.dto.js';
-import { BunnyService } from '../services/bunny.service.js';
+import { BunnyService } from '../integrations/video/bunny.service.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
 

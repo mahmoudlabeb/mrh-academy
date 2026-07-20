@@ -14,7 +14,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { User } from '../entities/user.entity.js';
+import { User } from '../users/entities/user.entity.js';
 
 interface AdminUser {
   id: string;

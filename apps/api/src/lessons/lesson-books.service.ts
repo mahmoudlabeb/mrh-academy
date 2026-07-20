@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
-import { LessonBook } from '../entities/lesson-book.entity.js';
+import { LessonBook } from './entities/lesson-book.entity.js';
 import { LessonsService } from './lessons.service.js';
 
 const MAX_BOOK_BYTES = 20 * 1024 * 1024;

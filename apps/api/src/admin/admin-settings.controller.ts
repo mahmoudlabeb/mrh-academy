@@ -6,8 +6,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
-import { Setting } from '../entities/setting.entity.js';
-import { CommissionService } from '../services/commission.service.js';
+import { Setting } from './entities/setting.entity.js';
+import { CommissionService } from '../payments/commission.service.js';
 
 @Controller('admin/settings')
 export class AdminSettingsController {

@@ -14,7 +14,7 @@ import { Roles } from '../../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator.js';
 import { StripeService } from './stripe.service.js';
 import { UserRole } from '@mrh/types';
-import { TutorProfile } from '../../entities/tutor-profile.entity.js';
+import { TutorProfile } from '../../tutors/entities/tutor-profile.entity.js';
 
 @Controller('stripe/connect')
 @UseGuards(JwtAuthGuard, RolesGuard)

@@ -7,10 +7,10 @@ import {
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@mrh/types';
-import { User } from '../entities/user.entity.js';
+import { User } from '../users/entities/user.entity.js';
 import { AuthService } from './auth.service.js';
 import { RedisService } from '../redis/redis.service.js';
-import { EmailService } from '../services/email.service.js';
+import { EmailService } from '../integrations/email/email.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import * as bcrypt from 'bcrypt';
 

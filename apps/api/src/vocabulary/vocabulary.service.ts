@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GeminiService } from '../services/gemini.service.js';
-import { VocabularyWord } from '../entities/vocabulary-word.entity.js';
+import { GeminiService } from '../integrations/ai/gemini.service.js';
+import { VocabularyWord } from './entities/vocabulary-word.entity.js';
 
 @Injectable()
 export class VocabularyService {

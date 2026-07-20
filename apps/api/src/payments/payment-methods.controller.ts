@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
+import { PaymentMethodConfig } from './entities/payment-method-config.entity.js';
 
 @Controller('payment-methods')
 export class PaymentMethodsController {

@@ -1,16 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LessonsService } from '../lessons.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Lesson } from '../../entities/lesson.entity';
-import { TutorProfile } from '../../entities/tutor-profile.entity';
-import { StudentProfile } from '../../entities/student-profile.entity';
-import { Classroom } from '../../entities/classroom.entity';
-import { User } from '../../entities/user.entity';
-import { TutorAvailability } from '../../entities/tutor-availability.entity';
+import { Lesson } from '../entities/lesson.entity';
+import { TutorProfile } from '../../tutors/entities/tutor-profile.entity';
+import { StudentProfile } from '../../students/entities/student-profile.entity';
+import { Classroom } from '../../classroom/entities/classroom.entity';
+import { User } from '../../users/entities/user.entity';
+import { TutorAvailability } from '../../tutors/entities/tutor-availability.entity';
 import { DataSource } from 'typeorm';
-import { CommissionService } from '../../services/commission.service';
-import { CalendarService } from '../../services/calendar.service';
-import { EmailService } from '../../services/email.service';
+import { CommissionService } from '../../payments/commission.service';
+import { CalendarService } from '../../integrations/google/calendar.service';
+import { EmailService } from '../../integrations/email/email.service';
 import { RedisService } from '../../redis/redis.service';
 import { CourseStatus, LessonStatus } from '@mrh/types';
 

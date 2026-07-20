@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TutorAvailability } from '../entities/tutor-availability.entity.js';
-import { User } from '../entities/user.entity.js';
+import { TutorAvailability } from '../tutors/entities/tutor-availability.entity.js';
+import { User } from '../users/entities/user.entity.js';
 import { CreateAvailabilityDto, UpdateAvailabilityDto } from './dto/index.js';
 
 @Injectable()

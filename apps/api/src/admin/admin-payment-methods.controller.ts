@@ -15,7 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
-import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
+import { PaymentMethodConfig } from '../payments/entities/payment-method-config.entity.js';
 
 @Controller('admin/payment-methods')
 @UseGuards(JwtAuthGuard, RolesGuard)

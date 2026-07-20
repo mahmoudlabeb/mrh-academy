@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
-import { Review } from '../entities/review.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
 
 @Controller('admin/reviews')
 export class AdminReviewsController {

@@ -6,8 +6,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { TutorsService } from '../tutors/tutors.service.js';
-import { Lesson } from '../entities/lesson.entity.js';
-import { User } from '../entities/user.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { User } from '../users/entities/user.entity.js';
 
 @Controller('admin')
 export class AdminStatsController {

@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { Setting } from '../../entities/setting.entity.js';
+import { Setting } from '../../admin/entities/setting.entity.js';
 import { UserRole } from '@mrh/types';
 
 @Injectable()

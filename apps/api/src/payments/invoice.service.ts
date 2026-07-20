@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import PDFDocument from 'pdfkit';
 import * as fs from 'node:fs';
 import { resolve } from 'node:path';
-import { reshapeForPdf } from '../shared/pdf-arabic.util.js';
+import { reshapeForPdf } from './pdf-arabic.util.js';
 
 const ARABIC_FONT_NAME = 'ArabicFont';
 

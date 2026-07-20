@@ -12,9 +12,9 @@ import { Request } from 'express';
 import { PaymentStatus } from '@mrh/types';
 import { StripeService } from './stripe.service.js';
 import { PaymentsService } from '../payments.service.js';
-import { Payment } from '../../entities/payment.entity.js';
-import { ProcessedWebhookEvent } from '../../entities/processed-webhook-event.entity.js';
-import { TutorProfile } from '../../entities/tutor-profile.entity.js';
+import { Payment } from '../entities/payment.entity.js';
+import { ProcessedWebhookEvent } from '../entities/processed-webhook-event.entity.js';
+import { TutorProfile } from '../../tutors/entities/tutor-profile.entity.js';
 import { Public } from '../../auth/decorators/public.decorator.js';
 import Stripe from 'stripe';
 

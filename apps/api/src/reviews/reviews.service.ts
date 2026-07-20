@@ -8,8 +8,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { CourseStatus, LessonStatus } from '@mrh/types';
 import { Repository } from 'typeorm';
-import { Lesson } from '../entities/lesson.entity.js';
-import { Review } from '../entities/review.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { Review } from './entities/review.entity.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { UpdateReviewStatusDto } from './dto/update-review-status.dto.js';
 

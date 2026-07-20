@@ -8,12 +8,12 @@ import helmet from 'helmet';
 import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
-import { Lesson } from '../src/entities/lesson.entity.js';
-import { Review } from '../src/entities/review.entity.js';
-import { StudentProfile } from '../src/entities/student-profile.entity.js';
-import { SubAdminProfile } from '../src/entities/sub-admin-profile.entity.js';
-import { TutorProfile } from '../src/entities/tutor-profile.entity.js';
-import { User } from '../src/entities/user.entity.js';
+import { Lesson } from '../src/lessons/entities/lesson.entity.js';
+import { Review } from '../src/reviews/entities/review.entity.js';
+import { StudentProfile } from '../src/students/entities/student-profile.entity.js';
+import { SubAdminProfile } from '../src/admin/entities/sub-admin-profile.entity.js';
+import { TutorProfile } from '../src/tutors/entities/tutor-profile.entity.js';
+import { User } from '../src/users/entities/user.entity.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
 

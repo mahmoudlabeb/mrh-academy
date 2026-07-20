@@ -19,7 +19,7 @@ import { StudentsService } from './students.service.js';
 import { UsersService } from '../users/users.service.js';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
 import { AddFavoriteDto } from './dto/add-favorite.dto.js';
-import { Lesson } from '../entities/lesson.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
 

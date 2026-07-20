@@ -5,8 +5,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
@@ -14,9 +12,6 @@ import { RolesGuard } from './auth/guards/roles.guard.js';
 import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 import { SessionGuard } from './auth/guards/session.guard.js';
 import { MaintenanceGuard } from './auth/guards/maintenance.guard.js';
-import { ReminderService } from './services/reminder.service.js';
-import { PayoutReconciliationService } from './services/payout-reconciliation.service.js';
-import { EmailService } from './services/email.service.js';
 import { RedisModule } from './redis/redis.module.js';
 import { UsersModule } from './users/users.module.js';
 import { TutorsModule } from './tutors/tutors.module.js';
@@ -28,15 +23,13 @@ import { PaymentsModule } from './payments/payments.module.js';
 import { LessonsModule } from './lessons/lessons.module.js';
 import { MessagesModule } from './messages/messages.module.js';
 import { ReportsModule } from './reports/reports.module.js';
-import { ClassroomModule } from './gateway/classroom.module.js';
+import { ClassroomModule } from './classroom/classroom.module.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { StudentsModule } from './students/students.module.js';
-import { SharedModule } from './shared/shared.module.js';
-import { Setting } from './entities/setting.entity.js';
 import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
-import { XssCleanMiddleware } from './common/xss-clean.middleware.js';
-import * as dbEntities from './entities/index.js';
+import { HealthModule } from './health/health.module.js';
+import { SnakeNamingStrategy } from './common/database/snake-naming.strategy.js';
 
 @Module({
   imports: [
@@ -126,7 +119,7 @@ import * as dbEntities from './entities/index.js';
                 ssl: false,
               }),
           autoLoadEntities: true,
-          entities: Object.values(dbEntities),
+          namingStrategy: new SnakeNamingStrategy(),
           synchronize: dbSynchronize && nodeEnv !== 'production',
           migrations: ['dist/database/migrations/*.js'],
           migrationsRun: runMigrations,
@@ -135,7 +128,6 @@ import * as dbEntities from './entities/index.js';
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
-    SharedModule,
     RedisModule,
     AuthModule,
     UsersModule,
@@ -152,13 +144,10 @@ import * as dbEntities from './entities/index.js';
     CoursesModule,
     StudentsModule,
     VocabularyModule,
+    HealthModule,
   ],
-  controllers: [AppController],
+  controllers: [],
   providers: [
-    AppService,
-    ReminderService,
-    PayoutReconciliationService,
-    EmailService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
@@ -187,6 +176,6 @@ import * as dbEntities from './entities/index.js';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CsrfOriginMiddleware, XssCleanMiddleware).forRoutes('*');
+    consumer.apply(CsrfOriginMiddleware).forRoutes('*');
   }
 }

@@ -14,18 +14,18 @@ import {
   type DeepPartial,
 } from 'typeorm';
 import { PaymentMethod, PaymentStatus } from '@mrh/types';
-import { Payment } from '../entities/payment.entity.js';
-import { Payout } from '../entities/payout.entity.js';
+import { Payment } from './entities/payment.entity.js';
+import { Payout } from './entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
-import { StudentProfile } from '../entities/student-profile.entity.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { User } from '../entities/user.entity.js';
-import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
+import { StudentProfile } from '../students/entities/student-profile.entity.js';
+import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { PaymentMethodConfig } from './entities/payment-method-config.entity.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
 import { RequestPayoutDto } from './dto/request-payout.dto.js';
 import { StripeService } from './stripe/stripe.service.js';
-import { EmailService } from '../services/email.service.js';
-import { CommissionService } from '../services/commission.service.js';
+import { EmailService } from '../integrations/email/email.service.js';
+import { CommissionService } from './commission.service.js';
 
 const RECEIPT_MIME_TYPES = new Set([
   'image/jpeg',

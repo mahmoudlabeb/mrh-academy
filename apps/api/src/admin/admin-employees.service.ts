@@ -8,9 +8,9 @@ import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { UserRole } from '@mrh/types';
-import { Employee } from '../entities/employee.entity.js';
-import { User } from '../entities/user.entity.js';
-import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
+import { Employee } from './entities/employee.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
 
 function resolveSubAdminPassword(): string {
   const configured = process.env.SUBADMIN_DEFAULT_PASSWORD?.trim();

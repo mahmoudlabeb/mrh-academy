@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import * as dbEntities from '../entities/index.js';
+import { SnakeNamingStrategy } from '../common/database/snake-naming.strategy.js';
 
 const dbUrl = process.env.DATABASE_URL;
 const nodeEnv = process.env.NODE_ENV ?? 'development';
@@ -22,7 +22,8 @@ export const AppDataSource = new DataSource({
         database: process.env.DATABASE_NAME ?? 'mrh_academy_db',
         ssl: false,
       }),
-  entities: Object.values(dbEntities),
+  entities: ['dist/**/*.entity.js'],
+  namingStrategy: new SnakeNamingStrategy(),
   migrations: ['dist/database/migrations/*.js'],
   synchronize: false,
   logging: nodeEnv !== 'production',

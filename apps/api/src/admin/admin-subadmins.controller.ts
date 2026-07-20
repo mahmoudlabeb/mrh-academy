@@ -12,12 +12,12 @@ import { Repository } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '@mrh/types';
-import { User } from '../entities/user.entity.js';
-import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { EmailService } from '../services/email.service.js';
+import { EmailService } from '../integrations/email/email.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import {
   InviteSubAdminDto,

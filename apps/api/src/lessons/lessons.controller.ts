@@ -16,7 +16,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { LessonsService } from './lessons.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
-import { CalendarService } from '../services/calendar.service.js';
+import { CalendarService } from '../integrations/google/calendar.service.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
 

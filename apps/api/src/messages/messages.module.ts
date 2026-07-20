@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Message } from '../entities/message.entity.js';
-import { Lesson } from '../entities/lesson.entity.js';
-import { User } from '../entities/user.entity.js';
-import { Notification } from '../entities/notification.entity.js';
+import { Message } from './entities/message.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { Notification } from './entities/notification.entity.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { MessagesController } from './messages.controller.js';
 import { NotificationsController } from './notifications.controller.js';

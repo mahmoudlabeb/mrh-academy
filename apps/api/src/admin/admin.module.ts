@@ -14,25 +14,25 @@ import { AdminPaymentMethodsController } from './admin-payment-methods.controlle
 import { AdminReportsController } from './admin-reports.controller.js';
 import { AdminSubAdminsController } from './admin-subadmins.controller.js';
 import { AdminEmployeesService } from './admin-employees.service.js';
-import { EmailService } from '../services/email.service.js';
+import { EmailService } from '../integrations/email/email.service.js';
 import { TutorsModule } from '../tutors/tutors.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { ReportsModule } from '../reports/reports.module.js';
-import { User } from '../entities/user.entity.js';
-import { StudentProfile } from '../entities/student-profile.entity.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { Lesson } from '../entities/lesson.entity.js';
-import { Employee } from '../entities/employee.entity.js';
-import { SubAdminProfile } from '../entities/sub-admin-profile.entity.js';
-import { Setting } from '../entities/setting.entity.js';
-import { Course } from '../entities/course.entity.js';
-import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
-import { Review } from '../entities/review.entity.js';
-import { Payment } from '../entities/payment.entity.js';
-import { PaymentMethodConfig } from '../entities/payment-method-config.entity.js';
-import { Report } from '../entities/report.entity.js';
-import { Payout } from '../entities/payout.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { StudentProfile } from '../students/entities/student-profile.entity.js';
+import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { Employee } from './entities/employee.entity.js';
+import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
+import { Setting } from './entities/setting.entity.js';
+import { Course } from '../courses/entities/course.entity.js';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
+import { PaymentMethodConfig } from '../payments/entities/payment-method-config.entity.js';
+import { Report } from '../reports/entities/report.entity.js';
+import { Payout } from '../payments/entities/payout.entity.js';
 
 @Module({
   imports: [

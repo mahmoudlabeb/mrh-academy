@@ -4,12 +4,12 @@ import { TutorsService } from './tutors.service.js';
 import { TutorsController } from './tutors.controller.js';
 import { TutorDashboardController } from './tutor-dashboard.controller.js';
 import { AvailabilityModule } from '../availability/availability.module.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { User } from '../entities/user.entity.js';
-import { Review } from '../entities/review.entity.js';
-import { Lesson } from '../entities/lesson.entity.js';
-import { Payment } from '../entities/payment.entity.js';
-import { Report } from '../entities/report.entity.js';
+import { TutorProfile } from './entities/tutor-profile.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { Review } from '../reviews/entities/review.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
+import { Report } from '../reports/entities/report.entity.js';
 
 @Module({
   imports: [

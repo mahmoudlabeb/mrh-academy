@@ -13,15 +13,15 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'node:crypto';
 import { CourseStatus, UserRole } from '@mrh/types';
-import { User } from '../entities/user.entity.js';
-import { StudentProfile } from '../entities/student-profile.entity.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { StudentProfile } from '../students/entities/student-profile.entity.js';
+import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { RedisService } from '../redis/redis.service.js';
-import { EmailService } from '../services/email.service.js';
+import { EmailService } from '../integrations/email/email.service.js';
 
 const logger = new Logger('AuthService');
 

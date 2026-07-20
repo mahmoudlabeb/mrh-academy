@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, type DeepPartial } from 'typeorm';
-import { Report } from '../entities/report.entity.js';
+import { Report } from './entities/report.entity.js';
 import { CreateReportDto } from './dto/create-report.dto.js';
 
 @Injectable()

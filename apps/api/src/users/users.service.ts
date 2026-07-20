@@ -10,10 +10,10 @@ import * as bcrypt from 'bcrypt';
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
 import { DataSource, In, Repository } from 'typeorm';
 import { LessonStatus, UserRole } from '@mrh/types';
-import { Lesson } from '../entities/lesson.entity.js';
-import { StudentProfile } from '../entities/student-profile.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { StudentProfile } from '../students/entities/student-profile.entity.js';
 
-import { User } from '../entities/user.entity.js';
+import { User } from './entities/user.entity.js';
 import { RedisService } from '../redis/redis.service.js';
 import {
   ChangeEmailDto,

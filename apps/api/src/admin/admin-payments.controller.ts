@@ -19,8 +19,8 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator.js'
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { StripeService } from '../payments/stripe/stripe.service.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { Payout } from '../entities/payout.entity.js';
+import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
+import { Payout } from '../payments/entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
 
 /**

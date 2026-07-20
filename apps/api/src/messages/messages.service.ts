@@ -7,10 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import sanitizeHtml from 'sanitize-html';
 import { LessonStatus } from '@mrh/types';
-import { Message } from '../entities/message.entity.js';
-import { Lesson } from '../entities/lesson.entity.js';
-import { User } from '../entities/user.entity.js';
-import { Notification } from '../entities/notification.entity.js';
+import { Message } from './entities/message.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { Notification } from './entities/notification.entity.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 
 @Injectable()

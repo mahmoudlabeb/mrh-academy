@@ -8,14 +8,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { createHmac } from 'node:crypto';
 import { CourseStatus, UserRole } from '@mrh/types';
-import { Course } from '../entities/course.entity.js';
-import { CourseEnrollment } from '../entities/course-enrollment.entity.js';
-import { CourseLesson } from '../entities/course-lesson.entity.js';
-import { CourseLessonCompletion } from '../entities/course-lesson-completion.entity.js';
-import { TutorProfile } from '../entities/tutor-profile.entity.js';
-import { StudentProfile } from '../entities/student-profile.entity.js';
-import { CoursePromoCode } from '../entities/course-promo-code.entity.js';
-import { CommissionService } from '../services/commission.service.js';
+import { Course } from './entities/course.entity.js';
+import { CourseEnrollment } from './entities/course-enrollment.entity.js';
+import { CourseLesson } from './entities/course-lesson.entity.js';
+import { CourseLessonCompletion } from './entities/course-lesson-completion.entity.js';
+import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
+import { StudentProfile } from '../students/entities/student-profile.entity.js';
+import { CoursePromoCode } from './entities/course-promo-code.entity.js';
+import { CommissionService } from '../payments/commission.service.js';
 
 @Injectable()
 export class CoursesService {
