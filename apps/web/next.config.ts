@@ -6,6 +6,14 @@ const apiUrl =
 
 const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
+  transpilePackages: ["@mrh/types"],
+  webpack(config) {
+    config.module.rules.push({
+      test: /packages[\\/]types[\\/]dist[\\/]index\.js$/,
+      type: "javascript/auto",
+    });
+    return config;
+  },
   images: {
     remotePatterns: [
       {
