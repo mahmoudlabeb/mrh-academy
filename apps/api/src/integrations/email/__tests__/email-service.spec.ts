@@ -1,67 +1,78 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
 import { EmailService } from '../email.service';
 
-// Mock nodemailer so no real DNS lookups or network connections are made.
-// Without this, nodemailer would try to connect to smtp.example.com over the
-// internet, which hangs until Jest times out.
+const mockSendMail = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
 jest.mock('nodemailer', () => ({
   createTransport: jest.fn(() => ({
-    sendMail: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+    sendMail: mockSendMail,
     verify: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
   })),
 }));
 
-describe('B2 Bug Condition — Silent Email Failures', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
+describe('EmailService delivery failures', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockSendMail.mockClear();
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
-  it('should NOT call console.error when sendMail fails — Logger.error is used instead', async () => {
-    const configService = new ConfigService({
-      SMTP_HOST: 'smtp.example.com',
+  afterEach(async () => {
+    await jest.runOnlyPendingTimersAsync();
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  async function createService(config: Record<string, string>) {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        EmailService,
+        { provide: ConfigService, useValue: new ConfigService(config) },
+      ],
+    }).compile();
+
+    return { module, service: module.get(EmailService) };
+  }
+
+  it.each([
+    ['HTML', 'sendEmail'] as const,
+    ['plain-text', 'sendPlainEmail'] as const,
+  ])('contains %s delivery errors inside the queue', async (_label, method) => {
+    const { module, service } = await createService({
+      SMTP_HOST: 'smtp.invalid',
       SMTP_USER: 'user',
       SMTP_PASS: 'pass',
     });
 
-    const consoleSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    await expect(
+      service[method]('recipient@mrh-academy.example', 'Subject', 'Body'),
+    ).resolves.toBeUndefined();
+    await jest.runAllTimersAsync();
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        EmailService,
-        { provide: ConfigService, useValue: configService },
-      ],
-    }).compile();
-
-    const emailService = module.get<EmailService>(EmailService);
-
-    // sendMail rejects (simulating SMTP failure) — but sendEmail should NOT
-    // propagate it to console.error; the fixed code uses this.logger.error instead
-    await emailService.sendEmail('test@test.com', 'Subject', '<p>Body</p>');
-
-    expect(consoleSpy).not.toHaveBeenCalled();
-    consoleSpy.mockRestore();
+    expect(mockSendMail).toHaveBeenCalledTimes(4);
+    expect(Logger.prototype.error).toHaveBeenCalled();
+    await module.close();
   });
 
-  it('should log a warning at startup when SMTP credentials are not configured', async () => {
-    // No SMTP_USER / SMTP_PASS → isConfigured = false → logger.warn expected
-    const configService = new ConfigService({});
+  it('starts without SMTP credentials and skips delivery', async () => {
+    const { module, service } = await createService({});
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        EmailService,
-        { provide: ConfigService, useValue: configService },
-      ],
-    }).compile();
+    await expect(service.onModuleInit()).resolves.toBeUndefined();
+    await expect(
+      service.sendEmail(
+        'recipient@mrh-academy.example',
+        'Subject',
+        '<p>Body</p>',
+      ),
+    ).resolves.toBeUndefined();
 
-    const emailService = module.get<EmailService>(EmailService);
-
-    // Trigger onModuleInit which emits the warning
-    await emailService.onModuleInit();
-
-    // Service must still exist — no crash during startup
-    expect(emailService).toBeDefined();
+    expect(mockSendMail).not.toHaveBeenCalled();
+    expect(Logger.prototype.warn).toHaveBeenCalledWith(
+      'SMTP credentials not configured — emails will not be sent',
+    );
+    await module.close();
   });
 });
