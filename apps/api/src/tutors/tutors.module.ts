@@ -11,6 +11,7 @@ import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { Report } from '../reports/entities/report.entity.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
+import { EmailService } from '../integrations/email/email.service.js';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { StorageModule } from '../integrations/storage/storage.module.js';
     AvailabilityModule,
     StorageModule,
   ],
-  providers: [TutorsService],
+  providers: [TutorsService, EmailService],
   controllers: [TutorsController, TutorDashboardController],
   exports: [TutorsService],
 })

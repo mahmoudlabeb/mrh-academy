@@ -9,8 +9,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
 import { CourseStatus, LessonStatus, UserRole } from '@mrh/types';
 import { TutorProfile } from './entities/tutor-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -24,11 +22,11 @@ import {
   OBJECT_STORAGE,
   type ObjectStorage,
 } from '../integrations/storage/object-storage.js';
+import { EmailService } from '../integrations/email/email.service.js';
 
 @Injectable()
 export class TutorsService {
   private readonly logger = new Logger(TutorsService.name);
-  private mailTransporter: nodemailer.Transporter;
 
   constructor(
     @InjectRepository(TutorProfile)
@@ -43,31 +41,10 @@ export class TutorsService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Report)
     private readonly reportRepository: Repository<Report>,
-    private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly emailService: EmailService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
-  ) {
-    const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = this.configService.get<string>('SMTP_PASS');
-
-    if (!smtpUser || !smtpPass) {
-      this.mailTransporter = nodemailer.createTransport({
-        jsonTransport: true,
-      });
-      return;
-    }
-
-    this.mailTransporter = nodemailer.createTransport({
-      host:
-        this.configService.get<string>('SMTP_HOST') || 'smtp.ethereal.email',
-      port: parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10),
-      secure: this.configService.get<string>('SMTP_SECURE') === 'true',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    } as nodemailer.TransportOptions);
-  }
+  ) {}
 
   async findAllWithFilters(filters: {
     minPrice?: number;
@@ -552,14 +529,7 @@ export class TutorsService {
 
   private async sendEmail(to: string, subject: string, text: string) {
     try {
-      await this.mailTransporter.sendMail({
-        from:
-          this.configService.get<string>('SMTP_FROM') ||
-          'no-reply@mrh-academy.com',
-        to,
-        subject,
-        text,
-      });
+      await this.emailService.sendPlainEmail(to, subject, text);
     } catch (error) {
       this.logger.error(
         'Failed to send email',
