@@ -1,10 +1,10 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole, CourseStatus, LessonStatus } from '@mrh/types';
 import { hash } from 'argon2';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
@@ -16,13 +16,12 @@ import { TutorProfile } from '../src/tutors/entities/tutor-profile.entity.js';
 import { User } from '../src/users/entities/user.entity.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
+import { authenticateUser } from './isolated-fixtures.js';
+import { getStorageToken, ThrottlerStorageService } from '@nestjs/throttler';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
-type AuthResponse = {
-  accessToken: string;
-  user: { id: string; email: string; role: UserRole };
-};
-
-const password = 'Test1234';
+const password = 'Test-password-2026!';
 
 async function createUser(
   userRepository: Repository<User>,
@@ -44,7 +43,7 @@ describe('Days 1-7 business logic (e2e)', () => {
   let tutorProfileRepository: Repository<TutorProfile>;
   let subAdminProfileRepository: Repository<SubAdminProfile>;
   let lessonRepository: Repository<Lesson>;
-  let jwtService: JwtService;
+  let throttlerStorage: ThrottlerStorageService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -52,10 +51,13 @@ describe('Days 1-7 business logic (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -71,7 +73,12 @@ describe('Days 1-7 business logic (e2e)', () => {
     tutorProfileRepository = app.get(getRepositoryToken(TutorProfile));
     subAdminProfileRepository = app.get(getRepositoryToken(SubAdminProfile));
     lessonRepository = app.get(getRepositoryToken(Lesson));
-    jwtService = app.get(JwtService);
+    throttlerStorage = app.get(getStorageToken());
+  });
+
+  beforeEach(() => {
+    throttlerStorage.onApplicationShutdown();
+    throttlerStorage.storage.clear();
   });
 
   afterAll(async () => {
@@ -81,7 +88,7 @@ describe('Days 1-7 business logic (e2e)', () => {
   it('invalidates the older student session after a second login', async () => {
     const email = `student-lock-${Date.now()}@test.com`;
 
-    const registerResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email,
@@ -92,14 +99,12 @@ describe('Days 1-7 business logic (e2e)', () => {
       })
       .expect(201);
 
-    const tokenA = (registerResponse.body as AuthResponse).accessToken;
-
-    const loginResponse = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email, password })
-      .expect(200);
-
-    const tokenB = (loginResponse.body as AuthResponse).accessToken;
+    const tokenA = (
+      await authenticateUser(app, userRepository, email, password)
+    ).accessToken;
+    const tokenB = (
+      await authenticateUser(app, userRepository, email, password)
+    ).accessToken;
 
     await request(app.getHttpServer())
       .get('/api/v1/users/me')
@@ -116,7 +121,7 @@ describe('Days 1-7 business logic (e2e)', () => {
     const applicantEmail = `tutor-apply-${Date.now()}@test.com`;
     const adminEmail = `admin-approve-${Date.now()}@test.com`;
 
-    const applicantResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: applicantEmail,
@@ -127,7 +132,12 @@ describe('Days 1-7 business logic (e2e)', () => {
       })
       .expect(201);
 
-    const applicant = applicantResponse.body as AuthResponse;
+    const applicant = await authenticateUser(
+      app,
+      userRepository,
+      applicantEmail,
+      password,
+    );
 
     await request(app.getHttpServer())
       .post('/api/v1/tutors/apply')
@@ -148,17 +158,16 @@ describe('Days 1-7 business logic (e2e)', () => {
       role: UserRole.ADMIN,
     });
 
-    const adminLogin = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: adminEmail, password })
-      .expect(200);
+    const adminSession = await authenticateUser(
+      app,
+      userRepository,
+      adminEmail,
+      password,
+    );
 
     await request(app.getHttpServer())
       .post(`/api/v1/admin/tutors/${applicant.user.id}/approve`)
-      .set(
-        'Authorization',
-        `Bearer ${(adminLogin.body as AuthResponse).accessToken}`,
-      )
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(201);
 
     const approvedProfile = await tutorProfileRepository.findOneByOrFail({
@@ -176,7 +185,7 @@ describe('Days 1-7 business logic (e2e)', () => {
     const studentEmail = `purge-student-${Date.now()}@test.com`;
     const tutorEmail = `purge-tutor-${Date.now()}@test.com`;
 
-    const studentResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: studentEmail,
@@ -187,7 +196,12 @@ describe('Days 1-7 business logic (e2e)', () => {
       })
       .expect(201);
 
-    const student = studentResponse.body as AuthResponse;
+    const student = await authenticateUser(
+      app,
+      userRepository,
+      studentEmail,
+      password,
+    );
 
     const tutor = await createUser(userRepository, {
       email: tutorEmail,
@@ -258,7 +272,7 @@ describe('Days 1-7 business logic (e2e)', () => {
     const email = `availability-${Date.now()}@test.com`;
 
     // Register as student first (register DTO only accepts 'student')
-    const studentResponse = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email,
@@ -269,18 +283,11 @@ describe('Days 1-7 business logic (e2e)', () => {
       })
       .expect(201);
 
-    const student = studentResponse.body as AuthResponse;
-
     // Upgrade user to TUTOR role directly so availability guard passes
-    await userRepository.update(student.user.id, { role: UserRole.TUTOR });
+    await userRepository.update({ email }, { role: UserRole.TUTOR });
 
     // Log in again to get a fresh token with the updated role
-    const tutorLogin = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email, password })
-      .expect(200);
-
-    const tutor = tutorLogin.body as AuthResponse;
+    const tutor = await authenticateUser(app, userRepository, email, password);
 
     await request(app.getHttpServer())
       .post('/api/v1/tutor/availability')
@@ -324,15 +331,16 @@ describe('Days 1-7 business logic (e2e)', () => {
       }),
     );
 
-    const token = jwtService.sign({
-      sub: subAdmin.id,
-      email: subAdmin.email,
-      role: UserRole.SUBADMIN,
-    });
+    const session = await authenticateUser(
+      app,
+      userRepository,
+      subAdmin.email,
+      password,
+    );
 
     await request(app.getHttpServer())
       .get('/api/v1/admin/tutors')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${session.accessToken}`)
       .expect(403);
   });
 });
@@ -343,7 +351,6 @@ describe('Day 11 — Reviews (e2e)', () => {
   let tutorProfileRepository: Repository<TutorProfile>;
   let lessonRepository: Repository<Lesson>;
   let reviewRepository: Repository<Review>;
-  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -351,10 +358,13 @@ describe('Day 11 — Reviews (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -369,7 +379,6 @@ describe('Day 11 — Reviews (e2e)', () => {
     tutorProfileRepository = app.get(getRepositoryToken(TutorProfile));
     lessonRepository = app.get(getRepositoryToken(Lesson));
     reviewRepository = app.get(getRepositoryToken(Review));
-    jwtService = app.get(JwtService);
   });
 
   afterAll(async () => {
@@ -382,7 +391,7 @@ describe('Day 11 — Reviews (e2e)', () => {
     const adminEmail = `review-admin-${Date.now()}@test.com`;
 
     // ── Register student ──
-    const studentRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: studentEmail,
@@ -393,7 +402,12 @@ describe('Day 11 — Reviews (e2e)', () => {
       })
       .expect(201);
 
-    const student = studentRes.body as AuthResponse;
+    const student = await authenticateUser(
+      app,
+      userRepository,
+      studentEmail,
+      password,
+    );
 
     // ── Create tutor directly in DB ──
     const tutor = await createUser(userRepository, {
@@ -445,15 +459,16 @@ describe('Day 11 — Reviews (e2e)', () => {
     const reviewId = (createRes.body as { id: string }).id;
 
     // ── Tutor tries to create a review → 403 (student-only) ──
-    const tutorToken = jwtService.sign({
-      sub: tutor.id,
-      email: tutor.email,
-      role: UserRole.TUTOR,
-    });
+    const tutorSession = await authenticateUser(
+      app,
+      userRepository,
+      tutor.email,
+      password,
+    );
 
     await request(app.getHttpServer())
       .post('/api/v1/reviews')
-      .set('Authorization', `Bearer ${tutorToken}`)
+      .set('Authorization', `Bearer ${tutorSession.accessToken}`)
       .send({
         lessonId: lesson.id,
         rating: 4,
@@ -478,15 +493,16 @@ describe('Day 11 — Reviews (e2e)', () => {
       role: UserRole.ADMIN,
     });
 
-    const adminToken = jwtService.sign({
-      sub: admin.id,
-      email: admin.email,
-      role: UserRole.ADMIN,
-    });
+    const adminSession = await authenticateUser(
+      app,
+      userRepository,
+      admin.email,
+      password,
+    );
 
     await request(app.getHttpServer())
       .patch(`/api/v1/reviews/${reviewId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .send({ status: CourseStatus.APPROVED })
       .expect(200);
 
@@ -512,7 +528,7 @@ describe('Day 11 — Reviews (e2e)', () => {
     // ── Admin can access pending reviews ──
     const pendingRes = await request(app.getHttpServer())
       .get('/api/v1/reviews/pending')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(200);
 
     expect(Array.isArray(pendingRes.body)).toBe(true);

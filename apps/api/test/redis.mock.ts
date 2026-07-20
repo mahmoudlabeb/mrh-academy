@@ -1,5 +1,6 @@
 export class RedisServiceMock {
   public connected = true;
+  public readonly redis = { ping: async () => 'PONG' };
   private readonly store = new Map<string, string>();
 
   async set(key: string, value: string, _mode?: string, _ttl?: number) {

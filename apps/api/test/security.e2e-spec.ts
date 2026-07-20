@@ -2,9 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
 jest.setTimeout(60000);
 
@@ -17,10 +20,13 @@ describe('Security Configuration (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -38,7 +44,9 @@ describe('Security Configuration (e2e)', () => {
 
   // ── Helmet Security Headers ──────────────────────────────────────────────────
   it('should include Helmet security headers (CSP, X-Frame-Options, HSTS)', async () => {
-    const res = await request(app.getHttpServer()).get('/api/v1').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/api/v1/health/live')
+      .expect(200);
 
     // Content-Security-Policy header
     expect(res.headers['content-security-policy']).toBeDefined();
@@ -62,18 +70,11 @@ describe('Security Configuration (e2e)', () => {
   // ── Rate Limiting ────────────────────────────────────────────────────────────
   it('should enforce Rate Limiting (429 Too Many Requests)', async () => {
     let has429 = false;
-    // Fire 105 requests in batches of 10 (limit is 100/min)
-    for (let batch = 0; batch < 11; batch++) {
-      const promises: Promise<any>[] = [];
-      for (let i = 0; i < 10; i++) {
-        promises.push(
-          request(app.getHttpServer())
-            .get('/api/v1/health')
-            .then((r) => r.status),
-        );
-      }
-      const statuses = await Promise.all(promises);
-      if (statuses.some((s) => s === 429)) {
+    for (let attempt = 0; attempt < 110; attempt++) {
+      const response = await request(app.getHttpServer()).get(
+        '/api/v1/health/live',
+      );
+      if (response.status === 429) {
         has429 = true;
         break;
       }
@@ -94,7 +95,7 @@ describe('Security Configuration (e2e)', () => {
       .post('/api/v1/auth/register')
       .send({
         email: uniqueEmail,
-        password: 'Test1234',
+        password: 'Test-password-2026!',
         firstName: 'Valid',
         lastName: 'User',
         role: 'student',
@@ -110,7 +111,7 @@ describe('Security Configuration (e2e)', () => {
       .post('/api/v1/auth/register')
       .send({
         email: 'shortname@test.com',
-        password: 'Test1234',
+        password: 'Test-password-2026!',
         firstName: '', // too short
         lastName: 'X', // too short
         role: 'student',

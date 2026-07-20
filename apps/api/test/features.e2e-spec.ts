@@ -1,10 +1,10 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRole, CourseStatus, LessonStatus } from '@mrh/types';
 import { hash } from 'argon2';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
@@ -17,13 +17,19 @@ import { VocabularyWord } from '../src/vocabulary/entities/vocabulary-word.entit
 import { Lesson } from '../src/lessons/entities/lesson.entity.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
+import {
+  accessTokenFromResponse,
+  authenticateUser,
+} from './isolated-fixtures.js';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
 type AuthResponse = {
   accessToken: string;
   user: { id: string; email: string; role: UserRole };
 };
 
-const password = 'Test1234';
+const password = 'Test-password-2026!';
 
 async function createUser(
   userRepository: Repository<User>,
@@ -55,10 +61,13 @@ describe('Messages (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -82,7 +91,7 @@ describe('Messages (e2e)', () => {
     const senderEmail = `msg-sender-${Date.now()}@test.com`;
     const receiverEmail = `msg-receiver-${Date.now()}@test.com`;
 
-    const senderRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: senderEmail,
@@ -93,7 +102,12 @@ describe('Messages (e2e)', () => {
       })
       .expect(201);
 
-    const sender = senderRes.body as AuthResponse;
+    const sender = await authenticateUser(
+      app,
+      userRepository,
+      senderEmail,
+      password,
+    );
 
     const receiver = await createUser(userRepository, {
       email: receiverEmail,
@@ -120,12 +134,12 @@ describe('Messages (e2e)', () => {
       }),
     );
 
-    const receiverLogin = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: receiverEmail, password })
-      .expect(200);
-
-    const receiverSession = receiverLogin.body as AuthResponse;
+    const receiverSession = await authenticateUser(
+      app,
+      userRepository,
+      receiverEmail,
+      password,
+    );
 
     await request(app.getHttpServer())
       .post('/api/v1/messages')
@@ -171,7 +185,6 @@ describe('Courses (e2e)', () => {
   let courseRepository: Repository<Course>;
   let courseEnrollmentRepository: Repository<CourseEnrollment>;
   let courseLessonRepository: Repository<CourseLesson>;
-  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -179,10 +192,13 @@ describe('Courses (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -198,7 +214,6 @@ describe('Courses (e2e)', () => {
     courseRepository = app.get(getRepositoryToken(Course));
     courseEnrollmentRepository = app.get(getRepositoryToken(CourseEnrollment));
     courseLessonRepository = app.get(getRepositoryToken(CourseLesson));
-    jwtService = app.get(JwtService);
   });
 
   afterAll(async () => {
@@ -210,7 +225,7 @@ describe('Courses (e2e)', () => {
     const adminEmail = `course-admin-${Date.now()}@test.com`;
     const studentEmail = `course-student-${Date.now()}@test.com`;
 
-    const tutorRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: tutorEmail,
@@ -221,16 +236,16 @@ describe('Courses (e2e)', () => {
       })
       .expect(201);
 
-    const tutor = tutorRes.body as AuthResponse;
-
-    await userRepository.update(tutor.user.id, { role: UserRole.TUTOR });
-
-    const tutorLogin = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: tutorEmail, password })
-      .expect(200);
-
-    const tutorSession = tutorLogin.body as AuthResponse;
+    await userRepository.update(
+      { email: tutorEmail },
+      { role: UserRole.TUTOR },
+    );
+    const tutorSession = await authenticateUser(
+      app,
+      userRepository,
+      tutorEmail,
+      password,
+    );
 
     const createRes = await request(app.getHttpServer())
       .post('/api/v1/courses')
@@ -254,15 +269,16 @@ describe('Courses (e2e)', () => {
       role: UserRole.ADMIN,
     });
 
-    const adminToken = jwtService.sign({
-      sub: admin.id,
-      email: admin.email,
-      role: UserRole.ADMIN,
-    });
+    const adminSession = await authenticateUser(
+      app,
+      userRepository,
+      admin.email,
+      password,
+    );
 
     await request(app.getHttpServer())
       .post(`/api/v1/admin/courses/${courseId}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(201);
 
     const approvedCourse = await courseRepository.findOneByOrFail({
@@ -270,7 +286,7 @@ describe('Courses (e2e)', () => {
     });
     expect(approvedCourse.status).toBe(CourseStatus.APPROVED);
 
-    const studentRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: studentEmail,
@@ -281,7 +297,12 @@ describe('Courses (e2e)', () => {
       })
       .expect(201);
 
-    const student = studentRes.body as AuthResponse;
+    const student = await authenticateUser(
+      app,
+      userRepository,
+      studentEmail,
+      password,
+    );
 
     await studentProfileRepository.update(
       { userId: student.user.id },
@@ -351,6 +372,7 @@ describe('Courses (e2e)', () => {
 // ────────────────────────────────────────────────────────────
 describe('Vocabulary (e2e)', () => {
   let app: INestApplication;
+  let userRepository: Repository<User>;
   let vocabularyRepository: Repository<VocabularyWord>;
 
   beforeAll(async () => {
@@ -359,10 +381,13 @@ describe('Vocabulary (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -373,6 +398,7 @@ describe('Vocabulary (e2e)', () => {
     );
     await app.init();
 
+    userRepository = app.get(getRepositoryToken(User));
     vocabularyRepository = app.get(getRepositoryToken(VocabularyWord));
   });
 
@@ -383,7 +409,7 @@ describe('Vocabulary (e2e)', () => {
   it('saves, lists, and deletes a vocabulary word', async () => {
     const email = `vocab-${Date.now()}@test.com`;
 
-    const registerRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email,
@@ -394,7 +420,7 @@ describe('Vocabulary (e2e)', () => {
       })
       .expect(201);
 
-    const user = registerRes.body as AuthResponse;
+    const user = await authenticateUser(app, userRepository, email, password);
 
     const saveRes = await request(app.getHttpServer())
       .post('/api/v1/vocabulary/save')
@@ -440,7 +466,6 @@ describe('Admin Impersonation (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let redisService: RedisService;
-  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -448,10 +473,13 @@ describe('Admin Impersonation (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -464,7 +492,6 @@ describe('Admin Impersonation (e2e)', () => {
 
     userRepository = app.get(getRepositoryToken(User));
     redisService = app.get(RedisService);
-    jwtService = app.get(JwtService);
   });
 
   afterAll(async () => {
@@ -489,20 +516,20 @@ describe('Admin Impersonation (e2e)', () => {
       role: UserRole.STUDENT,
     });
 
-    const adminToken = jwtService.sign({
-      sub: admin.id,
-      email: admin.email,
-      role: UserRole.ADMIN,
-    });
+    const adminSession = await authenticateUser(
+      app,
+      userRepository,
+      admin.email,
+      password,
+    );
 
     const impersonateRes = await request(app.getHttpServer())
       .post('/api/v1/admin/impersonate')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .send({ userId: student.id })
       .expect(201);
 
-    const impersonatedToken = (impersonateRes.body as { accessToken: string })
-      .accessToken;
+    const impersonatedToken = accessTokenFromResponse(impersonateRes);
 
     (redisService as any).set(
       `user_session:${student.id}`,
@@ -522,8 +549,7 @@ describe('Admin Impersonation (e2e)', () => {
       .set('Authorization', `Bearer ${impersonatedToken}`)
       .expect(201);
 
-    const restoredToken = (unimpersonateRes.body as { accessToken: string })
-      .accessToken;
+    const restoredToken = accessTokenFromResponse(unimpersonateRes);
 
     const meRestored = await request(app.getHttpServer())
       .get('/api/v1/users/me')
@@ -541,7 +567,6 @@ describe('Admin Impersonation (e2e)', () => {
 describe('SubAdmin Invite (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -549,10 +574,13 @@ describe('SubAdmin Invite (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -564,7 +592,6 @@ describe('SubAdmin Invite (e2e)', () => {
     await app.init();
 
     userRepository = app.get(getRepositoryToken(User));
-    jwtService = app.get(JwtService);
   });
 
   afterAll(async () => {
@@ -582,15 +609,16 @@ describe('SubAdmin Invite (e2e)', () => {
       role: UserRole.ADMIN,
     });
 
-    const adminToken = jwtService.sign({
-      sub: admin.id,
-      email: admin.email,
-      role: UserRole.ADMIN,
-    });
+    const adminSession = await authenticateUser(
+      app,
+      userRepository,
+      admin.email,
+      password,
+    );
 
     await request(app.getHttpServer())
       .post('/api/v1/admin/subadmins/invite')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .send({
         email: subEmail,
         firstName: 'Invited',
@@ -617,7 +645,10 @@ describe('SubAdmin Invite (e2e)', () => {
 
     const acceptRes = await request(app.getHttpServer())
       .post('/api/v1/admin/subadmins/accept-invite')
-      .send({ token: invitedUser!.inviteToken!, password: 'NewPass1234' })
+      .send({
+        token: invitedUser!.inviteToken!,
+        password: 'New-test-password-2026!',
+      })
       .expect(201);
 
     const authData = acceptRes.body as AuthResponse;
@@ -631,7 +662,7 @@ describe('SubAdmin Invite (e2e)', () => {
 
     const listRes = await request(app.getHttpServer())
       .get('/api/v1/admin/subadmins')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(200);
 
     expect(Array.isArray(listRes.body)).toBe(true);
@@ -645,7 +676,6 @@ describe('SubAdmin Invite (e2e)', () => {
 describe('Admin Stats & Reports (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -653,10 +683,13 @@ describe('Admin Stats & Reports (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.use(helmet());
     app.useGlobalPipes(
       new ValidationPipe({
@@ -668,7 +701,6 @@ describe('Admin Stats & Reports (e2e)', () => {
     await app.init();
 
     userRepository = app.get(getRepositoryToken(User));
-    jwtService = app.get(JwtService);
   });
 
   afterAll(async () => {
@@ -685,15 +717,16 @@ describe('Admin Stats & Reports (e2e)', () => {
       role: UserRole.ADMIN,
     });
 
-    const adminToken = jwtService.sign({
-      sub: admin.id,
-      email: admin.email,
-      role: UserRole.ADMIN,
-    });
+    const adminSession = await authenticateUser(
+      app,
+      userRepository,
+      admin.email,
+      password,
+    );
 
     const statsRes = await request(app.getHttpServer())
       .get('/api/v1/admin/stats')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(200);
 
     expect(statsRes.body).toHaveProperty('totalStudents');
@@ -702,7 +735,7 @@ describe('Admin Stats & Reports (e2e)', () => {
 
     const dashboardRes = await request(app.getHttpServer())
       .get('/api/v1/admin/stats/dashboard')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(200);
 
     expect(dashboardRes.body).toHaveProperty('totalStudents');
@@ -710,7 +743,7 @@ describe('Admin Stats & Reports (e2e)', () => {
 
     const activityRes = await request(app.getHttpServer())
       .get('/api/v1/admin/activity/recent')
-      .set('Authorization', `Bearer ${adminToken}`)
+      .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(200);
 
     expect(Array.isArray(activityRes.body)).toBe(true);

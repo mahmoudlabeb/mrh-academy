@@ -12,6 +12,8 @@ import { RedisService } from '../src/redis/redis.service.js';
 import { User } from '../src/users/entities/user.entity.js';
 import { RedisServiceMock } from './redis.mock.js';
 import { createIsolatedUser, loginWithCookies } from './isolated-fixtures.js';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
 describe('isolated browser authentication fixtures (e2e)', () => {
   let app: INestApplication;
@@ -24,6 +26,8 @@ describe('isolated browser authentication fixtures (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();

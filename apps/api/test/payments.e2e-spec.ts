@@ -9,6 +9,7 @@ import {
 } from '@mrh/types';
 import { hash } from 'argon2';
 import request from 'supertest';
+import cookieParser from 'cookie-parser';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { StudentProfile } from '../src/students/entities/student-profile.entity.js';
@@ -20,6 +21,10 @@ import { TutorProfile } from '../src/tutors/entities/tutor-profile.entity.js';
 import { TutorAvailability } from '../src/tutors/entities/tutor-availability.entity.js';
 import { Lesson } from '../src/lessons/entities/lesson.entity.js';
 import { CourseStatus } from '@mrh/types';
+import { authenticateUser } from './isolated-fixtures.js';
+import { PaymentMethodConfig } from '../src/payments/entities/payment-method-config.entity.js';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
 function futureDayIso(daysAhead = 1): string {
   const date = new Date();
@@ -54,10 +59,13 @@ describe('Payments & Booking Flow (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true }),
     );
@@ -67,6 +75,9 @@ describe('Payments & Booking Flow (e2e)', () => {
     studentProfileRepository = app.get(getRepositoryToken(StudentProfile));
     paymentRepository = app.get(getRepositoryToken(Payment));
     lessonRepository = app.get(getRepositoryToken(Lesson));
+    const paymentMethodConfigRepository = app.get(
+      getRepositoryToken(PaymentMethodConfig),
+    ) as Repository<PaymentMethodConfig>;
 
     await paymentRepository.query(`TRUNCATE TABLE payments CASCADE`);
     await lessonRepository.query(`TRUNCATE TABLE lessons CASCADE`);
@@ -74,8 +85,17 @@ describe('Payments & Booking Flow (e2e)', () => {
       `TRUNCATE TABLE student_profiles CASCADE`,
     );
     await userRepository.query(`TRUNCATE TABLE users CASCADE`);
+    await paymentMethodConfigRepository.upsert(
+      {
+        type: PaymentMethod.PAYPAL,
+        label: 'PayPal',
+        enabled: true,
+        sortOrder: 1,
+      },
+      ['type'],
+    );
 
-    const passwordHash = await hash('Test1234');
+    const passwordHash = await hash('Test-password-2026!');
 
     await userRepository.save(
       userRepository.create({
@@ -140,23 +160,30 @@ describe('Payments & Booking Flow (e2e)', () => {
       }),
     );
 
-    let res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: 'admin_pay@test.com', password: 'Test1234' })
-      .expect(200);
-    adminToken = res.body.accessToken;
-
-    res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: 'student_pay@test.com', password: 'Test1234' })
-      .expect(200);
-    studentToken = res.body.accessToken;
-
-    res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ email: 'tutor_pay@test.com', password: 'Test1234' })
-      .expect(200);
-    tutorToken = res.body.accessToken;
+    adminToken = (
+      await authenticateUser(
+        app,
+        userRepository,
+        'admin_pay@test.com',
+        'Test-password-2026!',
+      )
+    ).accessToken;
+    studentToken = (
+      await authenticateUser(
+        app,
+        userRepository,
+        'student_pay@test.com',
+        'Test-password-2026!',
+      )
+    ).accessToken;
+    tutorToken = (
+      await authenticateUser(
+        app,
+        userRepository,
+        'tutor_pay@test.com',
+        'Test-password-2026!',
+      )
+    ).accessToken;
   });
 
   afterAll(async () => {
@@ -227,8 +254,8 @@ describe('Payments & Booking Flow (e2e)', () => {
       .set('Authorization', `Bearer ${tutorToken}`)
       .expect(200);
 
-    expect(resLessons.body.length).toBeGreaterThan(0);
-    const lessonId = resLessons.body[0].id;
+    expect(resLessons.body.data.length).toBeGreaterThan(0);
+    const lessonId = resLessons.body.data[0].id;
     const scheduledTime = futureScheduledTimeIso();
 
     const approveRes = await request(app.getHttpServer())

@@ -5,6 +5,8 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { RedisService } from '../src/redis/redis.service';
 import { RedisServiceMock } from './redis.mock';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -15,6 +17,8 @@ describe('AppController (e2e)', () => {
     })
       .overrideProvider(RedisService)
       .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();

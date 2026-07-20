@@ -3,59 +3,84 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
+import cookieParser from 'cookie-parser';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../src/users/entities/user.entity.js';
+import { RedisService } from '../src/redis/redis.service.js';
+import { RedisServiceMock } from './redis.mock.js';
+import { authenticateUser } from './isolated-fixtures.js';
+import { EmailService } from '../src/integrations/email/email.service.js';
+import { EmailServiceMock } from './email.mock.js';
 
 describe('Maintenance Guard Verification (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
+  let userRepository: Repository<User>;
   let studentToken: string;
   let adminToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(RedisService)
+      .useClass(RedisServiceMock)
+      .overrideProvider(EmailService)
+      .useClass(EmailServiceMock)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
+    app.use(cookieParser());
     await app.init();
 
     dataSource = app.get(DataSource);
+    userRepository = app.get(getRepositoryToken(User));
 
-    // 1. Create a student and get token
-    const studentRes = await request(app.getHttpServer())
+    const studentEmail = `maintenance-student-${Date.now()}@mrh-academy.example`;
+    await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
-        email: `student-${Date.now()}@test.com`,
-        password: 'Password123!',
+        email: studentEmail,
+        password: 'Test-password-2026!',
         role: 'student',
         firstName: 'Test',
         lastName: 'Student',
-      });
-    studentToken = studentRes.body.accessToken;
+      })
+      .expect(201);
+    studentToken = (
+      await authenticateUser(
+        app,
+        userRepository,
+        studentEmail,
+        'Test-password-2026!',
+      )
+    ).accessToken;
 
-    // 2. Create an admin and get token (we might need to manually set role to admin)
-    const adminEmail = `admin-${Date.now()}@test.com`;
-    await request(app.getHttpServer()).post('/api/v1/auth/register').send({
-      email: adminEmail,
-      password: 'Password123!',
-      role: 'student', // register as student first
-      firstName: 'Test',
-      lastName: 'Admin',
-    });
+    const adminEmail = `maintenance-admin-${Date.now()}@mrh-academy.example`;
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({
+        email: adminEmail,
+        password: 'Test-password-2026!',
+        role: 'student',
+        firstName: 'Test',
+        lastName: 'Admin',
+      })
+      .expect(201);
 
-    // update to admin
     await dataSource.query(`UPDATE users SET role = 'admin' WHERE email = $1`, [
       adminEmail,
     ]);
-
-    // login to get admin token
-    const adminLogin = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({
-        email: adminEmail,
-        password: 'Password123!',
-      });
-    adminToken = adminLogin.body.accessToken;
+    adminToken = (
+      await authenticateUser(
+        app,
+        userRepository,
+        adminEmail,
+        'Test-password-2026!',
+      )
+    ).accessToken;
   });
 
   afterAll(async () => {
@@ -63,47 +88,27 @@ describe('Maintenance Guard Verification (e2e)', () => {
   });
 
   it('verifies maintenance mode behavior', async () => {
-    // Enable maintenance mode
     await dataSource.query(
       `INSERT INTO settings (key, value) VALUES ('maintenance_mode', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'`,
     );
 
-    // Call non-admin endpoint with student token
-    const studentRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${studentToken}`);
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(503);
 
-    console.log(
-      'Student Response (Maintenance ON):',
-      studentRes.status,
-      studentRes.body,
-    );
-
-    // Call admin-authenticated endpoint with admin token
-    const adminRes = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${adminToken}`);
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
 
-    console.log(
-      'Admin Response (Maintenance ON):',
-      adminRes.status,
-      adminRes.body,
-    );
-
-    // Disable maintenance mode
     await dataSource.query(
       `UPDATE settings SET value = 'false' WHERE key = 'maintenance_mode'`,
     );
 
-    // Call non-admin endpoint again
-    const studentResAfter = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${studentToken}`);
-
-    console.log(
-      'Student Response (Maintenance OFF):',
-      studentResAfter.status,
-      studentResAfter.body,
-    );
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(200);
   });
 });
