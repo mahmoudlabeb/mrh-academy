@@ -16,6 +16,7 @@ import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
 import { CoursePromoCode } from './entities/course-promo-code.entity.js';
 import { CommissionService } from '../payments/commission.service.js';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class CoursesService {
@@ -34,6 +35,7 @@ export class CoursesService {
     private readonly studentProfileRepository: Repository<StudentProfile>,
     private readonly commissionService: CommissionService,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   private isValidCourseReferral(
@@ -47,10 +49,10 @@ export class CoursesService {
     if (referralCode === tutorId) {
       return true;
     }
-    const secret =
-      process.env.REFERRAL_SECRET ||
-      process.env.JWT_SECRET ||
-      'mrh-referral-dev';
+    const secret = this.config.get<string>('application.referralSecret');
+    if (!secret) {
+      return false;
+    }
     const signature = createHmac('sha256', secret)
       .update(`${courseId}:${tutorId}`)
       .digest('hex')

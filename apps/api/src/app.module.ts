@@ -1,10 +1,9 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ConfigModule, ConfigType } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
-import * as Joi from 'joi';
 import { AuthModule } from './auth/auth.module.js';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
@@ -30,101 +29,32 @@ import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
 import { HealthModule } from './health/health.module.js';
 import { SnakeNamingStrategy } from './common/database/snake-naming.strategy.js';
+import { applicationConfig } from './config/application.config.js';
+import { authConfig } from './config/auth.config.js';
+import { databaseConfig } from './config/database.config.js';
+import { integrationsConfig } from './config/integrations.config.js';
+import { environmentValidationSchema } from './config/environment.validation.js';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      validationSchema: Joi.object({
-        PORT: Joi.number().default(4000),
-        DATABASE_HOST: Joi.string().default('localhost'),
-        DATABASE_PORT: Joi.number().default(5432),
-        DATABASE_USER: Joi.string().default('mrh_admin'),
-        DATABASE_PASSWORD: Joi.string().default('mrh_password_dev'),
-        DATABASE_NAME: Joi.string().default('mrh_academy_db'),
-        DATABASE_URL: Joi.string().optional().allow(''),
-        JWT_SECRET: Joi.string().min(32).required(),
-        JWT_EXPIRES_IN: Joi.string().default('7d'),
-        REDIS_URL: Joi.string().default('redis://localhost:6379'),
-        FRONTEND_URL: Joi.string().default('http://localhost:3000'),
-        GOOGLE_CLIENT_ID: Joi.string().optional().allow(''),
-        GOOGLE_CLIENT_SECRET: Joi.string().optional().allow(''),
-        GOOGLE_CALLBACK_URL: Joi.string().optional().allow(''),
-        GOOGLE_SERVICE_ACCOUNT_EMAIL: Joi.string().optional().allow(''),
-        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: Joi.string().optional().allow(''),
-        GOOGLE_CALENDAR_IMPERSONATE_EMAIL: Joi.string().optional().allow(''),
-        CLOUDINARY_CLOUD_NAME: Joi.string().required(),
-        CLOUDINARY_API_KEY: Joi.string().required(),
-        CLOUDINARY_API_SECRET: Joi.string().required(),
-        STRIPE_SECRET_KEY: Joi.string().optional().allow(''),
-        STRIPE_WEBHOOK_SECRET: Joi.string().optional().allow(''),
-        STRIPE_PUBLISHABLE_KEY: Joi.string().optional().allow(''),
-        BUNNY_API_KEY: Joi.string().optional().allow(''),
-        BUNNY_LIBRARY_ID: Joi.string().optional().allow(''),
-        BUNNY_CDN_HOSTNAME: Joi.string().optional().allow(''),
-        BUNNY_READONLY_API_KEY: Joi.string().optional().allow(''),
-        METERED_API_KEY: Joi.string().optional().allow(''),
-        METERED_APP_NAME: Joi.string().optional().allow(''),
-        GEMINI_API_KEY: Joi.string().optional().allow(''),
-        SMTP_HOST: Joi.string().required(),
-        SMTP_PORT: Joi.number().required(),
-        SMTP_SECURE: Joi.string().valid('true', 'false').required(),
-        SMTP_USER: Joi.string().required(),
-        SMTP_PASS: Joi.string().required(),
-        SMTP_FROM: Joi.string().required(),
-        ADMIN_EMAILS: Joi.string().optional().allow(''),
-        SUBADMIN_DEFAULT_PASSWORD: Joi.string().optional().min(8),
-        REFERRAL_SECRET: Joi.string().optional().allow(''),
-        ARABIC_PDF_FONT_PATH: Joi.string().optional().allow(''),
-        CONFIRM_BOOTSTRAP: Joi.string().optional().allow(''),
-        CONFIRM_SEED: Joi.string().optional().allow(''),
-        CONFIRM_VALIDATE: Joi.string().optional().allow(''),
-        DB_SYNCHRONIZE: Joi.string().valid('true', 'false').default('false'),
-        RUN_MIGRATIONS: Joi.string().valid('true', 'false').default('false'),
-        DATABASE_SSL_REJECT_UNAUTHORIZED: Joi.string()
-          .valid('true', 'false')
-          .default('true'),
-        NODE_ENV: Joi.string()
-          .valid('development', 'test', 'production')
-          .default('development'),
-      }),
+      load: [applicationConfig, authConfig, databaseConfig, integrationsConfig],
+      validationSchema: environmentValidationSchema,
     }),
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const dbUrl = configService.get<string>('DATABASE_URL');
-        const nodeEnv = configService.get<string>('NODE_ENV', 'development');
-        const sslRejectUnauthorized =
-          configService.get<string>('DATABASE_SSL_REJECT_UNAUTHORIZED') !==
-          'false';
-        const runMigrations =
-          configService.get<string>('RUN_MIGRATIONS') === 'true';
-        const dbSynchronize =
-          configService.get<string>('DB_SYNCHRONIZE') === 'true';
-
-        return {
-          type: 'postgres',
-          ...(dbUrl
-            ? {
-                url: dbUrl,
-                ssl: { rejectUnauthorized: sslRejectUnauthorized },
-              }
-            : {
-                host: configService.get<string>('DATABASE_HOST'),
-                port: configService.get<number>('DATABASE_PORT'),
-                username: configService.get<string>('DATABASE_USER'),
-                password: configService.get<string>('DATABASE_PASSWORD'),
-                database: configService.get<string>('DATABASE_NAME'),
-                ssl: false,
-              }),
-          autoLoadEntities: true,
-          namingStrategy: new SnakeNamingStrategy(),
-          synchronize: dbSynchronize && nodeEnv !== 'production',
-          migrations: ['dist/database/migrations/*.js'],
-          migrationsRun: runMigrations,
-        };
-      },
+      imports: [ConfigModule.forFeature(databaseConfig)],
+      inject: [databaseConfig.KEY],
+      useFactory: (database: ConfigType<typeof databaseConfig>) => ({
+        type: 'postgres' as const,
+        ...database.connection,
+        autoLoadEntities: true,
+        namingStrategy: new SnakeNamingStrategy(),
+        synchronize: false,
+        migrations: ['dist/database/migrations/*.js'],
+        migrationsRun: false,
+      }),
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
@@ -148,6 +78,10 @@ import { SnakeNamingStrategy } from './common/database/snake-naming.strategy.js'
   ],
   controllers: [],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

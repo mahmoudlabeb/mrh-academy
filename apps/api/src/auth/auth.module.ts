@@ -14,6 +14,7 @@ import { StudentProfile } from '../students/entities/student-profile.entity.js';
 import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { SubAdminProfile } from '../admin/entities/sub-admin-profile.entity.js';
 import { EmailService } from '../integrations/email/email.service.js';
+import { GoogleAuthExceptionFilter } from './filters/google-auth-exception.filter.js';
 
 type JwtExpiresIn = NonNullable<
   NonNullable<JwtModuleOptions['signOptions']>['expiresIn']
@@ -47,6 +48,7 @@ type JwtExpiresIn = NonNullable<
     GoogleStrategy,
     EmailService,
     GoogleConfigGuard,
+    GoogleAuthExceptionFilter,
   ],
   exports: [AuthService, JwtModule],
 })

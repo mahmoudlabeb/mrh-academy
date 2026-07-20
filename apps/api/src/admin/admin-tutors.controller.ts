@@ -19,12 +19,13 @@ import { RejectTutorDto } from '../tutors/dto/reject-tutor.dto.js';
 import PDFDocument from 'pdfkit';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { ConfigService } from '@nestjs/config';
 
 const ARABIC_FONT_NAME = 'Arabic';
 
-function resolveArabicFontPath() {
+function resolveArabicFontPath(configuredPath?: string) {
   const candidates = [
-    process.env.ARABIC_PDF_FONT_PATH,
+    configuredPath,
     resolve(process.cwd(), 'dist/assets/fonts/Amiri-Regular.ttf'),
     resolve(process.cwd(), 'public/fonts/Amiri-Regular.ttf'),
     resolve(process.cwd(), 'src/assets/fonts/Amiri-Regular.ttf'),
@@ -35,7 +36,10 @@ function resolveArabicFontPath() {
 
 @Controller('admin/tutors')
 export class AdminTutorsController {
-  constructor(private readonly tutorsService: TutorsService) {}
+  constructor(
+    private readonly tutorsService: TutorsService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -109,7 +113,9 @@ export class AdminTutorsController {
     );
 
     const doc = new PDFDocument({ margin: 50 });
-    const arabicFontPath = resolveArabicFontPath();
+    const arabicFontPath = resolveArabicFontPath(
+      this.config.get<string>('ARABIC_PDF_FONT_PATH'),
+    );
     if (arabicFontPath) {
       doc.registerFont(ARABIC_FONT_NAME, arabicFontPath);
       doc.font(ARABIC_FONT_NAME);

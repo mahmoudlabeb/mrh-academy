@@ -9,13 +9,15 @@ import {
   HttpCode,
   HttpStatus,
   BadRequestException,
+  UseFilters,
+  Req,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { GoogleConfigGuard } from './guards/google-config.guard.js';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -23,6 +25,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { Public } from './decorators/public.decorator.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
+import { GoogleAuthExceptionFilter } from './filters/google-auth-exception.filter.js';
 
 @Controller('auth')
 export class AuthController {
@@ -31,37 +34,93 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {}
 
+  private setAuthCookies(
+    response: Response,
+    tokens: { accessToken: string; refreshToken?: string },
+  ) {
+    const secure =
+      this.configService.get<string>('COOKIE_SECURE') === 'true' ||
+      this.configService.get<string>('NODE_ENV') === 'production';
+    const base = {
+      httpOnly: true,
+      secure,
+      sameSite: 'strict' as const,
+      path: '/',
+    };
+    response.cookie('mrh_token', tokens.accessToken, {
+      ...base,
+      maxAge: 15 * 60 * 1000,
+    });
+    if (tokens.refreshToken) {
+      response.cookie('mrh_refresh', tokens.refreshToken, {
+        ...base,
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      });
+    }
+  }
+
+  private clearAuthCookies(response: Response) {
+    response.clearCookie('mrh_token', { path: '/' });
+    response.clearCookie('mrh_refresh', { path: '/' });
+  }
+
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.register(dto);
+    this.setAuthCookies(response, result);
+    return { user: result.user };
   }
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    this.setAuthCookies(response, result);
+    return { user: result.user };
+  }
+
+  @Public()
+  @Get('csrf')
+  csrf() {
+    return { status: 'ok' };
   }
 
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body('refreshToken') refreshToken: string) {
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = request.cookies?.mrh_refresh as string | undefined;
     if (!refreshToken) {
       throw new BadRequestException('Refresh token is required');
     }
-    return this.authService.refreshTokens(refreshToken);
+    const result = await this.authService.refreshTokens(refreshToken);
+    this.setAuthCookies(response, result);
+    return { user: result.user };
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@CurrentUser() user: { id: string }) {
+  async logout(
+    @CurrentUser() user: { id: string },
+    @Res({ passthrough: true }) response: Response,
+  ) {
     await this.authService.logout(user.id);
+    this.clearAuthCookies(response);
     return { message: 'Logged out successfully' };
   }
 
@@ -91,6 +150,7 @@ export class AuthController {
   @Public()
   @Get('google')
   @UseGuards(GoogleConfigGuard, AuthGuard('google'))
+  @UseFilters(GoogleAuthExceptionFilter)
   async googleAuth() {
     // Passport redirects to Google
   }
@@ -98,13 +158,14 @@ export class AuthController {
   @Public()
   @Get('google/callback')
   @UseGuards(GoogleConfigGuard, AuthGuard('google'))
+  @UseFilters(GoogleAuthExceptionFilter)
   async googleCallback(@CurrentUser() profile: any, @Res() res: Response) {
     const result = await this.authService.handleGoogleLogin(profile);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const params = new URLSearchParams({ token: result.accessToken });
-    if (result.refreshToken) {
-      params.set('refresh', result.refreshToken);
-    }
-    res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+    this.setAuthCookies(res, result);
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    res.redirect(`${frontendUrl}/auth/callback`);
   }
 }

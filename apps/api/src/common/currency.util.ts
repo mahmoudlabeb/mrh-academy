@@ -1,11 +1,9 @@
 /**
  * Central currency utility — single source of truth for the platform currency.
  *
- * Override via PLATFORM_CURRENCY env variable (default: 'usd').
+ * Currency selection belongs to the application configuration and is injected
+ * into payment providers. This module only contains amount conversions.
  */
-
-export const PLATFORM_CURRENCY: string =
-  process.env.PLATFORM_CURRENCY?.toLowerCase() || 'usd';
 
 /** Convert a dollar amount to the smallest currency unit (e.g. cents). */
 export function toCents(dollars: number): number {

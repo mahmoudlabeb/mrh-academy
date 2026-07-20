@@ -8,9 +8,9 @@ import { reshapeForPdf } from './pdf-arabic.util.js';
 const ARABIC_FONT_NAME = 'ArabicFont';
 
 /** Resolve the Arabic font file path from env var or fallback locations */
-function resolveArabicFontPath(): string | null {
+function resolveArabicFontPath(configuredPath?: string): string | null {
   const candidates: (string | undefined)[] = [
-    process.env.ARABIC_PDF_FONT_PATH,
+    configuredPath,
     resolve(process.cwd(), 'dist/assets/fonts/Amiri-Regular.ttf'),
     resolve(process.cwd(), 'public/fonts/Amiri-Regular.ttf'),
     resolve(process.cwd(), 'src/assets/fonts/Amiri-Regular.ttf'),
@@ -22,8 +22,10 @@ function resolveArabicFontPath(): string | null {
 export class InvoiceService {
   private readonly arabicFontPath: string | null = null;
 
-  constructor() {
-    this.arabicFontPath = resolveArabicFontPath();
+  constructor(config: ConfigService) {
+    this.arabicFontPath = resolveArabicFontPath(
+      config.get<string>('ARABIC_PDF_FONT_PATH'),
+    );
   }
 
   async generateInvoicePdf(invoiceData: {

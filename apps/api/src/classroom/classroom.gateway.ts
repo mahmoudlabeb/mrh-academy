@@ -21,6 +21,7 @@ import {
   getClassroomSocketData,
   setClassroomSocketData,
 } from '../common/types/classroom-socket.js';
+import { websocketCors } from '../config/websocket.config.js';
 
 interface ConnectedClient {
   socketId: string;
@@ -45,10 +46,7 @@ interface JwtHandshakePayload {
 @Injectable()
 @WebSocketGateway({
   namespace: '/classroom',
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  },
+  cors: websocketCors,
 })
 export class ClassroomGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnApplicationShutdown

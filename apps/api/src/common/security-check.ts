@@ -1,12 +1,16 @@
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-export function checkSecurityEnvironment(logger: Logger): void {
+export function checkSecurityEnvironment(
+  logger: Logger,
+  config: ConfigService,
+): void {
   const warnings: string[] = [];
   const errors: string[] = [];
 
-  const nodeEnv = process.env.NODE_ENV || 'development';
-  const jwtSecret = process.env.JWT_SECRET;
-  const frontendUrl = process.env.FRONTEND_URL;
+  const nodeEnv = config.get<string>('NODE_ENV', 'development');
+  const jwtSecret = config.get<string>('JWT_SECRET');
+  const frontendUrl = config.get<string>('FRONTEND_URL');
 
   if (nodeEnv === 'production') {
     if (!frontendUrl) {
@@ -25,25 +29,28 @@ export function checkSecurityEnvironment(logger: Logger): void {
       errors.push('JWT_SECRET still set to default value — CHANGE IMMEDIATELY');
     }
 
-    if (!process.env.DATABASE_URL && !process.env.DATABASE_PASSWORD) {
+    if (
+      !config.get<string>('DATABASE_URL') &&
+      !config.get<string>('DATABASE_PASSWORD')
+    ) {
       errors.push('DATABASE_URL or DATABASE_PASSWORD must be configured');
     }
 
-    if (!process.env.ADMIN_EMAILS) {
+    if (!config.get<string>('ADMIN_EMAILS')) {
       warnings.push('ADMIN_EMAILS must be configured in production');
     }
 
-    if (!process.env.SUBADMIN_DEFAULT_PASSWORD) {
+    if (!config.get<string>('SUBADMIN_DEFAULT_PASSWORD')) {
       errors.push('SUBADMIN_DEFAULT_PASSWORD must be set in production');
     }
 
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!config.get<string>('STRIPE_SECRET_KEY')) {
       warnings.push(
         'STRIPE_SECRET_KEY not configured — Stripe payments will fail',
       );
     }
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    if (!config.get<string>('SMTP_HOST') || !config.get<string>('SMTP_USER')) {
       warnings.push(
         'SMTP not fully configured — email notifications will be unavailable',
       );
@@ -51,11 +58,11 @@ export function checkSecurityEnvironment(logger: Logger): void {
   }
 
   if (nodeEnv === 'development') {
-    if (!process.env.REDIS_URL) {
+    if (!config.get<string>('REDIS_URL')) {
       warnings.push('REDIS_URL not set — session locking disabled');
     }
 
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 10) {
+    if (!jwtSecret || jwtSecret.length < 10) {
       warnings.push(
         'JWT_SECRET is too short — use a strong secret in production',
       );

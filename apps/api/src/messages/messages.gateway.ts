@@ -9,6 +9,7 @@ import { Injectable, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service.js';
+import { websocketCors } from '../config/websocket.config.js';
 
 interface JwtPayload {
   sub: string;
@@ -33,10 +34,7 @@ function getMessageSocketData(socket: Socket) {
 
 @WebSocketGateway({
   namespace: '/messages',
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  },
+  cors: websocketCors,
 })
 export class MessagesGateway
   implements OnGatewayConnection, OnGatewayDisconnect

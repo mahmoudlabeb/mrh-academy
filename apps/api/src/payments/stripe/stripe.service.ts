@@ -7,7 +7,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { Request } from 'express';
-import { PLATFORM_CURRENCY } from '../../common/currency.util.js';
 
 const STRIPE_API_VERSION = '2026-06-24.dahlia';
 
@@ -16,9 +15,14 @@ export class StripeService implements OnModuleInit {
   private readonly logger = new Logger(StripeService.name);
   private stripe: Stripe;
   private readonly secret?: string;
+  private readonly currency: string;
 
   constructor(private readonly configService: ConfigService) {
     this.secret = this.configService.get<string>('STRIPE_SECRET_KEY');
+    this.currency = this.configService.get<string>(
+      'application.platformCurrency',
+      'usd',
+    );
     this.stripe = new Stripe(this.secret || 'sk_test_placeholder', {
       apiVersion: STRIPE_API_VERSION,
     });
@@ -52,7 +56,7 @@ export class StripeService implements OnModuleInit {
       line_items: [
         {
           price_data: {
-            currency: PLATFORM_CURRENCY,
+            currency: this.currency,
             product_data: {
               name: 'Mr.H Academy Balance',
               description: `Add $${amount} to your student balance`,
@@ -115,7 +119,7 @@ export class StripeService implements OnModuleInit {
     return this.stripe.transfers.create(
       {
         amount: amountCents,
-        currency: PLATFORM_CURRENCY,
+        currency: this.currency,
         destination: accountId,
       },
       idempotencyKey ? { idempotencyKey } : undefined,

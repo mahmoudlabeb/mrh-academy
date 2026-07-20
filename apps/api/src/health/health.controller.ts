@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { RedisService } from '../redis/redis.service.js';
 
-@Controller('health')
+@Controller({ path: 'health', version: '1' })
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
@@ -40,8 +40,7 @@ export class HealthController {
   @Public()
   @Get('integrations')
   integrations() {
-    const configured = (name: string) =>
-      Boolean(this.config.get<string>(name));
+    const configured = (name: string) => Boolean(this.config.get<string>(name));
     return {
       status: 'ok',
       integrations: {

@@ -1,24 +1,29 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import {
+  ConsoleLogger,
+  Logger,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { checkSecurityEnvironment } from './common/security-check.js';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  checkSecurityEnvironment(logger);
-
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const configService = app.get(ConfigService);
-  app.useGlobalFilters(new AllExceptionsFilter());
-
-  // Global Prefix for API
-  app.setGlobalPrefix('api/v1');
+  checkSecurityEnvironment(logger, configService);
+  app.setGlobalPrefix('api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
+  app.enableShutdownHooks();
 
   // Validation Pipe — whitelist strips unknown properties silently
   app.useGlobalPipes(
@@ -32,6 +37,7 @@ async function bootstrap() {
   // CORS Configuration — strict lockdown in production
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const frontendUrl = configService.get<string>('FRONTEND_URL');
+  app.useLogger(new ConsoleLogger({ json: nodeEnv === 'production' }));
 
   const isOriginAllowed = (origin: string): boolean => {
     // Explicitly configured frontend URL
@@ -68,7 +74,7 @@ async function bootstrap() {
       'Content-Type',
       'Authorization',
       'X-Requested-With',
-      'X-MRH-Client',
+      'X-CSRF-Token',
     ],
   });
 
@@ -103,20 +109,25 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Swagger — disabled in production
-  if (nodeEnv !== 'production') {
+  if (
+    nodeEnv !== 'production' &&
+    configService.get<string>('SWAGGER_ENABLED') === 'true'
+  ) {
     const config = new DocumentBuilder()
       .setTitle('Mr.H Academy API')
-      .setDescription('The Definitive 30-Day Master API')
-      .setVersion('1.0')
+      .setDescription('Public HTTP contract for the Mr.H Academy platform')
+      .setVersion('1')
       .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+    SwaggerModule.setup('api/docs', app, document, {
+      jsonDocumentUrl: 'api/openapi.json',
+    });
   }
 
   // Start Server
   const port = configService.get<number>('PORT', 4000);
   await app.listen(port);
-  logger.log(`🚀 API Server running on port ${port}`);
+  logger.log(`API server listening on port ${port}`);
 }
 bootstrap();

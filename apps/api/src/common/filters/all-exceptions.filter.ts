@@ -1,27 +1,29 @@
 import {
-  ExceptionFilter,
-  Catch,
   ArgumentsHost,
+  Catch,
   HttpException,
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
+import type { Request } from 'express';
 
 @Catch()
-export class AllExceptionsFilter implements ExceptionFilter {
+export class AllExceptionsFilter extends BaseExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+  constructor(private readonly adapterHost: HttpAdapterHost) {
+    super(adapterHost.httpAdapter);
+  }
 
+  catch(exception: unknown, host: ArgumentsHost) {
+    const context = host.switchToHttp();
+    const response = context.getResponse();
+    const request = context.getRequest<Request>();
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
-
     const exceptionResponse =
       exception instanceof HttpException
         ? exception.getResponse()
@@ -29,7 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (!(exception instanceof HttpException)) {
       this.logger.error(
-        'Unhandled exception',
+        'Unhandled request exception',
         exception instanceof Error ? exception.stack : undefined,
       );
     }
@@ -39,14 +41,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exceptionResponse
         : ((exceptionResponse as { message?: unknown }).message ??
           exceptionResponse);
-
-    if (request.url.startsWith('/api/v1/auth/google')) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      response.redirect(`${frontendUrl}/login?error=google_auth_failed`);
-      return;
-    }
-
-    response.status(status).json({
+    const body = {
       statusCode: status,
       message,
       error:
@@ -55,6 +50,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
           : 'InternalServerError',
       timestamp: new Date().toISOString(),
       path: request.url,
-    });
+    };
+
+    this.adapterHost.httpAdapter.reply(response, body, status);
   }
 }
