@@ -29,7 +29,9 @@
             "allowJs": true,
             "strict": false,
             "paths": {
-              "@/*": ["../src/*"]
+              "@/*": [
+                "../src/*"
+              ]
             }
           }
         }
@@ -38,14 +40,16 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
     },
-    "moduleDirectories": ["node_modules", "<rootDir>"]
+    "moduleDirectories": [
+      "node_modules",
+      "<rootDir>"
+    ]
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@tanstack/react-query": "^5.101.2",
     "@mrh/types": "workspace:*",
     "axios": "^1.18.1",
-    "js-cookie": "^3.0.8",
     "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -61,7 +65,6 @@
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/jest": "^30.0.0",
-    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

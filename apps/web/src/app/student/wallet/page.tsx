@@ -4,15 +4,16 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
+import { PaymentMethod } from '@mrh/types';
 
 // Backend PaymentMethod enum values — must match exactly
 const PAYMENT_METHODS = [
-  { key: 'card',     labelAr: 'بطاقة ائتمان',  labelEn: 'Credit Card',    icon: '💳', requiresReceipt: false },
-  { key: 'paypal',   labelAr: 'PayPal',          labelEn: 'PayPal',         icon: '🅿️', requiresReceipt: false },
-  { key: 'vodafone', labelAr: 'فودافون كاش',    labelEn: 'Vodafone Cash',  icon: '📱', requiresReceipt: true  },
-  { key: 'instapay', labelAr: 'انستاباي',        labelEn: 'Instapay',       icon: '⚡', requiresReceipt: true  },
-  { key: 'binance',  labelAr: 'بايننس',          labelEn: 'Binance',        icon: '🪙', requiresReceipt: true  },
-  { key: 'bank',     labelAr: 'تحويل بنكي',     labelEn: 'Bank Transfer',  icon: '🏦', requiresReceipt: true  },
+  { key: PaymentMethod.CARD, labelAr: 'بطاقة ائتمان', labelEn: 'Credit Card', icon: '💳', requiresReceipt: false },
+  { key: PaymentMethod.PAYPAL, labelAr: 'PayPal', labelEn: 'PayPal', icon: '🅿️', requiresReceipt: false },
+  { key: PaymentMethod.VODAFONE, labelAr: 'فودافون كاش', labelEn: 'Vodafone Cash', icon: '📱', requiresReceipt: true },
+  { key: PaymentMethod.INSTAPAY, labelAr: 'انستاباي', labelEn: 'Instapay', icon: '⚡', requiresReceipt: true },
+  { key: PaymentMethod.BINANCE, labelAr: 'بايننس', labelEn: 'Binance', icon: '🪙', requiresReceipt: true },
+  { key: PaymentMethod.BANK, labelAr: 'تحويل بنكي', labelEn: 'Bank Transfer', icon: '🏦', requiresReceipt: true },
 ] as const;
 
 type MethodKey = typeof PAYMENT_METHODS[number]['key'];
@@ -43,7 +44,7 @@ export default function StudentWalletPage() {
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
   // Form state
-  const [selectedMethod, setSelectedMethod] = useState<MethodKey>('card');
+  const [selectedMethod, setSelectedMethod] = useState<MethodKey>(PaymentMethod.CARD);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState<'USD' | 'EGP'>('USD');
   const [adminNote, setAdminNote] = useState('');

@@ -49,7 +49,7 @@ body.dark-theme, .dark-theme {
   --color-background: var(--bg-main);
   --color-foreground: var(--text-main);
   --font-sans: var(--font-plus-jakarta), system-ui, sans-serif;
-  --font-arabic: var(--font-cairo-arabic), var(--font-tajawal-arabic), sans-serif;
+  --font-arabic: var(--font-cairo-arabic), sans-serif;
 }
 
 body {
@@ -70,11 +70,11 @@ body.ltr .font-arabic {
 }
 
 .font-arabic {
-  font-family: var(--font-cairo-arabic), var(--font-tajawal-arabic), sans-serif;
+  font-family: var(--font-cairo-arabic), sans-serif;
 }
 
 .logo-font {
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-plus-jakarta), sans-serif;
   font-weight: 800;
 }
 

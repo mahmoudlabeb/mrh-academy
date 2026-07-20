@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { getApiBaseUrl } from '@/lib/api-url';
-import { setAuthTokenCookie } from '@/lib/auth-cookie';
 import { useLanguage } from '@/contexts/language-context';
 
 type User = {
@@ -244,10 +243,7 @@ export default function TutorsTab() {
                     onClick={async () => {
                       try {
                         const { data } = await apiClient.post('/admin/impersonate', { userId: selectedTutor.userId });
-                        if (data.accessToken) {
-                          setAuthTokenCookie(data.accessToken);
-                          window.location.href = '/';
-                        }
+                        if (data.user) window.location.href = '/';
                       } catch {}
                     }}
                     className="btn-secondary w-full justify-center py-3"

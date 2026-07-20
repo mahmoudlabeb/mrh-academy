@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
+import { PaymentMethod } from '@mrh/types';
 
 interface PaymentModalProps {
   onClose: () => void;
@@ -13,12 +14,12 @@ interface PaymentModalProps {
 
 // Backend PaymentMethod enum values — must match exactly
 const PAYMENT_METHODS = [
-  { key: 'card',     labelAr: 'بطاقة ائتمان', labelEn: 'Credit Card',   icon: '💳', requiresReceipt: false },
-  { key: 'paypal',   labelAr: 'PayPal',          labelEn: 'PayPal',        icon: '🅿️', requiresReceipt: false },
-  { key: 'vodafone', labelAr: 'فودافون كاش',   labelEn: 'Vodafone Cash', icon: '📱', requiresReceipt: true  },
-  { key: 'instapay', labelAr: 'انستاباي',       labelEn: 'Instapay',      icon: '⚡', requiresReceipt: true  },
-  { key: 'binance',  labelAr: 'بايننس',         labelEn: 'Binance',       icon: '🪙', requiresReceipt: true  },
-  { key: 'bank',     labelAr: 'تحويل بنكي',    labelEn: 'Bank Transfer', icon: '🏦', requiresReceipt: true  },
+  { key: PaymentMethod.CARD, labelAr: 'بطاقة ائتمان', labelEn: 'Credit Card', icon: '💳', requiresReceipt: false },
+  { key: PaymentMethod.PAYPAL, labelAr: 'PayPal', labelEn: 'PayPal', icon: '🅿️', requiresReceipt: false },
+  { key: PaymentMethod.VODAFONE, labelAr: 'فودافون كاش', labelEn: 'Vodafone Cash', icon: '📱', requiresReceipt: true },
+  { key: PaymentMethod.INSTAPAY, labelAr: 'انستاباي', labelEn: 'Instapay', icon: '⚡', requiresReceipt: true },
+  { key: PaymentMethod.BINANCE, labelAr: 'بايننس', labelEn: 'Binance', icon: '🪙', requiresReceipt: true },
+  { key: PaymentMethod.BANK, labelAr: 'تحويل بنكي', labelEn: 'Bank Transfer', icon: '🏦', requiresReceipt: true },
 ] as const;
 
 type MethodKey = typeof PAYMENT_METHODS[number]['key'];
@@ -28,7 +29,7 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
   const queryClient = useQueryClient();
   const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
 
-  const [activeMethod, setActiveMethod] = useState<MethodKey>('card');
+  const [activeMethod, setActiveMethod] = useState<MethodKey>(PaymentMethod.CARD);
   const [currency, setCurrency] = useState<'USD' | 'EGP'>('USD');
   const [amount, setAmount] = useState('');
   const [file, setFile] = useState<File | null>(null);

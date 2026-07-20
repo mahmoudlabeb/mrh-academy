@@ -4,6 +4,7 @@ import {
   Body,
   UseGuards,
   UnauthorizedException,
+  Res,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,6 +20,7 @@ import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service.js';
 import { randomUUID } from 'node:crypto';
 import { getJwtSignOptions } from '../auth/jwt-profile.js';
+import type { Response } from 'express';
 
 interface AdminUser {
   id: string;
@@ -43,6 +45,7 @@ export class AdminImpersonationController {
   async impersonate(
     @CurrentUser() admin: AdminUser,
     @Body() dto: { userId: string },
+    @Res({ passthrough: true }) response: Response,
   ) {
     const targetUser = await this.userRepository.findOne({
       where: { id: dto.userId },
@@ -72,13 +75,17 @@ export class AdminImpersonationController {
       ...getJwtSignOptions(this.config),
       expiresIn: '1h',
     });
+    this.setAccessCookie(response, accessToken);
 
-    return { accessToken, user: targetUser };
+    return { user: targetUser };
   }
 
   @Post('unimpersonate')
   @UseGuards(JwtAuthGuard)
-  async unimpersonate(@CurrentUser() admin: AdminUser) {
+  async unimpersonate(
+    @CurrentUser() admin: AdminUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     if (!admin.originalAdminId) {
       throw new UnauthorizedException('Not currently impersonating');
     }
@@ -109,7 +116,20 @@ export class AdminImpersonationController {
       ...getJwtSignOptions(this.config),
       expiresIn: '15m',
     });
+    this.setAccessCookie(response, accessToken);
 
-    return { accessToken, user: originalAdmin };
+    return { user: originalAdmin };
+  }
+
+  private setAccessCookie(response: Response, token: string) {
+    response.cookie('mrh_token', token, {
+      httpOnly: true,
+      secure:
+        this.config.get<string>('COOKIE_SECURE') === 'true' ||
+        this.config.get<string>('NODE_ENV') === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 60 * 60 * 1000,
+    });
   }
 }

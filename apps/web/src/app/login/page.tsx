@@ -153,10 +153,6 @@ export default function LoginPage() {
 
             <a
               href={`${getApiBaseUrl()}/auth/google`}
-              onClick={(e) => {
-                const state = crypto.randomUUID();
-                (e.currentTarget as HTMLAnchorElement).href = `${getApiBaseUrl()}/auth/google?state=${state}`;
-              }}
               className="btn-secondary w-full justify-center py-3"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">

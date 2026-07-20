@@ -1,33 +1,14 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
 function AuthCallbackContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Google OAuth flow passes tokens as URL query params
-    const urlToken = searchParams.get("token");
-    const urlRefresh = searchParams.get("refresh");
-
-    if (urlToken) {
-      Cookies.set("mrh_token", urlToken, { secure: true, sameSite: "strict" });
-      if (urlRefresh) {
-        Cookies.set("mrh_refresh", urlRefresh, { secure: true, sameSite: "strict" });
-      }
-    }
-
-    const token = urlToken || Cookies.get("mrh_token");
-    if (!token) {
-      setError("No token received");
-      return;
-    }
-
     apiClient
       .get("/users/me")
       .then(({ data }) => {
@@ -41,10 +22,9 @@ function AuthCallbackContent() {
         }
       })
       .catch(() => {
-        Cookies.remove("mrh_token");
         setError("Failed to verify session");
       });
-  }, [router, searchParams]);
+  }, [router]);
 
   if (error) {
     return (

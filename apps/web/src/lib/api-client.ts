@@ -1,5 +1,4 @@
-import axios from "axios";
-import Cookies from "js-cookie";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { getApiBaseUrl } from "./api-url";
 
 export const apiClient = axios.create({
@@ -7,95 +6,75 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
-}> = [];
+let csrfPromise: Promise<void> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
-function processQueue(error: unknown, token: string | null = null) {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
+function readCookie(name: string) {
+  if (typeof document === "undefined") return undefined;
+  const prefix = `${name}=`;
+  return document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith(prefix))
+    ?.slice(prefix.length);
 }
 
-apiClient.interceptors.request.use(
-  (config) => {
-    config.headers["X-MRH-Client"] = "mrh-web";
-    if (typeof window !== "undefined") {
-      const token = Cookies.get("mrh_token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => Promise.reject(error),
-);
+async function ensureCsrf() {
+  if (readCookie("mrh_csrf")) return;
+  csrfPromise ??= axios
+    .get(`${getApiBaseUrl()}/auth/csrf`, { withCredentials: true })
+    .then(() => undefined)
+    .finally(() => {
+      csrfPromise = null;
+    });
+  await csrfPromise;
+}
+
+function isStateChanging(config: InternalAxiosRequestConfig) {
+  return !["get", "head", "options"].includes(
+    (config.method ?? "get").toLowerCase(),
+  );
+}
+
+apiClient.interceptors.request.use(async (config) => {
+  if (isStateChanging(config)) {
+    await ensureCsrf();
+    const token = readCookie("mrh_csrf");
+    if (token) config.headers.set("X-CSRF-Token", token);
+  }
+  return config;
+});
 
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        })
+      | undefined;
     if (
-      error.response &&
-      error.response.status === 401 &&
-      !originalRequest._retry &&
-      typeof window !== "undefined"
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry ||
+      originalRequest.url?.includes("/auth/refresh") ||
+      typeof window === "undefined"
     ) {
-      const refreshToken = Cookies.get("mrh_refresh");
-      if (!refreshToken) {
-        Cookies.remove("mrh_token");
-        window.location.href = "/login";
-        return Promise.reject(error);
-      }
-
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return apiClient(originalRequest);
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const { data } = await axios.post(
-          `${getApiBaseUrl()}/auth/refresh`,
-          { refreshToken },
-          { headers: { "X-MRH-Client": "mrh-web" } },
-        );
-        Cookies.set("mrh_token", data.accessToken, {
-          secure: true,
-          sameSite: "strict",
-        });
-        if (data.refreshToken) {
-          Cookies.set("mrh_refresh", data.refreshToken, {
-            secure: true,
-            sameSite: "strict",
-          });
-        }
-        processQueue(null, data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        Cookies.remove("mrh_token");
-        Cookies.remove("mrh_refresh");
-        window.location.href = "/login";
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    originalRequest._retry = true;
+    refreshPromise ??= apiClient
+      .post("/auth/refresh")
+      .then(() => undefined)
+      .finally(() => {
+        refreshPromise = null;
+      });
+    try {
+      await refreshPromise;
+      return apiClient(originalRequest);
+    } catch (refreshError) {
+      window.location.assign("/login");
+      return Promise.reject(refreshError);
+    }
   },
 );

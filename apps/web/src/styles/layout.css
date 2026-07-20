@@ -24,7 +24,7 @@
 }
 .dashboard-header .logo {
   color: var(--primary-color);
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-plus-jakarta), sans-serif;
   font-weight: 800;
 }
 .dashboard-header .nav-link {
@@ -49,7 +49,7 @@
   position: relative;
 }
 .navbar-dark .nav-link::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -4px;
   left: 0;

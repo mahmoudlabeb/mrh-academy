@@ -4,7 +4,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { apiClient } from "@/lib/api-client";
@@ -104,7 +103,10 @@ export function ProfileManagementPage({ title }: ProfileManagementPageProps) {
 
   const deleteMutation = useMutation({
     mutationFn: async () => { const { data } = await apiClient.delete("/users/me"); return data; },
-    onSuccess: () => { Cookies.remove("mrh_token"); router.push("/login"); },
+    onSuccess: async () => {
+      await apiClient.post('/auth/logout').catch(() => undefined);
+      router.push('/login');
+    },
   });
 
   if (meQuery.isLoading) {

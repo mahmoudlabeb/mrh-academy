@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
-
-type LessonStatus = 'confirmed' | 'completed' | 'cancelled' | 'pending';
+import { LessonStatus } from '@mrh/types';
 
 interface Lesson {
   id: string;

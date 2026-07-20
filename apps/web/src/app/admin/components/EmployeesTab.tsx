@@ -14,6 +14,11 @@ type Employee = {
   permissions: string | string[];
 };
 
+type SubAdmin = Employee & {
+  isActive: boolean;
+  hasInviteToken: boolean;
+};
+
 const PERMISSION_OPTIONS = [
   'manage_tutors',
   'manage_students',
@@ -81,7 +86,7 @@ export default function EmployeesTab() {
     },
   });
 
-  const subadminsQuery = useQuery({
+  const subadminsQuery = useQuery<SubAdmin[]>({
     queryKey: ['admin-subadmins'],
     queryFn: async () => {
       const { data } = await apiClient.get('/admin/subadmins');
@@ -292,7 +297,7 @@ export default function EmployeesTab() {
               ) : subadminsQuery.data?.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-12 text-center" style={{ color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لا يوجد مشرفون فرعيون' : 'No sub-admins'}</td></tr>
               ) : (
-                subadminsQuery.data?.map((s: any) => (
+                subadminsQuery.data?.map((s) => (
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                     <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-main)' }}>{s.firstName} {s.lastName}</td>
                     <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{s.email}</td>
@@ -307,7 +312,12 @@ export default function EmployeesTab() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1 flex-wrap">
-                        {(s.permissions || []).map((p: string) => (
+                        {(Array.isArray(s.permissions)
+                          ? s.permissions
+                          : s.permissions
+                            ? s.permissions.split(',')
+                            : []
+                        ).map((p) => (
                           <span key={p} className="badge text-xs" style={{ background: 'var(--bg-light)', color: 'var(--text-muted)' }}>{p}</span>
                         ))}
                       </div>

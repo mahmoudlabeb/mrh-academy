@@ -48,18 +48,11 @@ function AcceptInviteForm() {
     setError('');
 
     try {
-      const { data } = await apiClient.post('/admin/subadmins/accept-invite', { token, password });
-      if (data.accessToken) {
-        const Cookies = (await import('js-cookie')).default;
-        Cookies.set('mrh_token', data.accessToken, { secure: true, sameSite: 'strict' });
-        if (data.refreshToken) {
-          Cookies.set('mrh_refresh', data.refreshToken, { secure: true, sameSite: 'strict' });
-        }
-      }
+      await apiClient.post('/admin/subadmins/accept-invite', { token, password });
       setSuccess(true);
       setTimeout(() => { router.push('/admin'); }, 2000);
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || 'حدث خطأ';
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'حدث خطأ';
       setError(msg);
     } finally {
       setLoading(false);

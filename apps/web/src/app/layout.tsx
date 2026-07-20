@@ -4,12 +4,12 @@ import '@/styles/animations.css';
 import '@/styles/components.css';
 import '@/styles/layout.css';
 import { Providers } from './providers';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import { cairo, plusJakartaSans, tajawal, inter } from '@/lib/fonts';
+import { cairo, plusJakartaSans } from '@/lib/fonts';
 
 export const metadata: Metadata = {
-  title: 'Mr.H Academy',
-  description: 'Online learning platform',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  title: { default: 'Mr.H Academy', template: '%s | Mr.H Academy' },
+  description: 'Learn languages with expert tutors online.',
 };
 
 export default function RootLayout({
@@ -59,9 +59,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`antialiased min-h-screen dark-theme font-arabic ${cairo.variable} ${plusJakartaSans.variable} ${tajawal.variable} ${inter.variable}`}>
+      <body className={`antialiased min-h-screen dark-theme font-arabic ${cairo.variable} ${plusJakartaSans.variable}`}>
         <Providers>
-          <ErrorBoundary>{children}</ErrorBoundary>
+          {children}
         </Providers>
       </body>
     </html>

@@ -1,22 +1,17 @@
-import { io, Socket } from 'socket.io-client';
-import Cookies from 'js-cookie';
+import { io, Socket } from "socket.io-client";
+import { getApiOriginUrl } from "./api-url";
 
 let socket: Socket | null = null;
 
 function getSocketBaseUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '');
-  if (!apiUrl) return 'http://localhost:4000';
-  return apiUrl.replace(/\/api\/v1$/, '');
+  return getApiOriginUrl();
 }
 
 export function getSocket(): Socket {
   if (!socket) {
     const baseUrl = getSocketBaseUrl();
     socket = io(`${baseUrl}/classroom`, {
-      auth: (cb: (params: { token: string }) => void) => {
-        cb({ token: Cookies.get('mrh_token') || '' });
-      },
-      transports: ['websocket', 'polling'],
+      transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,

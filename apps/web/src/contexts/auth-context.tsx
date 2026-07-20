@@ -8,7 +8,6 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import Cookies from "js-cookie";
 import { apiClient } from "@/lib/api-client";
 
 export interface User {
@@ -41,16 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchUser = useCallback(async () => {
-    const token = Cookies.get("mrh_token");
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
     try {
       const { data } = await apiClient.get("/users/me");
       setUser(data);
     } catch {
-      Cookies.remove("mrh_token");
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -63,10 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await apiClient.post("/auth/login", { email, password });
-    Cookies.set("mrh_token", data.accessToken, { secure: true, sameSite: "strict" });
-    if (data.refreshToken) {
-      Cookies.set("mrh_refresh", data.refreshToken, { secure: true, sameSite: "strict" });
-    }
     setUser(data.user);
     return data.user;
   }, []);
@@ -80,11 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: "student" | "tutor";
     }) => {
       const { data } = await apiClient.post("/auth/register", input);
-      Cookies.set("mrh_token", data.accessToken, { secure: true, sameSite: "strict" });
-      if (data.refreshToken) {
-        Cookies.set("mrh_refresh", data.refreshToken, { secure: true, sameSite: "strict" });
-      }
-      setUser(data.user);
+      setUser(null);
       return data.user;
     },
     [],
@@ -96,8 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore logout API errors
     }
-    Cookies.remove("mrh_token");
-    Cookies.remove("mrh_refresh");
     setUser(null);
     window.location.href = "/login";
   }, []);

@@ -12,13 +12,7 @@ import Link from "next/link";
 const registerSchema = z
   .object({
     email: z.string().email("البريد الإلكتروني غير صحيح"),
-    password: z
-      .string()
-      .min(8, "8 أحرف على الأقل")
-      .regex(
-        /(?=.*[A-Z])(?=.*\d)/,
-        "يجب أن تحتوي على حرف كبير ورقم واحد على الأقل",
-      ),
+    password: z.string().min(15, "15 حرفًا على الأقل").max(128, "128 حرفًا كحد أقصى"),
     confirmPassword: z.string(),
     firstName: z.string().min(1, "الاسم الأول مطلوب"),
     lastName: z.string().min(1, "الاسم الأخير مطلوب"),
@@ -55,8 +49,8 @@ export default function RegisterPage() {
       });
       return user;
     },
-    onSuccess: () => {
-      router.push("/student");
+    onSuccess: (user) => {
+      router.push(`/verify-email?email=${encodeURIComponent(user.email)}`);
     },
   });
 

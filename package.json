@@ -10,8 +10,8 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write package.json pnpm-workspace.yaml turbo.json apps/*/package.json packages/*/package.json",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json apps/*/package.json packages/*/package.json",
     "knip": "knip",
     "db:backup": "pnpm --filter @mrh/api db:backup",
     "test:e2e": "pnpm --filter @mrh/api test:e2e"

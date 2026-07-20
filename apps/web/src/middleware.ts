@@ -1,40 +1,18 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const dashboardPrefixes = ['/student', '/tutor', '/admin'];
+const dashboardPrefixes = ["/student", "/tutor", "/admin"];
 const sharedProtectedPrefixes = [
-  '/classroom',
-  '/book-lesson',
-  '/courses',
-  '/vocabulary',
+  "/classroom",
+  "/book-lesson",
+  "/courses",
+  "/vocabulary",
 ];
-const authPages = ['/login', '/register'];
-
-function decodeToken(token: string): { role?: string } | null {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const json =
-      typeof atob !== 'undefined'
-        ? atob(base64)
-        : Buffer.from(base64, 'base64').toString('utf-8');
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
-const roleRouteMap: Record<string, string> = {
-  student: '/student',
-  tutor: '/tutor',
-  admin: '/admin',
-  subadmin: '/admin',
-};
+const authPages = ["/login", "/register"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get('mrh_token')?.value;
+  const token = request.cookies.get("mrh_token")?.value;
 
   const isDashboardRoute = dashboardPrefixes.some((prefix) =>
     pathname.startsWith(prefix),
@@ -45,41 +23,53 @@ export function middleware(request: NextRequest) {
   const isProtected = isDashboardRoute || isSharedRoute;
   const isAuthPage = authPages.includes(pathname);
 
+  let response = NextResponse.next();
+  if (process.env.NODE_ENV === "production") {
+    const nonce = btoa(crypto.randomUUID());
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-nonce", nonce);
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}'`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com https://ui-avatars.com https://randomuser.me",
+      "connect-src 'self' https://api.mrh.academy wss:",
+      "media-src 'self' https://video.bunnycdn.com",
+      "frame-src 'self' https://hooks.stripe.com",
+      "worker-src 'self' blob:",
+    ].join("; ");
+    response.headers.set("Content-Security-Policy", csp);
+    response.headers.set("x-nonce", nonce);
+  }
+
   if (!token && isProtected) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   if (token) {
-    const payload = decodeToken(token);
-
     if (isAuthPage) {
-      const home = payload?.role ? roleRouteMap[payload.role] ?? '/' : '/';
-      return NextResponse.redirect(new URL(home, request.url));
-    }
-
-    if (isDashboardRoute && payload?.role) {
-      const expectedPrefix = roleRouteMap[payload.role];
-      if (expectedPrefix && !pathname.startsWith(expectedPrefix)) {
-        return NextResponse.redirect(new URL(expectedPrefix, request.url));
-      }
+      return NextResponse.redirect(new URL("/", request.url));
     }
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
   matcher: [
-    '/student/:path*',
-    '/tutor/:path*',
-    '/admin/:path*',
-    '/classroom/:path*',
-    '/book-lesson/:path*',
-    '/courses/:path*',
-    '/vocabulary/:path*',
-    '/login',
-    '/register',
+    "/student/:path*",
+    "/tutor/:path*",
+    "/admin/:path*",
+    "/classroom/:path*",
+    "/book-lesson/:path*",
+    "/courses/:path*",
+    "/vocabulary/:path*",
+    "/login",
+    "/register",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

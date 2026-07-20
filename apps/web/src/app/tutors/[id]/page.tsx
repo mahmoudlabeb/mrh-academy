@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getApiBaseUrl } from "@/lib/api-url";
+import { getServerApiBaseUrl } from "@/lib/api-url";
 import TutorActions from "./TutorActions";
 
 type Review = {
@@ -38,7 +38,7 @@ type TutorProfile = {
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 async function getTutor(id: string): Promise<TutorProfile> {
-  const baseUrl = getApiBaseUrl();
+  const baseUrl = getServerApiBaseUrl();
   const res = await fetch(`${baseUrl}/tutors/${id}`, { cache: "no-store" });
   if (res.status === 404) notFound();
   if (!res.ok) throw new Error("Unable to load tutor profile");
@@ -46,7 +46,7 @@ async function getTutor(id: string): Promise<TutorProfile> {
 }
 
 async function getTutorReviews(id: string): Promise<Review[]> {
-  const baseUrl = getApiBaseUrl();
+  const baseUrl = getServerApiBaseUrl();
   try {
     const res = await fetch(`${baseUrl}/reviews/tutor/${id}`, {
       cache: "no-store",
@@ -57,7 +57,7 @@ async function getTutorReviews(id: string): Promise<Review[]> {
 }
 
 async function getTutorAvailability(id: string): Promise<AvailabilitySlot[]> {
-  const baseUrl = getApiBaseUrl();
+  const baseUrl = getServerApiBaseUrl();
   try {
     const res = await fetch(`${baseUrl}/tutors/${id}/availability`, {
       cache: "no-store",

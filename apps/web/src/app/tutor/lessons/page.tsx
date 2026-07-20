@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
+import { LessonStatus } from '@mrh/types';
 
 type Lesson = {
   id: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: LessonStatus;
   scheduledTime: string;
   durationMinutes: number;
   price: number;
