@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
 import { PaymentMethod } from '@mrh/types';
@@ -24,6 +24,13 @@ const PAYMENT_METHODS = [
 
 type MethodKey = typeof PAYMENT_METHODS[number]['key'];
 
+interface PaymentMethodConfig {
+  type: string;
+  label: string;
+  enabled: boolean;
+  details: string | null;
+}
+
 export default function PaymentModal({ onClose, currentBalance, creditPrice = 15 }: PaymentModalProps) {
   const { lang } = useLanguage();
   const queryClient = useQueryClient();
@@ -37,8 +44,21 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
   const [submitted, setSubmitted] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const method = PAYMENT_METHODS.find(m => m.key === activeMethod)!;
-  const requiresReceipt = method.requiresReceipt;
+  const paymentMethodsQuery = useQuery({
+    queryKey: ['payment-methods'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaymentMethodConfig[]>('/payment-methods');
+      return data;
+    },
+  });
+  const enabledMethodKeys = new Set(
+    (paymentMethodsQuery.data ?? [])
+      .filter(config => config.enabled)
+      .map(config => config.type),
+  );
+  const paymentMethods = PAYMENT_METHODS.filter(method => enabledMethodKeys.has(method.key));
+  const method = paymentMethods.find(item => item.key === activeMethod) ?? paymentMethods[0];
+  const requiresReceipt = method?.requiresReceipt ?? false;
 
   const amountNum = parseFloat(amount) || 0;
   const amountInUsd = currency === 'EGP' ? amountNum / 50 : amountNum;
@@ -49,9 +69,10 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      if (!method) throw new Error(t('لا توجد وسيلة دفع متاحة', 'No payment method is available'));
       const formData = new FormData();
       formData.append('amount', String(amountNum));
-      formData.append('method', activeMethod);
+      formData.append('method', method.key);
       formData.append('currency', currency);
       if (file) formData.append('screenshot', file);
       formData.append('idempotencyKey', `${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -94,6 +115,10 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
   };
 
   const handleSubmit = () => {
+    if (!method) {
+      alert(t('لا توجد وسيلة دفع متاحة', 'No payment method is available'));
+      return;
+    }
     if (!amountNum || amountNum < 1) {
       alert(t('الرجاء إدخال مبلغ صحيح', 'Please enter a valid amount'));
       return;
@@ -171,15 +196,30 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
 
           {/* Method selector */}
           <div className="flex flex-wrap gap-2">
-            {PAYMENT_METHODS.map(pm => (
+            {paymentMethodsQuery.isLoading && (
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {t('جاري تحميل وسائل الدفع...', 'Loading payment methods...')}
+              </span>
+            )}
+            {paymentMethodsQuery.isError && (
+              <span className="text-sm" style={{ color: '#ef4444' }}>
+                {t('تعذر تحميل وسائل الدفع', 'Could not load payment methods')}
+              </span>
+            )}
+            {!paymentMethodsQuery.isLoading && !paymentMethodsQuery.isError && paymentMethods.length === 0 && (
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                {t('لا توجد وسيلة دفع متاحة حالياً', 'No payment method is currently available')}
+              </span>
+            )}
+            {paymentMethods.map(pm => (
               <button
                 key={pm.key}
                 type="button"
                 onClick={() => setActiveMethod(pm.key)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: activeMethod === pm.key ? 'rgba(212,163,83,0.15)' : 'var(--bg-light)',
-                  border: activeMethod === pm.key ? '2px solid #D4A353' : '1px solid var(--border-color)',
+                  background: method?.key === pm.key ? 'rgba(212,163,83,0.15)' : 'var(--bg-light)',
+                  border: method?.key === pm.key ? '2px solid #D4A353' : '1px solid var(--border-color)',
                   color: 'var(--text-main)',
                 }}
               >
@@ -259,7 +299,7 @@ export default function PaymentModal({ onClose, currentBalance, creditPrice = 15
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitMutation.isPending || !amountNum}
+            disabled={submitMutation.isPending || paymentMethodsQuery.isLoading || !method || !amountNum}
             className="btn-primary w-full py-3 disabled:opacity-50"
           >
             {submitMutation.isPending
