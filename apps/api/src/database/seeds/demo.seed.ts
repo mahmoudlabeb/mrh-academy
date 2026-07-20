@@ -4,6 +4,7 @@ import { AppDataSource } from '../data-source.js';
 import { User } from '../../users/entities/user.entity.js';
 import { StudentProfile } from '../../students/entities/student-profile.entity.js';
 import { TutorProfile } from '../../tutors/entities/tutor-profile.entity.js';
+import { TutorAvailability } from '../../tutors/entities/tutor-availability.entity.js';
 import { SubAdminProfile } from '../../admin/entities/sub-admin-profile.entity.js';
 import { Employee } from '../../admin/entities/employee.entity.js';
 
@@ -121,6 +122,31 @@ async function seedDemoData() {
               roleTitle: 'Demo Operations Manager',
               permissions: JSON.stringify(allSubAdminPermissions),
             }),
+          );
+        }
+      });
+    }
+
+    const demoTutor = await AppDataSource.getRepository(User).findOne({
+      where: { email: 'tutor.one@mrh-academy.example' },
+    });
+    if (demoTutor) {
+      await AppDataSource.transaction(async (manager) => {
+        const availabilityCount = await manager.count(TutorAvailability, {
+          where: { tutorId: demoTutor.id },
+        });
+        if (availabilityCount === 0) {
+          await manager.save(
+            TutorAvailability,
+            Array.from({ length: 7 }, (_, dayOfWeek) =>
+              manager.create(TutorAvailability, {
+                tutorId: demoTutor.id,
+                dayOfWeek,
+                startTime: '00:00',
+                endTime: '23:59',
+                isRecurring: true,
+              }),
+            ),
           );
         }
       });
