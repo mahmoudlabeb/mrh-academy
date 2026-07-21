@@ -55,6 +55,7 @@ import { Payout } from '../payments/entities/payout.entity.js';
       PaymentMethodConfig,
       Report,
       Payout,
+      CourseEnrollment,
     ]),
   ],
   providers: [AdminEmployeesService, EmailService],

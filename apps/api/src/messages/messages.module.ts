@@ -9,6 +9,7 @@ import { MessagesController } from './messages.controller.js';
 import { NotificationsController } from './notifications.controller.js';
 import { MessagesService } from './messages.service.js';
 import { MessagesGateway } from './messages.gateway.js';
+import { LessonReminderService } from './lesson-reminder.service.js';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { MessagesGateway } from './messages.gateway.js';
     AuthModule,
   ],
   controllers: [MessagesController, NotificationsController],
-  providers: [MessagesService, MessagesGateway],
+  providers: [MessagesService, MessagesGateway, LessonReminderService],
   exports: [MessagesGateway],
 })
 export class MessagesModule {}

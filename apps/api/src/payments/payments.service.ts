@@ -26,6 +26,11 @@ import { RequestPayoutDto } from './dto/request-payout.dto.js';
 import { StripeService } from './stripe/stripe.service.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CommissionService } from './commission.service.js';
+import { Notification } from '../messages/entities/notification.entity.js';
+import { CourseFundingAllocation } from './entities/course-funding-allocation.entity.js';
+import { CourseRefundReversal } from './entities/course-refund-reversal.entity.js';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
 import {
   OBJECT_STORAGE,
   type ObjectStorage,
@@ -61,6 +66,8 @@ export class PaymentsService {
     private readonly stripeService: StripeService,
     private readonly emailService: EmailService,
     private readonly commissionService: CommissionService,
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
@@ -238,14 +245,16 @@ export class PaymentsService {
         payment.rejectionReason = null;
         await manager.save(Payment, payment);
 
-        // Convert to credits based on currency
+        // Wallet balances, lesson prices, and course prices are all denominated
+        // in USD. A deposit therefore credits its USD value one-for-one.
+        // Dividing this value by the default lesson price made a $30 deposit
+        // worth only 2 balance units while a $30 course still cost 30 units.
         const egpRate = await this.commissionService.getEgpRate();
         const amountInUsd =
           payment.currency === 'EGP'
             ? payment.amount / egpRate
             : payment.amount;
-        const balanceToAdd =
-          await this.commissionService.amountToCredits(amountInUsd);
+        const balanceToAdd = Math.round(amountInUsd * 100) / 100;
         await manager.increment(
           StudentProfile,
           { userId: payment.userId },
@@ -256,6 +265,18 @@ export class PaymentsService {
         return { payment, balanceToAdd };
       })
       .then(async ({ payment, balanceToAdd }) => {
+        try {
+          await this.notificationRepository.save(
+            this.notificationRepository.create({
+              userId: payment.userId,
+              type: 'payment_approved',
+              title: 'Payment approved',
+              body: `Your payment was approved and $${balanceToAdd.toFixed(2)} was added to your balance.`,
+            }),
+          );
+        } catch (error) {
+          this.logger.error('Payment approval notification failed', error);
+        }
         const user = await this.userRepository.findOne({
           where: { id: payment.userId },
         });
@@ -267,7 +288,7 @@ export class PaymentsService {
               `<p>Your payment has been approved.</p>
 <p>Amount: $${payment.amount.toFixed(2)}</p>
 <p>Method: ${payment.method}</p>
-<p>Credits Added: ${balanceToAdd.toFixed(2)}</p>`,
+<p>Balance Added: $${balanceToAdd.toFixed(2)}</p>`,
             )
             .catch((err) =>
               this.logger.error('Payment approval email failed', err),
@@ -301,6 +322,150 @@ export class PaymentsService {
 
       return payment;
     });
+  }
+
+  async refundStripePayment(
+    paymentId: string,
+    cumulativeRefundAmount: number,
+    stripeChargeId?: string,
+  ) {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(Payment, {
+        where: { id: paymentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+      if (payment.status !== PaymentStatus.APPROVED) {
+        throw new BadRequestException('Only approved payments can be refunded');
+      }
+
+      const refundTotal = Math.min(
+        Number(payment.amount),
+        Math.max(0, Math.round(cumulativeRefundAmount * 100) / 100),
+      );
+      const refundDelta =
+        Math.round((refundTotal - Number(payment.refundedAmount ?? 0)) * 100) /
+        100;
+      if (refundDelta <= 0) {
+        return { payment, refundDelta: 0, revokedCourses: 0 };
+      }
+
+      const allocations = await manager.find(CourseFundingAllocation, {
+        where: { paymentId },
+        order: { createdAt: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      let amountStillToRelease = refundDelta;
+      let revokedCourses = 0;
+
+      for (const allocation of allocations) {
+        if (amountStillToRelease <= 0) break;
+        const enrollment = await manager.findOne(CourseEnrollment, {
+          where: { id: allocation.enrollmentId },
+          relations: { course: true },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!enrollment) continue;
+
+        const enrollmentAllocations = await manager.find(
+          CourseFundingAllocation,
+          {
+            where: { enrollmentId: enrollment.id },
+            lock: { mode: 'pessimistic_write' },
+          },
+        );
+        const paidAmount =
+          Number(enrollment.platformFee ?? 0) +
+          Number(enrollment.tutorShare ?? 0);
+
+        if (enrollment.tutorShare > 0) {
+          await manager.decrement(
+            TutorProfile,
+            { userId: enrollment.course.tutorId },
+            'balance',
+            Number(enrollment.tutorShare),
+          );
+        }
+        if (paidAmount > 0) {
+          await manager.increment(
+            StudentProfile,
+            { userId: enrollment.studentId },
+            'balance',
+            paidAmount,
+          );
+        }
+
+        await manager.save(
+          CourseRefundReversal,
+          manager.create(CourseRefundReversal, {
+            paymentId,
+            originalEnrollmentId: enrollment.id,
+            studentId: enrollment.studentId,
+            courseId: enrollment.courseId,
+            tutorId: enrollment.course.tutorId,
+            soldBy: enrollment.soldBy,
+            paidAmount,
+            platformFee: Number(enrollment.platformFee ?? 0),
+            tutorShare: Number(enrollment.tutorShare ?? 0),
+            stripeChargeId: stripeChargeId ?? null,
+          }),
+        );
+
+        for (const linkedAllocation of enrollmentAllocations) {
+          await manager.decrement(
+            Payment,
+            { id: linkedAllocation.paymentId },
+            'allocatedAmount',
+            Number(linkedAllocation.amount),
+          );
+        }
+        await manager.delete(CourseLessonCompletion, {
+          enrollmentId: enrollment.id,
+        });
+        await manager.delete(CourseFundingAllocation, {
+          enrollmentId: enrollment.id,
+        });
+        await manager.delete(CourseEnrollment, { id: enrollment.id });
+
+        amountStillToRelease =
+          Math.round((amountStillToRelease - Number(allocation.amount)) * 100) /
+          100;
+        revokedCourses += 1;
+      }
+
+      // Remove the refunded deposit after restoring the value of every
+      // revoked course. Any portion spent elsewhere becomes student debt
+      // rather than silently charging an unrelated tutor.
+      await manager.decrement(
+        StudentProfile,
+        { userId: payment.userId },
+        'balance',
+        refundDelta,
+      );
+      await manager.update(
+        Payment,
+        { id: payment.id },
+        {
+          refundedAmount: refundTotal,
+          refundedAt: refundTotal >= Number(payment.amount) ? new Date() : null,
+          adminNote: `Stripe refund ${refundTotal.toFixed(2)}${stripeChargeId ? ` (${stripeChargeId})` : ''}`,
+        },
+      );
+
+      return { payment, refundDelta, revokedCourses };
+    });
+
+    if (result.refundDelta > 0) {
+      await this.notificationRepository.save(
+        this.notificationRepository.create({
+          userId: result.payment.userId,
+          type: 'payment_refunded',
+          title: 'Payment refunded',
+          body: `$${result.refundDelta.toFixed(2)} was refunded. Access to ${result.revokedCourses} affected course(s) was revoked.`,
+        }),
+      );
+    }
+    return result;
   }
 
   async requestPayout(tutorId: string, dto: RequestPayoutDto) {

@@ -13,6 +13,9 @@ import { CommissionService } from './commission.service';
 import { PaymentsService } from './payments.service';
 import { StripeService } from './stripe/stripe.service';
 import { OBJECT_STORAGE } from '../integrations/storage/object-storage';
+import { Notification } from '../messages/entities/notification.entity';
+import { CourseFundingAllocation } from './entities/course-funding-allocation.entity';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -78,6 +81,10 @@ describe('PaymentsService', () => {
     destroy: jest.fn(),
     signedUrl: jest.fn(),
   };
+  const notificationRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -104,6 +111,10 @@ describe('PaymentsService', () => {
         { provide: StripeService, useValue: stripeService },
         { provide: EmailService, useValue: emailService },
         { provide: CommissionService, useValue: commissionService },
+        {
+          provide: getRepositoryToken(Notification),
+          useValue: notificationRepository,
+        },
         { provide: OBJECT_STORAGE, useValue: objectStorage },
       ],
     }).compile();
@@ -152,5 +163,138 @@ describe('PaymentsService', () => {
     );
     expect(dataSource.transaction).toHaveBeenCalled();
     expect(result.payment.status).toBe(PaymentStatus.APPROVED);
+  });
+
+  it('credits an approved USD payment to the student wallet one-for-one', async () => {
+    const increment = jest.fn();
+    dataSource.transaction.mockImplementationOnce(async (cb) =>
+      cb({
+        findOne: jest.fn(async () => ({
+          id: 'payment-1',
+          userId: 'user-1',
+          amount: 30,
+          currency: 'USD',
+          method: PaymentMethod.CARD,
+          status: PaymentStatus.PENDING,
+        })),
+        save: jest.fn(async (entity) => entity),
+        increment,
+      }),
+    );
+
+    await service.approvePayment('payment-1', 'admin-1');
+
+    expect(increment).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      30,
+    );
+  });
+
+  it('converts an approved EGP payment to USD before crediting the wallet', async () => {
+    const increment = jest.fn();
+    dataSource.transaction.mockImplementationOnce(async (cb) =>
+      cb({
+        findOne: jest.fn(async () => ({
+          id: 'payment-1',
+          userId: 'user-1',
+          amount: 1_500,
+          currency: 'EGP',
+          method: PaymentMethod.BANK,
+          status: PaymentStatus.PENDING,
+        })),
+        save: jest.fn(async (entity) => entity),
+        increment,
+      }),
+    );
+
+    await service.approvePayment('payment-1', 'admin-1');
+
+    expect(increment).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      30,
+    );
+  });
+
+  it('revokes funded course access and reverses commissions on Stripe refund', async () => {
+    const increment = jest.fn();
+    const decrement = jest.fn();
+    const remove = jest.fn();
+    const update = jest.fn();
+    const allocation = {
+      id: 'allocation-1',
+      paymentId: 'payment-1',
+      enrollmentId: 'enrollment-1',
+      amount: 100,
+      createdAt: new Date(),
+    };
+    const enrollment = {
+      id: 'enrollment-1',
+      studentId: 'user-1',
+      courseId: 'course-1',
+      platformFee: 53,
+      tutorShare: 47,
+      soldBy: 'academy',
+      course: { tutorId: 'tutor-1' },
+    };
+
+    dataSource.transaction.mockImplementationOnce(async (cb) =>
+      cb({
+        findOne: jest.fn(async (entity) => {
+          if (entity === Payment)
+            return {
+              id: 'payment-1',
+              userId: 'user-1',
+              amount: 100,
+              status: PaymentStatus.APPROVED,
+              refundedAmount: 0,
+            };
+          if (entity === CourseEnrollment) return enrollment;
+          return null;
+        }),
+        find: jest.fn(async (entity) =>
+          entity === CourseFundingAllocation ? [allocation] : [],
+        ),
+        increment,
+        decrement,
+        delete: remove,
+        update,
+        create: jest.fn((_entity, value) => value),
+        save: jest.fn(async (_entity, value) => value),
+      }),
+    );
+
+    const result = await service.refundStripePayment(
+      'payment-1',
+      100,
+      'charge-1',
+    );
+
+    expect(result.revokedCourses).toBe(1);
+    expect(increment).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      100,
+    );
+    expect(decrement).toHaveBeenCalledWith(
+      TutorProfile,
+      { userId: 'tutor-1' },
+      'balance',
+      47,
+    );
+    expect(decrement).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      100,
+    );
+    expect(remove).toHaveBeenCalledWith(CourseEnrollment, {
+      id: 'enrollment-1',
+    });
+    expect(notificationRepository.save).toHaveBeenCalled();
   });
 });

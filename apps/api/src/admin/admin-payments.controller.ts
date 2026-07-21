@@ -5,6 +5,7 @@ import {
   Param,
   Body,
   UseGuards,
+  Optional,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { StripeService } from '../payments/stripe/stripe.service.js';
 import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { Payout } from '../payments/entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
 
 /**
  * Stripe Connect Automated Payout System
@@ -46,7 +48,80 @@ export class AdminPaymentsController {
     private readonly tutorProfileRepository: Repository<TutorProfile>,
     @InjectRepository(Payout)
     private readonly payoutRepository: Repository<Payout>,
+    @Optional()
+    @InjectRepository(CourseEnrollment)
+    private readonly enrollmentRepository?: Repository<CourseEnrollment>,
   ) {}
+
+  /**
+   * Admin earnings ledger, grouped into tutor/course wallets.
+   * Each enrollment is one immutable sale entry; TutorProfile.balance is the
+   * tutor's withdrawable aggregate across all courses.
+   */
+  @Get('tutor-earnings')
+  async getTutorEarnings() {
+    const [enrollments, tutorProfiles] = await Promise.all([
+      this.enrollmentRepository?.find({
+        relations: { course: { tutor: true }, student: true },
+        order: { enrolledAt: 'DESC' },
+      }) ?? [],
+      this.tutorProfileRepository.find(),
+    ]);
+    const availableBalances = new Map(
+      tutorProfiles.map((profile) => [profile.userId, profile.balance]),
+    );
+
+    const wallets = new Map<
+      string,
+      {
+        tutorId: string;
+        tutorName: string;
+        courseId: string;
+        courseTitle: string;
+        sales: number;
+        grossSales: number;
+        academyCommission: number;
+        tutorEarned: number;
+        saleSources: { tutor: number; academy: number };
+      }
+    >();
+
+    for (const enrollment of enrollments) {
+      const key = `${enrollment.courseId}:${enrollment.course?.tutorId ?? ''}`;
+      const tutor = enrollment.course?.tutor;
+      const wallet = wallets.get(key) ?? {
+        tutorId: enrollment.course?.tutorId ?? '',
+        tutorName: tutor
+          ? `${tutor.firstName} ${tutor.lastName}`
+          : 'Unknown tutor',
+        courseId: enrollment.courseId,
+        courseTitle: enrollment.course?.title ?? 'Unknown course',
+        sales: 0,
+        grossSales: 0,
+        academyCommission: 0,
+        tutorEarned: 0,
+        saleSources: { tutor: 0, academy: 0 },
+      };
+      wallet.sales += 1;
+      wallet.grossSales +=
+        Number(enrollment.platformFee ?? 0) +
+        Number(enrollment.tutorShare ?? 0);
+      wallet.academyCommission += Number(enrollment.platformFee ?? 0);
+      wallet.tutorEarned += Number(enrollment.tutorShare ?? 0);
+      wallet.saleSources[enrollment.soldBy] += 1;
+      wallets.set(key, wallet);
+    }
+
+    return [...wallets.values()].map((wallet) => ({
+      ...wallet,
+      tutorAvailableBalance: Number(
+        (availableBalances.get(wallet.tutorId) ?? 0).toFixed(2),
+      ),
+      grossSales: Number(wallet.grossSales.toFixed(2)),
+      academyCommission: Number(wallet.academyCommission.toFixed(2)),
+      tutorEarned: Number(wallet.tutorEarned.toFixed(2)),
+    }));
+  }
 
   @Get()
   async getAllPayments() {

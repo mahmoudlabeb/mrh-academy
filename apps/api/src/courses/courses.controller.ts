@@ -47,6 +47,13 @@ export class CoursesController {
     return this.coursesService.getMyCourses(user.id);
   }
 
+  @Get('my/referral-stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  referralStats(@CurrentUser() user: AuthenticatedUser) {
+    return this.coursesService.getTutorReferralStats(user.id);
+  }
+
   @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
@@ -105,6 +112,7 @@ export class CoursesController {
     if (!course.bunnyVideoId) {
       throw new NotFoundException('No video associated with this course');
     }
-    return { token: this.bunnyService.generateSignedUrl(course.bunnyVideoId) };
+    const playback = this.bunnyService.generateEmbedUrl(course.bunnyVideoId);
+    return { embedUrl: playback.url, expiresAt: playback.expiresAt };
   }
 }

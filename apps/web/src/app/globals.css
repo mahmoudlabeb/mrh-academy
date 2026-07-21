@@ -28,6 +28,10 @@
   --shadow-sm: 0 2px 4px rgba(15, 58, 64, 0.05);
   --shadow-md: 0 4px 12px rgba(15, 58, 64, 0.08);
   --shadow-lg: 0 12px 24px rgba(15, 58, 64, 0.12);
+  --hero-surface: #e7f0ec;
+  --hero-heading: #07211b;
+  --hero-copy: #315f5e;
+  color-scheme: light;
 }
 
 body.dark-theme, .dark-theme {
@@ -43,6 +47,41 @@ body.dark-theme, .dark-theme {
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
+  --hero-surface: #0f3a40;
+  --hero-heading: #fffff0;
+  --hero-copy: #e4cc9c;
+  color-scheme: dark;
+}
+
+.landing-hero { background: var(--hero-surface); }
+html[data-theme='light'] .landing-hero h1 { color: var(--hero-heading) !important; }
+html[data-theme='light'] .landing-hero > div p { color: var(--hero-copy) !important; }
+
+/* Theme-aware shared surfaces. Inline page accents stay intentionally teal/gold,
+   while navigation, forms and cards follow the selected theme everywhere. */
+html[data-theme='light'] .navbar-dark,
+html[data-theme='light'] .dashboard-header {
+  background: rgba(252, 248, 242, 0.96);
+  border-color: rgba(29, 83, 91, 0.18);
+}
+html[data-theme='light'] .navbar-dark .nav-link,
+html[data-theme='light'] .navbar-dark button,
+html[data-theme='light'] .navbar-dark .btn-ghost {
+  color: var(--text-main) !important;
+}
+html[data-theme='light'] input,
+html[data-theme='light'] select,
+html[data-theme='light'] textarea {
+  background-color: #fffdf9;
+  color: var(--text-main);
+  border-color: rgba(29, 83, 91, 0.28);
+}
+html[data-theme='light'] input::placeholder,
+html[data-theme='light'] textarea::placeholder { color: #5b7775; }
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-color) 65%, transparent);
+  outline-offset: 2px;
 }
 
 @theme inline {

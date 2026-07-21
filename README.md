@@ -100,7 +100,7 @@ pnpm db:backup
 | Variable                    | Notes                                                 |
 | --------------------------- | ----------------------------------------------------- |
 | `NODE_ENV`                  | `production`                                          |
-| `JWT_SECRET`                | 32+ random characters                                 |
+| `JWT_SECRET`                | 64+ random characters                                 |
 | `FRONTEND_URL`              | Your frontend URL (CORS/CSRF locked to this)          |
 | `API_UPSTREAM_URL`          | Server-only API origin used by the Next rewrite       |
 | `NEXT_PUBLIC_WS_URL`        | Dedicated API origin used by browser WebSockets       |

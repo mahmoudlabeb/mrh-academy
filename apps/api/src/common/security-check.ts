@@ -23,8 +23,8 @@ export function checkSecurityEnvironment(
       errors.push('FRONTEND_URL must use HTTPS in production');
     }
 
-    if (!jwtSecret || jwtSecret.length < 32) {
-      errors.push('JWT_SECRET must be at least 32 characters in production');
+    if (!jwtSecret || jwtSecret.length < 64) {
+      errors.push('JWT_SECRET must be at least 64 characters in production');
     }
 
     if (jwtSecret === 'super-secret-mrh-academy-key-CHANGE-IN-PRODUCTION') {

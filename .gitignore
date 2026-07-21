@@ -93,3 +93,5 @@ lint_output.txt
 backups/
 
 test_large.jpg
+.pnpm-store/
+.runlogs/

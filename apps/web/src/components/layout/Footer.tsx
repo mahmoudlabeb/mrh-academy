@@ -1,6 +1,11 @@
+'use client';
+
 import Link from 'next/link';
+import { useLanguage } from '@/contexts/language-context';
 
 export default function Footer() {
+  const { lang } = useLanguage();
+  const isAr = lang === 'ar';
   return (
     <footer className="footer-dark py-12 animate-fade-in">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -11,35 +16,35 @@ export default function Footer() {
               Mr.H Academy
             </span>
             <p className="mt-3 text-sm leading-relaxed" style={{ color: '#E4CC9C' }}>
-              منصة تعليم اللغات عبر الإنترنت. تواصل مع معلمين معتمدين وحجز جلسات فردية.
+              {isAr ? 'منصة تعليم اللغات عبر الإنترنت. تواصل مع معلمين معتمدين واحجز جلسات فردية.' : 'Online language learning with certified tutors and personalized one-to-one lessons.'}
             </p>
           </div>
 
           {/* Quick Links */}
           <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <h4 className="text-sm font-semibold mb-4" style={{ color: '#FFFFF0' }}>روابط سريعة</h4>
+            <h4 className="text-sm font-semibold mb-4" style={{ color: '#FFFFF0' }}>{isAr ? 'روابط سريعة' : 'Quick links'}</h4>
             <ul className="space-y-2.5">
-              <li><Link href="/courses" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>الكورسات</Link></li>
-              <li><Link href="/student/discover" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>ابحث عن معلم</Link></li>
-              <li><Link href="/become-teacher" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>كن معلمًا</Link></li>
-              <li><Link href="/teacher-training" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>التدريب</Link></li>
+              <li><Link href="/courses" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'الدورات' : 'Courses'}</Link></li>
+              <li><Link href="/student/discover" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'ابحث عن معلم' : 'Find a Teacher'}</Link></li>
+              <li><Link href="/become-teacher" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'كن معلماً' : 'Become a Teacher'}</Link></li>
+              <li><Link href="/teacher-training" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'التدريب' : 'Training'}</Link></li>
             </ul>
           </div>
 
           {/* Support */}
           <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-            <h4 className="text-sm font-semibold mb-4" style={{ color: '#FFFFF0' }}>الدعم</h4>
+            <h4 className="text-sm font-semibold mb-4" style={{ color: '#FFFFF0' }}>{isAr ? 'الدعم' : 'Support'}</h4>
             <ul className="space-y-2.5">
-              <li><Link href="/help" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>مركز المساعدة</Link></li>
-              <li><Link href="/faq" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>الأسئلة الشائعة</Link></li>
-              <li><Link href="/privacy" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>سياسة الخصوصية</Link></li>
-              <li><Link href="/terms" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>شروط الاستخدام</Link></li>
+              <li><Link href="/help" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'مركز المساعدة' : 'Help Center'}</Link></li>
+              <li><Link href="/faq" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'الأسئلة الشائعة' : 'FAQ'}</Link></li>
+              <li><Link href="/privacy" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'سياسة الخصوصية' : 'Privacy Policy'}</Link></li>
+              <li><Link href="/terms" className="text-sm transition-all hover:translate-x-1 inline-block" style={{ color: '#E4CC9C' }} onMouseEnter={e => e.currentTarget.style.color = '#D4A353'} onMouseLeave={e => e.currentTarget.style.color = '#E4CC9C'}>{isAr ? 'شروط الاستخدام' : 'Terms of Use'}</Link></li>
             </ul>
           </div>
 
           {/* Social */}
           <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
-            <h4 className="text-sm font-semibold mb-4" style={{ color: '#FFFFF0' }}>تواصل معنا</h4>
+            <h4 className="text-sm font-semibold mb-4" style={{ color: '#FFFFF0' }}>{isAr ? 'تواصل معنا' : 'Connect with us'}</h4>
             <div className="flex gap-3">
               <a href="#" className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium transition-all hover:scale-110 hover:shadow-lg" style={{ background: '#1D535B', color: '#E4CC9C', border: '1px solid #1D535B' }}>
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"/></svg>
@@ -59,7 +64,7 @@ export default function Footer() {
 
         <div className="mt-10 pt-6 border-t border-[#1D535B] text-center">
           <p className="text-sm" style={{ color: '#E4CC9C' }}>
-            &copy; {new Date().getFullYear()} Mr.H Academy. جميع الحقوق محفوظة.
+            &copy; {new Date().getFullYear()} Mr.H Academy. {isAr ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
           </p>
         </div>
       </div>

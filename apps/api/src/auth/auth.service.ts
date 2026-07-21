@@ -429,7 +429,7 @@ export class AuthService {
       'Password Reset - MRH Academy',
       `<p>You requested a password reset.</p>
 <p>Click <a href="${resetUrl}">here</a> to reset your password.</p>
-<p>This link expires in 1 hour.</p>
+<p>This link expires in 15 minutes.</p>
 <p>If you did not request this, please ignore this email.</p>`,
     );
 

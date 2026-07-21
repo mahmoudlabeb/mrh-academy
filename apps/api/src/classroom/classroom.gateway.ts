@@ -139,6 +139,21 @@ export class ClassroomGateway
       const role = user.role;
 
       const existing = this.connectedClients.get(userId) || [];
+      // A student account is single-session. A newly authenticated classroom
+      // connection replaces any older classroom socket immediately instead of
+      // leaving two devices active until the next token refresh.
+      if (role === UserRole.STUDENT && existing.length > 0) {
+        for (const client of existing) {
+          const oldSocket = this.server
+            .of('/classroom')
+            .sockets.get(client.socketId);
+          oldSocket?.emit(
+            'error_message',
+            'This account was signed in from another device',
+          );
+          oldSocket?.disconnect(true);
+        }
+      }
       existing.push({ socketId: socket.id, userId, role });
       this.connectedClients.set(userId, existing);
 

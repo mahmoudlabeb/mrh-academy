@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/language-context';
 
 function HeroSection() {
   return (
-    <section className="relative pt-32 pb-24 overflow-hidden" style={{ background: '#0F3A40' }}>
+    <section className="landing-hero relative pt-32 pb-24 overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 right-1/4 w-64 h-64 rounded-full animate-float opacity-20" style={{ background: 'radial-gradient(circle, #D4A353 0%, transparent 70%)' }} />
         <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full animate-float opacity-15" style={{ background: 'radial-gradient(circle, #D4A353 0%, transparent 70%)', animationDelay: '2s' }} />
@@ -34,7 +34,7 @@ function HeroSection() {
 
           <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
             <Link
-              href="/en/student/discover"
+              href="/student/discover"
               className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
               style={{ background: 'linear-gradient(135deg, #F3E1B9, #B89754)', color: '#0F3A40' }}
             >
@@ -44,7 +44,7 @@ function HeroSection() {
               </svg>
             </Link>
             <Link
-              href="/en/become-teacher"
+              href="/become-teacher"
               className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-base font-semibold transition-all duration-300 hover:-translate-y-0.5"
               style={{ border: '1px solid rgba(212, 163, 83,0.4)', color: '#D4A353' }}
             >
@@ -170,7 +170,7 @@ function CTASection() {
             </p>
             <div className="flex items-center justify-center gap-4 flex-wrap">
               <Link
-                href="/en/register"
+                href="/register"
                 className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-sm font-semibold transition-all hover:shadow-lg"
                 style={{ background: '#0F3A40', color: '#FFFFF0' }}
               >
@@ -180,7 +180,7 @@ function CTASection() {
                 </svg>
               </Link>
               <Link
-                href="/en/teacher-training"
+                href="/teacher-training"
                 className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-sm font-semibold transition-all"
                 style={{ border: '1px solid rgba(15, 58, 64,0.3)', color: '#0F3A40' }}
               >

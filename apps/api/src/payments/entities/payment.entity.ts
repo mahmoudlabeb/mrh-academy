@@ -47,6 +47,35 @@ export class Payment {
   @Column({ nullable: true })
   adminNote: string;
 
+  @Index({ unique: true })
+  @Column({ nullable: true, type: 'varchar' })
+  stripeCheckoutSessionId: string | null;
+
+  @Index()
+  @Column({ nullable: true, type: 'varchar' })
+  stripePaymentIntentId: string | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: new ColumnNumericTransformer(),
+  })
+  allocatedAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: new ColumnNumericTransformer(),
+  })
+  refundedAmount: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refundedAt: Date | null;
+
   @Column({ nullable: true, type: 'varchar' })
   rejectionReason: string | null;
 

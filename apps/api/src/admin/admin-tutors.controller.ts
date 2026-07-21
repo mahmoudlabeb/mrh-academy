@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
-import { CourseStatus, UserRole } from '@mrh/types';
+import { UserRole } from '@mrh/types';
 import { TutorsService } from '../tutors/tutors.service.js';
 import { RejectTutorDto } from '../tutors/dto/reject-tutor.dto.js';
 import PDFDocument from 'pdfkit';
@@ -77,7 +77,6 @@ export class AdminTutorsController {
       specialization?: string;
       languages?: string[];
       hourlyRate?: number;
-      status?: CourseStatus;
     },
   ) {
     return this.tutorsService.updateTutorProfile(id, body);
@@ -85,7 +84,7 @@ export class AdminTutorsController {
 
   @Post(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN)
   @RequirePermissions('manage_tutors')
   async approveTutor(@Param('id') id: string) {
     return this.tutorsService.approveTutor(id);
@@ -93,10 +92,22 @@ export class AdminTutorsController {
 
   @Post(':id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN)
   @RequirePermissions('manage_tutors')
   async rejectTutor(@Param('id') id: string, @Body() dto: RejectTutorDto) {
     return this.tutorsService.rejectTutor(id, dto.reason);
+  }
+
+  /** SubAdmins may send a moderation note without changing application status. */
+  @Post(':id/rejection-note')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_tutors')
+  async sendRejectionNote(
+    @Param('id') id: string,
+    @Body() dto: RejectTutorDto,
+  ) {
+    return this.tutorsService.sendTutorRejectionNote(id, dto.reason);
   }
 
   @Get(':id/pdf')

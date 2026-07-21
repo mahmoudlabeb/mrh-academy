@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class EnrollCourseDto {
   @IsOptional()
@@ -8,9 +8,4 @@ export class EnrollCourseDto {
   @IsOptional()
   @IsString()
   referralCode?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['tutor', 'academy'])
-  soldBy?: 'tutor' | 'academy';
 }

@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/api-url";
 import Link from "next/link";
+import { useLanguage } from "@/contexts/language-context";
 
 const registerSchema = z
   .object({
@@ -26,6 +27,8 @@ const registerSchema = z
 type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
+  const { lang } = useLanguage();
+  const isAr = lang === "ar";
   const { register: registerUser } = useAuth();
   const router = useRouter();
 
@@ -67,10 +70,10 @@ export default function RegisterPage() {
             <span className="text-2xl font-bold logo-font" style={{ color: '#D4A353' }}>Mr.H Academy</span>
           </Link>
           <h1 className="text-3xl font-bold" style={{ color: 'var(--text-main)' }}>
-            إنشاء حساب جديد
+            {isAr ? 'إنشاء حساب جديد' : 'Create your account'}
           </h1>
           <p className="mt-2" style={{ color: 'var(--text-muted)' }}>
-            انضم إلى Mr.H Academy اليوم
+            {isAr ? 'انضم إلى Mr.H Academy اليوم' : 'Join Mr.H Academy today'}
           </p>
         </div>
 
@@ -82,11 +85,11 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                  الاسم الأول
+                  {isAr ? 'الاسم الأول' : 'First name'}
                 </label>
                 <input
                   {...register("firstName")}
-                  placeholder="محمد"
+                  placeholder={isAr ? 'محمد' : 'First name'}
                   className="input-field"
                 />
                 {errors.firstName && (
@@ -97,11 +100,11 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                  الاسم الأخير
+                  {isAr ? 'الاسم الأخير' : 'Last name'}
                 </label>
                 <input
                   {...register("lastName")}
-                  placeholder="أحمد"
+                  placeholder={isAr ? 'أحمد' : 'Last name'}
                   className="input-field"
                 />
                 {errors.lastName && (
@@ -114,7 +117,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                البريد الإلكتروني
+                {isAr ? 'البريد الإلكتروني' : 'Email address'}
               </label>
               <input
                 {...register("email")}
@@ -133,12 +136,12 @@ export default function RegisterPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                  كلمة المرور
+                  {isAr ? 'كلمة المرور' : 'Password'}
                 </label>
                 <input
                   {...register("password")}
                   type="password"
-                  placeholder="8 أحرف على الأقل"
+                  placeholder={isAr ? '15 حرفاً على الأقل' : 'At least 15 characters'}
                   className="input-field"
                 />
                 {errors.password && (
@@ -149,12 +152,12 @@ export default function RegisterPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                  تأكيد كلمة المرور
+                  {isAr ? 'تأكيد كلمة المرور' : 'Confirm password'}
                 </label>
                 <input
                   {...register("confirmPassword")}
                   type="password"
-                  placeholder="أعد كتابة كلمة المرور"
+                  placeholder={isAr ? 'أعد كتابة كلمة المرور' : 'Repeat your password'}
                   className="input-field"
                 />
                 {errors.confirmPassword && (
@@ -168,15 +171,15 @@ export default function RegisterPage() {
             <input type="hidden" value="student" {...register("role")} />
 
             <div className="rounded-2xl p-4 text-sm" style={{ background: 'rgba(212, 163, 83,0.1)', border: '1px solid rgba(212, 163, 83,0.2)', color: 'var(--text-main)' }}>
-              <p className="font-semibold">إنشاء حساب طالب</p>
+              <p className="font-semibold">{isAr ? 'إنشاء حساب طالب' : 'Create a student account'}</p>
               <p className="mt-1" style={{ color: 'var(--text-muted)' }}>
-                هل تريد التدريس في Mr.H Academy؟ أنشئ حساب طالب أولاً، ثم قدم طلب التسجيل كمدرس لمراجعته من قبل الإدارة.
+                {isAr ? 'هل تريد التدريس في Mr.H Academy؟ أنشئ حساب طالب أولاً، ثم قدم طلب التسجيل كمدرس لمراجعته من قبل الإدارة.' : 'Want to teach at Mr.H Academy? Create your account first, then submit a tutor application for review.'}
               </p>
               <Link
                 href="/become-teacher"
                 className="mt-3 inline-flex font-semibold link"
               >
-                قدم طلب التسجيل كمدرس ←
+                {isAr ? 'قدم طلب التسجيل كمدرس ←' : 'Apply to become a tutor →'}
               </Link>
             </div>
 
@@ -203,10 +206,10 @@ export default function RegisterPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  جاري إنشاء الحساب...
+                  {isAr ? 'جاري إنشاء الحساب...' : 'Creating account...'}
                 </span>
               ) : (
-                "إنشاء الحساب"
+                (isAr ? 'إنشاء الحساب' : 'Create account')
               )}
             </button>
 
@@ -216,7 +219,7 @@ export default function RegisterPage() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="px-3" style={{ background: 'var(--bg-main)', color: 'var(--text-muted)' }}>
-                  أو تابع باستخدام
+                  {isAr ? 'أو تابع باستخدام' : 'Or continue with'}
                 </span>
               </div>
             </div>
@@ -231,15 +234,15 @@ export default function RegisterPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              التسجيل عبر Google
+              {isAr ? 'التسجيل عبر Google' : 'Continue with Google'}
             </a>
           </form>
         </div>
 
         <p className="text-center text-sm mt-6" style={{ color: 'var(--text-muted)' }}>
-          لديك حساب بالفعل؟{" "}
+          {isAr ? 'لديك حساب بالفعل؟' : 'Already have an account?'}{" "}
           <Link href="/login" className="link">
-            تسجيل الدخول
+            {isAr ? 'تسجيل الدخول' : 'Sign in'}
           </Link>
         </p>
       </div>

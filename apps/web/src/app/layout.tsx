@@ -5,6 +5,7 @@ import '@/styles/components.css';
 import '@/styles/layout.css';
 import { Providers } from './providers';
 import { cairo, plusJakartaSans } from '@/lib/fonts';
+import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
@@ -12,13 +13,16 @@ export const metadata: Metadata = {
   description: 'Learn languages with expert tutors online.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               (function(){
@@ -42,6 +46,7 @@ export default function RootLayout({
                 } else {
                   document.documentElement.classList.add('dark-theme');
                 }
+                document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
                 if (lang === 'en') {
                   document.documentElement.setAttribute('lang', 'en');
                   document.documentElement.setAttribute('dir', 'ltr');
@@ -49,6 +54,7 @@ export default function RootLayout({
                   document.documentElement.setAttribute('lang', 'ar');
                   document.documentElement.setAttribute('dir', 'rtl');
                 }
+                document.documentElement.dataset.language = lang === 'en' ? 'en' : 'ar';
                 if (document.readyState === 'loading') {
                   document.addEventListener('DOMContentLoaded', applyBodyClasses, { once: true });
                 } else {

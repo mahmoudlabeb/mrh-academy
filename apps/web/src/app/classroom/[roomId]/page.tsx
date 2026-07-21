@@ -329,6 +329,28 @@ export default function ClassroomPage() {
     return () => clearInterval(interval);
   }, [connected]);
 
+  // Classroom content is private course material. These browser-level
+  // deterrents reduce casual copying while the server/session checks remain
+  // the actual access control. No web app can block OS-level screenshots.
+  useEffect(() => {
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
+    const preventCopy = (event: ClipboardEvent) => event.preventDefault();
+    const preventCaptureShortcuts = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (key === 'printscreen' || (event.ctrlKey && ['p', 's', 'u', 'c'].includes(key)) || (event.metaKey && ['p', 's', 'c'].includes(key))) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener('contextmenu', preventContextMenu);
+    document.addEventListener('copy', preventCopy);
+    document.addEventListener('keydown', preventCaptureShortcuts);
+    return () => {
+      document.removeEventListener('contextmenu', preventContextMenu);
+      document.removeEventListener('copy', preventCopy);
+      document.removeEventListener('keydown', preventCaptureShortcuts);
+    };
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -539,7 +561,12 @@ export default function ClassroomPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-main)' }}>
+    <div className="min-h-screen flex flex-col select-none" style={{ background: 'var(--bg-main)' }}>
+      <div className="pointer-events-none fixed inset-0 z-30 opacity-[0.045] overflow-hidden" aria-hidden="true">
+        <div className="absolute inset-0 grid grid-cols-3 gap-24 -rotate-12 scale-150 place-items-center text-2xl font-bold" style={{ color: 'var(--text-main)' }}>
+          {Array.from({ length: 18 }, (_, index) => <span key={index}>{user?.email || 'MRH Academy'}</span>)}
+        </div>
+      </div>
       {/* Top Bar */}
       <header
         className="flex items-center justify-between px-2 md:px-4 py-2 shrink-0 flex-wrap gap-2"

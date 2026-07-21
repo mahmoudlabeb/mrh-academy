@@ -327,12 +327,16 @@ export class UsersService {
       });
 
       for (const lesson of lessons) {
-        await manager.increment(
-          StudentProfile,
-          { userId: lesson.studentId },
-          'balance',
-          lesson.price,
-        );
+        // Pending lessons have not been charged yet. Only confirmed lessons
+        // may be refunded during account deletion.
+        if (lesson.status === LessonStatus.CONFIRMED) {
+          await manager.increment(
+            StudentProfile,
+            { userId: lesson.studentId },
+            'balance',
+            lesson.price,
+          );
+        }
 
         lesson.status = LessonStatus.CANCELLED;
         await manager.save(Lesson, lesson);

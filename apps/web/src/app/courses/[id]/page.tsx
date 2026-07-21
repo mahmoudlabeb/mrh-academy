@@ -82,8 +82,8 @@ export default function CourseDetailPage() {
   const watchVideo = async () => {
     setStreamError('');
     try {
-      const { data } = await apiClient.get<{ token: string }>(`/courses/${params.id}/stream-token`);
-      setStreamUrl(data.token);
+      const { data } = await apiClient.get<{ embedUrl: string }>(`/courses/${params.id}/stream-token`);
+      setStreamUrl(data.embedUrl);
     } catch {
       setStreamError(
         lang === 'ar'
@@ -101,7 +101,15 @@ export default function CourseDetailPage() {
 
   const enrollMutation = useMutation({
     mutationFn: async () => {
-      const referralCode = getCookie(referralStorageKey);
+      let referralCode = getCookie(referralStorageKey);
+      if (!referralCode && typeof window !== 'undefined') {
+        try {
+          const stored = JSON.parse(window.localStorage.getItem(referralStorageKey) || 'null') as { code?: string; expiresAt?: number } | null;
+          if (stored?.code && (stored.expiresAt ?? 0) > Date.now()) referralCode = stored.code;
+        } catch {
+          window.localStorage.removeItem(referralStorageKey);
+        }
+      }
       const { data } = await apiClient.post(`/courses/${params.id}/enroll`, {
         referralCode: referralCode || undefined,
       });
@@ -115,14 +123,13 @@ export default function CourseDetailPage() {
   });
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(referralStorageKey);
-    }
     const ref = searchParams.get('ref');
     if (ref) {
-      const d = new Date();
-      d.setTime(d.getTime() + 30 * 24 * 60 * 60 * 1000);
-      document.cookie = `${referralStorageKey}=${ref};expires=${d.toUTCString()};path=/`;
+      const maxAge = 30 * 24 * 60 * 60;
+      const expiresAt = Date.now() + maxAge * 1000;
+      window.localStorage.setItem(referralStorageKey, JSON.stringify({ code: ref, expiresAt }));
+      const secure = window.location.protocol === 'https:' ? ';Secure' : '';
+      document.cookie = `${referralStorageKey}=${encodeURIComponent(ref)};Max-Age=${maxAge};Path=/;SameSite=Lax${secure}`;
     }
   }, [referralStorageKey, searchParams]);
 
@@ -199,7 +206,15 @@ export default function CourseDetailPage() {
                   {lang === 'ar' ? 'مشاهدة فيديو الكورس' : 'Watch Course Video'}
                 </button>
                 {streamUrl && (
-                  <video src={streamUrl} controls className="w-full rounded-lg" />
+                  <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+                    <iframe
+                      src={streamUrl}
+                      title={lang === 'ar' ? 'فيديو الدورة' : 'Course video'}
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
                 )}
                 {streamError && (
                   <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{streamError}</p>
@@ -273,7 +288,7 @@ export default function CourseDetailPage() {
                   {lang === 'ar' ? 'التسجيل متاح للطلاب فقط' : 'Enrollment is for students only'}
                 </p>
               ) : (
-                <Link href="/login" className="btn-primary w-full block text-center">
+                <Link href={`/login?redirect=${encodeURIComponent(`/courses/${params.id}`)}`} className="btn-primary w-full block text-center">
                   {lang === 'ar' ? 'سجل الدخول للتسجيل' : 'Login to Enroll'}
                 </Link>
               )}

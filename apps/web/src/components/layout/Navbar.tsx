@@ -59,7 +59,7 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-6">
           {links.map((link) => (
             <Link key={link.href} href={link.href} className="nav-link text-sm font-medium">
               {link.label}
@@ -108,14 +108,14 @@ export default function Navbar() {
             ) : (
               <>
                 <Link
-                  href={isAr ? '/login' : '/en/login'}
+                  href="/login"
                   className="btn-ghost text-sm font-medium"
                   style={{ color: '#FFFFF0' }}
                 >
                   {isAr ? 'تسجيل الدخول' : 'Login'}
                 </Link>
                 <Link
-                  href={isAr ? '/register' : '/en/register'}
+                  href="/register"
                   className="btn-primary text-sm font-semibold animate-bounce-soft"
                 >
                   {isAr ? 'اشتراك' : 'Register'}
@@ -126,7 +126,7 @@ export default function Navbar() {
         </div>
 
         {/* Mobile Toggle */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           {/* Theme Toggle (Mobile) */}
           <button
             onClick={toggleTheme}
@@ -158,7 +158,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-[#1D535B]" style={{ background: '#1D535B' }}>
+        <div className="lg:hidden border-t border-[#1D535B]" style={{ background: '#1D535B' }}>
           <div className="px-4 py-4 space-y-3">
             {links.map((link) => (
               <Link
@@ -192,7 +192,7 @@ export default function Navbar() {
               ) : (
                 <>
                   <Link
-                    href={isAr ? '/login' : '/en/login'}
+                    href="/login"
                     className="block text-sm font-medium py-2"
                     style={{ color: '#FFFFF0' }}
                     onClick={() => setMobileOpen(false)}
@@ -200,7 +200,7 @@ export default function Navbar() {
                     {isAr ? 'تسجيل الدخول' : 'Login'}
                   </Link>
                   <Link
-                    href={isAr ? '/register' : '/en/register'}
+                    href="/register"
                     className="block text-center rounded-xl py-2.5 text-sm font-semibold transition-all hover:brightness-105"
                     style={{ background: 'linear-gradient(135deg, #F3E1B9, #B89754)', color: '#0F3A40' }}
                     onClick={() => setMobileOpen(false)}

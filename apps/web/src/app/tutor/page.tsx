@@ -13,6 +13,7 @@ import StudentsList from './components/StudentsList';
 import Insights from './components/Insights';
 import SettingsView from './components/SettingsView';
 import NotificationsPanel from '@/app/student/components/NotificationsPanel';
+import CourseStudio from './components/CourseStudio';
 
 type TutorStats = {
   completedLessons: number;
@@ -127,6 +128,8 @@ function TutorPageContent() {
       const { data } = await apiClient.get('/notifications?unread=true');
       return { count: Array.isArray(data) ? data.length : (data?.count ?? 0) };
     },
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -156,11 +159,14 @@ function TutorPageContent() {
 
   const coursesQuery = useQuery({
     queryKey: ['my-courses'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<{ id: string; title: string; price: number }[]>('/courses/my/courses');
-      return data;
-    },
+    queryFn: async () => (await apiClient.get<{ id: string; title: string; price: number; referralCode: string }[]>('/courses/my/courses')).data,
   });
+  const referralStatsQuery = useQuery({
+    queryKey: ['tutor-referral-stats'],
+    queryFn: async () => (await apiClient.get<{ tutor: { sales: number; tutorEarnings: number; academyEarnings: number }; academy: { sales: number; tutorEarnings: number; academyEarnings: number } }>('/courses/my/referral-stats')).data,
+    staleTime: 30_000,
+  });
+
 
   const allLessonsQuery = useQuery({
     queryKey: ['tutor-all-lessons'],
@@ -200,9 +206,14 @@ function TutorPageContent() {
     },
   });
 
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cancellingLessonId, setCancellingLessonId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyReferralLink = (courseId: string, referralCode: string) => {
+    const link = `${window.location.origin}/courses/${courseId}?ref=${encodeURIComponent(referralCode)}`;
+    navigator.clipboard.writeText(link).then(() => { setCopiedId(courseId); setTimeout(() => setCopiedId(null), 2000); }).catch(() => {});
+  };
 
   const connectQuery = useQuery({
     queryKey: ['stripe-connect-status'],
@@ -211,23 +222,23 @@ function TutorPageContent() {
       return data;
     },
     retry: false,
+    refetchOnWindowFocus: true,
   });
 
+  const [connectError, setConnectError] = useState('');
+  const [connectPending, setConnectPending] = useState(false);
+
   const handleConnectStripe = async () => {
+    setConnectError('');
+    setConnectPending(true);
     try {
       const { data } = await apiClient.post<{ url: string }>('/stripe/connect/onboarding');
       window.open(data.url, '_blank');
-    } catch (err) {
-      console.error('Stripe connect error', err);
+    } catch {
+      setConnectError(t('تعذر بدء ربط Stripe. تأكد من إعداد Stripe في الخادم ثم حاول مرة أخرى.', 'Stripe onboarding could not start. Check the server Stripe configuration and try again.'));
+    } finally {
+      setConnectPending(false);
     }
-  };
-
-  const copyReferralLink = (courseId: string) => {
-    const link = `${window.location.origin}/courses/${courseId}?ref=${user?.id}`;
-    navigator.clipboard.writeText(link).then(() => {
-      setCopiedId(courseId);
-      setTimeout(() => setCopiedId(null), 2000);
-    }).catch(() => {});
   };
 
   const t = (ar: string, en: string) => isAr ? ar : en;
@@ -275,6 +286,7 @@ function TutorPageContent() {
               <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('مرحبًا بعودتك! إليك ملخص أدائك.', 'Welcome back! Here is your performance summary.')}</p>
             </div>
 
+            <CourseStudio />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="card-dark p-5">
                 <div className="flex items-center gap-3 mb-3">
@@ -374,7 +386,7 @@ function TutorPageContent() {
                   <p className="text-sm" style={{ color: '#eab308' }}>
                     {t('الحساب متصل لكن لم يكتمل التسجيل', 'Account connected but onboarding not complete')}
                   </p>
-                  <button onClick={handleConnectStripe} className="btn-primary text-sm">
+                  <button onClick={handleConnectStripe} disabled={connectPending} className="btn-primary text-sm">
                     {t('أكمل التسجيل', 'Complete Onboarding')}
                   </button>
                 </div>
@@ -383,11 +395,12 @@ function TutorPageContent() {
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                     {t('قم بتوصيل حساب Stripe لاستلام المدفوعات مباشرة.', 'Connect your Stripe account to receive direct payouts.')}
                   </p>
-                  <button onClick={handleConnectStripe} className="btn-primary text-sm">
+                  <button onClick={handleConnectStripe} disabled={connectPending} className="btn-primary text-sm">
                     {t('ربط Stripe', 'Connect Stripe')}
                   </button>
                 </div>
               )}
+              {connectError && <p className="mt-3 text-xs text-red-400" role="alert">{connectError}</p>}
             </div>
 
             {pendingLessons.length > 0 && (
@@ -445,16 +458,31 @@ function TutorPageContent() {
             {coursesQuery.data && coursesQuery.data.length > 0 && (
               <div className="card-dark p-6">
                 <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>{t('روابط الإحالة', 'Referral Links')}</h3>
+                {referralStatsQuery.data && (
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('مبيعات رابطك', 'Referral sales')}</p>
+                      <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-main)' }}>{referralStatsQuery.data.tutor.sales}</p>
+                      <p className="text-[11px]" style={{ color: 'var(--primary-color)' }}>98% {t('للمعلم', 'to tutor')}</p>
+                    </div>
+                    <div className="rounded-xl p-3" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('مبيعات الأكاديمية', 'Academy sales')}</p>
+                      <p className="text-xl font-bold mt-1" style={{ color: 'var(--text-main)' }}>{referralStatsQuery.data.academy.sales}</p>
+                      <p className="text-[11px]" style={{ color: 'var(--primary-color)' }}>47% {t('للمعلم', 'to tutor')}</p>
+                    </div>
+                  </div>
+                )}
                 <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>{t('شارك هذه الروابط مع طلابك. عندما يشترك طالب عبر رابطك، تحصل على عمولة 98% من سعر الكورس.', 'Share these links with your students. When a student enrolls via your link, you earn 98% of the course price.')}</p>
                 <div className="space-y-3">
                   {coursesQuery.data.map((course) => (
                     <div key={course.id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)' }}>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-main)' }}>{course.title}</p>
+                        <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--primary-color)' }}>{t('كود البيع', 'Selling code')}: {course.referralCode}</p>
                         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{t('السعر', 'Price')}: ${course.price.toFixed(2)} &middot; {t('عمولتك', 'Your cut')}: ${(course.price * 0.98).toFixed(2)}</p>
                       </div>
                       <button
-                        onClick={() => copyReferralLink(course.id)}
+                        onClick={() => copyReferralLink(course.id, course.referralCode)}
                         className="btn-ghost px-3 py-1.5 text-sm shrink-0"
                       >
                         {copiedId === course.id ? (
@@ -642,7 +670,12 @@ function TutorPageContent() {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <button className="btn-ghost text-sm px-3 py-2 rounded-xl" style={{ color: '#FFFFF0' }}>
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/tutor/availability?mode=timeoff'; }}
+                className="btn-ghost text-sm px-3 py-2 rounded-xl"
+                style={{ color: '#FFFFF0' }}
+              >
                 <svg className="w-4 h-4 inline ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                 </svg>

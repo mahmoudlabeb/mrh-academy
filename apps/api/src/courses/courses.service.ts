@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { createHmac } from 'node:crypto';
-import { CourseStatus, UserRole } from '@mrh/types';
+import { CourseStatus, PaymentStatus, UserRole } from '@mrh/types';
 import { Course } from './entities/course.entity.js';
 import { CourseEnrollment } from './entities/course-enrollment.entity.js';
 import { CourseLesson } from './entities/course-lesson.entity.js';
@@ -17,6 +17,8 @@ import { StudentProfile } from '../students/entities/student-profile.entity.js';
 import { CoursePromoCode } from './entities/course-promo-code.entity.js';
 import { CommissionService } from '../payments/commission.service.js';
 import { ConfigService } from '@nestjs/config';
+import { Payment } from '../payments/entities/payment.entity.js';
+import { CourseFundingAllocation } from '../payments/entities/course-funding-allocation.entity.js';
 
 @Injectable()
 export class CoursesService {
@@ -46,18 +48,23 @@ export class CoursesService {
     if (!referralCode) {
       return false;
     }
-    if (referralCode === tutorId) {
-      return true;
-    }
     const secret = this.config.get<string>('application.referralSecret');
     if (!secret) {
       return false;
+    }
+    return referralCode === this.getCourseReferralCode(tutorId, courseId);
+  }
+
+  private getCourseReferralCode(tutorId: string, courseId: string): string {
+    const secret = this.config.get<string>('application.referralSecret');
+    if (!secret) {
+      throw new Error('Referral signing secret is not configured');
     }
     const signature = createHmac('sha256', secret)
       .update(`${courseId}:${tutorId}`)
       .digest('hex')
       .slice(0, 16);
-    return referralCode === `${tutorId}.${signature}`;
+    return `${tutorId}.${signature}`;
   }
 
   async findAllApproved() {
@@ -163,7 +170,11 @@ export class CoursesService {
       thumbnailUrl: dto.thumbnailUrl,
       status: CourseStatus.PENDING,
     });
-    return this.courseRepository.save(course);
+    const savedCourse = await this.courseRepository.save(course);
+    return {
+      ...savedCourse,
+      referralCode: this.getCourseReferralCode(tutorId, savedCourse.id),
+    };
   }
 
   async enroll(
@@ -172,7 +183,6 @@ export class CoursesService {
     dto?: {
       promoCode?: string;
       referralCode?: string;
-      soldBy?: 'tutor' | 'academy';
     },
   ) {
     const course = await this.courseRepository.findOne({
@@ -226,12 +236,15 @@ export class CoursesService {
         throw new BadRequestException('Insufficient balance');
 
       if (finalPrice > 0) {
-        await manager.decrement(
+        const debitResult = await manager.decrement(
           StudentProfile,
           { userId: studentId },
           'balance',
           finalPrice,
         );
+        if (!debitResult.affected) {
+          throw new NotFoundException('Student profile not found');
+        }
       }
 
       const { platformFee, tutorShare } =
@@ -241,12 +254,15 @@ export class CoursesService {
         );
 
       if (tutorShare > 0) {
-        await manager.increment(
+        const creditResult = await manager.increment(
           TutorProfile,
           { userId: course.tutorId },
           'balance',
           tutorShare,
         );
+        if (!creditResult.affected) {
+          throw new NotFoundException('Tutor profile not found');
+        }
       }
 
       const enrollment = manager.create(CourseEnrollment, {
@@ -258,6 +274,42 @@ export class CoursesService {
         referralTutorId: hasValidReferral ? course.tutorId : null,
       });
       await manager.save(enrollment);
+
+      // Attribute pooled wallet funds to deposits in FIFO order. This makes a
+      // later Stripe refund able to identify exactly which course access and
+      // commissions were funded by the refunded deposit.
+      let amountToAllocate = finalPrice;
+      if (amountToAllocate > 0) {
+        const deposits = await manager.find(Payment, {
+          where: { userId: studentId, status: PaymentStatus.APPROVED },
+          order: { createdAt: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        });
+        for (const deposit of deposits) {
+          if (amountToAllocate <= 0) break;
+          const available = Math.max(
+            0,
+            Number(deposit.amount) -
+              Number(deposit.refundedAmount ?? 0) -
+              Number(deposit.allocatedAmount ?? 0),
+          );
+          if (available <= 0) continue;
+          const allocated = Math.min(available, amountToAllocate);
+          deposit.allocatedAmount =
+            Number(deposit.allocatedAmount ?? 0) + allocated;
+          await manager.save(Payment, deposit);
+          await manager.save(
+            CourseFundingAllocation,
+            manager.create(CourseFundingAllocation, {
+              paymentId: deposit.id,
+              enrollmentId: enrollment.id,
+              amount: allocated,
+            }),
+          );
+          amountToAllocate =
+            Math.round((amountToAllocate - allocated) * 100) / 100;
+        }
+      }
     });
 
     return { message: 'Enrolled successfully', courseId };
@@ -272,10 +324,57 @@ export class CoursesService {
   }
 
   async getMyCourses(tutorId: string) {
-    return this.courseRepository.find({
+    const courses = await this.courseRepository.find({
       where: { tutorId },
       order: { createdAt: 'DESC' },
     });
+    return courses.map((course) => ({
+      ...course,
+      referralCode: this.getCourseReferralCode(tutorId, course.id),
+    }));
+  }
+
+  async getTutorReferralStats(tutorId: string) {
+    const rows = await this.enrollmentRepository
+      .createQueryBuilder('enrollment')
+      .innerJoin(Course, 'course', 'course.id = enrollment.course_id')
+      .select('enrollment.sold_by', 'soldBy')
+      .addSelect('COUNT(*)', 'sales')
+      .addSelect('COALESCE(SUM(enrollment.tutor_share), 0)', 'tutorEarnings')
+      .addSelect('COALESCE(SUM(enrollment.platform_fee), 0)', 'academyEarnings')
+      .where('course.tutor_id = :tutorId', { tutorId })
+      .groupBy('enrollment.sold_by')
+      .getRawMany<{
+        soldBy: 'tutor' | 'academy';
+        sales: string;
+        tutorEarnings: string;
+        academyEarnings: string;
+      }>();
+
+    const empty = { sales: 0, tutorEarnings: 0, academyEarnings: 0 };
+    return {
+      tutor: {
+        ...empty,
+        ...this.toReferralStats(rows.find((row) => row.soldBy === 'tutor')),
+      },
+      academy: {
+        ...empty,
+        ...this.toReferralStats(rows.find((row) => row.soldBy === 'academy')),
+      },
+    };
+  }
+
+  private toReferralStats(row?: {
+    sales: string;
+    tutorEarnings: string;
+    academyEarnings: string;
+  }) {
+    if (!row) return {};
+    return {
+      sales: Number(row.sales),
+      tutorEarnings: Number(row.tutorEarnings),
+      academyEarnings: Number(row.academyEarnings),
+    };
   }
 
   async markLessonComplete(

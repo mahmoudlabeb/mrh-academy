@@ -94,7 +94,40 @@ export class StripeWebhookController {
           throw new BadRequestException('Payment amount mismatch');
         }
 
+        const paymentIntentId =
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : session.payment_intent?.id;
+        await this.paymentRepository.update(payment.id, {
+          stripeCheckoutSessionId: session.id,
+          stripePaymentIntentId: paymentIntentId ?? null,
+        });
+
         await this.paymentsService.approvePayment(paymentId, 'stripe-webhook');
+      }
+
+      if (event.type === 'charge.refunded') {
+        const charge = event.data.object;
+        const paymentIntentId =
+          typeof charge.payment_intent === 'string'
+            ? charge.payment_intent
+            : charge.payment_intent?.id;
+        if (!paymentIntentId) {
+          throw new BadRequestException(
+            'Refunded charge has no payment intent',
+          );
+        }
+        const payment = await this.paymentRepository.findOne({
+          where: { stripePaymentIntentId: paymentIntentId },
+        });
+        if (!payment) {
+          throw new BadRequestException('Refund payment not found');
+        }
+        await this.paymentsService.refundStripePayment(
+          payment.id,
+          charge.amount_refunded / 100,
+          charge.id,
+        );
       }
 
       if (event.type === 'account.updated') {
@@ -118,6 +151,7 @@ export class StripeWebhookController {
         `Webhook processing failed for event ${event.id}:`,
         err,
       );
+      throw err;
     }
 
     await this.recordProcessed(event);

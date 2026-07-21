@@ -125,4 +125,58 @@ describe('AdminPaymentsController phase 2 regression', () => {
       stripePayoutId: 'po_stripe_1',
     });
   });
+
+  it('groups course commissions into a separate wallet for each tutor course', async () => {
+    const enrollmentRepo = {
+      find: jest.fn().mockResolvedValue([
+        {
+          courseId: 'course-1',
+          platformFee: 2,
+          tutorShare: 98,
+          soldBy: 'tutor',
+          course: {
+            tutorId: 'tutor-1',
+            title: 'English Basics',
+            tutor: { firstName: 'Demo', lastName: 'Tutor' },
+          },
+        },
+        {
+          courseId: 'course-1',
+          platformFee: 53,
+          tutorShare: 47,
+          soldBy: 'academy',
+          course: {
+            tutorId: 'tutor-1',
+            title: 'English Basics',
+            tutor: { firstName: 'Demo', lastName: 'Tutor' },
+          },
+        },
+      ]),
+    };
+    const controller = new AdminPaymentsController(
+      {} as never,
+      {} as never,
+      {} as never,
+      {
+        find: jest
+          .fn()
+          .mockResolvedValue([{ userId: 'tutor-1', balance: 145 }]),
+      } as never,
+      {} as never,
+      enrollmentRepo as never,
+    );
+
+    await expect(controller.getTutorEarnings()).resolves.toEqual([
+      expect.objectContaining({
+        tutorId: 'tutor-1',
+        courseId: 'course-1',
+        sales: 2,
+        grossSales: 200,
+        academyCommission: 55,
+        tutorEarned: 145,
+        tutorAvailableBalance: 145,
+        saleSources: { tutor: 1, academy: 1 },
+      }),
+    ]);
+  });
 });

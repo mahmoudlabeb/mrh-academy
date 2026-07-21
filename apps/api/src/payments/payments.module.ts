@@ -20,6 +20,12 @@ import { CommissionService } from './commission.service.js';
 import { PayoutReconciliationService } from './payout-reconciliation.service.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
 import { Setting } from '../admin/entities/setting.entity.js';
+import { Notification } from '../messages/entities/notification.entity.js';
+import { CourseFundingAllocation } from './entities/course-funding-allocation.entity.js';
+import { CourseRefundReversal } from './entities/course-refund-reversal.entity.js';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
+import { Course } from '../courses/entities/course.entity.js';
 
 @Module({
   imports: [
@@ -32,6 +38,12 @@ import { Setting } from '../admin/entities/setting.entity.js';
       TutorProfile,
       User,
       Setting,
+      Notification,
+      CourseFundingAllocation,
+      CourseRefundReversal,
+      CourseEnrollment,
+      CourseLessonCompletion,
+      Course,
     ]),
     StorageModule,
   ],

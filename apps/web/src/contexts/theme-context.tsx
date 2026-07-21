@@ -33,6 +33,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.classList.remove('dark-theme');
       body.classList.remove('dark-theme');
     }
+    root.dataset.theme = t;
+    root.style.colorScheme = t;
+    body.dataset.theme = t;
     localStorage.setItem('theme', t);
   }, []);
 

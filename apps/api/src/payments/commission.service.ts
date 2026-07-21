@@ -33,7 +33,7 @@ export class CommissionService {
     const setting = await this.settingRepository.findOne({
       where: { key: 'course_tutor_promo_rate' },
     });
-    this.cachedTutorPromoRate = setting ? parseFloat(setting.value) : 0.05;
+    this.cachedTutorPromoRate = setting ? parseFloat(setting.value) : 0.02;
     this.touchCache();
     return this.cachedTutorPromoRate;
   }
@@ -45,7 +45,7 @@ export class CommissionService {
     const setting = await this.settingRepository.findOne({
       where: { key: 'course_academy_base_rate' },
     });
-    this.cachedAcademyBaseRate = setting ? parseFloat(setting.value) : 0.54;
+    this.cachedAcademyBaseRate = setting ? parseFloat(setting.value) : 0.53;
     this.touchCache();
     return this.cachedAcademyBaseRate;
   }

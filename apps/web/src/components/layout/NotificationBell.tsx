@@ -51,7 +51,7 @@ export default function NotificationBell() {
 
   const markRead = async (id: string) => {
     try {
-      await apiClient.post(`/notifications/${id}/read`);
+      await apiClient.patch(`/notifications/${id}/read`);
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, isRead: true } : n)
       );

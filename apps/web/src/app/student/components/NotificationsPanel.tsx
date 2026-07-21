@@ -28,6 +28,8 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
       const { data } = await apiClient.get('/notifications');
       return data;
     },
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
   });
 
   const markReadMutation = useMutation({

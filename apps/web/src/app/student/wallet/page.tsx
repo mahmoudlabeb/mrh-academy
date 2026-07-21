@@ -130,9 +130,7 @@ export default function StudentWalletPage() {
   };
 
   const canSubmit = amountNum >= 5 && (!requiresReceipt || file !== null);
-  const credits = amountInUsd > 0 && (balance?.creditPrice ?? 15) > 0
-    ? (amountInUsd / (balance?.creditPrice ?? 15)).toFixed(2)
-    : '0.00';
+  const walletAmount = amountInUsd > 0 ? amountInUsd.toFixed(2) : '0.00';
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
@@ -155,9 +153,6 @@ export default function StudentWalletPage() {
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('الرصيد الحالي', 'Current Balance')}</p>
             <p className="text-4xl font-bold mt-1" style={{ color: '#D4A353' }}>
               ${Number(balance?.balance ?? 0).toFixed(2)}
-            </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              1 {t('ائتمان', 'credit')} = ${balance?.creditPrice ?? 15}
             </p>
           </>
         )}
@@ -236,13 +231,13 @@ export default function StudentWalletPage() {
           </div>
         </div>
 
-        {/* Credits preview */}
+        {/* Wallet balance preview */}
         {amountNum > 0 && (
           <p className="text-sm font-medium" style={{ color: '#D4A353' }}>
-            ≈ {credits} {t('رصيد تعليمي', 'credits')}
+            {t('سيُضاف إلى رصيدك', 'Added to your wallet')}: ${walletAmount}
             {currency === 'EGP' && (
               <span className="text-xs ms-2" style={{ color: 'var(--text-muted)' }}>
-                {t('(1 USD = 50 EGP)', '(1 USD = 50 EGP)')}
+                (1 USD = {balance?.egpRate ?? 50} EGP)
               </span>
             )}
           </p>

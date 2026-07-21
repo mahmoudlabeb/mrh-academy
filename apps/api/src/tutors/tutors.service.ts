@@ -462,6 +462,16 @@ export class TutorsService {
     return tutor;
   }
 
+  async sendTutorRejectionNote(userId: string, reason: string) {
+    const tutor = await this.findOneByUserId(userId);
+    await this.sendEmail(
+      tutor.user.email,
+      'Update on Your Tutor Application',
+      `Hi ${tutor.user.firstName}, your tutor application is still under review. The moderation team shared this note: ${reason}`,
+    );
+    return { message: 'Moderation note sent successfully' };
+  }
+
   async getAdminStats(): Promise<{
     totalUsers: number;
     totalTutors: number;

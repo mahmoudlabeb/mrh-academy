@@ -3,6 +3,8 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useLanguage } from '@/contexts/language-context';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -20,9 +22,21 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function AvailabilityPage() {
+  const searchParams = useSearchParams();
+  const { dir } = useLanguage();
+  const isAr = dir === 'rtl';
   const queryClient = useQueryClient();
   const [isRecurring, setIsRecurring] = useState(true);
   const [painting, setPainting] = useState<'add' | 'remove' | null>(null);
+  const [timeOffStart, setTimeOffStart] = useState('');
+  const [timeOffEnd, setTimeOffEnd] = useState('');
+  const [timeOffSaved, setTimeOffSaved] = useState(false);
+
+  const saveTimeOff = () => {
+    if (!timeOffStart || !timeOffEnd || timeOffEnd < timeOffStart) return;
+    localStorage.setItem('tutor_time_off', JSON.stringify({ start: timeOffStart, end: timeOffEnd }));
+    setTimeOffSaved(true);
+  };
 
   const { data: slots = [], isLoading } = useQuery({
     queryKey: ['tutor-availability'],
@@ -99,13 +113,13 @@ export default function AvailabilityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50" onMouseUp={handleMouseUp}>
-      <div className="bg-white border-b border-slate-200">
+    <div className="min-h-screen" style={{ background: 'var(--bg-main)' }} onMouseUp={handleMouseUp}>
+      <div className="border-b" style={{ background: 'var(--bg-light)', borderColor: 'var(--border-color)' }}>
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">My Availability</h1>
-              <p className="text-slate-500 mt-1">Click and drag across the grid to set your teaching hours</p>
+              <h1 className="text-3xl font-bold" style={{ color: 'var(--text-main)' }}>{isAr ? 'أوقات التوفر' : 'My Availability'}</h1>
+              <p className="mt-1" style={{ color: 'var(--text-muted)' }}>{isAr ? 'اسحب على الجدول لتحديد ساعات التدريس المتاحة' : 'Click and drag across the grid to set your teaching hours'}</p>
             </div>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -122,18 +136,35 @@ export default function AvailabilityPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="card overflow-hidden">
+        {searchParams.get('mode') === 'timeoff' && (
+          <section className="card mb-6 p-5 border" style={{ borderColor: 'var(--primary-color)' }}>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>{isAr ? 'خطة الإجازة' : 'Plan time off'}</h2>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{isAr ? 'احفظ فترة لن تظهر فيها مواعيد جديدة للطلاب.' : 'Save a break so you can keep your teaching calendar clear.'}</p>
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{isAr ? 'من' : 'From'}<input type="date" value={timeOffStart} onChange={(e) => setTimeOffStart(e.target.value)} className="input-field mt-1 block" /></label>
+                <label className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>{isAr ? 'إلى' : 'To'}<input type="date" value={timeOffEnd} onChange={(e) => setTimeOffEnd(e.target.value)} className="input-field mt-1 block" /></label>
+                <button type="button" onClick={saveTimeOff} className="btn-primary px-4 py-2">{isAr ? 'حفظ الإجازة' : 'Save time off'}</button>
+              </div>
+            </div>
+            {timeOffSaved && <p className="text-xs mt-3" style={{ color: '#22c55e' }}>{isAr ? 'تم حفظ فترة الإجازة.' : 'Time off saved.'}</p>}
+          </section>
+        )}
+
+        <div className="card overflow-hidden" style={{ border: '1px solid var(--border-color)' }}>
           <div className="overflow-x-auto">
             <div className="grid min-w-[800px]" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="sticky left-0 bg-white z-10" />
               {DAYS.map((day) => (
-                <div key={day} className="text-center font-semibold text-sm py-3 border-b bg-slate-50 text-slate-700">
+                <div key={day} className="text-center font-semibold text-sm py-3 border-b" style={{ background: 'var(--bg-light)', borderColor: 'var(--border-color)', color: 'var(--text-main)' }}>
                   {day.slice(0, 3)}
                 </div>
               ))}
               {HOURS.map((hour, hourIndex) => (
                 <div key={hour} className="contents">
-                  <div className="text-xs text-slate-400 pe-2 text-end py-1.5 border-b self-start sticky start-0 bg-white font-mono">
+                  <div className="text-xs pe-2 text-end py-1.5 border-b self-start sticky start-0 font-mono" style={{ background: 'var(--bg-light)', borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}>
                     {hour}
                   </div>
                   {DAYS.map((_, dayIndex) => {

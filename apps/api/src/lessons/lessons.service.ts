@@ -311,6 +311,14 @@ export class LessonsService {
         throw new BadRequestException('Student has insufficient balance');
       }
 
+      const tutorProfile = await manager.findOne(TutorProfile, {
+        where: { userId: lesson.tutorId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!tutorProfile) {
+        throw new NotFoundException('Tutor profile not found');
+      }
+
       await manager.decrement(
         StudentProfile,
         { userId: lesson.studentId },
@@ -321,7 +329,24 @@ export class LessonsService {
       await manager.update(
         Lesson,
         { id: lessonId },
-        { status: LessonStatus.CONFIRMED },
+        {
+          status: LessonStatus.CONFIRMED,
+          platformFee: this.commissionService.calculateLessonEarnings(
+            price,
+            tutorProfile.totalHoursTaught ?? 0,
+          ).platformFee,
+        },
+      );
+
+      const { tutorShare } = this.commissionService.calculateLessonEarnings(
+        price,
+        tutorProfile.totalHoursTaught ?? 0,
+      );
+      await manager.increment(
+        TutorProfile,
+        { userId: lesson.tutorId },
+        'balance',
+        tutorShare,
       );
 
       await manager.update(Classroom, { lessonId }, { isActive: true });
@@ -474,6 +499,8 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
         lesson.price,
         tutorProfile.totalHoursTaught,
       );
+    const earningsAlreadyCredited =
+      lesson.platformFee !== null && lesson.platformFee !== undefined;
 
     const hoursToAdd = lesson.durationMinutes / 60;
 
@@ -494,7 +521,9 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
         { id: lessonId },
         {
           status: LessonStatus.COMPLETED,
-          platformFee,
+          platformFee: earningsAlreadyCredited
+            ? lesson.platformFee
+            : platformFee,
           ...(dto?.notes ? { notes: dto.notes } : {}),
         },
       );
@@ -506,12 +535,14 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
         hoursToAdd,
       );
 
-      await manager.increment(
-        TutorProfile,
-        { userId: lesson.tutorId },
-        'balance',
-        tutorShare,
-      );
+      if (!earningsAlreadyCredited) {
+        await manager.increment(
+          TutorProfile,
+          { userId: lesson.tutorId },
+          'balance',
+          tutorShare,
+        );
+      }
 
       await manager.update(Classroom, { lessonId }, { isActive: false });
     });

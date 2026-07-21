@@ -10,6 +10,7 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-readiness.ps1",
     "format": "prettier --write package.json pnpm-workspace.yaml turbo.json apps/*/package.json packages/*/package.json",
     "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json apps/*/package.json packages/*/package.json",
     "knip": "knip",

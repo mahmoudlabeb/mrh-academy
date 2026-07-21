@@ -1,0 +1,33 @@
+name: PostgreSQL backup
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Create custom-format dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          mkdir -p backup
+          pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL" > backup/mrh-academy-${GITHUB_RUN_ID}.dump
+
+      - name: Upload private backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mrh-academy-db-${{ github.run_id }}
+          path: backup/*.dump
+          retention-days: 7
+          if-no-files-found: error

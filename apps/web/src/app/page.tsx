@@ -22,7 +22,7 @@ type TutorProfile = {
 
 function HeroSection() {
   return (
-    <section className="relative pt-32 pb-24 overflow-hidden" style={{ background: '#0F3A40' }}>
+    <section className="landing-hero relative pt-32 pb-24 overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 relative">
         <div className="text-center">
           <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium mb-8" style={{ background: 'rgba(212, 163, 83,0.15)', color: '#D4A353', border: '1px solid rgba(212, 163, 83,0.3)' }}>
