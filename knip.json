@@ -10,14 +10,14 @@
       "project": ["src/**/*.ts", "test/**/*.ts"]
     },
     "apps/web": {
-      "entry": ["next.config.ts!", "src/app/**/{page,layout,error,loading,not-found,sitemap}.tsx", "src/middleware.ts!"],
+      "entry": ["src/app/**/{page,layout,error,loading,not-found,sitemap}.tsx"],
       "project": ["src/**/*.{ts,tsx}"]
     },
     "packages/types": {
-      "entry": ["src/index.ts!"],
       "project": ["src/**/*.ts"]
     }
   },
+  "ignoreBinaries": ["powershell"],
   "ignoreDependencies": [
     "@nestjs/jwt!",
     "@nestjs/passport!",
@@ -42,6 +42,7 @@
     "sanitize-html!",
     "socket.io!",
     "socket.io-client!",
-    "stripe!"
+    "stripe!",
+    "tailwindcss"
   ]
 }
