@@ -29,6 +29,8 @@ type TutorWallet = {
   tutorEarned: number;
   tutorAvailableBalance: number;
   saleSources: { tutor: number; academy: number };
+  stripeAccountId: string | null;
+  stripeOnboardingComplete: boolean;
 };
 
 const statusConfig: Record<
@@ -115,6 +117,48 @@ export default function AdminPayoutsPage() {
     },
   });
 
+  const stripePayoutMutation = useMutation({
+    mutationFn: async (tutorId: string) => {
+      const { data } = await apiClient.post<{
+        message: string;
+        amount: number;
+      }>(`/admin/payments/payout/${tutorId}`);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-tutor-wallets"] });
+      window.alert(
+        t(
+          `تم إرسال دفعة Stripe بقيمة $${data.amount.toFixed(2)}.`,
+          `Stripe payout of $${data.amount.toFixed(2)} was sent successfully.`,
+        ),
+      );
+    },
+    onError: (
+      error: { response?: { data?: { message?: string } } } & Error,
+    ) => {
+      window.alert(error?.response?.data?.message || error.message);
+    },
+  });
+
+  const handleStripePayout = (wallet: TutorWallet) => {
+    if (!wallet.stripeAccountId || !wallet.stripeOnboardingComplete) {
+      return;
+    }
+    if (
+      !window.confirm(
+        t(
+          `إرسال كامل الرصيد المتاح ($${wallet.tutorAvailableBalance.toFixed(2)}) إلى حساب Stripe الخاص بـ ${wallet.tutorName}؟`,
+          `Send the full available balance ($${wallet.tutorAvailableBalance.toFixed(2)}) to ${wallet.tutorName}'s Stripe account?`,
+        ),
+      )
+    ) {
+      return;
+    }
+    stripePayoutMutation.mutate(wallet.tutorId);
+  };
+
   const handleReject = (payout: Payout) => {
     const reason = rejectReasons[payout.id]?.trim() || "";
     if (
@@ -130,6 +174,7 @@ export default function AdminPayoutsPage() {
 
   const pending = payouts.filter((p) => p.status === "pending");
   const processed = payouts.filter((p) => p.status !== "pending");
+  const renderedTutorIds = new Set<string>();
 
   if (isLoading) {
     return (
@@ -179,7 +224,7 @@ export default function AdminPayoutsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[760px]">
+            <table className="w-full text-sm min-w-[940px]">
               <thead>
                 <tr style={{ background: "var(--bg-light)" }}>
                   {[
@@ -190,6 +235,7 @@ export default function AdminPayoutsPage() {
                     t("حصة الأكاديمية", "Academy"),
                     t("ربح الدورة", "Course earned"),
                     t("الرصيد المتاح", "Available balance"),
+                    t("Stripe payout", "Stripe payout"),
                   ].map((label) => (
                     <th
                       key={label}
@@ -202,56 +248,130 @@ export default function AdminPayoutsPage() {
                 </tr>
               </thead>
               <tbody>
-                {tutorWallets.map((wallet) => (
-                  <tr
-                    key={`${wallet.tutorId}-${wallet.courseId}`}
-                    style={{ borderBottom: "1px solid var(--border-color)" }}
-                  >
-                    <td
-                      className="px-3 py-3 font-semibold"
-                      style={{ color: "var(--text-main)" }}
+                {tutorWallets.map((wallet) => {
+                  const isFirstTutorRow = !renderedTutorIds.has(wallet.tutorId);
+                  renderedTutorIds.add(wallet.tutorId);
+                  const stripeReady =
+                    Boolean(wallet.stripeAccountId) &&
+                    wallet.stripeOnboardingComplete;
+                  const payoutPending =
+                    stripePayoutMutation.isPending &&
+                    stripePayoutMutation.variables === wallet.tutorId;
+
+                  return (
+                    <tr
+                      key={`${wallet.tutorId}-${wallet.courseId}`}
+                      style={{ borderBottom: "1px solid var(--border-color)" }}
                     >
-                      {wallet.tutorName}
-                    </td>
-                    <td
-                      className="px-3 py-3"
-                      style={{ color: "var(--text-main)" }}
-                    >
-                      {wallet.courseTitle}
-                    </td>
-                    <td
-                      className="px-3 py-3"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {wallet.sales}
-                      <span className="text-xs ms-1">
-                        ({wallet.saleSources.tutor} referral /{" "}
-                        {wallet.saleSources.academy} academy)
-                      </span>
-                    </td>
-                    <td
-                      className="px-3 py-3"
-                      style={{ color: "var(--text-main)" }}
-                    >
-                      ${wallet.grossSales.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-3" style={{ color: "#D4A353" }}>
-                      ${wallet.academyCommission.toFixed(2)}
-                    </td>
-                    <td
-                      className="px-3 py-3 font-bold"
-                      style={{ color: "#22c55e" }}
-                    >
-                      ${wallet.tutorEarned.toFixed(2)}
-                    </td>
-                    <td
-                      className="px-3 py-3 font-bold"
-                      style={{ color: "#22c55e" }}
-                    >
-                      ${wallet.tutorAvailableBalance.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                      <td
+                        className="px-3 py-3 font-semibold"
+                        style={{ color: "var(--text-main)" }}
+                      >
+                        {wallet.tutorName}
+                      </td>
+                      <td
+                        className="px-3 py-3"
+                        style={{ color: "var(--text-main)" }}
+                      >
+                        {wallet.courseTitle}
+                      </td>
+                      <td
+                        className="px-3 py-3"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {wallet.sales}
+                        <span className="text-xs ms-1">
+                          ({wallet.saleSources.tutor} referral /{" "}
+                          {wallet.saleSources.academy} academy)
+                        </span>
+                      </td>
+                      <td
+                        className="px-3 py-3"
+                        style={{ color: "var(--text-main)" }}
+                      >
+                        ${wallet.grossSales.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-3" style={{ color: "#D4A353" }}>
+                        ${wallet.academyCommission.toFixed(2)}
+                      </td>
+                      <td
+                        className="px-3 py-3 font-bold"
+                        style={{ color: "#22c55e" }}
+                      >
+                        ${wallet.tutorEarned.toFixed(2)}
+                      </td>
+                      <td
+                        className="px-3 py-3 font-bold"
+                        style={{ color: "#22c55e" }}
+                      >
+                        ${wallet.tutorAvailableBalance.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-3">
+                        {isFirstTutorRow ? (
+                          <div className="flex flex-col gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleStripePayout(wallet)}
+                              disabled={
+                                !stripeReady ||
+                                wallet.tutorAvailableBalance <= 0 ||
+                                payoutPending
+                              }
+                              className="px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                              style={{
+                                background: stripeReady
+                                  ? "linear-gradient(135deg, #F3E1B9, #B89754)"
+                                  : "var(--bg-light)",
+                                color: stripeReady
+                                  ? "#0F3A40"
+                                  : "var(--text-muted)",
+                                border: stripeReady
+                                  ? "none"
+                                  : "1px solid var(--border-color)",
+                              }}
+                            >
+                              {payoutPending
+                                ? t("جارٍ الإرسال...", "Sending...")
+                                : t("إرسال إلى Stripe", "Send to Stripe")}
+                            </button>
+                            {!stripeReady && (
+                              <span
+                                className="text-[11px] leading-tight"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                {wallet.stripeAccountId
+                                  ? t(
+                                      "أكمل المدرس إعداد Stripe",
+                                      "Tutor onboarding incomplete",
+                                    )
+                                  : t(
+                                      "لم يتم ربط Stripe",
+                                      "Stripe account not connected",
+                                    )}
+                              </span>
+                            )}
+                            {stripeReady &&
+                              wallet.tutorAvailableBalance <= 0 && (
+                                <span
+                                  className="text-[11px] leading-tight"
+                                  style={{ color: "var(--text-muted)" }}
+                                >
+                                  {t("لا يوجد رصيد", "No balance")}
+                                </span>
+                              )}
+                          </div>
+                        ) : (
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            {t("تم عرضه مع المدرس", "Shown with tutor")}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

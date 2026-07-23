@@ -67,8 +67,8 @@ export class AdminPaymentsController {
       }) ?? [],
       this.tutorProfileRepository.find(),
     ]);
-    const availableBalances = new Map(
-      tutorProfiles.map((profile) => [profile.userId, profile.balance]),
+    const tutorProfilesById = new Map(
+      tutorProfiles.map((profile) => [profile.userId, profile]),
     );
 
     const wallets = new Map<
@@ -83,12 +83,17 @@ export class AdminPaymentsController {
         academyCommission: number;
         tutorEarned: number;
         saleSources: { tutor: number; academy: number };
+        stripeAccountId: string | null;
+        stripeOnboardingComplete: boolean;
       }
     >();
 
     for (const enrollment of enrollments) {
       const key = `${enrollment.courseId}:${enrollment.course?.tutorId ?? ''}`;
       const tutor = enrollment.course?.tutor;
+      const tutorProfile = tutorProfilesById.get(
+        enrollment.course?.tutorId ?? '',
+      );
       const wallet = wallets.get(key) ?? {
         tutorId: enrollment.course?.tutorId ?? '',
         tutorName: tutor
@@ -101,6 +106,10 @@ export class AdminPaymentsController {
         academyCommission: 0,
         tutorEarned: 0,
         saleSources: { tutor: 0, academy: 0 },
+        stripeAccountId: tutorProfile?.stripeAccountId ?? null,
+        stripeOnboardingComplete: Boolean(
+          tutorProfile?.stripeOnboardingComplete,
+        ),
       };
       wallet.sales += 1;
       wallet.grossSales +=
@@ -115,7 +124,7 @@ export class AdminPaymentsController {
     return [...wallets.values()].map((wallet) => ({
       ...wallet,
       tutorAvailableBalance: Number(
-        (availableBalances.get(wallet.tutorId) ?? 0).toFixed(2),
+        (tutorProfilesById.get(wallet.tutorId)?.balance ?? 0).toFixed(2),
       ),
       grossSales: Number(wallet.grossSales.toFixed(2)),
       academyCommission: Number(wallet.academyCommission.toFixed(2)),
@@ -190,6 +199,7 @@ export class AdminPaymentsController {
       payoutRecord = manager.create(Payout, {
         tutorId,
         amount: payoutAmount,
+        method: 'stripe_connect',
         status: PayoutStatus.PENDING,
       });
       await manager.save(payoutRecord);
