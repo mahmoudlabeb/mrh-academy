@@ -55,6 +55,14 @@ export class Payment {
   @Column({ nullable: true, type: 'varchar' })
   stripePaymentIntentId: string | null;
 
+  @Index({ unique: true })
+  @Column({ nullable: true, type: 'varchar' })
+  paypalOrderId: string | null;
+
+  @Index({ unique: true })
+  @Column({ nullable: true, type: 'varchar' })
+  paypalCaptureId: string | null;
+
   @Column({
     type: 'decimal',
     precision: 10,

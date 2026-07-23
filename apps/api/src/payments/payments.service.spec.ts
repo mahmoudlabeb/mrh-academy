@@ -16,6 +16,9 @@ import { OBJECT_STORAGE } from '../integrations/storage/object-storage';
 import { Notification } from '../messages/entities/notification.entity';
 import { CourseFundingAllocation } from './entities/course-funding-allocation.entity';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity';
+import { Course } from '../courses/entities/course.entity';
+import { UserRole, CourseStatus } from '@mrh/types';
+import { PayPalService } from './paypal/paypal.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -24,6 +27,8 @@ describe('PaymentsService', () => {
     save: jest.fn(async (value) => value),
     find: jest.fn(),
     findOne: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
   };
   const paymentMethodConfigRepository = {
     findOne: jest.fn(async (opts) => ({
@@ -44,9 +49,20 @@ describe('PaymentsService', () => {
     findOne: jest.fn(async () => ({
       id: 'user-1',
       email: 'student@example.com',
+      role: UserRole.STUDENT,
+    })),
+  };
+  const courseRepository = {
+    findOne: jest.fn(async () => ({
+      id: 'course-1',
+      tutorId: 'tutor-1',
+      title: 'Test course',
+      price: 100,
+      status: CourseStatus.APPROVED,
     })),
   };
   const dataSource = {
+    getRepository: jest.fn(() => ({ findOne: jest.fn(async () => null) })),
     transaction: jest.fn(async (cb) =>
       cb({
         findOne: jest.fn(async () => ({
@@ -69,6 +85,18 @@ describe('PaymentsService', () => {
     createCheckoutSession: jest.fn(async () => ({
       url: 'https://checkout.stripe.test/session',
     })),
+    createCourseCheckoutSession: jest.fn(async () => ({
+      id: 'cs_course',
+      url: 'https://checkout.stripe.test/course',
+    })),
+  };
+  const payPalService = {
+    isConfigured: jest.fn(() => true),
+    createOrder: jest.fn(async () => ({
+      orderId: 'PAYPAL-ORDER-1',
+      approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=1',
+    })),
+    captureOrder: jest.fn(async () => 'PAYPAL-CAPTURE-1'),
   };
   const emailService = { sendEmail: jest.fn(async () => undefined) };
   const commissionService = {
@@ -109,12 +137,14 @@ describe('PaymentsService', () => {
         { provide: getDataSourceToken(), useValue: dataSource },
         { provide: ConfigService, useValue: configService },
         { provide: StripeService, useValue: stripeService },
+        { provide: PayPalService, useValue: payPalService },
         { provide: EmailService, useValue: emailService },
         { provide: CommissionService, useValue: commissionService },
         {
           provide: getRepositoryToken(Notification),
           useValue: notificationRepository,
         },
+        { provide: getRepositoryToken(Course), useValue: courseRepository },
         { provide: OBJECT_STORAGE, useValue: objectStorage },
       ],
     }).compile();
@@ -149,7 +179,29 @@ describe('PaymentsService', () => {
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
 
-  it('auto-approves PayPal payments per original spec', async () => {
+  it('creates a direct Stripe course checkout for a guest email', async () => {
+    const result = await service.createCourseCheckout({
+      courseId: '5e784b46-ae4c-4a9b-9ca5-3d78f19ef4a9',
+      email: 'STUDENT@example.com',
+      firstName: 'Test',
+      lastName: 'Student',
+    });
+
+    expect(stripeService.createCourseCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        paymentId: 'payment-1',
+        amount: 100,
+        email: 'student@example.com',
+      }),
+    );
+    expect(paymentRepository.update).toHaveBeenCalledWith('payment-1', {
+      stripeCheckoutSessionId: 'cs_course',
+    });
+    expect(result.checkoutUrl).toBe('https://checkout.stripe.test/course');
+  });
+
+  it('keeps PayPal pending and redirects to a real PayPal approval URL', async () => {
     const result = await service.submitPayment('user-1', {
       method: PaymentMethod.PAYPAL,
       amount: 30,
@@ -161,8 +213,33 @@ describe('PaymentsService', () => {
         status: PaymentStatus.PENDING,
       }),
     );
+    expect(payPalService.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'payment-1', amount: 30 }),
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(result.payment.status).toBe(PaymentStatus.PENDING);
+    expect(result.payment.paypalOrderId).toBe('PAYPAL-ORDER-1');
+    expect(result.checkoutUrl).toContain('sandbox.paypal.com');
+  });
+
+  it('credits PayPal only after server-side capture verification', async () => {
+    paymentRepository.findOne.mockResolvedValueOnce({
+      id: 'payment-1',
+      userId: 'user-1',
+      amount: 30,
+      currency: 'USD',
+      method: PaymentMethod.PAYPAL,
+      status: PaymentStatus.PENDING,
+      paypalOrderId: 'PAYPAL-ORDER-1',
+    });
+
+    await service.capturePayPalPayment('payment-1', 'user-1');
+
+    expect(payPalService.captureOrder).toHaveBeenCalled();
+    expect(paymentRepository.update).toHaveBeenCalledWith('payment-1', {
+      paypalCaptureId: 'PAYPAL-CAPTURE-1',
+    });
     expect(dataSource.transaction).toHaveBeenCalled();
-    expect(result.payment.status).toBe(PaymentStatus.APPROVED);
   });
 
   it('credits an approved USD payment to the student wallet one-for-one', async () => {

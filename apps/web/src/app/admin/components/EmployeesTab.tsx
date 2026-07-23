@@ -22,14 +22,6 @@ type SubAdmin = Employee & {
 const PERMISSION_OPTIONS = [
   'manage_tutors',
   'manage_students',
-  'manage_lessons',
-  'manage_courses',
-  'manage_reviews',
-  'manage_payments',
-  'manage_employees',
-  'manage_settings',
-  'view_reports',
-  'impersonate_users',
 ];
 
 const emptyForm = { firstName: '', lastName: '', email: '', roleTitle: '', permissions: '' };
@@ -249,7 +241,7 @@ export default function EmployeesTab() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-main)' }}>{lang === 'ar' ? 'الصلاحيات (مفصولة بفواصل)' : 'Permissions (comma separated)'}</label>
-                <input className="input-field" value={form.permissions} onChange={(e) => setForm(f => ({ ...f, permissions: e.target.value }))} placeholder="manage_tutors, manage_courses, view_reports" />
+                <input className="input-field" value={form.permissions} onChange={(e) => setForm(f => ({ ...f, permissions: e.target.value }))} placeholder="manage_tutors, manage_students" />
                 <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                   {PERMISSION_OPTIONS.join(', ')}
                 </p>

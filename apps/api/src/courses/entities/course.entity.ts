@@ -47,6 +47,12 @@ export class Course {
   @Column({ type: 'enum', enum: CourseStatus, default: CourseStatus.PENDING })
   status: CourseStatus;
 
+  @Column({ type: 'timestamp', nullable: true })
+  videoQualityApprovedAt: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  videoQualityApprovedBy: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -12,16 +12,11 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-function getInitialTheme(): Theme {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('theme') as Theme | null;
-    if (stored === 'light' || stored === 'dark') return stored;
-  }
-  return 'dark';
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  // Keep the first client render identical to SSR. The persisted preference is
+  // applied immediately after hydration; the inline layout script prevents a
+  // visible flash before then.
+  const [theme, setThemeState] = useState<Theme>('dark');
 
   const applyTheme = useCallback((t: Theme) => {
     const root = document.documentElement;
@@ -53,8 +48,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [applyTheme]);
 
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme, applyTheme]);
+    const stored = localStorage.getItem('theme');
+    const initialTheme: Theme = stored === 'light' ? 'light' : 'dark';
+    setThemeState(initialTheme);
+    applyTheme(initialTheme);
+  }, [applyTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>

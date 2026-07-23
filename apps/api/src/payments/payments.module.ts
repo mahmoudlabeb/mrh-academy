@@ -26,6 +26,7 @@ import { CourseRefundReversal } from './entities/course-refund-reversal.entity.j
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
 import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
 import { Course } from '../courses/entities/course.entity.js';
+import { PayPalService } from './paypal/paypal.service.js';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { Course } from '../courses/entities/course.entity.js';
   providers: [
     PaymentsService,
     StripeService,
+    PayPalService,
     InvoiceService,
     EmailService,
     CommissionService,

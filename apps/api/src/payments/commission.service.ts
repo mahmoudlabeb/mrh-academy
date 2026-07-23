@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Setting } from '../admin/entities/setting.entity.js';
@@ -84,8 +84,13 @@ export class CommissionService {
     const setting = await this.settingRepository.findOne({
       where: { key: 'egp_to_usd_rate' },
     });
-    const parsed = setting ? parseFloat(setting.value) : 50;
-    this.cachedEgpRate = Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
+    const parsed = setting ? parseFloat(setting.value) : Number.NaN;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new BadRequestException(
+        'EGP payments are unavailable until egp_to_usd_rate is configured',
+      );
+    }
+    this.cachedEgpRate = parsed;
     this.touchCache();
     return this.cachedEgpRate;
   }

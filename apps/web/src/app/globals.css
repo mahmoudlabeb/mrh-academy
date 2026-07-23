@@ -7,10 +7,10 @@
   --gold-gradient-end: #B89754;
   --gold-luxury: #E4CC9C;
   --gold-bronze: #D4A353;
-  --green-dark: #07211b;
+  --green-dark: #0F3A40;
   --teal-light: #1D535B;
-  --ivory-pure: #fcf8f2;
-  --ivory-warm: #fcf8f2;
+  --ivory-pure: #FFFFF0;
+  --ivory-warm: #FDFBF7;
   --ivory-rich: #FAEDCD;
 
   /* Theme semantic tokens (Light Mode) */
@@ -28,9 +28,16 @@
   --shadow-sm: 0 2px 4px rgba(15, 58, 64, 0.05);
   --shadow-md: 0 4px 12px rgba(15, 58, 64, 0.08);
   --shadow-lg: 0 12px 24px rgba(15, 58, 64, 0.12);
-  --hero-surface: #e7f0ec;
-  --hero-heading: #07211b;
-  --hero-copy: #315f5e;
+  --hero-surface: var(--gold-light);
+  --hero-heading: var(--green-dark);
+  --hero-copy: var(--teal-light);
+  --surface-canvas: var(--ivory-warm);
+  --surface-raised: var(--ivory-pure);
+  --surface-warm: var(--ivory-rich);
+  --ink-strong: var(--green-dark);
+  --ink-soft: #365f63;
+  --rule-subtle: rgba(15, 58, 64, 0.16);
+  --gold-rule: rgba(184, 151, 84, 0.55);
   color-scheme: light;
 }
 
@@ -39,17 +46,24 @@ body.dark-theme, .dark-theme {
   --primary-color: var(--gold-luxury);
   --primary-hover: var(--gold-gradient-start);
   --secondary-color: var(--teal-light);
-  --text-main: #fcf8f2;
-  --text-muted: #c9c4bc;
-  --bg-main: #07211b;
+  --text-main: var(--ivory-pure);
+  --text-muted: var(--gold-luxury);
+  --bg-main: var(--green-dark);
   --bg-light: var(--teal-light);
   --border-color: var(--teal-light);
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.4);
-  --hero-surface: #0f3a40;
-  --hero-heading: #fffff0;
-  --hero-copy: #e4cc9c;
+  --hero-surface: var(--green-dark);
+  --hero-heading: var(--ivory-pure);
+  --hero-copy: var(--gold-luxury);
+  --surface-canvas: var(--green-dark);
+  --surface-raised: #16474d;
+  --surface-warm: var(--teal-light);
+  --ink-strong: var(--ivory-pure);
+  --ink-soft: #e7dcc5;
+  --rule-subtle: rgba(228, 204, 156, 0.2);
+  --gold-rule: rgba(228, 204, 156, 0.55);
   color-scheme: dark;
 }
 

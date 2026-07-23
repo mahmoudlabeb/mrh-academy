@@ -20,16 +20,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const enabled = !!(clientID && clientSecret && callbackURL);
 
     super({
-      clientID: clientID ?? 'missing',
-      clientSecret: clientSecret ?? 'missing',
-      callbackURL: callbackURL ?? 'http://localhost/missing',
+      clientID: clientID || 'missing',
+      clientSecret: clientSecret || 'missing',
+      callbackURL: callbackURL || 'http://localhost/missing',
       scope: ['openid', 'profile', 'email'],
       state: false,
       passReqToCallback: true,
     });
 
     this.googleEnabled = enabled;
-    this.clientId = clientID ?? 'missing';
+    this.clientId = clientID || 'missing';
   }
 
   authorizationParams(options: { nonce?: string } = {}) {

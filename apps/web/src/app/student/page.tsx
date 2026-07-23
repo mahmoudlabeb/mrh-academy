@@ -450,6 +450,16 @@ function StudentDashboardContent() {
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-lg hover:bg-white/5 transition-colors"
+                aria-label={
+                  theme === "dark"
+                    ? t("التبديل إلى الوضع الفاتح", "Switch to light mode")
+                    : t("التبديل إلى الوضع الداكن", "Switch to dark mode")
+                }
+                title={
+                  theme === "dark"
+                    ? t("التبديل إلى الوضع الفاتح", "Switch to light mode")
+                    : t("التبديل إلى الوضع الداكن", "Switch to dark mode")
+                }
               >
                 {theme === "dark" ? (
                   <svg

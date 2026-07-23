@@ -25,9 +25,14 @@ function getInitialLanguage(): Language {
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>(getInitialLanguage);
   const router = useRouter();
   const pathname = usePathname();
+  // The translated marketing route must start in English on the very first
+  // client render. Otherwise a persisted Arabic preference briefly paints the
+  // wrong navbar/footer before the route effect can synchronize the language.
+  const [lang, setLangState] = useState<Language>(() =>
+    pathname === '/en' ? 'en' : getInitialLanguage(),
+  );
 
   const applyLanguage = useCallback((l: Language) => {
     const root = document.documentElement;

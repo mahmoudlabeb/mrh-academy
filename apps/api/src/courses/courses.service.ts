@@ -162,6 +162,16 @@ export class CoursesService {
       tags?: string[];
     },
   ) {
+    const tutorProfile = await this.tutorProfileRepository.findOne({
+      where: { userId: tutorId },
+      select: { userId: true, status: true },
+    });
+    if (tutorProfile?.status !== CourseStatus.APPROVED) {
+      throw new ForbiddenException(
+        'Your tutor account must be approved before creating courses',
+      );
+    }
+
     const course = this.courseRepository.create({
       tutorId,
       title: dto.title,

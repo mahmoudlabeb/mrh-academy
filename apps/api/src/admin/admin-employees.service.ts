@@ -32,6 +32,21 @@ type EmployeeDto = {
   permissions: string[];
 };
 
+// Support staff may help with student and tutor communication/workflows, but
+// financial, settings, employee-management, reporting, and impersonation
+// capabilities are intentionally reserved for full administrators.
+export const SUBADMIN_ALLOWED_PERMISSIONS = [
+  'manage_tutors',
+  'manage_students',
+] as const;
+
+function sanitizeSubAdminPermissions(permissions: string[]): string[] {
+  const allowed = new Set<string>(SUBADMIN_ALLOWED_PERMISSIONS);
+  return [
+    ...new Set(permissions.filter((permission) => allowed.has(permission))),
+  ];
+}
+
 @Injectable()
 export class AdminEmployeesService {
   constructor(
@@ -93,7 +108,7 @@ export class AdminEmployeesService {
 
     const temporaryPassword = resolveSubAdminPassword(this.configService);
     const passwordHash = await hashPassword(temporaryPassword);
-    const permissions = dto.permissions.filter(Boolean);
+    const permissions = sanitizeSubAdminPermissions(dto.permissions);
 
     const result = await this.dataSource.transaction(async (manager) => {
       const user = manager.create(User, {
@@ -156,7 +171,9 @@ export class AdminEmployeesService {
     if (dto.email) employee.email = email;
     if (dto.roleTitle) employee.roleTitle = dto.roleTitle.trim();
     if (dto.permissions) {
-      employee.permissions = JSON.stringify(dto.permissions.filter(Boolean));
+      employee.permissions = JSON.stringify(
+        sanitizeSubAdminPermissions(dto.permissions),
+      );
     }
 
     await this.employeeRepository.save(employee);
@@ -171,7 +188,9 @@ export class AdminEmployeesService {
         where: { userId: user.id },
       });
       if (profile && dto.permissions) {
-        profile.assignedPermissions = dto.permissions.filter(Boolean);
+        profile.assignedPermissions = sanitizeSubAdminPermissions(
+          dto.permissions,
+        );
         await this.subAdminRepository.save(profile);
       }
     }

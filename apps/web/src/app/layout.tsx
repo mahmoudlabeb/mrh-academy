@@ -65,7 +65,10 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className={`antialiased min-h-screen dark-theme font-arabic ${cairo.variable} ${plusJakartaSans.variable}`}>
+      <body
+        suppressHydrationWarning
+        className={`antialiased min-h-screen dark-theme font-arabic ${cairo.variable} ${plusJakartaSans.variable}`}
+      >
         <Providers>
           {children}
         </Providers>

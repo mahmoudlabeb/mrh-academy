@@ -1,5 +1,8 @@
 import supertest from 'supertest';
 
+process.env.REFERRAL_SECRET ||=
+  'e2e-referral-signing-secret-that-is-never-used-outside-tests';
+
 const csrfToken = 'e2e-csrf-token';
 const origin = 'http://localhost:3000';
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);

@@ -98,12 +98,27 @@ export class StripeWebhookController {
           typeof session.payment_intent === 'string'
             ? session.payment_intent
             : session.payment_intent?.id;
-        await this.paymentRepository.update(payment.id, {
-          stripeCheckoutSessionId: session.id,
-          stripePaymentIntentId: paymentIntentId ?? null,
-        });
-
-        await this.paymentsService.approvePayment(paymentId, 'stripe-webhook');
+        if (session.metadata?.checkoutType === 'course') {
+          const courseId = session.metadata.courseId;
+          if (!courseId)
+            throw new BadRequestException('Missing course metadata');
+          await this.paymentsService.completeCourseCheckout({
+            paymentId,
+            courseId,
+            referralCode: session.metadata.referralCode || undefined,
+            stripeSessionId: session.id,
+            stripePaymentIntentId: paymentIntentId,
+          });
+        } else {
+          await this.paymentRepository.update(payment.id, {
+            stripeCheckoutSessionId: session.id,
+            stripePaymentIntentId: paymentIntentId ?? null,
+          });
+          await this.paymentsService.approvePayment(
+            paymentId,
+            'stripe-webhook',
+          );
+        }
       }
 
       if (event.type === 'charge.refunded') {

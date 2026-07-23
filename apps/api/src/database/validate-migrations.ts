@@ -32,6 +32,8 @@ const EXPECTED_TABLES = [
   'vocabulary_words',
   'payouts',
   'course_promo_codes',
+  'course_funding_allocations',
+  'course_refund_reversals',
   'lesson_books',
   'student_favorites',
   'migrations',

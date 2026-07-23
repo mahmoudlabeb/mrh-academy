@@ -8,17 +8,9 @@ import { TutorAvailability } from '../../tutors/entities/tutor-availability.enti
 import { SubAdminProfile } from '../../admin/entities/sub-admin-profile.entity.js';
 import { Employee } from '../../admin/entities/employee.entity.js';
 
-const allSubAdminPermissions = [
+const supportSubAdminPermissions = [
   'manage_tutors',
   'manage_students',
-  'manage_courses',
-  'manage_lessons',
-  'manage_payments',
-  'manage_reviews',
-  'manage_employees',
-  'manage_settings',
-  'view_reports',
-  'impersonate_users',
 ] as const;
 
 const demoUsers = [
@@ -75,7 +67,12 @@ async function seedDemoData() {
         const existing = await manager.findOne(User, {
           where: { email: fixture.email },
         });
-        if (existing) return;
+        if (existing) {
+          existing.passwordHash = passwordHash;
+          existing.isVerified = true;
+          await manager.save(existing);
+          return;
+        }
 
         const user = await manager.save(
           User,
@@ -111,18 +108,23 @@ async function seedDemoData() {
             SubAdminProfile,
             manager.create(SubAdminProfile, {
               userId: user.id,
-              assignedPermissions: [...allSubAdminPermissions],
+              assignedPermissions: [...supportSubAdminPermissions],
             }),
           );
-          await manager.save(
-            Employee,
-            manager.create(Employee, {
-              name: `${fixture.firstName} ${fixture.lastName}`,
-              email: fixture.email,
-              roleTitle: 'Demo Operations Manager',
-              permissions: JSON.stringify(allSubAdminPermissions),
-            }),
-          );
+          const existingEmployee = await manager.findOne(Employee, {
+            where: { email: fixture.email },
+          });
+          if (!existingEmployee) {
+            await manager.save(
+              Employee,
+              manager.create(Employee, {
+                name: `${fixture.firstName} ${fixture.lastName}`,
+                email: fixture.email,
+                roleTitle: 'Demo Operations Manager',
+                permissions: JSON.stringify(supportSubAdminPermissions),
+              }),
+            );
+          }
         }
       });
     }

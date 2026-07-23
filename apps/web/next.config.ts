@@ -50,6 +50,14 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${apiUrl}/api/:path*`,
       },
+      {
+        source: "/socket.io",
+        destination: `${apiUrl}/socket.io/`,
+      },
+      {
+        source: "/socket.io/:path*",
+        destination: `${apiUrl}/socket.io/:path*`,
+      },
     ];
   },
   async headers() {

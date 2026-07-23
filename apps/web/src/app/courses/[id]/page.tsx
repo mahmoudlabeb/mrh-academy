@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
-import { useLanguage } from '@/contexts/language-context';
-import { useAuth } from '@/contexts/auth-context';
-import Image from 'next/image';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
+import { useAuth } from "@/contexts/auth-context";
+import Image from "next/image";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 type CourseDetail = {
   id: string;
@@ -39,30 +39,41 @@ export default function CourseDetailPage() {
   const queryClient = useQueryClient();
   const referralStorageKey = `course_ref_${params.id}`;
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [streamError, setStreamError] = useState('');
+  const [streamError, setStreamError] = useState("");
+  const [guest, setGuest] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+  });
   const { data: course, isLoading } = useQuery({
-    queryKey: ['course', params.id],
+    queryKey: ["course", params.id],
     queryFn: async () => {
-      const { data } = await apiClient.get<CourseDetail>(`/courses/${params.id}`);
+      const { data } = await apiClient.get<CourseDetail>(
+        `/courses/${params.id}`,
+      );
       return data;
     },
   });
 
   const { data: enrollments } = useQuery({
-    queryKey: ['my-enrollments'],
+    queryKey: ["my-enrollments"],
     queryFn: async () => {
-      const { data } = await apiClient.get<Array<{ courseId: string; progressPercentage: number }>>('/courses/my/enrollments');
+      const { data } = await apiClient.get<
+        Array<{ courseId: string; progressPercentage: number }>
+      >("/courses/my/enrollments");
       return data;
     },
-    enabled: !!user && user.role === 'student',
+    enabled: !!user && user.role === "student",
   });
 
   const enrollment = enrollments?.find((e) => e.courseId === params.id);
 
   const { data: lessons } = useQuery({
-    queryKey: ['course-lessons', params.id],
+    queryKey: ["course-lessons", params.id],
     queryFn: async () => {
-      const { data } = await apiClient.get<CourseLesson[]>(`/courses/${params.id}/lessons`);
+      const { data } = await apiClient.get<CourseLesson[]>(
+        `/courses/${params.id}/lessons`,
+      );
       return data;
     },
     enabled: !!user && !!enrollment,
@@ -70,31 +81,37 @@ export default function CourseDetailPage() {
 
   const completeMutation = useMutation({
     mutationFn: async (lessonId: string) => {
-      const { data } = await apiClient.post(`/courses/${params.id}/lessons/${lessonId}/complete`);
+      const { data } = await apiClient.post(
+        `/courses/${params.id}/lessons/${lessonId}/complete`,
+      );
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-lessons', params.id] });
-      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+      queryClient.invalidateQueries({
+        queryKey: ["course-lessons", params.id],
+      });
+      queryClient.invalidateQueries({ queryKey: ["my-enrollments"] });
     },
   });
 
   const watchVideo = async () => {
-    setStreamError('');
+    setStreamError("");
     try {
-      const { data } = await apiClient.get<{ embedUrl: string }>(`/courses/${params.id}/stream-token`);
+      const { data } = await apiClient.get<{ embedUrl: string }>(
+        `/courses/${params.id}/stream-token`,
+      );
       setStreamUrl(data.embedUrl);
     } catch {
       setStreamError(
-        lang === 'ar'
-          ? 'الفيديو غير متاح. تأكد من إعداد Bunny CDN على الخادم (BUNNY_API_KEY, BUNNY_CDN_HOSTNAME).'
-          : 'Video unavailable. Ensure Bunny CDN is configured on the API (BUNNY_API_KEY, BUNNY_CDN_HOSTNAME).',
+        lang === "ar"
+          ? "الفيديو غير متاح. تأكد من إعداد Bunny CDN على الخادم (BUNNY_API_KEY, BUNNY_CDN_HOSTNAME)."
+          : "Video unavailable. Ensure Bunny CDN is configured on the API (BUNNY_API_KEY, BUNNY_CDN_HOSTNAME).",
       );
     }
   };
 
   const getCookie = (name: string) => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
     return match ? decodeURIComponent(match[2]) : null;
   };
@@ -102,10 +119,13 @@ export default function CourseDetailPage() {
   const enrollMutation = useMutation({
     mutationFn: async () => {
       let referralCode = getCookie(referralStorageKey);
-      if (!referralCode && typeof window !== 'undefined') {
+      if (!referralCode && typeof window !== "undefined") {
         try {
-          const stored = JSON.parse(window.localStorage.getItem(referralStorageKey) || 'null') as { code?: string; expiresAt?: number } | null;
-          if (stored?.code && (stored.expiresAt ?? 0) > Date.now()) referralCode = stored.code;
+          const stored = JSON.parse(
+            window.localStorage.getItem(referralStorageKey) || "null",
+          ) as { code?: string; expiresAt?: number } | null;
+          if (stored?.code && (stored.expiresAt ?? 0) > Date.now())
+            referralCode = stored.code;
         } catch {
           window.localStorage.removeItem(referralStorageKey);
         }
@@ -116,26 +136,61 @@ export default function CourseDetailPage() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
-      queryClient.invalidateQueries({ queryKey: ['course-lessons', params.id] });
-      router.push('/student?tab=lessons');
+      queryClient.invalidateQueries({ queryKey: ["my-enrollments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["course-lessons", params.id],
+      });
+      router.push("/student?tab=lessons");
     },
   });
 
+  const guestCheckoutMutation = useMutation({
+    mutationFn: async () => {
+      let referralCode = getCookie(referralStorageKey);
+      if (!referralCode && typeof window !== "undefined") {
+        try {
+          const stored = JSON.parse(
+            window.localStorage.getItem(referralStorageKey) || "null",
+          ) as { code?: string; expiresAt?: number } | null;
+          if (stored?.code && (stored.expiresAt ?? 0) > Date.now())
+            referralCode = stored.code;
+        } catch {
+          window.localStorage.removeItem(referralStorageKey);
+        }
+      }
+      const { data } = await apiClient.post<{ checkoutUrl: string }>(
+        "/payments/course-checkout",
+        {
+          courseId: params.id,
+          ...guest,
+          referralCode: referralCode || undefined,
+        },
+      );
+      return data;
+    },
+    onSuccess: ({ checkoutUrl }) => window.location.assign(checkoutUrl),
+  });
+
   useEffect(() => {
-    const ref = searchParams.get('ref');
+    const ref = searchParams.get("ref");
     if (ref) {
       const maxAge = 30 * 24 * 60 * 60;
       const expiresAt = Date.now() + maxAge * 1000;
-      window.localStorage.setItem(referralStorageKey, JSON.stringify({ code: ref, expiresAt }));
-      const secure = window.location.protocol === 'https:' ? ';Secure' : '';
+      window.localStorage.setItem(
+        referralStorageKey,
+        JSON.stringify({ code: ref, expiresAt }),
+      );
+      const secure = window.location.protocol === "https:" ? ";Secure" : "";
       document.cookie = `${referralStorageKey}=${encodeURIComponent(ref)};Max-Age=${maxAge};Path=/;SameSite=Lax${secure}`;
     }
   }, [referralStorageKey, searchParams]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="public-navbar-offset min-h-screen"
+        style={{ background: "var(--bg-main)" }}
+      >
         <Navbar />
         <main className="max-w-4xl mx-auto px-4 py-12">
           <div className="card p-8 space-y-6">
@@ -151,11 +206,14 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <div className="min-h-screen" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="public-navbar-offset min-h-screen"
+        style={{ background: "var(--bg-main)" }}
+      >
         <Navbar />
         <main className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <p className="text-lg" style={{ color: 'var(--text-muted)' }}>
-            {lang === 'ar' ? 'الكورس غير موجود' : 'Course not found'}
+          <p className="text-lg" style={{ color: "var(--text-muted)" }}>
+            {lang === "ar" ? "الكورس غير موجود" : "Course not found"}
           </p>
         </main>
         <Footer />
@@ -164,52 +222,103 @@ export default function CourseDetailPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-main)' }}>
+    <div
+      className="public-navbar-offset min-h-screen"
+      style={{ background: "var(--bg-main)" }}
+    >
       <Navbar />
       <main className="max-w-4xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-2xl overflow-hidden h-64 relative flex items-center justify-center" style={{ background: 'var(--bg-light)' }}>
+            <div
+              className="rounded-2xl overflow-hidden h-64 relative flex items-center justify-center"
+              style={{ background: "var(--bg-light)" }}
+            >
               {course.thumbnailUrl ? (
-                <Image src={course.thumbnailUrl} alt={course.title} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+                <Image
+                  src={course.thumbnailUrl}
+                  alt={course.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
               ) : (
-                <div className="w-24 h-24 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(212, 163, 83,0.15)' }}>
-                  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                <div
+                  className="w-24 h-24 rounded-2xl flex items-center justify-center"
+                  style={{ background: "rgba(212, 163, 83,0.15)" }}
+                >
+                  <svg
+                    className="w-12 h-12"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="#D4A353"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
+                    />
                   </svg>
                 </div>
               )}
             </div>
 
-            <h1 className="text-3xl font-bold" style={{ color: 'var(--text-main)' }}>{course.title}</h1>
-            <p className="leading-relaxed" style={{ color: 'var(--text-muted)' }}>{course.description}</p>
+            <h1
+              className="text-3xl font-bold"
+              style={{ color: "var(--text-main)" }}
+            >
+              {course.title}
+            </h1>
+            <p
+              className="leading-relaxed"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {course.description}
+            </p>
 
             {enrollment && (
               <div className="card p-4 space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
-                      {lang === 'ar' ? 'تقدمك في الكورس' : 'Your Progress'}
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      {lang === "ar" ? "تقدمك في الكورس" : "Your Progress"}
                     </span>
-                    <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
+                    <span
+                      className="text-sm font-bold"
+                      style={{ color: "#D4A353" }}
+                    >
                       {enrollment.progressPercentage}%
                     </span>
                   </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-light)' }}>
+                  <div
+                    className="h-2 rounded-full overflow-hidden"
+                    style={{ background: "var(--bg-light)" }}
+                  >
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${enrollment.progressPercentage}%`, background: '#D4A353' }}
+                      style={{
+                        width: `${enrollment.progressPercentage}%`,
+                        background: "#D4A353",
+                      }}
                     />
                   </div>
                 </div>
-                <button type="button" onClick={watchVideo} className="btn-outline-gold w-full text-sm">
-                  {lang === 'ar' ? 'مشاهدة فيديو الكورس' : 'Watch Course Video'}
+                <button
+                  type="button"
+                  onClick={watchVideo}
+                  className="btn-outline-gold w-full text-sm"
+                >
+                  {lang === "ar" ? "مشاهدة فيديو الكورس" : "Watch Course Video"}
                 </button>
                 {streamUrl && (
                   <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
                     <iframe
                       src={streamUrl}
-                      title={lang === 'ar' ? 'فيديو الدورة' : 'Course video'}
+                      title={lang === "ar" ? "فيديو الدورة" : "Course video"}
                       className="absolute inset-0 h-full w-full"
                       allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
                       allowFullScreen
@@ -217,26 +326,56 @@ export default function CourseDetailPage() {
                   </div>
                 )}
                 {streamError && (
-                  <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{streamError}</p>
+                  <p
+                    className="text-xs text-center"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {streamError}
+                  </p>
                 )}
               </div>
             )}
 
             {lessons && lessons.length > 0 && (
               <div>
-                <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-                  {lang === 'ar' ? 'محتوى الكورس' : 'Course Content'}
+                <h2
+                  className="text-xl font-bold mb-4"
+                  style={{ color: "var(--text-main)" }}
+                >
+                  {lang === "ar" ? "محتوى الكورس" : "Course Content"}
                 </h2>
                 <div className="space-y-2">
                   {lessons.map((lesson) => (
-                    <div key={lesson.id} className="card p-4 flex items-center justify-between gap-3">
+                    <div
+                      key={lesson.id}
+                      className="card p-4 flex items-center justify-between gap-3"
+                    >
                       <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: lesson.isCompleted ? 'rgba(34,197,94,0.15)' : 'rgba(212, 163, 83,0.15)', color: lesson.isCompleted ? '#22c55e' : '#D4A353' }}>
-                          {lesson.isCompleted ? '✓' : lesson.lessonOrder}
+                        <span
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                          style={{
+                            background: lesson.isCompleted
+                              ? "rgba(34,197,94,0.15)"
+                              : "rgba(212, 163, 83,0.15)",
+                            color: lesson.isCompleted ? "#22c55e" : "#D4A353",
+                          }}
+                        >
+                          {lesson.isCompleted ? "✓" : lesson.lessonOrder}
                         </span>
                         <div>
-                          <p className="font-medium text-sm" style={{ color: 'var(--text-main)' }}>{lesson.title}</p>
-                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lesson.durationMinutes} {lang === 'ar' ? 'دقيقة' : 'min'}</p>
+                          <p
+                            className="font-medium text-sm"
+                            style={{ color: "var(--text-main)" }}
+                          >
+                            {lesson.title}
+                          </p>
+                          <p
+                            className="text-xs"
+                            style={{ color: "var(--text-muted)" }}
+                          >
+                            {lesson.durationMinutes}{" "}
+                            {lang === "ar" ? "دقيقة" : "min"}
+                          </p>
                         </div>
                       </div>
                       {enrollment && !lesson.isCompleted && (
@@ -246,7 +385,7 @@ export default function CourseDetailPage() {
                           disabled={completeMutation.isPending}
                           className="btn-primary text-xs px-3 py-1.5 shrink-0"
                         >
-                          {lang === 'ar' ? 'إكمال' : 'Complete'}
+                          {lang === "ar" ? "إكمال" : "Complete"}
                         </button>
                       )}
                     </div>
@@ -258,19 +397,40 @@ export default function CourseDetailPage() {
 
           <div>
             <div className="card p-6 sticky top-24">
-              <p className="text-3xl font-bold mb-1" style={{ color: '#D4A353' }}>${course.price.toFixed(2)}</p>
-              <p className="text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
-                {lang === 'ar' ? 'سعر الكورس' : 'Course price'}
+              <p
+                className="text-3xl font-bold mb-1"
+                style={{ color: "#D4A353" }}
+              >
+                ${course.price.toFixed(2)}
+              </p>
+              <p
+                className="text-xs mb-6"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {lang === "ar" ? "سعر الكورس" : "Course price"}
               </p>
 
-              <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-                <span className="font-medium" style={{ color: 'var(--text-main)' }}>{course.tutor.firstName} {course.tutor.lastName}</span>
+              <p
+                className="text-sm mb-4"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <span
+                  className="font-medium"
+                  style={{ color: "var(--text-main)" }}
+                >
+                  {course.tutor.firstName} {course.tutor.lastName}
+                </span>
               </p>
 
-              {user?.role === 'student' ? (
+              {user?.role === "student" ? (
                 enrollment ? (
-                  <p className="text-sm text-center py-3" style={{ color: '#22c55e' }}>
-                    {lang === 'ar' ? 'أنت مسجل في هذا الكورس' : 'You are enrolled in this course'}
+                  <p
+                    className="text-sm text-center py-3"
+                    style={{ color: "#22c55e" }}
+                  >
+                    {lang === "ar"
+                      ? "أنت مسجل في هذا الكورس"
+                      : "You are enrolled in this course"}
                   </p>
                 ) : (
                   <button
@@ -279,18 +439,104 @@ export default function CourseDetailPage() {
                     className="btn-primary w-full"
                   >
                     {enrollMutation.isPending
-                      ? (lang === 'ar' ? 'جاري التسجيل...' : 'Enrolling...')
-                      : (lang === 'ar' ? 'سجل الآن' : 'Enroll Now')}
+                      ? lang === "ar"
+                        ? "جاري التسجيل..."
+                        : "Enrolling..."
+                      : lang === "ar"
+                        ? "سجل الآن"
+                        : "Enroll Now"}
                   </button>
                 )
               ) : user ? (
-                <p className="text-sm text-center" style={{ color: 'var(--text-muted)' }}>
-                  {lang === 'ar' ? 'التسجيل متاح للطلاب فقط' : 'Enrollment is for students only'}
+                <p
+                  className="text-sm text-center"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {lang === "ar"
+                    ? "التسجيل متاح للطلاب فقط"
+                    : "Enrollment is for students only"}
                 </p>
               ) : (
-                <Link href={`/login?redirect=${encodeURIComponent(`/courses/${params.id}`)}`} className="btn-primary w-full block text-center">
-                  {lang === 'ar' ? 'سجل الدخول للتسجيل' : 'Login to Enroll'}
-                </Link>
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    guestCheckoutMutation.mutate();
+                  }}
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      className="input text-sm"
+                      required
+                      minLength={2}
+                      placeholder={lang === "ar" ? "الاسم الأول" : "First name"}
+                      value={guest.firstName}
+                      onChange={(event) =>
+                        setGuest((value) => ({
+                          ...value,
+                          firstName: event.target.value,
+                        }))
+                      }
+                    />
+                    <input
+                      className="input text-sm"
+                      required
+                      minLength={2}
+                      placeholder={lang === "ar" ? "اسم العائلة" : "Last name"}
+                      value={guest.lastName}
+                      onChange={(event) =>
+                        setGuest((value) => ({
+                          ...value,
+                          lastName: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <input
+                    className="input text-sm w-full"
+                    required
+                    type="email"
+                    placeholder={
+                      lang === "ar" ? "البريد الإلكتروني" : "Email address"
+                    }
+                    value={guest.email}
+                    onChange={(event) =>
+                      setGuest((value) => ({
+                        ...value,
+                        email: event.target.value,
+                      }))
+                    }
+                  />
+                  <button
+                    disabled={guestCheckoutMutation.isPending}
+                    className="btn-primary w-full"
+                    type="submit"
+                  >
+                    {guestCheckoutMutation.isPending
+                      ? lang === "ar"
+                        ? "جاري فتح الدفع..."
+                        : "Opening checkout..."
+                      : lang === "ar"
+                        ? "ادفع بالبطاقة وسجل الآن"
+                        : "Pay by card & enroll"}
+                  </button>
+                  {guestCheckoutMutation.isError && (
+                    <p className="text-xs text-red-500 text-center">
+                      {lang === "ar"
+                        ? "تعذر بدء الدفع. تحقق من البيانات وحاول مجدداً."
+                        : "Could not start checkout. Check your details and try again."}
+                    </p>
+                  )}
+                  <Link
+                    href={`/login?redirect=${encodeURIComponent(`/courses/${params.id}`)}`}
+                    className="block text-center text-sm underline"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {lang === "ar"
+                      ? "لديك حساب؟ سجل الدخول"
+                      : "Already have an account? Sign in"}
+                  </Link>
+                </form>
               )}
             </div>
           </div>

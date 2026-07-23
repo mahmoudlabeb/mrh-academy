@@ -79,6 +79,48 @@ export class StripeService implements OnModuleInit {
     return session;
   }
 
+  async createCourseCheckoutSession(input: {
+    userId: string;
+    paymentId: string;
+    courseId: string;
+    courseTitle: string;
+    amount: number;
+    email: string;
+    referralCode?: string;
+  }) {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    return this.stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer_email: input.email,
+      line_items: [
+        {
+          price_data: {
+            currency: this.currency,
+            product_data: {
+              name: input.courseTitle,
+              description: 'MRH Academy course access',
+            },
+            unit_amount: Math.round(input.amount * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${frontendUrl}/courses/${input.courseId}?payment_success=true`,
+      cancel_url: `${frontendUrl}/courses/${input.courseId}?payment_cancelled=true`,
+      client_reference_id: input.paymentId,
+      metadata: {
+        checkoutType: 'course',
+        userId: input.userId,
+        paymentId: input.paymentId,
+        courseId: input.courseId,
+        referralCode: input.referralCode ?? '',
+      },
+    });
+  }
+
   // ─── Stripe Connect ──────────────────────────────────────────────────
 
   async createConnectedAccount(tutorEmail: string): Promise<Stripe.Account> {

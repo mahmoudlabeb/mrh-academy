@@ -95,3 +95,4 @@ backups/
 test_large.jpg
 .pnpm-store/
 .runlogs/
+.local/

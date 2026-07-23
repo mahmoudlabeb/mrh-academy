@@ -30,6 +30,11 @@ import { Notification } from '../messages/entities/notification.entity.js';
 import { CourseFundingAllocation } from './entities/course-funding-allocation.entity.js';
 import { CourseRefundReversal } from './entities/course-refund-reversal.entity.js';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { Course } from '../courses/entities/course.entity.js';
+import { CreateCourseCheckoutDto } from './dto/create-course-checkout.dto.js';
+import { CourseStatus, UserRole } from '@mrh/types';
+import { PayPalService } from './paypal/paypal.service.js';
+import { createHmac } from 'node:crypto';
 import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
 import {
   OBJECT_STORAGE,
@@ -64,12 +69,217 @@ export class PaymentsService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly stripeService: StripeService,
+    private readonly payPalService: PayPalService,
     private readonly emailService: EmailService,
     private readonly commissionService: CommissionService,
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    @InjectRepository(Course)
+    private readonly courseRepository: Repository<Course>,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
+
+  async createCourseCheckout(dto: CreateCourseCheckoutDto) {
+    if (!this.stripeService.isConfigured()) {
+      throw new BadRequestException('Stripe payments are not configured');
+    }
+    const course = await this.courseRepository.findOne({
+      where: { id: dto.courseId, status: CourseStatus.APPROVED },
+    });
+    if (!course) throw new NotFoundException('Course not found');
+
+    const email = dto.email.trim().toLowerCase();
+    let createdUser = false;
+    let user = await this.userRepository.findOne({ where: { email } });
+    if (user && user.role !== UserRole.STUDENT) {
+      throw new BadRequestException(
+        'Course checkout requires a student account',
+      );
+    }
+
+    if (!user) {
+      user = await this.dataSource.transaction(async (manager) => {
+        const saved = await manager.save(
+          User,
+          manager.create(User, {
+            email,
+            firstName: dto.firstName.trim(),
+            lastName: dto.lastName.trim(),
+            role: UserRole.STUDENT,
+            passwordHash: null,
+            isVerified: false,
+          }),
+        );
+        await manager.save(
+          StudentProfile,
+          manager.create(StudentProfile, { userId: saved.id, balance: 0 }),
+        );
+        return saved;
+      });
+      createdUser = true;
+    }
+
+    const enrolled = await this.dataSource
+      .getRepository(CourseEnrollment)
+      .findOne({
+        where: { studentId: user.id, courseId: course.id },
+      });
+    if (enrolled)
+      throw new BadRequestException('Already enrolled in this course');
+
+    const payment = await this.paymentRepository.save(
+      this.paymentRepository.create({
+        userId: user.id,
+        amount: Number(course.price),
+        method: PaymentMethod.CARD,
+        currency: 'USD',
+        status: PaymentStatus.PENDING,
+        adminNote: `Direct course checkout: ${course.id}`,
+      }),
+    );
+
+    try {
+      const session = await this.stripeService.createCourseCheckoutSession({
+        userId: user.id,
+        paymentId: payment.id,
+        courseId: course.id,
+        courseTitle: course.title,
+        amount: Number(course.price),
+        email,
+        referralCode: dto.referralCode,
+      });
+      await this.paymentRepository.update(payment.id, {
+        stripeCheckoutSessionId: session.id,
+      });
+      return { checkoutUrl: session.url };
+    } catch (error) {
+      await this.paymentRepository.delete(payment.id);
+      if (createdUser) {
+        await this.dataSource.transaction(async (manager) => {
+          await manager.delete(StudentProfile, { userId: user.id });
+          await manager.delete(User, { id: user.id });
+        });
+      }
+      this.logger.error('Direct course checkout creation failed', error);
+      throw new BadRequestException('Card checkout is currently unavailable');
+    }
+  }
+
+  private isValidReferral(course: Course, referralCode?: string) {
+    if (!referralCode) return false;
+    const secret = this.configService.get<string>('application.referralSecret');
+    if (!secret) return false;
+    const signature = createHmac('sha256', secret)
+      .update(`${course.id}:${course.tutorId}`)
+      .digest('hex')
+      .slice(0, 16);
+    return referralCode === `${course.tutorId}.${signature}`;
+  }
+
+  async completeCourseCheckout(input: {
+    paymentId: string;
+    courseId: string;
+    referralCode?: string;
+    stripeSessionId: string;
+    stripePaymentIntentId?: string;
+  }) {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: input.paymentId },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    await this.paymentRepository.update(payment.id, {
+      stripeCheckoutSessionId: input.stripeSessionId,
+      stripePaymentIntentId: input.stripePaymentIntentId ?? null,
+    });
+    if (payment.status === PaymentStatus.PENDING) {
+      await this.approvePayment(payment.id, 'stripe-course-checkout');
+    } else if (payment.status !== PaymentStatus.APPROVED) {
+      throw new BadRequestException('Payment cannot be completed');
+    }
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      const existing = await manager.findOne(CourseEnrollment, {
+        where: { studentId: payment.userId, courseId: input.courseId },
+      });
+      if (existing) return { enrollment: existing, created: false };
+
+      const course = await manager.findOne(Course, {
+        where: { id: input.courseId, status: CourseStatus.APPROVED },
+        lock: { mode: 'pessimistic_read' },
+      });
+      if (!course) throw new NotFoundException('Course not found');
+      if (Number(payment.amount) !== Number(course.price)) {
+        throw new BadRequestException('Course price changed during checkout');
+      }
+      const student = await manager.findOne(StudentProfile, {
+        where: { userId: payment.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!student || Number(student.balance) < Number(course.price)) {
+        throw new BadRequestException('Course payment balance is unavailable');
+      }
+
+      const soldBy = this.isValidReferral(course, input.referralCode)
+        ? 'tutor'
+        : 'academy';
+      const { platformFee, tutorShare } =
+        await this.commissionService.calculateCourseEarnings(
+          Number(course.price),
+          soldBy,
+        );
+      await manager.decrement(
+        StudentProfile,
+        { userId: payment.userId },
+        'balance',
+        Number(course.price),
+      );
+      await manager.increment(
+        TutorProfile,
+        { userId: course.tutorId },
+        'balance',
+        tutorShare,
+      );
+      const enrollment = await manager.save(
+        CourseEnrollment,
+        manager.create(CourseEnrollment, {
+          studentId: payment.userId,
+          courseId: course.id,
+          platformFee,
+          tutorShare,
+          soldBy,
+          referralTutorId: soldBy === 'tutor' ? course.tutorId : null,
+        }),
+      );
+      await manager.save(
+        CourseFundingAllocation,
+        manager.create(CourseFundingAllocation, {
+          paymentId: payment.id,
+          enrollmentId: enrollment.id,
+          amount: Number(course.price),
+        }),
+      );
+      await manager.update(Payment, payment.id, {
+        allocatedAmount: Number(course.price),
+      });
+      await manager.update(User, payment.userId, { isVerified: true });
+      return { enrollment, created: true };
+    });
+
+    if (result.created) {
+      const user = await this.userRepository.findOne({
+        where: { id: payment.userId },
+      });
+      if (user?.email) {
+        await this.emailService.sendEmail(
+          user.email,
+          'Your MRH Academy course is ready',
+          '<p>Your payment was received and your course is ready.</p><p>If this is a new account, use “Forgot password” to create your password before signing in.</p>',
+        );
+      }
+    }
+    return result.enrollment;
+  }
 
   private validateReceiptFile(file: Express.Multer.File) {
     if (!RECEIPT_MIME_TYPES.has(file.mimetype)) {
@@ -123,6 +333,12 @@ export class PaymentsService {
     if (isCardPayment && !this.stripeService.isConfigured()) {
       throw new BadRequestException('Stripe payments are not configured');
     }
+    if (
+      dto.method === PaymentMethod.PAYPAL &&
+      !this.payPalService.isConfigured()
+    ) {
+      throw new BadRequestException('PayPal payments are not configured');
+    }
 
     const receiptRequiredMethods: PaymentMethod[] = [
       PaymentMethod.VODAFONE,
@@ -130,6 +346,14 @@ export class PaymentsService {
       PaymentMethod.BINANCE,
       PaymentMethod.BANK,
     ];
+    if (
+      receiptRequiredMethods.includes(dto.method) &&
+      !config.details?.trim()
+    ) {
+      throw new BadRequestException(
+        `Payment method "${dto.method}" has no transfer destination configured`,
+      );
+    }
     if (receiptRequiredMethods.includes(dto.method) && !screenshotFile) {
       throw new BadRequestException(
         'A receipt screenshot is required for this payment method',
@@ -169,11 +393,18 @@ export class PaymentsService {
     }
 
     if (dto.method === PaymentMethod.PAYPAL) {
-      const approved = await this.approvePayment(
-        savedPayment.id,
-        'paypal-auto',
-      );
-      return { payment: approved, checkoutUrl: undefined };
+      try {
+        const order = await this.payPalService.createOrder(savedPayment);
+        savedPayment.paypalOrderId = order.orderId;
+        await this.paymentRepository.save(savedPayment);
+        return { payment: savedPayment, checkoutUrl: order.approvalUrl };
+      } catch (error) {
+        await this.paymentRepository.delete(savedPayment.id);
+        this.logger.error('PayPal order creation failed', error);
+        throw new BadRequestException(
+          'PayPal payment is currently unavailable. Please use another payment method.',
+        );
+      }
     }
 
     let checkoutUrl = undefined;
@@ -199,6 +430,23 @@ export class PaymentsService {
     }
 
     return { payment: savedPayment, checkoutUrl };
+  }
+
+  async capturePayPalPayment(paymentId: string, userId: string) {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId, userId, method: PaymentMethod.PAYPAL },
+    });
+    if (!payment) throw new NotFoundException('PayPal payment not found');
+    if (payment.status === PaymentStatus.APPROVED) return payment;
+    if (payment.status !== PaymentStatus.PENDING) {
+      throw new BadRequestException('PayPal payment cannot be captured');
+    }
+
+    const captureId = await this.payPalService.captureOrder(payment);
+    await this.paymentRepository.update(payment.id, {
+      paypalCaptureId: captureId,
+    });
+    return this.approvePayment(payment.id, `paypal:${captureId}`);
   }
 
   async getPaymentHistory(userId: string) {

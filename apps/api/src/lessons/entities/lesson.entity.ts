@@ -52,7 +52,7 @@ export class Lesson {
     nullable: true,
     transformer: new ColumnNumericTransformer(),
   })
-  platformFee: number;
+  platformFee: number | null;
 
   @Column({ type: 'enum', enum: LessonStatus, default: LessonStatus.PENDING })
   status: LessonStatus;

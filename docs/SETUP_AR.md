@@ -1,90 +1,137 @@
-# دليل إعداد MRH Academy
+# دليل إعداد MRH Academy على جهاز جديد
 
-> دليل التثبيت والتشغيل باللغة العربية
+هذا الدليل مخصص لـ Windows وPowerShell، ويمكن تنفيذ الخطوات نفسها على Linux/macOS باستبدال `pnpm.cmd` بـ `pnpm`.
 
 ## المتطلبات
 
-- Node.js 18 أو أحدث
-- pnpm
-- PostgreSQL
-- Redis
+- Node.js 24 أو أحدث.
+- PostgreSQL 15 أو أحدث، محلياً أو عبر رابط `DATABASE_URL`.
+- Redis محلي أو خدمة Redis متوافقة.
+- Git وPowerShell على Windows.
 
-## خطوات التثبيت
+## 1. تثبيت pnpm والحزم
 
-### 1. تثبيت الحزم
-
-```bash
-pnpm install
-```
-
-### 2. إعداد المتغيرات البيئية
-
-انسخ ملف `.env.example` إلى `.env` في جذر المشروع وعدّل:
-
-| المتغير             | الوصف                                        |
-| ------------------- | -------------------------------------------- |
-| `DATABASE_URL`      | رابط PostgreSQL                              |
-| `REDIS_URL`         | رابط Redis                                   |
-| `JWT_SECRET`        | مفتاح سري عشوائي قوي (64+ حرف)               |
-| `FRONTEND_URL`      | رابط الواجهة (مثال: `http://localhost:3000`) |
-| `ADMIN_EMAILS`      | بريد المدير                                  |
-| `GEMINI_API_KEY`    | لميزة المفردات الذكية                        |
-| `STRIPE_SECRET_KEY` | للدفع بالبطاقة                               |
-
-### 3. قاعدة البيانات
-
-```bash
-cd apps/api
-pnpm run migration:run
-pnpm run seed
-```
-
-### 4. تشغيل المشروع
-
-```bash
-pnpm run dev
-```
-
-- الواجهة: http://localhost:3000
-- الـ API: http://localhost:4000
-
-## حسابات تجريبية
-
-لا تستخدم كلمة مرور ثابتة أو `123456`. عيّن `DEMO_SEED_PASSWORD` محلياً إلى
-كلمة مرور قوية وعشوائية، ولا تضعها في Git أو في مستندات التسليم.
-
-| الدور | البريد                    |
-| ----- | ------------------------- |
-| مدير  | admin@mrhacademy.com      |
-| معلم  | Sarah.alazzeh87@gmail.com |
-| طالب  | student@demo.com          |
-
-## النشر للإنتاج
-
-```bash
-pnpm build
-pm2 start ecosystem.config.js --env production
-```
-
-### نسخ احتياطي لقاعدة البيانات
+من جذر المشروع افتح PowerShell ونفّذ:
 
 ```powershell
-.\scripts\backup-db.ps1
+corepack enable
+corepack prepare pnpm@11.0.0 --activate
+pnpm.cmd install --frozen-lockfile
 ```
 
-### HTTPS (Let's Encrypt)
+تحقق من الإصدارات:
 
-1. ثبّت Certbot على الخادم
-2. احصل على شهادة لنطاقك
-3. اضبط `FRONTEND_URL` و `GOOGLE_CALLBACK_URL` على `https://`
-
-## التحقق من التكاملات
-
-```bash
-curl http://localhost:4000/api/v1/health/integrations
+```powershell
+node --version
+pnpm.cmd --version
 ```
 
-## الدعم
+يجب أن يكون Node بالإصدار 24 أو أحدث وpnpm بالإصدار 11.
 
-- الوثائق الإنجليزية: [README.md](../README.md)
-- تقرير التسليم: [DELIVERY_REPORT.md](../DELIVERY_REPORT.md)
+## 2. إنشاء ملفات البيئة
+
+```powershell
+Copy-Item apps/api/.env.example apps/api/.env
+Copy-Item apps/web/.env.example apps/web/.env.local
+```
+
+إن لم يوجد `apps/web/.env.example`، أنشئ `apps/web/.env.local` وضع فيه:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+```
+
+عدّل `apps/api/.env`، ويجب على الأقل ضبط PostgreSQL وRedis وJWT:
+
+```env
+DATABASE_URL=postgresql://mrh_admin:your_password@localhost:5432/mrh_academy_db
+DATABASE_SSL=false
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=ضع_هنا_قيمة_عشوائية_من_64_حرفاً_على_الأقل
+FRONTEND_URL=http://localhost:3000
+GOOGLE_CALLBACK_URL=http://localhost:4000/api/v1/auth/google/callback
+```
+
+لتوليد `JWT_SECRET` آمن:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+لا ترفع ملفات `.env` إلى Git، ولا تستخدم كلمة مرور ثابتة مثل `123456`.
+
+## 3. إنشاء قاعدة البيانات وتشغيل الترحيلات
+
+أنشئ قاعدة PostgreSQL باسم `mrh_academy_db`، ثم من جذر المشروع نفّذ:
+
+```powershell
+pnpm.cmd --filter @mrh/api migration:run
+pnpm.cmd --filter @mrh/api migration:validate
+```
+
+بيانات العرض اختيارية وممنوعة في بيئة الإنتاج. لاستخدامها محلياً فقط، ضع كلمة مرور قوية من 15 حرفاً أو أكثر في `DEMO_SEED_PASSWORD` ثم نفّذ:
+
+```powershell
+pnpm.cmd --filter @mrh/api db:seed:demo
+```
+
+## 4. تشغيل المشروع
+
+تأكد أولاً أن PostgreSQL وRedis يعملان، ثم نفّذ:
+
+```powershell
+pnpm.cmd dev
+```
+
+- الموقع: `http://localhost:3000`
+- واجهة API: `http://localhost:4000/api/v1`
+- فحص الصحة: `http://localhost:4000/api/v1/health`
+
+## 5. التحقق قبل التسليم
+
+```powershell
+pnpm.cmd format:check
+pnpm.cmd lint
+pnpm.cmd typecheck
+pnpm.cmd test
+pnpm.cmd build
+pnpm.cmd --filter @mrh/api test:e2e
+```
+
+اختبار الجاهزية المحلي على Windows:
+
+```powershell
+pnpm.cmd test:local
+```
+
+## 6. الخدمات الخارجية المطلوبة للإنتاج
+
+يجب إدخال مفاتيح حقيقية قبل اختبار الميزات المرتبطة بها:
+
+- Google OAuth وGoogle Calendar/Meet.
+- Stripe مع `STRIPE_WEBHOOK_SECRET`.
+- PayPal مع `PAYPAL_CLIENT_ID` و`PAYPAL_CLIENT_SECRET` وتغيير `PAYPAL_BASE_URL` إلى `https://api-m.paypal.com` للإنتاج.
+- Bunny Stream لحماية الفيديو.
+- Cloudinary أو مخزن الملفات المعتمد.
+- SMTP للبريد.
+- Metered لخوادم TURN عند الحاجة.
+
+إذا كانت أي خدمة غير مهيأة، يفشل المسار المرتبط بها بشكل آمن ولا يضيف رصيداً أو ينشئ رابطاً وهمياً.
+
+## 7. النسخ الاحتياطي
+
+نفّذ نسخة احتياطية يدوية للتأكد من صلاحية إعداد PostgreSQL:
+
+```powershell
+pnpm.cmd db:backup
+```
+
+في الإنتاج يجب أيضاً جدولة الأمر يومياً عبر Task Scheduler على Windows أو Cron في Linux، مع حفظ النسخ في موقع منفصل ومشفّر واختبار الاستعادة دورياً.
+
+## مشكلات Windows الشائعة
+
+- استخدم `pnpm.cmd` داخل PowerShell إذا منعت سياسة التنفيذ ملف `pnpm.ps1`.
+- تجنب تشغيل المشروع من مسار متزامن مع OneDrive.
+- إذا كان المنفذ مستخدماً: `Get-NetTCPConnection -LocalPort 3000,4000`.
+- تأكد أن خدمة PostgreSQL وRedis تعمل قبل تشغيل API.
+- بعد تغيير `.env` أوقف الخادم وأعد تشغيله؛ التغييرات لا تُحمّل تلقائياً دائماً.

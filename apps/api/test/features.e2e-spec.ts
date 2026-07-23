@@ -23,6 +23,7 @@ import {
 } from './isolated-fixtures.js';
 import { EmailService } from '../src/integrations/email/email.service.js';
 import { EmailServiceMock } from './email.mock.js';
+import { TutorProfile } from '../src/tutors/entities/tutor-profile.entity.js';
 
 type AuthResponse = {
   accessToken: string;
@@ -185,6 +186,7 @@ describe('Courses (e2e)', () => {
   let courseRepository: Repository<Course>;
   let courseEnrollmentRepository: Repository<CourseEnrollment>;
   let courseLessonRepository: Repository<CourseLesson>;
+  let tutorProfileRepository: Repository<TutorProfile>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -214,6 +216,7 @@ describe('Courses (e2e)', () => {
     courseRepository = app.get(getRepositoryToken(Course));
     courseEnrollmentRepository = app.get(getRepositoryToken(CourseEnrollment));
     courseLessonRepository = app.get(getRepositoryToken(CourseLesson));
+    tutorProfileRepository = app.get(getRepositoryToken(TutorProfile));
   });
 
   afterAll(async () => {
@@ -239,6 +242,21 @@ describe('Courses (e2e)', () => {
     await userRepository.update(
       { email: tutorEmail },
       { role: UserRole.TUTOR },
+    );
+    const tutorUser = await userRepository.findOneByOrFail({
+      email: tutorEmail,
+    });
+    await tutorProfileRepository.save(
+      tutorProfileRepository.create({
+        userId: tutorUser.id,
+        bio: '',
+        specialization: '',
+        languages: [],
+        hourlyRate: 0,
+        balance: 0,
+        totalHoursTaught: 0,
+        status: CourseStatus.APPROVED,
+      }),
     );
     const tutorSession = await authenticateUser(
       app,
@@ -278,6 +296,7 @@ describe('Courses (e2e)', () => {
 
     await request(app.getHttpServer())
       .post(`/api/v1/admin/courses/${courseId}/approve`)
+      .send({ videoQualityApproved: true })
       .set('Authorization', `Bearer ${adminSession.accessToken}`)
       .expect(201);
 

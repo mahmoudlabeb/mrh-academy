@@ -1,0 +1,191 @@
+{
+  "direction": "Neon -> local",
+  "generatedAt": "2026-07-22T14:51:10.074Z",
+  "neonVersion": "PostgreSQL 17.10 (2947584) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+  "localVersion": "PostgreSQL 16.14, compiled by Visual C++ build 1944, 64-bit",
+  "backupPath": "C:\\Users\\user\\Downloads\\Free_job\\موقع تعليم\\backups\\neon-before-local-sync-2026-07-22T14-51-04.824Z.json.gz",
+  "tableCount": 30,
+  "mismatches": [],
+  "verification": [
+    {
+      "table": "classroom_messages",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "classrooms",
+      "neonCount": 2,
+      "localCount": 2,
+      "checksumMatch": true
+    },
+    {
+      "table": "course_enrollments",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "course_funding_allocations",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "course_lesson_completions",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "course_lessons",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "course_promo_codes",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "course_refund_reversals",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "courses",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "employees",
+      "neonCount": 3,
+      "localCount": 3,
+      "checksumMatch": true
+    },
+    {
+      "table": "lesson_books",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "lessons",
+      "neonCount": 2,
+      "localCount": 2,
+      "checksumMatch": true
+    },
+    {
+      "table": "messages",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "migrations",
+      "neonCount": 10,
+      "localCount": 10,
+      "checksumMatch": true
+    },
+    {
+      "table": "notifications",
+      "neonCount": 2,
+      "localCount": 2,
+      "checksumMatch": true
+    },
+    {
+      "table": "payment_method_configs",
+      "neonCount": 4,
+      "localCount": 4,
+      "checksumMatch": true
+    },
+    {
+      "table": "payments",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "payouts",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "processed_webhook_events",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "reports",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "reviews",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "settings",
+      "neonCount": 12,
+      "localCount": 12,
+      "checksumMatch": true
+    },
+    {
+      "table": "student_favorites",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "student_profiles",
+      "neonCount": 2,
+      "localCount": 2,
+      "checksumMatch": true
+    },
+    {
+      "table": "sub_admin_profiles",
+      "neonCount": 1,
+      "localCount": 1,
+      "checksumMatch": true
+    },
+    {
+      "table": "teacher_training_articles",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    },
+    {
+      "table": "tutor_availabilities",
+      "neonCount": 8,
+      "localCount": 8,
+      "checksumMatch": true
+    },
+    {
+      "table": "tutor_profiles",
+      "neonCount": 3,
+      "localCount": 3,
+      "checksumMatch": true
+    },
+    {
+      "table": "users",
+      "neonCount": 8,
+      "localCount": 8,
+      "checksumMatch": true
+    },
+    {
+      "table": "vocabulary_words",
+      "neonCount": 0,
+      "localCount": 0,
+      "checksumMatch": true
+    }
+  ]
+}

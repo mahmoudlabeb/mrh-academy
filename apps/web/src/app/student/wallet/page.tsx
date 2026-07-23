@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useLanguage } from '@/contexts/language-context';
@@ -31,6 +31,12 @@ type PaymentRecord = {
 };
 
 type BalanceData = { balance: number; creditPrice: number; egpRate: number };
+type PaymentMethodConfig = {
+  type: string;
+  label: string;
+  enabled: boolean;
+  details: string | null;
+};
 
 const statusConfig: Record<string, { ar: string; en: string; bg: string; color: string }> = {
   approved: { ar: 'مقبول',       en: 'Approved', bg: 'rgba(34,197,94,0.1)',  color: '#22c55e' },
@@ -52,11 +58,68 @@ export default function StudentWalletPage() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const paypalCaptureStarted = useRef(false);
+
+  useEffect(() => {
+    const paymentId = new URLSearchParams(window.location.search).get(
+      'paypalPaymentId',
+    );
+    if (!paymentId || paypalCaptureStarted.current) return;
+    paypalCaptureStarted.current = true;
+    void apiClient
+      .post(`/payments/paypal/${encodeURIComponent(paymentId)}/capture`)
+      .then(() => {
+        setSuccessMsg(
+          lang === 'ar'
+            ? 'تم استلام دفعة PayPal وإضافتها إلى رصيدك.'
+            : 'Your PayPal payment was received and added to your balance.',
+        );
+        void queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+        void queryClient.invalidateQueries({ queryKey: ['payment-history'] });
+        window.history.replaceState({}, '', '/student/wallet');
+      })
+      .catch((error: { response?: { data?: { message?: string } } }) => {
+        setSuccessMsg(
+          error.response?.data?.message ||
+            (lang === 'ar'
+              ? 'تعذر التحقق من دفعة PayPal. لم تتم إضافة أي رصيد.'
+              : 'PayPal verification failed. No balance was added.'),
+        );
+      });
+  }, [lang, queryClient]);
 
   const method = PAYMENT_METHODS.find(m => m.key === selectedMethod)!;
   const requiresReceipt = method.requiresReceipt;
 
   const amountNum = parseFloat(amount) || 0;
+
+  const { data: activePaymentMethods = [] } = useQuery<PaymentMethodConfig[]>({
+    queryKey: ['payment-methods'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaymentMethodConfig[]>('/payment-methods');
+      return data;
+    },
+  });
+  const activeMethodTypes = useMemo(
+    () => new Set(activePaymentMethods.map((item) => item.type)),
+    [activePaymentMethods],
+  );
+  const visiblePaymentMethods = useMemo(
+    () => PAYMENT_METHODS.filter((item) => activeMethodTypes.has(item.key)),
+    [activeMethodTypes],
+  );
+  const selectedMethodConfig = activePaymentMethods.find(
+    (item) => item.type === selectedMethod,
+  );
+
+  useEffect(() => {
+    if (
+      visiblePaymentMethods.length > 0 &&
+      !activeMethodTypes.has(selectedMethod)
+    ) {
+      setSelectedMethod(visiblePaymentMethods[0].key);
+    }
+  }, [activeMethodTypes, selectedMethod, visiblePaymentMethods]);
 
   const { data: balance, isLoading: balanceLoading } = useQuery<BalanceData>({
     queryKey: ['wallet-balance'],
@@ -184,7 +247,7 @@ export default function StudentWalletPage() {
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>{t('طريقة الدفع', 'Payment Method')}</label>
           <div className="flex flex-wrap gap-2">
-            {PAYMENT_METHODS.map((pm) => (
+            {visiblePaymentMethods.map((pm) => (
               <button
                 key={pm.key}
                 type="button"
@@ -201,6 +264,11 @@ export default function StudentWalletPage() {
               </button>
             ))}
           </div>
+          {selectedMethodConfig?.details && (
+            <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>
+              {selectedMethodConfig.details}
+            </p>
+          )}
         </div>
 
         {/* Amount + currency */}

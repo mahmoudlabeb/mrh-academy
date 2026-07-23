@@ -22,6 +22,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
 import { PaymentsService } from './payments.service.js';
 import { InvoiceService } from './invoice.service.js';
+import { Public } from '../auth/decorators/public.decorator.js';
+import { CreateCourseCheckoutDto } from './dto/create-course-checkout.dto.js';
 
 @Controller('payments')
 export class PaymentsController {
@@ -29,6 +31,12 @@ export class PaymentsController {
     private readonly paymentsService: PaymentsService,
     private readonly invoiceService: InvoiceService,
   ) {}
+
+  @Public()
+  @Post('course-checkout')
+  async createCourseCheckout(@Body() dto: CreateCourseCheckoutDto) {
+    return this.paymentsService.createCourseCheckout(dto);
+  }
 
   @Post('submit')
   @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
@@ -67,6 +75,16 @@ export class PaymentsController {
   @Roles(UserRole.STUDENT)
   async getPaymentHistory(@CurrentUser() user: { id: string }) {
     return this.paymentsService.getPaymentHistory(user.id);
+  }
+
+  @Post('paypal/:id/capture')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  async capturePayPalPayment(
+    @Param('id') id: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.paymentsService.capturePayPalPayment(id, user.id);
   }
 
   @Get(':id/invoice')

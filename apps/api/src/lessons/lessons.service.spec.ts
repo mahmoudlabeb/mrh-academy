@@ -372,7 +372,14 @@ describe('LessonsService', () => {
         { id: lessonId },
         expect.objectContaining({
           status: LessonStatus.CONFIRMED,
+          platformFee: null,
         }),
+      );
+      expect(transactionManager.increment).not.toHaveBeenCalledWith(
+        TutorProfile,
+        expect.anything(),
+        'balance',
+        expect.anything(),
       );
       expect(transactionManager.update).toHaveBeenCalledWith(
         Classroom,
@@ -650,7 +657,7 @@ describe('LessonsService', () => {
       );
     });
 
-    it('does not refund if cancelled less than 24h before by student', async () => {
+    it('refunds the exact charged amount for a confirmed lesson even within 24h', async () => {
       const confirmedLesson = buildConfirmedLesson(1);
       lessonRepository.findOne
         .mockResolvedValueOnce(confirmedLesson)
@@ -661,7 +668,43 @@ describe('LessonsService', () => {
 
       const result = await service.cancelLesson(lessonId, studentId);
 
-      expect(transactionManager.increment).not.toHaveBeenCalled();
+      expect(transactionManager.increment).toHaveBeenCalledWith(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        50,
+      );
+      expect(result.refunded).toBe(true);
+      expect(result.refundAmount).toBe(50);
+    });
+
+    it('does not create money when a pending lesson is cancelled', async () => {
+      const pendingLesson = {
+        ...buildConfirmedLesson(),
+        status: LessonStatus.PENDING,
+      };
+      lessonRepository.findOne
+        .mockResolvedValueOnce(pendingLesson)
+        .mockResolvedValueOnce({
+          ...pendingLesson,
+          status: LessonStatus.CANCELLED,
+        });
+      transactionManager.findOne.mockImplementation(async (entity) => {
+        if (entity === Lesson) return pendingLesson;
+        if (entity === StudentProfile) {
+          return { userId: studentId, balance: 100 };
+        }
+        return null;
+      });
+
+      const result = await service.cancelLesson(lessonId, studentId);
+
+      expect(transactionManager.increment).not.toHaveBeenCalledWith(
+        StudentProfile,
+        expect.anything(),
+        'balance',
+        expect.anything(),
+      );
       expect(result.refunded).toBe(false);
       expect(result.refundAmount).toBe(0);
     });

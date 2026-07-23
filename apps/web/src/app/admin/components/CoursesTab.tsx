@@ -13,6 +13,7 @@ type Course = {
   tutorName: string;
   isApproved: boolean;
   createdAt: string;
+  videoQualityApprovedAt?: string | null;
 };
 
 export default function CoursesTab() {
@@ -51,7 +52,15 @@ export default function CoursesTab() {
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data } = await apiClient.post(`/admin/courses/${id}/approve`);
+      const confirmed = window.confirm(
+        lang === 'ar'
+          ? 'أؤكد أنني راجعت جودة جميع فيديوهات هذا الكورس وأصبحت صالحة للبيع.'
+          : 'I confirm that I reviewed the quality of every course video and it is ready for sale.',
+      );
+      if (!confirmed) throw new Error('Video quality review was not confirmed');
+      const { data } = await apiClient.post(`/admin/courses/${id}/approve`, {
+        videoQualityApproved: true,
+      });
       return data;
     },
     onSuccess: () => {

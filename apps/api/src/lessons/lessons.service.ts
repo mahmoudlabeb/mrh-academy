@@ -22,8 +22,6 @@ import { RedisService } from '../redis/redis.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
 
-const CANCELLATION_REFUND_HOURS = 24;
-
 @Injectable()
 export class LessonsService {
   private readonly logger = new Logger(LessonsService.name);
@@ -331,22 +329,12 @@ export class LessonsService {
         { id: lessonId },
         {
           status: LessonStatus.CONFIRMED,
-          platformFee: this.commissionService.calculateLessonEarnings(
-            price,
-            tutorProfile.totalHoursTaught ?? 0,
-          ).platformFee,
+          // Financial recognition happens only when the lesson is completed.
+          // Keeping this null also makes cancellations unambiguous: confirmed
+          // means charged, while a non-null fee means legacy earnings may have
+          // already been credited and must be reversed on cancellation.
+          platformFee: null,
         },
-      );
-
-      const { tutorShare } = this.commissionService.calculateLessonEarnings(
-        price,
-        tutorProfile.totalHoursTaught ?? 0,
-      );
-      await manager.increment(
-        TutorProfile,
-        { userId: lesson.tutorId },
-        'balance',
-        tutorShare,
       );
 
       await manager.update(Classroom, { lessonId }, { isActive: true });
@@ -624,10 +612,6 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       );
     }
 
-    const isTutor = lesson.tutorId === userId;
-    const shouldRefund =
-      isTutor || hoursUntilLesson >= CANCELLATION_REFUND_HOURS;
-
     let refundAmount = 0;
 
     await this.dataSource.transaction(async (manager) => {
@@ -644,10 +628,13 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
         throw new BadRequestException('Lesson cannot be cancelled');
       }
 
+      const previousStatus = lockedLesson.status;
       lockedLesson.status = LessonStatus.CANCELLED;
       await manager.save(Lesson, lockedLesson);
 
-      if (shouldRefund) {
+      // Pending lessons were never charged. Only a confirmed lesson can put
+      // money back into the student's wallet.
+      if (previousStatus === LessonStatus.CONFIRMED) {
         await manager.increment(
           StudentProfile,
           { userId: lockedLesson.studentId },
@@ -655,6 +642,26 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
           lockedLesson.price,
         );
         refundAmount = lockedLesson.price;
+
+        // Compatibility for lessons confirmed before earnings recognition was
+        // moved to completion: reverse any tutor share already credited.
+        if (
+          lockedLesson.platformFee !== null &&
+          lockedLesson.platformFee !== undefined
+        ) {
+          const tutorShare = Math.max(
+            0,
+            Number(lockedLesson.price) - Number(lockedLesson.platformFee),
+          );
+          if (tutorShare > 0) {
+            await manager.decrement(
+              TutorProfile,
+              { userId: lockedLesson.tutorId },
+              'balance',
+              tutorShare,
+            );
+          }
+        }
       }
 
       await manager.update(Classroom, { lessonId }, { isActive: false });
@@ -706,9 +713,10 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       ? `${cancelled.student.firstName} ${cancelled.student.lastName}`
       : 'Student';
     const scheduledLabel = lesson.scheduledTime.toLocaleString();
-    const refundNote = shouldRefund
+    const wasRefunded = refundAmount > 0;
+    const refundNote = wasRefunded
       ? `<p>A refund of $${refundAmount.toFixed(2)} has been credited to the student balance.</p>`
-      : `<p>No refund was issued (cancellation within ${CANCELLATION_REFUND_HOURS} hours of the lesson).</p>`;
+      : '<p>No refund was issued because this pending lesson had not been charged.</p>';
 
     if (lesson.tutor?.email) {
       this.emailService
@@ -724,9 +732,9 @@ ${refundNote}`,
     }
 
     if (lesson.student?.email) {
-      const studentRefundNote = shouldRefund
+      const studentRefundNote = wasRefunded
         ? `<p>$${refundAmount.toFixed(2)} has been refunded to your balance.</p>`
-        : `<p>No refund was issued because the cancellation was within ${CANCELLATION_REFUND_HOURS} hours of the lesson start time.</p>`;
+        : '<p>No refund was issued because this pending lesson had not been charged.</p>';
 
       this.emailService
         .sendEmail(
@@ -742,7 +750,7 @@ ${studentRefundNote}`,
 
     return {
       ...cancelled,
-      refunded: shouldRefund,
+      refunded: wasRefunded,
       refundAmount,
     };
   }

@@ -202,7 +202,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBe(100);
+    expect(student?.balance).toBe(1500);
   });
 
   it('Admin can approve a manually submitted pending payment', async () => {
@@ -224,7 +224,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBe(120);
+    expect(student?.balance).toBe(1800);
   });
 
   it('Student can book a lesson as a pending request without balance deduction', async () => {
@@ -245,7 +245,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBe(120);
+    expect(student?.balance).toBe(1800);
   });
 
   it('Tutor approves lesson, balance is deducted, and tutor can complete it', async () => {
@@ -269,7 +269,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     const studentAfterApproval = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(studentAfterApproval?.balance).toBeCloseTo(78.33, 2);
+    expect(studentAfterApproval?.balance).toBeCloseTo(1758.33, 2);
 
     await lessonRepository.update(lessonId, {
       scheduledTime: new Date(Date.now() - 3600000),
