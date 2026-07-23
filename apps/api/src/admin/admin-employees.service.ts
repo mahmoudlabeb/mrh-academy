@@ -35,7 +35,7 @@ type EmployeeDto = {
 // Support staff may help with student and tutor communication/workflows, but
 // financial, settings, employee-management, reporting, and impersonation
 // capabilities are intentionally reserved for full administrators.
-export const SUBADMIN_ALLOWED_PERMISSIONS = [
+const SUBADMIN_ALLOWED_PERMISSIONS = [
   'manage_tutors',
   'manage_students',
 ] as const;
