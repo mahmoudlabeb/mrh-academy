@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import sanitizeHtml from 'sanitize-html';
-import { LessonStatus } from '@mrh/types';
+import { CourseStatus, LessonStatus, UserRole } from '@mrh/types';
 import { Message } from './entities/message.entity.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -193,9 +193,18 @@ export class MessagesService {
   }
 
   async sendMessage(senderId: string, dto: SendMessageDto) {
-    const receiver = await this.userRepository.findOne({
-      where: { id: dto.receiverId },
-    });
+    const [sender, receiver] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: senderId },
+      }),
+      this.userRepository.findOne({
+        where: { id: dto.receiverId },
+        relations: { tutorProfile: true },
+      }),
+    ]);
+    if (!sender) {
+      throw new NotFoundException('Sender not found');
+    }
     if (!receiver) {
       throw new NotFoundException('Receiver not found');
     }
@@ -224,9 +233,19 @@ export class MessagesService {
         })
       : null;
 
-    if (!existingConversation && !sharedLesson) {
+    const isStudentStartingApprovedTutorConversation =
+      sender.role === UserRole.STUDENT &&
+      receiver.role === UserRole.TUTOR &&
+      receiver.isActive &&
+      receiver.tutorProfile?.status === CourseStatus.APPROVED;
+
+    if (
+      !existingConversation &&
+      !sharedLesson &&
+      !isStudentStartingApprovedTutorConversation
+    ) {
       throw new ForbiddenException(
-        'You can only message users you have an active or completed lesson with',
+        'You can only message an approved tutor or someone you have an active or completed lesson with',
       );
     }
 
@@ -238,10 +257,6 @@ export class MessagesService {
       content: sanitizedContent,
     });
     await this.messageRepository.save(message);
-
-    const sender = await this.userRepository.findOne({
-      where: { id: senderId },
-    });
 
     const notification = this.notificationRepository.create({
       userId: dto.receiverId,

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import nextDynamic from "next/dynamic";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/contexts/theme-context";
 import { useLanguage } from "@/contexts/language-context";
@@ -8,12 +9,33 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import MessagesView from "./components/MessagesView";
-import StudentsList from "./components/StudentsList";
-import Insights from "./components/Insights";
-import SettingsView from "./components/SettingsView";
-import NotificationsPanel from "@/app/student/components/NotificationsPanel";
-import CourseStudio from "./components/CourseStudio";
+const DashboardPaneSkeleton = () => (
+  <div className="dashboard-pane-skeleton" aria-hidden="true">
+    <span />
+    <span />
+    <span />
+  </div>
+);
+
+const MessagesView = nextDynamic(() => import("./components/MessagesView"), {
+  loading: DashboardPaneSkeleton,
+});
+const StudentsList = nextDynamic(() => import("./components/StudentsList"), {
+  loading: DashboardPaneSkeleton,
+});
+const Insights = nextDynamic(() => import("./components/Insights"), {
+  loading: DashboardPaneSkeleton,
+});
+const SettingsView = nextDynamic(() => import("./components/SettingsView"), {
+  loading: DashboardPaneSkeleton,
+});
+const NotificationsPanel = nextDynamic(
+  () => import("@/app/student/components/NotificationsPanel"),
+  { loading: DashboardPaneSkeleton },
+);
+const CourseStudio = nextDynamic(() => import("./components/CourseStudio"), {
+  loading: DashboardPaneSkeleton,
+});
 
 type TutorStats = {
   completedLessons: number;
@@ -236,8 +258,10 @@ function TutorPageContent() {
       const { data } = await apiClient.get("/notifications?unread=true");
       return { count: Array.isArray(data) ? data.length : (data?.count ?? 0) };
     },
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: true,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -286,7 +310,8 @@ function TutorPageContent() {
           { id: string; title: string; price: number; referralCode: string }[]
         >("/courses/my/courses")
       ).data,
-    enabled: isApprovedTutor,
+    staleTime: 30_000,
+    enabled: isApprovedTutor && activeSection === "dashboard",
   });
   const referralStatsQuery = useQuery({
     queryKey: ["tutor-referral-stats"],
@@ -306,7 +331,7 @@ function TutorPageContent() {
         }>("/courses/my/referral-stats")
       ).data,
     staleTime: 30_000,
-    enabled: isApprovedTutor,
+    enabled: isApprovedTutor && activeSection === "dashboard",
   });
 
   const allLessonsQuery = useQuery({
@@ -315,15 +340,24 @@ function TutorPageContent() {
       const { data } = await apiClient.get<PaginatedLessons>("/lessons");
       return data.data ?? [];
     },
-    enabled: isApprovedTutor,
+    staleTime: 30_000,
+    enabled: isApprovedTutor && activeSection === "dashboard",
   });
 
-  const pendingLessons = (allLessonsQuery.data ?? []).filter(
-    (l) => l.status === "pending",
+  const pendingLessons = useMemo(
+    () =>
+      (allLessonsQuery.data ?? []).filter(
+        (lesson) => lesson.status === "pending",
+      ),
+    [allLessonsQuery.data],
   );
-  const recentLessons = (allLessonsQuery.data ?? [])
-    .filter((l) => l.status !== "pending")
-    .slice(0, 5);
+  const recentLessons = useMemo(
+    () =>
+      (allLessonsQuery.data ?? [])
+        .filter((lesson) => lesson.status !== "pending")
+        .slice(0, 5),
+    [allLessonsQuery.data],
+  );
 
   const approveLessonMutation = useMutation({
     mutationFn: async ({ id }: { id: string }) => {
@@ -352,7 +386,8 @@ function TutorPageContent() {
         (l) => l.status === "confirmed" && l.meetUrl,
       );
     },
-    enabled: isApprovedTutor,
+    staleTime: 30_000,
+    enabled: isApprovedTutor && activeSection === "classroom",
   });
 
   const [cancellingLessonId, setCancellingLessonId] = useState<string | null>(
@@ -384,7 +419,8 @@ function TutorPageContent() {
     },
     retry: false,
     refetchOnWindowFocus: true,
-    enabled: isApprovedTutor,
+    staleTime: 30_000,
+    enabled: isApprovedTutor && activeSection === "dashboard",
   });
 
   const [connectError, setConnectError] = useState("");
@@ -1311,11 +1347,11 @@ function TutorPageContent() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="tutor-dashboard min-h-screen flex flex-col"
       style={{ background: "var(--bg-main)" }}
     >
       {/* Top Navigation Bar */}
-      <header className="dashboard-header sticky top-0 z-30">
+      <header className="dashboard-header tutor-dashboard-header sticky top-0 z-30">
         <div className="flex items-center justify-between px-4 md:px-6 py-2">
           <div className="flex items-center gap-4">
             <Link
@@ -1380,7 +1416,7 @@ function TutorPageContent() {
                 onClick={() => {
                   window.location.href = "/tutor/availability?mode=timeoff";
                 }}
-                className="btn-ghost text-sm px-3 py-2 rounded-xl"
+                className="btn-ghost tutor-timeoff text-sm px-3 py-2 rounded-xl"
                 style={{ color: "#FFFFF0" }}
               >
                 <svg
@@ -1430,7 +1466,7 @@ function TutorPageContent() {
               <button
                 type="button"
                 onClick={() => setActiveSection("students")}
-                className="btn-primary text-sm px-4 py-2"
+                className="btn-primary tutor-schedule text-sm px-4 py-2"
               >
                 <svg
                   className="w-4 h-4"
@@ -1461,7 +1497,7 @@ function TutorPageContent() {
                     ? t("التبديل إلى الوضع الفاتح", "Switch to light mode")
                     : t("التبديل إلى الوضع الداكن", "Switch to dark mode")
                 }
-                className="p-2 rounded-xl transition-colors"
+                className="p-2 rounded-xl transition-colors tutor-theme-toggle"
                 style={{ color: "#FFFFF0" }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = "#1D535B")
@@ -1504,7 +1540,7 @@ function TutorPageContent() {
               {/* Language Toggle */}
               <button
                 onClick={toggleLanguage}
-                className="px-2 py-1 rounded-xl text-sm font-bold transition-colors"
+                className="px-2 py-1 rounded-xl text-sm font-bold transition-colors tutor-language-toggle"
                 style={{ color: "#D4A353" }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.background = "#1D535B")
@@ -1520,7 +1556,7 @@ function TutorPageContent() {
               <div className="relative">
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded-xl transition-colors"
+                  className="flex items-center gap-2 p-1.5 rounded-xl transition-colors tutor-profile-trigger"
                   style={{ color: "#FFFFF0" }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background = "#1D535B")
@@ -1627,7 +1663,7 @@ function TutorPageContent() {
 
       {/* Mobile Navigation */}
       <nav
-        className="md:hidden flex gap-1 px-4 py-2 overflow-x-auto"
+        className="tutor-mobile-nav md:hidden flex gap-1 px-4 py-2 overflow-x-auto"
         style={{ background: "#0F3A40", borderBottom: "1px solid #1D535B" }}
       >
         {SIDEBAR_ITEMS.map((item) => {
@@ -1650,7 +1686,7 @@ function TutorPageContent() {
       </nav>
 
       {/* Content */}
-      <main className="flex-1 p-6 overflow-y-auto">
+      <main className="tutor-dashboard-main flex-1 p-6 overflow-y-auto">
         <div className="max-w-5xl mx-auto animate-fade-in" key={activeSection}>
           {renderContent()}
         </div>

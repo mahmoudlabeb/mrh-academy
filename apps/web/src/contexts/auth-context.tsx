@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout API errors
     }
     setUser(null);
-    window.location.href = "/login";
+    window.location.href = "/";
   }, []);
 
   return (
