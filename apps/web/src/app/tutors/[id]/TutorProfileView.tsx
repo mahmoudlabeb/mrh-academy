@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/language-context";
 import TutorActions from "./TutorActions";
 import styles from "./TutorProfile.module.css";
@@ -53,9 +54,15 @@ function formatTime(time: string) {
   return `${hour}:${minuteValue.toString().padStart(2, "0")} ${period}`;
 }
 
-function StarRating({ rating }: { rating: number }) {
+function isAllDaySlot(slot: AvailabilitySlot) {
+  const start = slot.startTime.slice(0, 5);
+  const end = slot.endTime.slice(0, 5);
+  return start === "00:00" && (end === "23:59" || end === "00:00");
+}
+
+function StarRating({ rating, label }: { rating: number; label: string }) {
   return (
-    <span className={styles.stars} aria-label={`${rating.toFixed(1)} out of 5`}>
+    <span className={styles.stars} aria-label={label}>
       {Array.from({ length: 5 }, (_, index) => (
         <span
           key={index}
@@ -114,6 +121,19 @@ export default function TutorProfileView({
   const isAr = lang === "ar";
   const t = (ar: string, en: string) => (isAr ? ar : en);
   const fullName = `${tutor.user.firstName} ${tutor.user.lastName}`;
+  const [today, setToday] = useState<number | null>(null);
+
+  useEffect(() => {
+    setToday(new Date().getDay());
+  }, []);
+
+  const nextAvailableDay =
+    today === null
+      ? -1
+      : (Array.from({ length: 7 }, (_, offset) => (today + offset) % 7).find(
+          (dayIndex) =>
+            availability.some((slot) => slot.dayOfWeek === dayIndex),
+        ) ?? -1);
   const experience =
     typeof tutor.experienceYears === "number"
       ? tutor.experienceYears
@@ -351,43 +371,105 @@ export default function TutorProfileView({
                   <h2 id="availability-title">
                     {t("الأوقات المتاحة أسبوعياً", "Weekly availability")}
                   </h2>
+                  <span className={styles.availabilitySubtitle}>
+                    {t(
+                      "تتكرر هذه المواعيد أسبوعياً وتظهر حسب منطقتك الزمنية.",
+                      "Times repeat weekly and are shown in your timezone.",
+                    )}
+                  </span>
                 </div>
               </div>
 
               {availability.length > 0 ? (
-                <div className={styles.availabilityGrid}>
-                  {DAYS.map((day, dayIndex) => {
-                    const slots = availability.filter(
-                      (slot) => slot.dayOfWeek === dayIndex,
-                    );
-                    return (
-                      <article className={styles.dayCard} key={day.en}>
-                        <div>
-                          <strong>{isAr ? day.ar : day.en}</strong>
+                <div className={styles.planner}>
+                  <div
+                    className={styles.availabilityGrid}
+                    role="list"
+                    aria-label={t("جدول المواعيد الأسبوعي", "Weekly schedule")}
+                  >
+                    {DAYS.map((day, dayIndex) => {
+                      const slots = availability.filter(
+                        (slot) => slot.dayOfWeek === dayIndex,
+                      );
+                      const available = slots.length > 0;
+                      const isNextAvailable = dayIndex === nextAvailableDay;
+                      return (
+                        <article
+                          className={`${styles.dayCard} ${
+                            available
+                              ? styles.dayAvailable
+                              : styles.dayUnavailable
+                          } ${isNextAvailable ? styles.dayNext : ""}`}
+                          key={day.en}
+                          role="listitem"
+                        >
+                          <span
+                            className={styles.ticketIndex}
+                            aria-hidden="true"
+                          >
+                            {String(dayIndex + 1).padStart(2, "0")}
+                          </span>
+                          <div className={styles.dayTopline}>
+                            <span
+                              className={styles.availabilityMarker}
+                              aria-hidden="true"
+                            />
+                            <strong>{isAr ? day.ar : day.en}</strong>
+                          </div>
+                          {isNextAvailable && (
+                            <span className={styles.nextBadge}>
+                              {t("الموعد الأقرب", "Next available")}
+                            </span>
+                          )}
                           <small>
-                            {slots.length
+                            {available
                               ? t(
-                                  `${slots.length} موعد`,
-                                  `${slots.length} slot${slots.length > 1 ? "s" : ""}`,
+                                  `متاح · ${slots.length} موعد`,
+                                  `Available · ${slots.length} slot${slots.length > 1 ? "s" : ""}`,
                                 )
                               : t("غير متاح", "Unavailable")}
                           </small>
-                        </div>
-                        <div className={styles.slotList}>
-                          {slots.length ? (
-                            slots.map((slot) => (
-                              <span key={slot.id} dir="ltr">
-                                {formatTime(slot.startTime)} –{" "}
-                                {formatTime(slot.endTime)}
+                          <div className={styles.slotList}>
+                            {available ? (
+                              slots.map((slot) => (
+                                <span
+                                  key={slot.id}
+                                  dir={isAllDaySlot(slot) ? undefined : "ltr"}
+                                >
+                                  {isAllDaySlot(slot)
+                                    ? t("متاح طوال اليوم", "Available all day")
+                                    : `${formatTime(slot.startTime)} – ${formatTime(slot.endTime)}`}
+                                </span>
+                              ))
+                            ) : (
+                              <span className={styles.noSlot}>
+                                {t("لا توجد مواعيد", "No times")}
                               </span>
-                            ))
-                          ) : (
-                            <span className={styles.noSlot}>—</span>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div className={styles.plannerFooter}>
+                    <div>
+                      <strong>
+                        {t("وجدت الوقت المناسب؟", "Found a time that works?")}
+                      </strong>
+                      <small>
+                        {t(
+                          "اختر موعدك وأكمل الحجز مع هذا المعلم.",
+                          "Choose your time and complete your booking with this tutor.",
+                        )}
+                      </small>
+                    </div>
+                    <Link
+                      href={`/book-lesson?tutorId=${tutor.userId}`}
+                      className={styles.plannerCta}
+                    >
+                      {t("احجز موعداً", "Book a time")}
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className={styles.emptyState}>
@@ -475,7 +557,13 @@ export default function TutorProfileView({
                           <strong>
                             {review.student.firstName} {review.student.lastName}
                           </strong>
-                          <StarRating rating={review.rating} />
+                          <StarRating
+                            rating={review.rating}
+                            label={t(
+                              `${review.rating.toFixed(1)} من 5`,
+                              `${review.rating.toFixed(1)} out of 5`,
+                            )}
+                          />
                         </div>
                         <p>{review.comment}</p>
                       </div>

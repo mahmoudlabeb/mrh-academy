@@ -9,31 +9,55 @@ import { useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { useMemo } from "react";
 
-const registerSchema = z
-  .object({
-    email: z.string().email("البريد الإلكتروني غير صحيح"),
-    password: z
-      .string()
-      .min(15, "15 حرفًا على الأقل")
-      .max(128, "128 حرفًا كحد أقصى"),
-    confirmPassword: z.string(),
-    firstName: z.string().min(1, "الاسم الأول مطلوب"),
-    lastName: z.string().min(1, "الاسم الأخير مطلوب"),
-    role: z.literal("student"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "كلمات المرور غير متطابقة",
-    path: ["confirmPassword"],
-  });
-
-type RegisterForm = z.infer<typeof registerSchema>;
+type RegisterForm = {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  firstName: string;
+  lastName: string;
+  role: "student";
+};
 
 export default function RegisterPage() {
   const { lang } = useLanguage();
   const isAr = lang === "ar";
   const { register: registerUser } = useAuth();
   const router = useRouter();
+  const registerSchema = useMemo(
+    () =>
+      z
+        .object({
+          email: z
+            .string()
+            .email(
+              isAr
+                ? "البريد الإلكتروني غير صحيح"
+                : "Enter a valid email address",
+            ),
+          password: z
+            .string()
+            .min(15, isAr ? "15 حرفًا على الأقل" : "Use at least 15 characters")
+            .max(
+              128,
+              isAr ? "128 حرفًا كحد أقصى" : "Use no more than 128 characters",
+            ),
+          confirmPassword: z.string(),
+          firstName: z
+            .string()
+            .min(1, isAr ? "الاسم الأول مطلوب" : "First name is required"),
+          lastName: z
+            .string()
+            .min(1, isAr ? "الاسم الأخير مطلوب" : "Last name is required"),
+          role: z.literal("student"),
+        })
+        .refine((data) => data.password === data.confirmPassword, {
+          message: isAr ? "كلمات المرور غير متطابقة" : "Passwords do not match",
+          path: ["confirmPassword"],
+        }),
+    [isAr],
+  );
 
   const {
     register,
@@ -298,7 +322,8 @@ export default function RegisterPage() {
                     mutation.error as {
                       response?: { data?: { message?: string } };
                     }
-                  )?.response?.data?.message || "فشل التسجيل"}
+                  )?.response?.data?.message ||
+                    (isAr ? "فشل التسجيل" : "Registration failed")}
                 </p>
               </div>
             )}

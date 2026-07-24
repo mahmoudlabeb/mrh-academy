@@ -3,10 +3,13 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
 
 function AuthCallbackContent() {
+  const { lang } = useLanguage();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -22,11 +25,11 @@ function AuthCallbackContent() {
         }
       })
       .catch(() => {
-        setError("Failed to verify session");
+        setHasError(true);
       });
   }, [router]);
 
-  if (error) {
+  if (hasError) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="card p-8 text-center max-w-sm animate-scale-in">
@@ -45,12 +48,17 @@ function AuthCallbackContent() {
               />
             </svg>
           </div>
-          <p className="text-red-600 font-medium">{error}</p>
+          <p className="text-red-600 font-medium">
+            {t("تعذر التحقق من الجلسة", "Failed to verify session")}
+          </p>
           <p className="text-sm text-slate-500 mt-2">
-            Please try signing in again
+            {t(
+              "يرجى محاولة تسجيل الدخول مرة أخرى",
+              "Please try signing in again",
+            )}
           </p>
           <a href="/login" className="btn-primary mt-5 px-5 py-2.5">
-            Back to login
+            {t("العودة لتسجيل الدخول", "Back to login")}
           </a>
         </div>
       </div>
@@ -79,13 +87,20 @@ function AuthCallbackContent() {
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
           />
         </svg>
-        <p className="text-slate-500 font-medium">Signing you in...</p>
+        <p
+          className="text-slate-500 font-medium"
+          role="status"
+          aria-live="polite"
+        >
+          {t("جارٍ تسجيل دخولك...", "Signing you in...")}
+        </p>
       </div>
     </div>
   );
 }
 
 export default function AuthCallbackPage() {
+  const { lang } = useLanguage();
   return (
     <Suspense
       fallback={
@@ -110,7 +125,9 @@ export default function AuthCallbackPage() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <p className="text-slate-500">Loading...</p>
+            <p className="text-slate-500" role="status" aria-live="polite">
+              {lang === "ar" ? "جارٍ التحميل..." : "Loading..."}
+            </p>
           </div>
         </div>
       }

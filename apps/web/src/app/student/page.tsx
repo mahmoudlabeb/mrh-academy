@@ -8,12 +8,43 @@ import { useLanguage } from "@/contexts/language-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import Link from "next/link";
-import MyLessons from "./components/MyLessons";
-import MessagesView from "./components/MessagesView";
-import SettingsView from "./components/SettingsView";
-import PaymentModal from "./components/PaymentModal";
-import PaymentHistory from "./components/PaymentHistory";
-import NotificationsPanel from "./components/NotificationsPanel";
+import nextDynamic from "next/dynamic";
+
+function PanelLoader() {
+  const { lang } = useLanguage();
+  const loadingLabel = lang === "ar" ? "جارٍ تحميل القسم" : "Loading section";
+  return (
+    <div
+      className="min-h-64 animate-pulse rounded-2xl"
+      style={{ background: "var(--surface-raised)" }}
+      role="status"
+      aria-label={loadingLabel}
+      aria-live="polite"
+    >
+      <span className="sr-only">{loadingLabel}</span>
+    </div>
+  );
+}
+
+const MyLessons = nextDynamic(() => import("./components/MyLessons"), {
+  loading: PanelLoader,
+});
+const MessagesView = nextDynamic(() => import("./components/MessagesView"), {
+  loading: PanelLoader,
+});
+const SettingsView = nextDynamic(() => import("./components/SettingsView"), {
+  loading: PanelLoader,
+});
+const PaymentHistory = nextDynamic(
+  () => import("./components/PaymentHistory"),
+  {
+    loading: PanelLoader,
+  },
+);
+const PaymentModal = nextDynamic(() => import("./components/PaymentModal"));
+const NotificationsPanel = nextDynamic(
+  () => import("./components/NotificationsPanel"),
+);
 
 type Tab = "discover" | "lessons" | "messages" | "payments" | "settings";
 

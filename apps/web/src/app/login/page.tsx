@@ -9,13 +9,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { useMemo } from "react";
 
-const loginSchema = z.object({
-  email: z.string().email("البريد الإلكتروني غير صحيح"),
-  password: z.string().min(1, "كلمة المرور مطلوبة"),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
+type LoginForm = {
+  email: string;
+  password: string;
+};
 
 export default function LoginPage() {
   const { lang } = useLanguage();
@@ -24,6 +23,20 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedRedirect = searchParams.get("redirect");
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: z
+          .string()
+          .email(
+            isAr ? "البريد الإلكتروني غير صحيح" : "Enter a valid email address",
+          ),
+        password: z
+          .string()
+          .min(1, isAr ? "كلمة المرور مطلوبة" : "Password is required"),
+      }),
+    [isAr],
+  );
 
   const {
     register,

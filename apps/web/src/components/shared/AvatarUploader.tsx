@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRef, useState, type ChangeEvent } from "react";
 import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
 
 type AvatarUploaderProps = {
   currentAvatarUrl?: string;
@@ -15,6 +16,8 @@ export function AvatarUploader({
   onSuccess,
   initials = "MR",
 }: AvatarUploaderProps) {
+  const { lang } = useLanguage();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [previewUrl, setPreviewUrl] = useState(currentAvatarUrl);
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +30,19 @@ export function AvatarUploader({
     if (!file) return;
 
     if (!["image/jpeg", "image/png"].includes(file.type)) {
-      setError("Only JPEG and PNG files are allowed");
+      setError(
+        t("يُسمح فقط بصور JPEG وPNG", "Only JPEG and PNG files are allowed"),
+      );
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setError("Avatar file must be 2MB or smaller");
+      setError(
+        t(
+          "يجب ألا يتجاوز حجم الصورة 2 ميجابايت",
+          "Avatar file must be 2MB or smaller",
+        ),
+      );
       return;
     }
 
@@ -48,7 +58,8 @@ export function AvatarUploader({
     } catch (uploadError) {
       setError(
         (uploadError as { response?: { data?: { message?: string } } })
-          ?.response?.data?.message || "Failed to upload avatar",
+          ?.response?.data?.message ||
+          t("تعذر رفع الصورة الشخصية", "Failed to upload avatar"),
       );
     } finally {
       setIsUploading(false);
@@ -66,11 +77,11 @@ export function AvatarUploader({
         {previewUrl ? (
           <Image
             src={previewUrl}
-            alt="Profile avatar"
+            alt={t("الصورة الشخصية", "Profile avatar")}
             fill
             sizes="96px"
             className="object-cover"
-            unoptimized={!previewUrl.startsWith('http')}
+            unoptimized={!previewUrl.startsWith("http")}
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center text-lg uppercase">
@@ -78,7 +89,9 @@ export function AvatarUploader({
           </span>
         )}
         <span className="absolute inset-x-0 bottom-0 bg-black/60 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100 z-10">
-          {isUploading ? "Uploading..." : "Change"}
+          {isUploading
+            ? t("جارٍ الرفع...", "Uploading...")
+            : t("تغيير", "Change")}
         </span>
       </button>
 

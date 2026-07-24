@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
 interface User {
@@ -34,8 +35,16 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const PUBLIC_AUTH_ROUTES = new Set([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+]);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -51,8 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (PUBLIC_AUTH_ROUTES.has(pathname)) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
     fetchUser();
-  }, [fetchUser]);
+  }, [fetchUser, pathname]);
 
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await apiClient.post("/auth/login", { email, password });

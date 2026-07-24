@@ -9,7 +9,7 @@ import TutorProfileView, {
 async function getTutor(id: string): Promise<TutorProfile> {
   const baseUrl = getServerApiBaseUrl();
   const response = await fetch(`${baseUrl}/tutors/${id}`, {
-    cache: "no-store",
+    next: { revalidate: 60 },
   });
 
   if (response.status === 404) notFound();
@@ -21,7 +21,7 @@ async function getTutorReviews(id: string): Promise<Review[]> {
   const baseUrl = getServerApiBaseUrl();
   try {
     const response = await fetch(`${baseUrl}/reviews/tutor/${id}`, {
-      cache: "no-store",
+      next: { revalidate: 30 },
     });
     if (response.ok) return response.json();
   } catch {
@@ -34,7 +34,7 @@ async function getTutorAvailability(id: string): Promise<AvailabilitySlot[]> {
   const baseUrl = getServerApiBaseUrl();
   try {
     const response = await fetch(`${baseUrl}/tutors/${id}/availability`, {
-      cache: "no-store",
+      next: { revalidate: 30 },
     });
     if (response.ok) return response.json();
   } catch {
