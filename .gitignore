@@ -78,6 +78,7 @@ Thumbs.db
 # Local agent/tool metadata
 .kiro/
 .codex/
+.codex-runtime/
 .agents/
 .claude/
 skills-lock.json
