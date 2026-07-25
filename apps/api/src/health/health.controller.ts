@@ -55,6 +55,20 @@ export class HealthController {
           configured('GOOGLE_CLIENT_ID') && configured('GOOGLE_CLIENT_SECRET')
             ? 'configured'
             : 'unconfigured',
+        facebookOAuth:
+          configured('FACEBOOK_APP_ID') &&
+          configured('FACEBOOK_APP_SECRET') &&
+          configured('FACEBOOK_CALLBACK_URL')
+            ? 'configured'
+            : 'unconfigured',
+        appleOAuth:
+          configured('APPLE_CLIENT_ID') &&
+          configured('APPLE_TEAM_ID') &&
+          configured('APPLE_KEY_ID') &&
+          configured('APPLE_PRIVATE_KEY') &&
+          configured('APPLE_CALLBACK_URL')
+            ? 'configured'
+            : 'unconfigured',
         googleMeet:
           configured('GOOGLE_SERVICE_ACCOUNT_EMAIL') &&
           configured('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY') &&
@@ -65,6 +79,14 @@ export class HealthController {
           configured('CLOUDINARY_CLOUD_NAME') &&
           configured('CLOUDINARY_API_KEY') &&
           configured('CLOUDINARY_API_SECRET')
+            ? 'configured'
+            : 'unconfigured',
+        paypal:
+          configured('PAYPAL_CLIENT_ID') && configured('PAYPAL_CLIENT_SECRET')
+            ? 'configured'
+            : 'unconfigured',
+        smtp:
+          configured('SMTP_USER') && configured('SMTP_PASS')
             ? 'configured'
             : 'unconfigured',
       },

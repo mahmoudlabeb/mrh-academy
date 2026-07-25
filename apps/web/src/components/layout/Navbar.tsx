@@ -37,6 +37,10 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
         label: isAr ? "تدريب المعلمين" : "Tutor training",
         href: "/teacher-training",
       },
+      {
+        label: isAr ? "تدريب الشركات" : "Corporate training",
+        href: "/corporate-training",
+      },
     ],
     [isAr],
   );

@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/privacy",
     "/terms",
     "/teacher-training",
+    "/corporate-training",
   ];
   return routes.map((path) => ({
     url: `${baseUrl}${path}`,

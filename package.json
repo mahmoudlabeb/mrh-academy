@@ -15,7 +15,9 @@
     "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json apps/*/package.json packages/*/package.json",
     "knip": "knip",
     "db:backup": "pnpm --filter @mrh/api db:backup",
-    "test:e2e": "pnpm --filter @mrh/api test:e2e"
+    "test:e2e": "pnpm --filter @mrh/api test:e2e",
+    "client:validate": "node scripts/validate-client-config.mjs",
+    "client:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/create-client-zip.ps1"
   },
   "devDependencies": {
     "knip": "^5.46.0",

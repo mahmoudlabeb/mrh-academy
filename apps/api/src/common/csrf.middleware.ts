@@ -44,7 +44,10 @@ export class CsrfOriginMiddleware implements NestMiddleware {
       return;
     }
 
-    if (req.originalUrl.includes('/webhooks/stripe')) {
+    if (
+      req.originalUrl.includes('/webhooks/stripe') ||
+      req.originalUrl.includes('/auth/apple/callback')
+    ) {
       next();
       return;
     }

@@ -17,6 +17,10 @@ export interface ObjectStorage {
   destroy(publicId: string, options?: { resourceType?: string }): Promise<void>;
   signedUrl(
     publicId: string,
-    options?: { resourceType?: string; transformation?: object[] },
+    options?: {
+      resourceType?: string;
+      deliveryType?: 'upload' | 'authenticated';
+      transformation?: object[];
+    },
   ): string;
 }

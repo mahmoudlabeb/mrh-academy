@@ -11,6 +11,7 @@ import {
   BadRequestException,
   UseFilters,
   Req,
+  Query,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
@@ -26,12 +27,14 @@ import { CurrentUser } from './decorators/current-user.decorator.js';
 import { GoogleAuthExceptionFilter } from './filters/google-auth-exception.filter.js';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard.js';
 import { TokenDto } from './dto/token.dto.js';
+import { SocialOAuthService } from './social-oauth.service.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly socialOAuthService: SocialOAuthService,
   ) {}
 
   private setAuthCookies(
@@ -181,5 +184,60 @@ export class AuthController {
       'http://localhost:3000',
     );
     res.redirect(`${frontendUrl}/auth/callback`);
+  }
+
+  @Public()
+  @Get('facebook')
+  async facebookAuth(@Res() res: Response) {
+    res.redirect(
+      await this.socialOAuthService.createFacebookAuthorizationUrl(),
+    );
+  }
+
+  @Public()
+  @Get('facebook/callback')
+  async facebookCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const profile = await this.socialOAuthService.exchangeFacebookCode(
+      code,
+      state,
+    );
+    const result = await this.authService.handleSocialLogin(
+      'facebookId',
+      profile,
+    );
+    this.setAuthCookies(res, result);
+    res.redirect(
+      `${this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000')}/auth/callback`,
+    );
+  }
+
+  @Public()
+  @Get('apple')
+  async appleAuth(@Res() res: Response) {
+    res.redirect(await this.socialOAuthService.createAppleAuthorizationUrl());
+  }
+
+  @Public()
+  @Post('apple/callback')
+  async appleCallback(
+    @Body()
+    body: { code: string; state: string; id_token?: string; user?: string },
+    @Res() res: Response,
+  ) {
+    const profile = await this.socialOAuthService.exchangeAppleCode({
+      code: body.code,
+      state: body.state,
+      idToken: body.id_token,
+      user: body.user,
+    });
+    const result = await this.authService.handleSocialLogin('appleId', profile);
+    this.setAuthCookies(res, result);
+    res.redirect(
+      `${this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000')}/auth/callback`,
+    );
   }
 }

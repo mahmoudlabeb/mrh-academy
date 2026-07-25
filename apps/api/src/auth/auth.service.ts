@@ -341,42 +341,68 @@ export class AuthService {
     lastName: string;
     avatarUrl?: string;
   }) {
+    const result = await this.handleSocialLogin('googleId', googleProfile);
+    await this.redisService.set(
+      `google_reauth:${result.user.id}`,
+      '1',
+      'EX',
+      10 * 60,
+    );
+    return result;
+  }
+
+  async handleSocialLogin(
+    providerField: 'googleId' | 'facebookId' | 'appleId',
+    profile: {
+      providerId?: string;
+      googleId?: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatarUrl?: string;
+    },
+  ) {
+    const providerId = profile.providerId ?? profile.googleId;
+    if (!providerId) {
+      throw new UnauthorizedException('Social identity is missing');
+    }
+    const providerLabel = providerField.replace('Id', '');
     let user = await this.userRepository.findOne({
-      where: { googleId: googleProfile.googleId },
+      where: { [providerField]: providerId },
     });
 
     if (!user) {
       const existingByEmail = await this.userRepository.findOne({
-        where: { email: googleProfile.email },
+        where: { email: profile.email.trim().toLowerCase() },
       });
 
       if (existingByEmail) {
         if (
-          existingByEmail.googleId &&
-          existingByEmail.googleId !== googleProfile.googleId
+          existingByEmail[providerField] &&
+          existingByEmail[providerField] !== providerId
         ) {
           throw new ConflictException(
-            'This email is linked to a different Google account',
+            `This email is linked to a different ${providerLabel} account`,
           );
         }
         if (!existingByEmail.isVerified && existingByEmail.passwordHash) {
           throw new ConflictException(
-            'An account with this email already exists. Please log in with your password first to link Google.',
+            `An account with this email already exists. Please log in with your password first to link ${providerLabel}.`,
           );
         }
-        existingByEmail.googleId = googleProfile.googleId;
+        existingByEmail[providerField] = providerId;
         existingByEmail.isVerified = true;
-        if (googleProfile.avatarUrl && !existingByEmail.avatarUrl) {
-          existingByEmail.avatarUrl = googleProfile.avatarUrl;
+        if (profile.avatarUrl && !existingByEmail.avatarUrl) {
+          existingByEmail.avatarUrl = profile.avatarUrl;
         }
         user = await this.userRepository.save(existingByEmail);
       } else {
         const newUser = this.userRepository.create({
-          googleId: googleProfile.googleId,
-          email: googleProfile.email,
-          firstName: googleProfile.firstName,
-          lastName: googleProfile.lastName,
-          avatarUrl: googleProfile.avatarUrl,
+          [providerField]: providerId,
+          email: profile.email.trim().toLowerCase(),
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl,
           role: UserRole.STUDENT,
           isVerified: true,
           passwordHash: null,
@@ -395,7 +421,6 @@ export class AuthService {
       }
     }
 
-    await this.redisService.set(`google_reauth:${user.id}`, '1', 'EX', 10 * 60);
     return this.buildAuthResponse(user);
   }
 

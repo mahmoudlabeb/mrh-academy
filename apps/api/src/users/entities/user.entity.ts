@@ -43,6 +43,12 @@ export class User {
   googleId: string;
 
   @Column({ nullable: true })
+  facebookId: string;
+
+  @Column({ nullable: true })
+  appleId: string;
+
+  @Column({ nullable: true })
   avatarUrl: string;
 
   @Column({ default: false })

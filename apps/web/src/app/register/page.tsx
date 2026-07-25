@@ -409,6 +409,20 @@ export default function RegisterPage() {
               {isAr ? "التسجيل عبر Google" : "Continue with Google"}
             </a>
 
+            <a
+              href={`${getApiBaseUrl()}/auth/facebook`}
+              className="btn-secondary w-full justify-center py-3"
+            >
+              {isAr ? "التسجيل عبر Facebook" : "Continue with Facebook"}
+            </a>
+
+            <a
+              href={`${getApiBaseUrl()}/auth/apple`}
+              className="btn-secondary w-full justify-center py-3"
+            >
+              {isAr ? "التسجيل عبر Apple" : "Continue with Apple"}
+            </a>
+
             <aside
               className="rounded-2xl p-4 text-sm"
               style={{

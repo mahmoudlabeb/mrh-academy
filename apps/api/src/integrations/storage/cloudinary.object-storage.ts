@@ -31,7 +31,9 @@ export class CloudinaryObjectStorage implements ObjectStorage {
           {
             folder: options.folder,
             resource_type: options.resourceType ?? 'auto',
-            ...(options.accessMode ? { access_mode: options.accessMode } : {}),
+            ...(options.accessMode === 'authenticated'
+              ? { type: 'authenticated' }
+              : {}),
           },
           (error, result?: UploadApiResponse) => {
             if (error || !result) {
@@ -63,11 +65,15 @@ export class CloudinaryObjectStorage implements ObjectStorage {
 
   signedUrl(
     publicId: string,
-    options: { resourceType?: string; transformation?: object[] } = {},
+    options: {
+      resourceType?: string;
+      deliveryType?: 'upload' | 'authenticated';
+      transformation?: object[];
+    } = {},
   ) {
     return cloudinary.url(publicId, {
       resource_type: options.resourceType ?? 'image',
-      type: 'authenticated',
+      type: options.deliveryType ?? 'authenticated',
       sign_url: true,
       secure: true,
       transformation: options.transformation,

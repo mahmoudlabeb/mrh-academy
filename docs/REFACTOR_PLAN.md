@@ -102,7 +102,7 @@
   - `apps/api/check-passwords.mjs` — سطر 5
   - `apps/api/fix-passwords.mjs` — سطر 5
   
-  Connection string: `postgresql://neondb_owner:npg_5Uu0PsQYhtSb@ep-small-mouse-ajtpzosi-pooler...`
+  Connection string: `postgresql://user:password@your-neon-host.example/neondb`
   
   هذه الملفات **موجودة في تاريخ Git** (commit `12818ae`).
 

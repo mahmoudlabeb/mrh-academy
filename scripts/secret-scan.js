@@ -44,6 +44,21 @@ for (const entry of patterns) {
     try {
       const content = fs.readFileSync(fullPath, 'utf8');
       if (entry.regex.test(content)) {
+        if (entry.label === 'Postgres URL hardcoded') {
+          const urls = content.match(/postgresql?:\/\/[^\s"'`]+/g) ?? [];
+          if (
+            urls.length > 0 &&
+            urls.every((url) =>
+              /user:password|your_password|your-neon-host|localhost/i.test(url),
+            )
+          )
+            continue;
+        }
+        if (
+          entry.label === 'Google service account key inline' &&
+          content.includes('<private-key-as-one-line-with-\\n-separators>')
+        )
+          continue;
         if (entry.ignoreExample && (f === '.env.example' || f.endsWith('.env.example'))) continue;
         if (f.includes('.env.example') && /change_me|placeholder|your_/i.test(content)) continue;
         // Ignore production template files with obvious placeholders

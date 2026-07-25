@@ -45,6 +45,12 @@ export class PayoutController {
     return this.paymentsService.getTutorPayouts(user.id);
   }
 
+  @Get('my/transactions')
+  @Roles(UserRole.TUTOR)
+  getMyTransactions(@CurrentUser() user: { id: string }) {
+    return this.paymentsService.getTutorTransactions(user.id);
+  }
+
   /** Admin: list all payout requests */
   @Get()
   @Roles(UserRole.ADMIN)

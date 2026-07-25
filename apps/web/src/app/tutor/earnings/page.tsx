@@ -1,17 +1,26 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
-import { useLanguage } from '@/contexts/language-context';
-import Link from 'next/link';
+import { useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
+import {
+  ArrowLeftIcon,
+  BankIcon,
+  BookIcon,
+  CheckIcon,
+  CloseIcon,
+  CreditCardIcon,
+  MoneyIcon,
+  RefreshIcon,
+} from "@/components/icons/Icons";
 
 type TutorProfile = {
   balance: number;
   stripeAccountId?: string;
   stripeOnboardingComplete?: boolean;
 };
-
 type Payout = {
   id: string;
   amount: number;
@@ -22,305 +31,663 @@ type Payout = {
   errorMessage?: string;
   createdAt: string;
 };
-
+type Transaction = {
+  id: string;
+  type: "lesson_earning" | "course_earning" | "payout";
+  amount: number;
+  status: string;
+  description: string;
+  createdAt: string;
+};
 const PAYOUT_METHODS = [
-  { key: 'bank_transfer', labelAr: 'تحويل بنكي', labelEn: 'Bank Transfer' },
-  { key: 'paypal',        labelAr: 'PayPal',       labelEn: 'PayPal' },
-  { key: 'vodafone_cash', labelAr: 'فودافون كاش',  labelEn: 'Vodafone Cash' },
-  { key: 'instapay',      labelAr: 'انستاباي',     labelEn: 'Instapay' },
+  {
+    key: "bank_transfer",
+    labelAr: "تحويل بنكي",
+    labelEn: "Bank Transfer",
+    Icon: BankIcon,
+  },
+  { key: "paypal", labelAr: "PayPal", labelEn: "PayPal", Icon: CreditCardIcon },
+  {
+    key: "vodafone_cash",
+    labelAr: "فودافون كاش",
+    labelEn: "Vodafone Cash",
+    Icon: MoneyIcon,
+  },
+  {
+    key: "instapay",
+    labelAr: "إنستاباي",
+    labelEn: "Instapay",
+    Icon: CreditCardIcon,
+  },
 ] as const;
-
-type PayoutMethod = typeof PAYOUT_METHODS[number]['key'];
-
-const statusConfig: Record<string, { ar: string; en: string; bg: string; color: string }> = {
-  pending: { ar: 'قيد الانتظار', en: 'Pending',  bg: 'rgba(234,179,8,0.1)',  color: '#eab308' },
-  success: { ar: 'مكتمل',        en: 'Completed', bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
-  failed:  { ar: 'فشل',          en: 'Failed',    bg: 'rgba(239,68,68,0.1)', color: '#ef4444' },
+type PayoutMethod = (typeof PAYOUT_METHODS)[number]["key"];
+const statusConfig: Record<
+  string,
+  { ar: string; en: string; color: string; bg: string }
+> = {
+  pending: {
+    ar: "قيد الانتظار",
+    en: "Pending",
+    color: "#ca8a04",
+    bg: "rgba(202,138,4,.1)",
+  },
+  processing: {
+    ar: "قيد المعالجة",
+    en: "Processing",
+    color: "#2563eb",
+    bg: "rgba(37,99,235,.1)",
+  },
+  success: {
+    ar: "مكتمل",
+    en: "Completed",
+    color: "#16a34a",
+    bg: "rgba(22,163,74,.1)",
+  },
+  completed: {
+    ar: "مكتمل",
+    en: "Completed",
+    color: "#16a34a",
+    bg: "rgba(22,163,74,.1)",
+  },
+  failed: {
+    ar: "فشل",
+    en: "Failed",
+    color: "#dc2626",
+    bg: "rgba(220,38,38,.1)",
+  },
+  rejected: {
+    ar: "مرفوض",
+    en: "Rejected",
+    color: "#dc2626",
+    bg: "rgba(220,38,38,.1)",
+  },
 };
 
 export default function TutorEarningsPage() {
   const { lang } = useLanguage();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const queryClient = useQueryClient();
-  const t = (ar: string, en: string) => lang === 'ar' ? ar : en;
-
   const [showPayoutForm, setShowPayoutForm] = useState(false);
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<PayoutMethod>('bank_transfer');
-  const [accountDetails, setAccountDetails] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<PayoutMethod>("bank_transfer");
+  const [accountDetails, setAccountDetails] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const profileQuery = useQuery<TutorProfile>({
-    queryKey: ['tutor-profile-balance'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<TutorProfile>('/tutors/me/profile');
-      return data;
-    },
+  const profileQuery = useQuery({
+    queryKey: ["tutor-profile-balance"],
+    queryFn: async () =>
+      (await apiClient.get<TutorProfile>("/tutors/me/profile")).data,
   });
-
-  const payoutsQuery = useQuery<Payout[]>({
-    queryKey: ['my-payouts'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<Payout[]>('/payouts/my');
-      return data;
-    },
+  const transactionsQuery = useQuery({
+    queryKey: ["my-earning-transactions"],
+    queryFn: async () =>
+      (await apiClient.get<Transaction[]>("/payouts/my/transactions")).data,
   });
-
+  const payoutsQuery = useQuery({
+    queryKey: ["my-payouts"],
+    queryFn: async () => (await apiClient.get<Payout[]>("/payouts/my")).data,
+  });
   const requestPayoutMutation = useMutation({
-    mutationFn: async () => {
-      const { data } = await apiClient.post('/payouts', {
-        amount: parseFloat(amount),
-        method,
-        accountDetails,
-      });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-payouts'] });
-      queryClient.invalidateQueries({ queryKey: ['tutor-profile-balance'] });
-      setSuccessMsg(t('تم إرسال طلب السحب. سيتم مراجعته من قبل الإدارة.', 'Payout request submitted. Admin will review it.'));
-      setAmount('');
-      setAccountDetails('');
+    mutationFn: async () =>
+      (
+        await apiClient.post("/payouts", {
+          amount: Number(amount),
+          method,
+          accountDetails: accountDetails.trim(),
+        })
+      ).data,
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["my-payouts"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["my-earning-transactions"],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["tutor-profile-balance"] }),
+      ]);
+      setSuccessMsg(
+        t(
+          "تم إرسال طلب السحب وسيتم مراجعته من الإدارة.",
+          "Payout request submitted for administrator review.",
+        ),
+      );
+      setAmount("");
+      setAccountDetails("");
       setShowPayoutForm(false);
     },
-    onError: (error: { response?: { data?: { message?: string } } } & Error) => {
-      const msg = error?.response?.data?.message || error?.message || t('حدث خطأ', 'An error occurred');
-      alert(msg);
-    },
   });
 
-  const balance = profileQuery.data?.balance ?? 0;
-  const amountNum = parseFloat(amount) || 0;
-  const canSubmit = amountNum >= 10 && amountNum <= balance && accountDetails.trim().length > 3;
+  const balance = Number(profileQuery.data?.balance ?? 0);
+  const amountNum = Number(amount);
+  const canSubmit =
+    Number.isFinite(amountNum) &&
+    amountNum >= 10 &&
+    amountNum <= balance &&
+    accountDetails.trim().length > 3;
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
-      {/* Back link */}
-      <Link href="/tutor" className="inline-flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        {t('العودة للوحة التحكم', 'Back to Dashboard')}
+    <main className="mx-auto max-w-4xl space-y-8 p-4 md:p-6">
+      <Link
+        href="/tutor"
+        className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium"
+        style={{ color: "var(--text-muted)" }}
+      >
+        <ArrowLeftIcon
+          className={`h-4 w-4 ${lang === "ar" ? "rotate-180" : ""}`}
+        />
+        {t("العودة للوحة التحكم", "Back to Dashboard")}
       </Link>
-
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>
-          {t('الأرباح والسحب', 'Earnings & Payouts')}
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          {t('تتراكم أرباحك بعد اكتمال كل درس', 'Your earnings accumulate after each completed lesson')}
+      <header>
+        <p
+          className="text-xs font-bold uppercase tracking-[.16em]"
+          style={{ color: "#D4A353" }}
+        >
+          {t("المالية", "Financials")}
         </p>
-      </div>
+        <h1
+          className="mt-1 text-2xl font-bold"
+          style={{ color: "var(--text-main)" }}
+        >
+          {t("الأرباح والسحب", "Earnings & Payouts")}
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          {t(
+            "راجع مصادر أرباحك وطلبات السحب في سجلين واضحين.",
+            "Review earning sources and payout requests in two clear records.",
+          )}
+        </p>
+      </header>
 
-      {/* Balance card */}
-      <div className="card-gold p-6">
-        <div className="flex items-center justify-between">
+      <section
+        className="card-gold overflow-hidden"
+        aria-labelledby="balance-title"
+      >
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('الرصيد المتاح', 'Available Balance')}</p>
+            <p
+              id="balance-title"
+              className="text-sm font-medium"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {t("الرصيد المتاح", "Available Balance")}
+            </p>
             {profileQuery.isLoading ? (
-              <div className="h-10 w-28 skeleton rounded mt-1" />
+              <div className="mt-2 h-10 w-32 rounded skeleton" />
+            ) : profileQuery.isError ? (
+              <div className="mt-2">
+                <p className="text-sm text-red-500">
+                  {t("تعذر تحميل الرصيد.", "Balance could not be loaded.")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => profileQuery.refetch()}
+                  className="btn-secondary mt-3 min-h-10"
+                >
+                  <RefreshIcon className="h-4 w-4" />
+                  {t("إعادة المحاولة", "Try again")}
+                </button>
+              </div>
             ) : (
-              <p className="text-4xl font-bold mt-1" style={{ color: '#D4A353' }}>
+              <p
+                className="mt-1 text-4xl font-bold"
+                dir="ltr"
+                style={{ color: "#D4A353" }}
+              >
                 ${balance.toFixed(2)}
               </p>
             )}
           </div>
-          {balance >= 10 && (
+          {!profileQuery.isError && (
             <button
-              onClick={() => setShowPayoutForm(!showPayoutForm)}
-              className="btn-primary px-5 py-2.5"
+              type="button"
+              onClick={() => {
+                setShowPayoutForm((open) => !open);
+                requestPayoutMutation.reset();
+              }}
+              disabled={balance < 10}
+              className="btn-primary min-h-11 shrink-0"
             >
-              {showPayoutForm ? t('إلغاء', 'Cancel') : t('طلب سحب', 'Request Payout')}
+              {showPayoutForm
+                ? t("إلغاء الطلب", "Cancel request")
+                : t("طلب سحب", "Request Payout")}
             </button>
           )}
         </div>
-        {balance < 10 && balance > 0 && (
-          <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-            {t('الحد الأدنى للسحب هو $10', 'Minimum payout amount is $10')}
+        {!profileQuery.isLoading && !profileQuery.isError && balance < 10 && (
+          <p
+            className="border-t px-5 py-3 text-xs sm:px-6"
+            style={{
+              borderColor: "var(--border-color)",
+              color: "var(--text-muted)",
+            }}
+          >
+            {balance > 0
+              ? t(
+                  "الحد الأدنى للسحب هو $10.",
+                  "The minimum payout amount is $10.",
+                )
+              : t(
+                  "أكمل درساً أو حقق عملية بيع لبدء تكوين رصيد.",
+                  "Complete a lesson or make a course sale to begin earning.",
+                )}
           </p>
         )}
-        {balance === 0 && !profileQuery.isLoading && (
-          <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
-            {t('لا يوجد رصيد للسحب حالياً. أكمل دروساً لكسب الأرباح.', 'No balance to withdraw. Complete lessons to earn.')}
-          </p>
+      </section>
+
+      <div aria-live="polite">
+        {successMsg && (
+          <div
+            className="flex items-start gap-3 rounded-xl border p-4"
+            style={{
+              borderColor: "rgba(22,163,74,.3)",
+              background: "rgba(22,163,74,.08)",
+              color: "#16a34a",
+            }}
+          >
+            <CheckIcon className="mt-0.5 h-5 w-5 shrink-0" />
+            <p className="flex-1 text-sm font-semibold">{successMsg}</p>
+            <button
+              type="button"
+              onClick={() => setSuccessMsg("")}
+              className="min-h-10 min-w-10 p-2"
+              aria-label={t("إغلاق الرسالة", "Dismiss message")}
+              title={t("إغلاق", "Close")}
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Success message */}
-      {successMsg && (
-        <div className="p-4 rounded-xl flex items-start gap-3" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
-          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#22c55e"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-          <p className="text-sm font-semibold" style={{ color: '#22c55e' }}>{successMsg}</p>
-          <button onClick={() => setSuccessMsg('')} className="ms-auto opacity-60 hover:opacity-100">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#22c55e"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
+      {showPayoutForm && (
+        <section
+          className="card p-5 sm:p-6"
+          aria-labelledby="payout-form-title"
+        >
+          <h2
+            id="payout-form-title"
+            className="text-lg font-bold"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("طلب سحب أرباح", "Request Payout")}
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "اختر وسيلة الاستلام وأدخل بيانات الحساب بدقة.",
+              "Choose a receiving method and enter the account details carefully.",
+            )}
+          </p>
+          <form
+            className="mt-5 space-y-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canSubmit && !requestPayoutMutation.isPending) {
+                requestPayoutMutation.mutate();
+              }
+            }}
+          >
+            <label
+              className="block text-sm font-semibold"
+              style={{ color: "var(--text-main)" }}
+            >
+              {t("المبلغ (USD)", "Amount (USD)")}
+              <input
+                type="number"
+                min="10"
+                max={balance}
+                step=".01"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className="input-field mt-1.5"
+                placeholder="0.00"
+                dir="ltr"
+              />
+              <span
+                className="mt-1.5 block text-xs font-normal"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {t(
+                  `متاح: $${balance.toFixed(2)} · الحد الأدنى: $10`,
+                  `Available: $${balance.toFixed(2)} · Minimum: $10`,
+                )}
+              </span>
+            </label>
+            <fieldset>
+              <legend
+                className="text-sm font-semibold"
+                style={{ color: "var(--text-main)" }}
+              >
+                {t("طريقة السحب", "Payout Method")}
+              </legend>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {PAYOUT_METHODS.map(({ key, labelAr, labelEn, Icon }) => (
+                  <label
+                    key={key}
+                    className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors"
+                    style={{
+                      borderColor:
+                        method === key ? "#D4A353" : "var(--border-color)",
+                      background:
+                        method === key
+                          ? "rgba(212,163,83,.1)"
+                          : "var(--bg-light)",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="payout-method"
+                      value={key}
+                      checked={method === key}
+                      onChange={() => setMethod(key)}
+                      className="sr-only"
+                    />
+                    <span
+                      className="flex h-8 w-8 items-center justify-center rounded-md"
+                      style={{
+                        color: method === key ? "#D4A353" : "var(--text-muted)",
+                        background: "var(--bg-main)",
+                      }}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      {lang === "ar" ? labelAr : labelEn}
+                    </span>
+                    {method === key && (
+                      <CheckIcon className="ms-auto h-4 w-4 text-[#D4A353]" />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label
+              className="block text-sm font-semibold"
+              style={{ color: "var(--text-main)" }}
+            >
+              {t("تفاصيل الحساب", "Account Details")}
+              <input
+                value={accountDetails}
+                onChange={(event) => setAccountDetails(event.target.value)}
+                className="input-field mt-1.5"
+                placeholder={
+                  method === "bank_transfer"
+                    ? t("رقم الحساب / IBAN", "Account number / IBAN")
+                    : method === "paypal"
+                      ? "PayPal email"
+                      : t("رقم الهاتف أو معرف الحساب", "Phone or account ID")
+                }
+              />
+            </label>
+            {requestPayoutMutation.isError && (
+              <p
+                role="alert"
+                className="rounded-lg border px-4 py-3 text-sm text-red-500"
+                style={{
+                  borderColor: "rgba(239,68,68,.35)",
+                  background: "rgba(239,68,68,.06)",
+                }}
+              >
+                {(
+                  requestPayoutMutation.error as {
+                    response?: { data?: { message?: string } };
+                  }
+                )?.response?.data?.message ??
+                  t(
+                    "تعذر إرسال طلب السحب. راجع البيانات وحاول مجدداً.",
+                    "The payout request could not be submitted. Review the details and try again.",
+                  )}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={!canSubmit || requestPayoutMutation.isPending}
+              className="btn-primary min-h-12 w-full"
+            >
+              {requestPayoutMutation.isPending
+                ? t("جاري الإرسال...", "Submitting...")
+                : t("إرسال طلب السحب", "Submit Payout Request")}
+            </button>
+          </form>
+        </section>
       )}
 
-      {/* Payout request form */}
-      {showPayoutForm && (
-        <div className="card p-6 space-y-4">
-          <h2 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
-            {t('طلب سحب أرباح', 'Request Payout')}
-          </h2>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('المبلغ (USD)', 'Amount (USD)')}
-            </label>
-            <input
-              type="number"
-              min="10"
-              max={balance}
-              step="0.01"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              className="input-field w-full"
-              placeholder="0.00"
-            />
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              {t(`الرصيد المتاح: $${balance.toFixed(2)} · الحد الأدنى: $10`, `Available: $${balance.toFixed(2)} · Minimum: $10`)}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>
-              {t('طريقة الدفع', 'Payout Method')}
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {PAYOUT_METHODS.map(pm => (
-                <label
-                  key={pm.key}
-                  className="flex items-center gap-2 p-3 rounded-lg cursor-pointer border transition-all"
+      <HistorySection
+        title={t("سجل المعاملات", "Transaction History")}
+        subtitle={t(
+          "أرباح الدروس والدورات وطلبات السحب بترتيب زمني.",
+          "Lesson earnings, course earnings, and payouts in chronological order.",
+        )}
+        loading={transactionsQuery.isLoading}
+        error={transactionsQuery.isError}
+        retry={() => transactionsQuery.refetch()}
+        empty={transactionsQuery.data?.length === 0}
+        emptyText={t("لا توجد معاملات بعد.", "No transactions yet.")}
+        retryText={t("إعادة المحاولة", "Try again")}
+        errorText={t(
+          "تعذر تحميل سجل المعاملات.",
+          "Transaction history could not be loaded.",
+        )}
+      >
+        <div
+          className="divide-y"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          {transactionsQuery.data?.map((transaction) => {
+            const earning = transaction.type !== "payout";
+            const Icon =
+              transaction.type === "lesson_earning"
+                ? BookIcon
+                : transaction.type === "course_earning"
+                  ? CreditCardIcon
+                  : MoneyIcon;
+            const cfg =
+              statusConfig[transaction.status] ?? statusConfig.pending;
+            return (
+              <article
+                key={`${transaction.type}-${transaction.id}`}
+                className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
+              >
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                   style={{
-                    border: method === pm.key ? '2px solid #D4A353' : '1px solid var(--border-color)',
-                    background: method === pm.key ? 'rgba(212,163,83,0.1)' : 'var(--bg-light)',
+                    background: earning
+                      ? "rgba(22,163,74,.1)"
+                      : "rgba(212,163,83,.12)",
+                    color: earning ? "#16a34a" : "#D4A353",
                   }}
                 >
-                  <input
-                    type="radio"
-                    name="payout-method"
-                    value={pm.key}
-                    checked={method === pm.key}
-                    onChange={() => setMethod(pm.key)}
-                    className="hidden"
-                  />
-                  <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
-                    {lang === 'ar' ? pm.labelAr : pm.labelEn}
+                  <Icon />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    {transaction.description}
+                  </p>
+                  <p
+                    className="mt-1 text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {transaction.type === "lesson_earning"
+                      ? t("ربح درس", "Lesson earning")
+                      : transaction.type === "course_earning"
+                        ? t("ربح دورة", "Course earning")
+                        : t("طلب سحب", "Payout")}{" "}
+                    · {new Date(transaction.createdAt).toLocaleString(locale)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:block sm:text-end">
+                  <p
+                    className="font-bold"
+                    dir="ltr"
+                    style={{ color: earning ? "#16a34a" : "#dc2626" }}
+                  >
+                    {transaction.amount >= 0 ? "+" : "−"}$
+                    {Math.abs(transaction.amount).toFixed(2)}
+                  </p>
+                  <span
+                    className="mt-1 inline-block rounded-md px-2 py-1 text-xs font-semibold"
+                    style={{ color: cfg.color, background: cfg.bg }}
+                  >
+                    {lang === "ar" ? cfg.ar : cfg.en}
                   </span>
-                </label>
-              ))}
-            </div>
-          </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </HistorySection>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-              {t('تفاصيل الحساب', 'Account Details')}
-            </label>
-            <input
-              value={accountDetails}
-              onChange={e => setAccountDetails(e.target.value)}
-              className="input-field w-full"
-              placeholder={
-                method === 'bank_transfer'
-                  ? t('رقم الحساب / IBAN', 'Account number / IBAN')
-                  : method === 'paypal'
-                    ? 'PayPal email'
-                    : method === 'vodafone_cash'
-                      ? t('رقم الهاتف', 'Phone number')
-                      : t('رقم الهاتف / معرف الحساب', 'Phone / Account ID')
-              }
-            />
-          </div>
+      <HistorySection
+        title={t("سجل السحوبات", "Payout History")}
+        subtitle={t(
+          "حالة كل طلب سحب قدمته.",
+          "The status of each payout request you submitted.",
+        )}
+        loading={payoutsQuery.isLoading}
+        error={payoutsQuery.isError}
+        retry={() => payoutsQuery.refetch()}
+        empty={payoutsQuery.data?.length === 0}
+        emptyText={t("لا توجد طلبات سحب بعد.", "No payout requests yet.")}
+        retryText={t("إعادة المحاولة", "Try again")}
+        errorText={t(
+          "تعذر تحميل سجل السحوبات.",
+          "Payout history could not be loaded.",
+        )}
+      >
+        <div
+          className="divide-y"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          {payoutsQuery.data?.map((payout) => {
+            const cfg = statusConfig[payout.status] ?? statusConfig.pending;
+            return (
+              <article key={payout.id} className="py-4 first:pt-0 last:pb-0">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                    style={{
+                      color: "#D4A353",
+                      background: "rgba(212,163,83,.12)",
+                    }}
+                  >
+                    <MoneyIcon />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="font-bold"
+                      dir="ltr"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      ${Number(payout.amount).toFixed(2)}
+                    </p>
+                    <p
+                      className="mt-1 break-words text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {payout.method} · {payout.accountDetails} ·{" "}
+                      {new Date(payout.createdAt).toLocaleString(locale)}
+                    </p>
+                  </div>
+                  <span
+                    className="self-start rounded-md px-2.5 py-1 text-xs font-semibold sm:self-auto"
+                    style={{ color: cfg.color, background: cfg.bg }}
+                  >
+                    {lang === "ar" ? cfg.ar : cfg.en}
+                  </span>
+                </div>
+                {(payout.errorMessage || payout.adminNote) && (
+                  <p
+                    className="mt-2 text-xs"
+                    style={{
+                      color: payout.errorMessage
+                        ? "#dc2626"
+                        : "var(--text-muted)",
+                    }}
+                  >
+                    {payout.errorMessage || payout.adminNote}
+                  </p>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </HistorySection>
+    </main>
+  );
+}
 
+function HistorySection({
+  title,
+  subtitle,
+  loading,
+  error,
+  retry,
+  empty,
+  emptyText,
+  errorText,
+  retryText,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  loading: boolean;
+  error: boolean;
+  retry: () => unknown;
+  empty: boolean;
+  emptyText: string;
+  errorText: string;
+  retryText: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="card p-5 sm:p-6">
+      <header className="mb-5">
+        <h2 className="text-lg font-bold" style={{ color: "var(--text-main)" }}>
+          {title}
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          {subtitle}
+        </p>
+      </header>
+      {loading ? (
+        <div className="space-y-3" aria-label={title}>
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-16 rounded skeleton" />
+          ))}
+        </div>
+      ) : error ? (
+        <div role="alert" className="py-5 text-center">
+          <p className="text-sm font-semibold text-red-500">{errorText}</p>
           <button
             type="button"
-            onClick={() => requestPayoutMutation.mutate()}
-            disabled={!canSubmit || requestPayoutMutation.isPending}
-            className="btn-primary w-full py-3 disabled:opacity-50"
+            onClick={retry}
+            className="btn-secondary mt-3 min-h-10"
           >
-            {requestPayoutMutation.isPending ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                {t('جاري الإرسال...', 'Submitting...')}
-              </span>
-            ) : t('إرسال طلب السحب', 'Submit Payout Request')}
+            <RefreshIcon className="h-4 w-4" />
+            {retryText}
           </button>
         </div>
+      ) : empty ? (
+        <div
+          className="rounded-xl border border-dashed px-5 py-9 text-center"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <MoneyIcon className="mx-auto h-7 w-7 text-[#D4A353]" />
+          <p
+            className="mt-3 text-sm font-semibold"
+            style={{ color: "var(--text-muted)" }}
+          >
+            {emptyText}
+          </p>
+        </div>
+      ) : (
+        children
       )}
-
-      {/* Payout history */}
-      <div>
-        <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-          {t('سجل السحوبات', 'Payout History')}
-        </h2>
-
-        {payoutsQuery.isLoading ? (
-          <div className="space-y-3">
-            {[1, 2].map(i => (
-              <div key={i} className="card p-4">
-                <div className="h-4 w-32 skeleton rounded mb-2" />
-                <div className="h-3 w-20 skeleton rounded" />
-              </div>
-            ))}
-          </div>
-        ) : (payoutsQuery.data ?? []).length === 0 ? (
-          <div className="card p-10 text-center">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(212,163,83,0.1)' }}>
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="font-semibold" style={{ color: 'var(--text-muted)' }}>
-              {t('لا توجد سحوبات بعد', 'No payouts yet')}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {(payoutsQuery.data ?? []).map(payout => {
-              const cfg = statusConfig[payout.status] ?? statusConfig.pending;
-              return (
-                <div key={payout.id} className="card p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${cfg.color}15` }}>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke={cfg.color} strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm" style={{ color: 'var(--text-main)' }}>
-                          ${payout.amount.toFixed(2)}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                          <span>{payout.method}</span>
-                          <span>·</span>
-                          <span>{payout.accountDetails}</span>
-                          <span>·</span>
-                          <span>{new Date(payout.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <span className="badge text-xs font-semibold shrink-0" style={{ background: cfg.bg, color: cfg.color }}>
-                      {lang === 'ar' ? cfg.ar : cfg.en}
-                    </span>
-                  </div>
-                  {payout.status === 'failed' && payout.errorMessage && (
-                    <p className="text-xs mt-2 px-1" style={{ color: '#ef4444' }}>
-                      {payout.errorMessage}
-                    </p>
-                  )}
-                  {payout.adminNote && payout.status !== 'failed' && (
-                    <p className="text-xs mt-2 px-1" style={{ color: 'var(--text-muted)' }}>
-                      {payout.adminNote}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+    </section>
   );
 }

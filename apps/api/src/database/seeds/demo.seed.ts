@@ -1,5 +1,12 @@
+import 'reflect-metadata';
 import { argon2id, hash } from 'argon2';
-import { CourseStatus, UserRole } from '@mrh/types';
+import {
+  CourseStatus,
+  LessonStatus,
+  PaymentMethod,
+  PaymentStatus,
+  UserRole,
+} from '@mrh/types';
 import { AppDataSource } from '../data-source.js';
 import { User } from '../../users/entities/user.entity.js';
 import { StudentProfile } from '../../students/entities/student-profile.entity.js';
@@ -7,6 +14,9 @@ import { TutorProfile } from '../../tutors/entities/tutor-profile.entity.js';
 import { TutorAvailability } from '../../tutors/entities/tutor-availability.entity.js';
 import { SubAdminProfile } from '../../admin/entities/sub-admin-profile.entity.js';
 import { Employee } from '../../admin/entities/employee.entity.js';
+import { Course } from '../../courses/entities/course.entity.js';
+import { Lesson } from '../../lessons/entities/lesson.entity.js';
+import { Payment } from '../../payments/entities/payment.entity.js';
 
 const supportSubAdminPermissions = [
   'manage_tutors',
@@ -132,6 +142,9 @@ async function seedDemoData() {
     const demoTutor = await AppDataSource.getRepository(User).findOne({
       where: { email: 'tutor.one@mrh-academy.example' },
     });
+    const demoStudent = await AppDataSource.getRepository(User).findOne({
+      where: { email: 'student.one@mrh-academy.example' },
+    });
     if (demoTutor) {
       await AppDataSource.transaction(async (manager) => {
         const availabilityCount = await manager.count(TutorAvailability, {
@@ -149,6 +162,104 @@ async function seedDemoData() {
                 isRecurring: true,
               }),
             ),
+          );
+        }
+
+        const demoCourseCount = await manager
+          .getRepository(Course)
+          .createQueryBuilder('course')
+          .where('course.tutorId = :tutorId', { tutorId: demoTutor.id })
+          .andWhere('course.title IN (:...titles)', {
+            titles: [
+              'Arabic Conversation Foundations',
+              'Business English Essentials',
+            ],
+          })
+          .getCount();
+        if (demoCourseCount === 0) {
+          await manager.save(Course, [
+            manager.create(Course, {
+              tutorId: demoTutor.id,
+              title: 'Arabic Conversation Foundations',
+              description:
+                'A practical beginner course focused on everyday Arabic conversation.',
+              price: 49,
+              soldBy: 'academy',
+              status: CourseStatus.APPROVED,
+              videoQualityApprovedAt: new Date(),
+            }),
+            manager.create(Course, {
+              tutorId: demoTutor.id,
+              title: 'Business English Essentials',
+              description:
+                'Workplace vocabulary, meetings, presentations, and professional writing.',
+              price: 65,
+              soldBy: 'tutor',
+              status: CourseStatus.PENDING,
+            }),
+          ]);
+        }
+      });
+    }
+
+    if (demoTutor && demoStudent) {
+      await AppDataSource.transaction(async (manager) => {
+        const completedLesson = await manager.findOne(Lesson, {
+          where: {
+            tutorId: demoTutor.id,
+            studentId: demoStudent.id,
+            status: LessonStatus.COMPLETED,
+          },
+        });
+        if (!completedLesson) {
+          const scheduledTime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const endTime = new Date(scheduledTime.getTime() + 50 * 60 * 1000);
+          await manager.save(
+            Lesson,
+            manager.create(Lesson, {
+              tutorId: demoTutor.id,
+              studentId: demoStudent.id,
+              scheduledTime,
+              endTime,
+              durationMinutes: 50,
+              price: 15,
+              platformFee: 1.5,
+              status: LessonStatus.COMPLETED,
+              roomId: 'demo-completed-lesson',
+              notes: 'Completed demo lesson for earnings history.',
+            }),
+          );
+          await manager.decrement(
+            StudentProfile,
+            { userId: demoStudent.id },
+            'balance',
+            15,
+          );
+          await manager.increment(
+            TutorProfile,
+            { userId: demoTutor.id },
+            'balance',
+            13.5,
+          );
+        }
+
+        const demoPayment = await manager.findOne(Payment, {
+          where: {
+            userId: demoStudent.id,
+            adminNote: 'Demo wallet funding',
+          },
+        });
+        if (!demoPayment) {
+          await manager.save(
+            Payment,
+            manager.create(Payment, {
+              userId: demoStudent.id,
+              amount: 100,
+              method: PaymentMethod.CARD,
+              currency: 'USD',
+              status: PaymentStatus.APPROVED,
+              adminNote: 'Demo wallet funding',
+            }),
           );
         }
       });

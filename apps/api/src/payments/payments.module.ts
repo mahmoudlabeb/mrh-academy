@@ -27,6 +27,7 @@ import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.j
 import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
 import { Course } from '../courses/entities/course.entity.js';
 import { PayPalService } from './paypal/paypal.service.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { PayPalService } from './paypal/paypal.service.js';
       CourseEnrollment,
       CourseLessonCompletion,
       Course,
+      Lesson,
     ]),
     StorageModule,
   ],

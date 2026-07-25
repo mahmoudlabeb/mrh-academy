@@ -73,7 +73,7 @@ GOOGLE_CALLBACK_URL=http://localhost:4000/api/v1/auth/google/callback
      - `private_key` goes to `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (formatted as a single line with `\n`).
 ```env
 GOOGLE_SERVICE_ACCOUNT_EMAIL=mrh-calendar-service@your-project.iam.gserviceaccount.com
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="<private-key-as-one-line-with-\n-separators>"
 GOOGLE_CALENDAR_IMPERSONATE_EMAIL=admin@your-google-workspace-domain.com
 ```
 

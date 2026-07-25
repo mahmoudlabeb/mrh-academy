@@ -31,6 +31,15 @@ export class EmailService implements OnModuleInit {
         this.configService.get<string>('SMTP_HOST') || 'smtp.ethereal.email',
       port: parseInt(this.configService.get<string>('SMTP_PORT') || '587', 10),
       secure: this.configService.get<string>('SMTP_SECURE') === 'true',
+      connectionTimeout: Number(
+        this.configService.get<string>('SMTP_CONNECTION_TIMEOUT_MS') ?? 5000,
+      ),
+      greetingTimeout: Number(
+        this.configService.get<string>('SMTP_GREETING_TIMEOUT_MS') ?? 5000,
+      ),
+      socketTimeout: Number(
+        this.configService.get<string>('SMTP_SOCKET_TIMEOUT_MS') ?? 10000,
+      ),
       auth: this.isConfigured ? { user: smtpUser, pass: smtpPass } : undefined,
     } as nodemailer.TransportOptions);
   }

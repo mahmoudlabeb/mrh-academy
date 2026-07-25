@@ -32,9 +32,7 @@ export class AdminPaymentMethodsController {
 
   private assertCanEnable(type: string, details?: string | null) {
     if (
-      ['instapay', 'vodafone_cash', 'binance', 'bank_transfer'].includes(
-        type,
-      ) &&
+      ['instapay', 'vodafone', 'binance', 'bank'].includes(type) &&
       !details?.trim()
     ) {
       throw new BadRequestException(

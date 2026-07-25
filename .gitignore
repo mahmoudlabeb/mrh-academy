@@ -87,11 +87,13 @@ skills-lock.json
 coverage/
 playwright-report/
 test-results/
+dogfood-output/
 *.tsbuildinfo
 lint-report.json
 lint_errors.txt
 lint_output.txt
 backups/
+delivery/
 
 test_large.jpg
 .pnpm-store/

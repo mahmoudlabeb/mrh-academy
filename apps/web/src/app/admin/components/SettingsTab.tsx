@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
-import { useLanguage } from '@/contexts/language-context';
+import { useEffect, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
+import { CheckIcon, RefreshIcon, SettingsIcon } from "@/components/icons/Icons";
 
 type PlatformSettings = {
   platform_name: string;
@@ -12,151 +13,292 @@ type PlatformSettings = {
   maintenance_mode: boolean;
 };
 
+const EMPTY_SETTINGS: PlatformSettings = {
+  platform_name: "",
+  contact_email: "",
+  default_lesson_price: 0,
+  maintenance_mode: false,
+};
+
+function normalizeSettings(data?: Record<string, unknown>): PlatformSettings {
+  const price = Number(data?.default_lesson_price);
+  return {
+    platform_name: String(data?.platform_name ?? ""),
+    contact_email: String(data?.contact_email ?? ""),
+    default_lesson_price: Number.isFinite(price) ? price : 0,
+    maintenance_mode:
+      data?.maintenance_mode === true || data?.maintenance_mode === "true",
+  };
+}
+
 export default function SettingsTab() {
   const { lang } = useLanguage();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const queryClient = useQueryClient();
+  const [form, setForm] = useState<PlatformSettings>(EMPTY_SETTINGS);
 
   const settingsQuery = useQuery({
-    queryKey: ['admin-settings'],
+    queryKey: ["admin-settings"],
     queryFn: async () => {
-      const { data } = await apiClient.get<PlatformSettings>('/admin/settings');
-      return data;
+      const { data } =
+        await apiClient.get<Record<string, unknown>>("/admin/settings");
+      return normalizeSettings(data);
     },
   });
 
-  const [form, setForm] = useState<PlatformSettings>({
-    platform_name: '',
-    contact_email: '',
-    default_lesson_price: 0,
-    maintenance_mode: false,
-  });
-
   useEffect(() => {
-    if (settingsQuery.data) {
-      setForm({
-        ...settingsQuery.data,
-        maintenance_mode: settingsQuery.data.maintenance_mode === true || String(settingsQuery.data.maintenance_mode) === 'true',
-      });
-    }
+    if (settingsQuery.data) setForm(settingsQuery.data);
   }, [settingsQuery.data]);
 
   const updateMutation = useMutation({
     mutationFn: async (payload: PlatformSettings) => {
-      const { data } = await apiClient.put('/admin/settings', payload);
-      return data;
+      const serialized = {
+        platform_name: payload.platform_name.trim(),
+        contact_email: payload.contact_email.trim(),
+        default_lesson_price: String(payload.default_lesson_price),
+        maintenance_mode: String(payload.maintenance_mode),
+      };
+      return (await apiClient.put("/admin/settings", serialized)).data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
     },
   });
 
-  const handleSave = () => {
+  function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    updateMutation.reset();
     updateMutation.mutate(form);
-  };
+  }
+
+  function changeForm(update: (current: PlatformSettings) => PlatformSettings) {
+    updateMutation.reset();
+    setForm(update);
+  }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div className="card p-6">
-        <h3 className="text-lg font-bold mb-5" style={{ color: 'var(--text-main)' }}>
-          {lang === 'ar' ? 'إعدادات المنصة' : 'Platform Settings'}
-        </h3>
+    <section className="max-w-2xl" aria-labelledby="platform-settings-title">
+      <div className="card overflow-hidden">
+        <header
+          className="flex items-start gap-3 border-b p-5 sm:p-6"
+          style={{ borderColor: "var(--border-color)" }}
+        >
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+            style={{ background: "rgba(212,163,83,.12)", color: "#D4A353" }}
+          >
+            <SettingsIcon />
+          </span>
+          <div>
+            <h3
+              id="platform-settings-title"
+              className="text-lg font-bold"
+              style={{ color: "var(--text-main)" }}
+            >
+              {t("إعدادات المنصة", "Platform Settings")}
+            </h3>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+              {t(
+                "إدارة الهوية العامة والأسعار وحالة توفر المنصة.",
+                "Manage public identity, pricing, and platform availability.",
+              )}
+            </p>
+          </div>
+        </header>
 
         {settingsQuery.isLoading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i}>
-                <div className="h-4 skeleton rounded w-1/4 mb-2" />
-                <div className="h-10 skeleton rounded" />
+          <div
+            className="space-y-5 p-5 sm:p-6"
+            aria-label={t("جاري تحميل الإعدادات", "Loading settings")}
+          >
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index}>
+                <div className="mb-2 h-4 w-1/4 rounded skeleton" />
+                <div className="h-11 rounded skeleton" />
               </div>
             ))}
           </div>
-        ) : (
-          <div className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                {lang === 'ar' ? 'اسم المنصة' : 'Platform Name'}
-              </label>
-              <input
-                className="input-field"
-                value={form.platform_name}
-                onChange={(e) => setForm(f => ({ ...f, platform_name: e.target.value }))}
-              />
+        ) : settingsQuery.isError ? (
+          <div className="p-5 sm:p-6">
+            <div
+              role="alert"
+              className="rounded-xl border p-5 text-center"
+              style={{
+                borderColor: "rgba(239,68,68,.35)",
+                background: "rgba(239,68,68,.06)",
+              }}
+            >
+              <p className="text-sm font-semibold text-red-500">
+                {t(
+                  "تعذر تحميل إعدادات المنصة.",
+                  "Platform settings could not be loaded.",
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => settingsQuery.refetch()}
+                className="btn-secondary mt-4 min-h-10"
+              >
+                <RefreshIcon className="h-4 w-4" />
+                {t("إعادة المحاولة", "Try again")}
+              </button>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                {lang === 'ar' ? 'البريد الإلكتروني للتواصل' : 'Contact Email'}
-              </label>
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="space-y-5 p-5 sm:p-6">
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-main)" }}
+            >
+              {t("اسم المنصة", "Platform Name")}
               <input
-                className="input-field"
+                className="input-field mt-1.5"
+                value={form.platform_name}
+                onChange={(event) =>
+                  changeForm((current) => ({
+                    ...current,
+                    platform_name: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-main)" }}
+            >
+              {t("البريد الإلكتروني للتواصل", "Contact Email")}
+              <input
+                className="input-field mt-1.5"
                 type="email"
                 value={form.contact_email}
-                onChange={(e) => setForm(f => ({ ...f, contact_email: e.target.value }))}
+                onChange={(event) =>
+                  changeForm((current) => ({
+                    ...current,
+                    contact_email: event.target.value,
+                  }))
+                }
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-main)' }}>
-                {lang === 'ar' ? 'سعر الدرس الافتراضي' : 'Default Lesson Price'}
-              </label>
+            <label
+              className="block text-sm font-medium"
+              style={{ color: "var(--text-main)" }}
+            >
+              {t("سعر الدرس الافتراضي", "Default Lesson Price")}
               <input
-                className="input-field"
+                className="input-field mt-1.5"
                 type="number"
                 min={0}
                 step={0.5}
                 value={form.default_lesson_price}
-                onChange={(e) => setForm(f => ({ ...f, default_lesson_price: parseFloat(e.target.value) || 0 }))}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  changeForm((current) => ({
+                    ...current,
+                    default_lesson_price: Number.isFinite(next) ? next : 0,
+                  }));
+                }}
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className="w-10 h-5 rounded-full transition-colors relative" style={{ background: form.maintenance_mode ? '#D4A353' : 'var(--border-color)' }}>
+            <div
+              className="rounded-xl border p-4"
+              style={{
+                borderColor: "var(--border-color)",
+                background: "var(--bg-light)",
+              }}
+            >
+              <label className="flex cursor-pointer items-center justify-between gap-4">
+                <span>
+                  <span
+                    className="block text-sm font-semibold"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    {t("وضع الصيانة", "Maintenance Mode")}
+                  </span>
+                  <span
+                    className="mt-1 block text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {t(
+                      "عند التفعيل، ستظهر صفحة الصيانة للمستخدمين.",
+                      "When enabled, users will see a maintenance page.",
+                    )}
+                  </span>
+                </span>
+                <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
                   <input
                     type="checkbox"
                     checked={form.maintenance_mode}
-                    onChange={(e) => setForm(f => ({ ...f, maintenance_mode: e.target.checked }))}
-                    className="sr-only"
+                    onChange={(event) =>
+                      changeForm((current) => ({
+                        ...current,
+                        maintenance_mode: event.target.checked,
+                      }))
+                    }
+                    className="peer sr-only"
                   />
-                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${form.maintenance_mode ? 'translate-x-5' : ''}`} />
-                </div>
-                <span className="text-sm font-medium" style={{ color: 'var(--text-main)' }}>
-                  {lang === 'ar' ? 'وضع الصيانة' : 'Maintenance Mode'}
+                  <span
+                    className="absolute inset-0 rounded-full border transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#D4A353]"
+                    style={{
+                      borderColor: "var(--border-color)",
+                      background: form.maintenance_mode
+                        ? "#D4A353"
+                        : "var(--bg-main)",
+                    }}
+                  />
+                  <span
+                    className={`absolute start-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${form.maintenance_mode ? "translate-x-5 rtl:-translate-x-5" : ""}`}
+                  />
                 </span>
               </label>
-              <p className="text-xs mt-1 me-12" style={{ color: 'var(--text-muted)' }}>
-                {lang === 'ar' ? 'عند التفعيل، سيتم عرض صفحة صيانة للمستخدمين' : 'When enabled, users will see a maintenance page'}
+            </div>
+
+            {updateMutation.isError && (
+              <p
+                role="alert"
+                className="rounded-lg border px-4 py-3 text-sm text-red-500"
+                style={{
+                  borderColor: "rgba(239,68,68,.35)",
+                  background: "rgba(239,68,68,.06)",
+                }}
+              >
+                {t(
+                  "تعذر حفظ الإعدادات. راجع البيانات وحاول مجدداً.",
+                  "Settings could not be saved. Review the details and try again.",
+                )}
+              </p>
+            )}
+
+            <div
+              className="flex flex-wrap items-center gap-4 border-t pt-5"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="btn-primary min-h-11"
+              >
+                {updateMutation.isPending
+                  ? t("جاري الحفظ...", "Saving...")
+                  : t("حفظ الإعدادات", "Save Settings")}
+              </button>
+              <p
+                aria-live="polite"
+                className="flex items-center gap-1.5 text-sm font-semibold text-green-600"
+              >
+                {updateMutation.isSuccess && (
+                  <>
+                    <CheckIcon className="h-4 w-4" />
+                    {t("تم الحفظ بنجاح", "Saved successfully")}
+                  </>
+                )}
               </p>
             </div>
-
-            <div className="pt-4">
-              <button
-                onClick={handleSave}
-                disabled={updateMutation.isPending}
-                className="btn-primary"
-              >
-                {updateMutation.isPending ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    {lang === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
-                  </span>
-                ) : (
-                  lang === 'ar' ? 'حفظ الإعدادات' : 'Save Settings'
-                )}
-              </button>
-
-              {updateMutation.isSuccess && (
-                <span className="me-4 text-sm" style={{ color: '#22c55e' }}>
-                  {lang === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully'}
-                </span>
-              )}
-            </div>
-          </div>
+          </form>
         )}
       </div>
-    </div>
+    </section>
   );
 }

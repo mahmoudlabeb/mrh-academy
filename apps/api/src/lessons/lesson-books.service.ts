@@ -161,23 +161,32 @@ export class LessonBooksService {
       throw new BadRequestException('Invalid page number');
     }
 
-    const signedUrl = this.storage.signedUrl(book.cloudinaryPublicId, {
-      resourceType: 'image',
-      transformation: [
-        {
-          page,
-          fetch_format: 'jpg',
-          quality: 'auto:good',
-          flags: 'progressive',
-        },
-      ],
-    });
+    const transformation = [
+      {
+        page,
+        fetch_format: 'jpg',
+        quality: 'auto:good',
+        flags: 'progressive',
+      },
+    ];
 
-    const response = await fetch(signedUrl);
-    if (!response.ok) {
-      throw new NotFoundException('Book page could not be loaded');
+    // New books use Cloudinary's authenticated delivery type. Older books
+    // were uploaded as signed "upload" assets, so retain a safe fallback to
+    // keep existing classroom material readable after this correction.
+    for (const deliveryType of ['authenticated', 'upload'] as const) {
+      const signedUrl = this.storage.signedUrl(book.cloudinaryPublicId, {
+        resourceType: 'image',
+        deliveryType,
+        transformation,
+      });
+      const response = await fetch(signedUrl);
+      if (response.ok) {
+        return Buffer.from(await response.arrayBuffer());
+      }
     }
 
-    return Buffer.from(await response.arrayBuffer());
+    throw new NotFoundException(
+      'Book page could not be loaded. The source file may need to be uploaded again.',
+    );
   }
 }

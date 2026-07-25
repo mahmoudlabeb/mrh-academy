@@ -17,6 +17,8 @@ import { EmailService } from '../integrations/email/email.service.js';
 import { GoogleAuthExceptionFilter } from './filters/google-auth-exception.filter.js';
 import { getJwtSignOptions, getJwtVerifyOptions } from './jwt-profile.js';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard.js';
+import { SocialOAuthService } from './social-oauth.service.js';
+import { RedisModule } from '../redis/redis.module.js';
 
 type JwtExpiresIn = NonNullable<
   NonNullable<JwtModuleOptions['signOptions']>['expiresIn']
@@ -25,6 +27,7 @@ type JwtExpiresIn = NonNullable<
 @Module({
   imports: [
     ConfigModule,
+    RedisModule,
     TypeOrmModule.forFeature([
       User,
       StudentProfile,
@@ -54,6 +57,7 @@ type JwtExpiresIn = NonNullable<
     GoogleConfigGuard,
     GoogleOAuthGuard,
     GoogleAuthExceptionFilter,
+    SocialOAuthService,
   ],
   exports: [AuthService, JwtModule],
 })

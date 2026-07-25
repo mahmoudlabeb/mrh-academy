@@ -13,7 +13,7 @@ import {
   Repository,
   type DeepPartial,
 } from 'typeorm';
-import { PaymentMethod, PaymentStatus } from '@mrh/types';
+import { LessonStatus, PaymentMethod, PaymentStatus } from '@mrh/types';
 import { Payment } from './entities/payment.entity.js';
 import { Payout } from './entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
@@ -36,6 +36,7 @@ import { CourseStatus, UserRole } from '@mrh/types';
 import { PayPalService } from './paypal/paypal.service.js';
 import { createHmac } from 'node:crypto';
 import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
+import { Lesson } from '../lessons/entities/lesson.entity.js';
 import {
   OBJECT_STORAGE,
   type ObjectStorage,
@@ -76,6 +77,8 @@ export class PaymentsService {
     private readonly notificationRepository: Repository<Notification>,
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    @InjectRepository(Lesson)
+    private readonly lessonRepository: Repository<Lesson>,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
@@ -763,6 +766,70 @@ export class PaymentsService {
       ...p,
       status: p.status,
     }));
+  }
+
+  async getTutorTransactions(tutorId: string) {
+    const [lessons, courseSales, payouts] = await Promise.all([
+      this.lessonRepository.find({
+        where: { tutorId, status: LessonStatus.COMPLETED },
+        relations: { student: true },
+        order: { updatedAt: 'DESC' },
+        take: 100,
+      }),
+      this.dataSource
+        .getRepository(CourseEnrollment)
+        .createQueryBuilder('enrollment')
+        .innerJoinAndSelect('enrollment.course', 'course')
+        .leftJoinAndSelect('enrollment.student', 'student')
+        .where('course.tutorId = :tutorId', { tutorId })
+        .orderBy('enrollment.createdAt', 'DESC')
+        .take(100)
+        .getMany(),
+      this.payoutRepository.find({
+        where: { tutorId },
+        order: { createdAt: 'DESC' },
+        take: 100,
+      }),
+    ]);
+
+    const transactions = [
+      ...lessons.map((lesson) => ({
+        id: `lesson:${lesson.id}`,
+        type: 'lesson_earning',
+        amount: Math.max(
+          0,
+          Number(lesson.price) - Number(lesson.platformFee ?? 0),
+        ),
+        status: 'completed',
+        description:
+          `Lesson with ${lesson.student?.firstName ?? 'student'} ${lesson.student?.lastName ?? ''}`.trim(),
+        createdAt: lesson.updatedAt,
+      })),
+      ...courseSales.map((enrollment) => ({
+        id: `course:${enrollment.id}`,
+        type: 'course_earning',
+        amount: Number(enrollment.tutorShare ?? 0),
+        status: 'completed',
+        description: `Course sale: ${enrollment.course?.title ?? 'Course'}`,
+        createdAt: enrollment.createdAt,
+      })),
+      ...payouts.map((payout) => ({
+        id: `payout:${payout.id}`,
+        type: 'payout',
+        amount: -Number(payout.amount),
+        status: payout.status,
+        description: `Payout via ${payout.method}`,
+        createdAt: payout.createdAt,
+      })),
+    ];
+
+    return transactions
+      .filter((transaction) => transaction.amount !== 0)
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime(),
+      );
   }
 
   /** Admin: all payout requests with tutor user info */

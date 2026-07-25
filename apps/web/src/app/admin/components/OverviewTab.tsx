@@ -1,8 +1,18 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
-import { useLanguage } from '@/contexts/language-context';
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
+import {
+  AlertIcon,
+  BookIcon,
+  CreditCardIcon,
+  LessonIcon,
+  MoneyIcon,
+  RefreshIcon,
+  SettingsIcon,
+  UserIcon,
+} from "@/components/icons/Icons";
 
 type AdminStats = {
   totalEarnings: number;
@@ -15,148 +25,328 @@ type AdminStats = {
 
 type RecentActivity = {
   id: string;
-  type: string;
+  type: "lesson" | "user" | "payment" | "payout" | "course" | string;
   description: string;
   user: string;
   createdAt: string;
 };
 
+const activityVisuals = {
+  lesson: {
+    color: "#0f766e",
+    bg: "rgba(15,118,110,.1)",
+    Icon: LessonIcon,
+  },
+  user: { color: "#2563eb", bg: "rgba(37,99,235,.1)", Icon: UserIcon },
+  payment: { color: "#16a34a", bg: "rgba(22,163,74,.1)", Icon: CreditCardIcon },
+  payout: { color: "#ca8a04", bg: "rgba(202,138,4,.1)", Icon: MoneyIcon },
+  course: { color: "#9333ea", bg: "rgba(147,51,234,.1)", Icon: BookIcon },
+};
+
 export default function OverviewTab() {
   const { lang } = useLanguage();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
 
   const statsQuery = useQuery({
-    queryKey: ['admin-stats'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<AdminStats>('/admin/stats');
-      return data;
-    },
+    queryKey: ["admin-stats"],
+    queryFn: async () => (await apiClient.get<AdminStats>("/admin/stats")).data,
     staleTime: 30_000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
-
   const activityQuery = useQuery({
-    queryKey: ['admin-recent-activity'],
-    queryFn: async () => {
-      const { data } = await apiClient.get<RecentActivity[]>('/admin/activity/recent');
-      return data;
-    },
-    staleTime: 30_000,
+    queryKey: ["admin-recent-activity"],
+    queryFn: async () =>
+      (await apiClient.get<RecentActivity[]>("/admin/activity/recent")).data,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   const stats = statsQuery.data;
-
   const statCards = [
     {
-      label: lang === 'ar' ? 'إجمالي الأرباح' : 'Total Earnings',
+      label: t("إجمالي الأرباح", "Total Earnings"),
       value: stats?.totalEarnings ?? 0,
-      prefix: '$',
-      color: '#22c55e',
-      icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+      prefix: "$",
+      color: "#16a34a",
+      Icon: MoneyIcon,
     },
     {
-      label: lang === 'ar' ? 'الطلاب النشطين' : 'Active Students',
+      label: t("الطلاب النشطون", "Active Students"),
       value: stats?.totalStudents ?? 0,
-      color: '#D4A353',
-      icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" /></svg>,
+      color: "#D4A353",
+      Icon: UserIcon,
     },
     {
-      label: lang === 'ar' ? 'طلبات مدرسين معلقة' : 'Pending Tutor Requests',
+      label: t("طلبات المعلمين المعلقة", "Pending Tutor Requests"),
       value: stats?.pendingApplications ?? 0,
-      color: '#eab308',
-      icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>,
+      color: "#ca8a04",
+      Icon: UserIcon,
     },
     {
-      label: lang === 'ar' ? 'الإبلاغات' : 'Reports',
+      label: t("البلاغات المفتوحة", "Open Reports"),
       value: stats?.openReports ?? 0,
-      color: '#ef4444',
-      icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>,
+      color: "#dc2626",
+      Icon: AlertIcon,
     },
   ];
-
   const quickActions = [
-    { label: lang === 'ar' ? 'مراجعة طلبات المدرسين' : 'Review Tutor Requests', tab: 'tutors' },
-    { label: lang === 'ar' ? 'إدارة الكورسات' : 'Manage Courses', tab: 'courses' },
-    { label: lang === 'ar' ? 'البلاغات الجديدة' : 'New Reports', tab: 'reports' },
-    { label: lang === 'ar' ? 'إعدادات المنصة' : 'Platform Settings', tab: 'settings' },
+    {
+      label: t("مراجعة طلبات المعلمين", "Review Tutor Requests"),
+      tab: "tutors",
+      Icon: UserIcon,
+    },
+    {
+      label: t("إدارة الدورات", "Manage Courses"),
+      tab: "courses",
+      Icon: BookIcon,
+    },
+    {
+      label: t("البلاغات الجديدة", "New Reports"),
+      tab: "reports",
+      Icon: AlertIcon,
+    },
+    {
+      label: t("إعدادات المنصة", "Platform Settings"),
+      tab: "settings",
+      Icon: SettingsIcon,
+    },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
-          <div key={stat.label} className="card-dark p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>{stat.label}</span>
-              <span style={{ color: stat.color }}>{stat.icon}</span>
+      {statsQuery.isError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3"
+          style={{
+            borderColor: "rgba(239,68,68,.35)",
+            background: "rgba(239,68,68,.06)",
+          }}
+        >
+          <p className="text-sm font-semibold text-red-500">
+            {t(
+              "تعذر تحديث ملخص الإحصاءات.",
+              "The statistics summary could not be updated.",
+            )}
+          </p>
+          <button
+            type="button"
+            onClick={() => statsQuery.refetch()}
+            className="btn-secondary min-h-10"
+          >
+            <RefreshIcon className="h-4 w-4" />
+            {t("إعادة المحاولة", "Try again")}
+          </button>
+        </div>
+      )}
+
+      <section
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        aria-label={t("ملخص المنصة", "Platform summary")}
+      >
+        {statCards.map(({ label, value, prefix, color, Icon }) => (
+          <article key={label} className="card-dark p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {label}
+              </span>
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-lg"
+                style={{ color, background: `${color}14` }}
+              >
+                <Icon />
+              </span>
             </div>
-            <p className="text-3xl font-bold" style={{ color: stat.color }}>
+            <p
+              className="text-3xl font-bold"
+              dir={prefix ? "ltr" : undefined}
+              style={{ color }}
+            >
               {statsQuery.isLoading ? (
-                <span className="inline-block w-16 h-8 skeleton rounded" />
+                <span className="inline-block h-8 w-16 rounded skeleton" />
               ) : (
-                <>{stat.prefix || ''}{stat.value.toLocaleString()}</>
+                <>
+                  {prefix}
+                  {value.toLocaleString(locale)}
+                </>
               )}
             </p>
-          </div>
+          </article>
         ))}
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card p-6">
-          <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-            {lang === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section
+          className="card p-5 sm:p-6"
+          aria-labelledby="quick-actions-title"
+        >
+          <h3
+            id="quick-actions-title"
+            className="text-lg font-bold"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("إجراءات سريعة", "Quick Actions")}
           </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {quickActions.map((action) => (
+          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "انتقل مباشرة إلى مهام الإدارة المتكررة.",
+              "Go directly to common administrative tasks.",
+            )}
+          </p>
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {quickActions.map(({ label, tab, Icon }) => (
               <button
-                key={action.tab}
-                onClick={() => {
-                  const event = new CustomEvent('admin-navigate', { detail: { tab: action.tab } });
-                  window.dispatchEvent(event);
-                }}
-                className="btn-secondary justify-center py-4 text-sm"
+                key={tab}
+                type="button"
+                onClick={() =>
+                  window.dispatchEvent(
+                    new CustomEvent("admin-navigate", { detail: { tab } }),
+                  )
+                }
+                className="btn-secondary min-h-11 justify-start px-4 text-start text-sm"
               >
-                {action.label}
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        <div className="card p-6">
-          <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-            {lang === 'ar' ? 'آخر النشاطات' : 'Recent Activity'}
-          </h3>
-          <div className="space-y-3">
-            {activityQuery.isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="w-8 h-8 skeleton rounded-full shrink-0" />
-                  <div className="flex-1">
-                    <div className="h-4 skeleton rounded w-3/4 mb-1" />
-                    <div className="h-3 skeleton rounded w-1/2" />
-                  </div>
-                </div>
-              ))
-            ) : activityQuery.data?.length === 0 ? (
-              <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                {lang === 'ar' ? 'لا توجد نشاطات حديثة' : 'No recent activity'}
+        <section
+          className="card overflow-hidden"
+          aria-labelledby="recent-activity-title"
+        >
+          <header
+            className="flex flex-wrap items-start justify-between gap-3 border-b p-5 sm:p-6"
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            <div>
+              <h3
+                id="recent-activity-title"
+                className="text-lg font-bold"
+                style={{ color: "var(--text-main)" }}
+              >
+                {t("أحدث النشاطات", "Recent Activity")}
+              </h3>
+              <p
+                className="mt-1 text-xs"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {activityQuery.dataUpdatedAt > 0
+                  ? t(
+                      `آخر تحديث ${new Date(activityQuery.dataUpdatedAt).toLocaleString(locale)}`,
+                      `Updated ${new Date(activityQuery.dataUpdatedAt).toLocaleString(locale)}`,
+                    )
+                  : t("يتم التحديث كل 30 ثانية", "Refreshes every 30 seconds")}
               </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => activityQuery.refetch()}
+              disabled={activityQuery.isFetching}
+              className="btn-ghost min-h-10 min-w-10 p-2"
+              aria-label={t("تحديث النشاطات", "Refresh activity")}
+              title={t("تحديث النشاطات", "Refresh activity")}
+            >
+              <RefreshIcon
+                className={`h-5 w-5 ${activityQuery.isFetching ? "animate-spin" : ""}`}
+              />
+            </button>
+          </header>
+          <div className="p-5 sm:p-6">
+            {activityQuery.isLoading ? (
+              <div
+                className="space-y-4"
+                aria-label={t("جاري تحميل النشاطات", "Loading activity")}
+              >
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="flex gap-3">
+                    <div className="h-9 w-9 shrink-0 rounded-lg skeleton" />
+                    <div className="flex-1">
+                      <div className="mb-2 h-4 w-3/4 rounded skeleton" />
+                      <div className="h-3 w-1/2 rounded skeleton" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : activityQuery.isError ? (
+              <div role="alert" className="py-6 text-center">
+                <p className="text-sm font-semibold text-red-500">
+                  {t(
+                    "تعذر تحميل أحدث النشاطات.",
+                    "Recent activity could not be loaded.",
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => activityQuery.refetch()}
+                  className="btn-secondary mt-4 min-h-10"
+                >
+                  <RefreshIcon className="h-4 w-4" />
+                  {t("إعادة المحاولة", "Try again")}
+                </button>
+              </div>
+            ) : activityQuery.data?.length === 0 ? (
+              <div className="py-8 text-center">
+                <p
+                  className="font-semibold"
+                  style={{ color: "var(--text-main)" }}
+                >
+                  {t("لا توجد نشاطات حديثة", "No recent activity")}
+                </p>
+                <p
+                  className="mt-1 text-sm"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {t(
+                    "ستظهر أحداث الدروس والحسابات والمدفوعات والدورات هنا.",
+                    "Lesson, account, payment, payout, and course events will appear here.",
+                  )}
+                </p>
+              </div>
             ) : (
-              activityQuery.data?.slice(0, 6).map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 pb-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0" style={{ background: '#D4A353' }}>
-                    {activity.user[0]}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-main)' }}>{activity.description}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                      {activity.user} &middot; {new Date(activity.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              ))
+              <ol className="space-y-1">
+                {activityQuery.data?.slice(0, 8).map((activity) => {
+                  const visual =
+                    activityVisuals[
+                      activity.type as keyof typeof activityVisuals
+                    ] ?? activityVisuals.lesson;
+                  return (
+                    <li
+                      key={`${activity.type}-${activity.id}`}
+                      className="flex items-start gap-3 border-b py-3 last:border-0"
+                      style={{ borderColor: "var(--border-color)" }}
+                    >
+                      <span
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                        style={{ color: visual.color, background: visual.bg }}
+                      >
+                        <visual.Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: "var(--text-main)" }}
+                        >
+                          {activity.description}
+                        </p>
+                        <p
+                          className="mt-1 text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          {activity.user} ·{" "}
+                          {new Date(activity.createdAt).toLocaleString(locale)}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
             )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

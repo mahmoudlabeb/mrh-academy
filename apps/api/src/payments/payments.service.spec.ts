@@ -19,6 +19,7 @@ import { CourseEnrollment } from '../courses/entities/course-enrollment.entity';
 import { Course } from '../courses/entities/course.entity';
 import { UserRole, CourseStatus } from '@mrh/types';
 import { PayPalService } from './paypal/paypal.service';
+import { Lesson } from '../lessons/entities/lesson.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -60,6 +61,9 @@ describe('PaymentsService', () => {
       price: 100,
       status: CourseStatus.APPROVED,
     })),
+  };
+  const lessonRepository = {
+    find: jest.fn(async () => []),
   };
   const dataSource = {
     getRepository: jest.fn(() => ({ findOne: jest.fn(async () => null) })),
@@ -145,6 +149,7 @@ describe('PaymentsService', () => {
           useValue: notificationRepository,
         },
         { provide: getRepositoryToken(Course), useValue: courseRepository },
+        { provide: getRepositoryToken(Lesson), useValue: lessonRepository },
         { provide: OBJECT_STORAGE, useValue: objectStorage },
       ],
     }).compile();
