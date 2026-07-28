@@ -152,6 +152,17 @@ export class LessonsService {
         );
       }
 
+      const studentProfile = await manager.findOne(StudentProfile, {
+        where: { userId: studentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!studentProfile) {
+        throw new NotFoundException('Student profile not found');
+      }
+      if (Number(studentProfile.balance) < price) {
+        throw new BadRequestException('Student has insufficient balance');
+      }
+
       const roomId = `room-${randomUUID()}`;
 
       const lessonEntity = manager.create(Lesson, {
@@ -161,7 +172,7 @@ export class LessonsService {
         endTime,
         durationMinutes: dto.durationMinutes,
         price,
-        status: LessonStatus.PENDING,
+        status: LessonStatus.CONFIRMED,
         roomId,
         meetUrl: roomId,
       });
@@ -169,9 +180,15 @@ export class LessonsService {
 
       const classroom = manager.create(Classroom, {
         lessonId: saved.id,
-        isActive: false,
+        isActive: true,
       });
       await manager.save(Classroom, classroom);
+      await manager.decrement(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        price,
+      );
 
       return saved;
     });
@@ -221,6 +238,34 @@ export class LessonsService {
       }),
     ]);
 
+    try {
+      const meetLinkResult =
+        await this.calendarService.createLessonMeetLink({
+          summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
+          description: 'Language lesson booked on MRH Academy.',
+          start: scheduledDate,
+          end: endTime,
+          tutorEmail:
+            tutorUser?.email ??
+            `tutor-${dto.tutorId}@lessons.mrhacademy.internal`,
+          studentEmail:
+            studentUser?.email ??
+            `student-${studentId}@lessons.mrhacademy.internal`,
+        });
+      if (meetLinkResult) {
+        await this.lessonRepository.update(lesson.id, {
+          googleMeetUrl: meetLinkResult.meetUrl,
+          ...(meetLinkResult.calendarEventId
+            ? { calendarEventId: meetLinkResult.calendarEventId }
+            : {}),
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Calendar link unavailable for lesson ${lesson.id}: ${String(error)}`,
+      );
+    }
+
     if (tutorUser?.email) {
       this.emailService
         .sendEmail(
@@ -231,7 +276,7 @@ export class LessonsService {
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-<p>Please log in to approve or decline this lesson request.</p>`,
+<p>The lesson is confirmed and ready in your classroom.</p>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -241,12 +286,12 @@ export class LessonsService {
         .sendEmail(
           studentUser.email,
           'Lesson Request Sent — MRH Academy',
-          `<p>Your lesson request has been sent to the tutor for approval.</p>
+          `<p>Your lesson is confirmed and ready in the classroom.</p>
 <p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-<p>You will receive a confirmation once the tutor approves.</p>`,
+<p>Open My Lessons to join the classroom at the scheduled time.</p>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }

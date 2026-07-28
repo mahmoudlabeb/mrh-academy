@@ -322,6 +322,26 @@ export class TutorsService {
     return saved;
   }
 
+  async uploadProfileVideo(
+    userId: string,
+    file?: Express.Multer.File,
+  ): Promise<TutorProfile> {
+    if (!file) throw new BadRequestException('A video file is required');
+    if (!file.mimetype.startsWith('video/')) {
+      throw new BadRequestException('Profile video must be a video file');
+    }
+    const tutor = await this.tutorProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!tutor) throw new NotFoundException('Tutor profile not found');
+    const upload = await this.storage.upload(file.buffer, {
+      folder: 'mrh-academy/tutor-profile-videos',
+      resourceType: 'video',
+    });
+    tutor.videoUrl = upload.secureUrl;
+    return this.tutorProfileRepository.save(tutor);
+  }
+
   async getTutorStats(userId: string): Promise<{
     completedLessons: number;
     totalHoursTaught: number;

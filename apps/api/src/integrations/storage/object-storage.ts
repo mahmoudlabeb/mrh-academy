@@ -2,7 +2,7 @@ export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
 
 export type UploadOptions = {
   folder: string;
-  resourceType?: 'image' | 'raw' | 'auto';
+  resourceType?: 'image' | 'video' | 'raw' | 'auto';
   accessMode?: 'public' | 'authenticated';
 };
 

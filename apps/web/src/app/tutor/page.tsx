@@ -505,8 +505,8 @@ function TutorPageContent() {
               description={
                 pendingLessons.length
                   ? t(
-                      "راجع كل طلب قبل القبول. يؤكد الخادم التعارض والرصيد قبل تغيير الحالة.",
-                      "Review each request before accepting. The server rechecks conflicts and balance before state changes.",
+                      "هذه الحجوزات مؤكدة تلقائياً عند اختيار الطالب موعداً متاحاً.",
+                      "Bookings are confirmed automatically when students choose an available slot.",
                     )
                   : t(
                       "لا توجد طلبات معلقة. راجع جدولك أو جهّز فصلك التالي.",
@@ -515,7 +515,7 @@ function TutorPageContent() {
               }
               facts={[
                 {
-                  label: t("طلبات معلقة", "Pending"),
+                  label: t("حجوزات قيد المراجعة", "Legacy pending"),
                   value: pendingLessons.length,
                   tone: pendingLessons.length ? "attention" : "neutral",
                 },

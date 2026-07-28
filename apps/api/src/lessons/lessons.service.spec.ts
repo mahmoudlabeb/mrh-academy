@@ -222,12 +222,12 @@ describe('LessonsService', () => {
       });
     });
 
-    it('creates lesson with PENDING status and inactive classroom', async () => {
+    it('creates a confirmed lesson with an active classroom', async () => {
       const savedLesson = {
         id: 'lesson-1',
         tutorId: 'tutor-1',
         studentId,
-        status: LessonStatus.PENDING,
+        status: LessonStatus.CONFIRMED,
         price: 41.67,
         durationMinutes: 50,
       };
@@ -239,12 +239,17 @@ describe('LessonsService', () => {
 
       const result = await service.bookLesson(studentId, dto);
 
-      expect(result?.status).toBe(LessonStatus.PENDING);
+      expect(result?.status).toBe(LessonStatus.CONFIRMED);
       expect(transactionManager.create).toHaveBeenCalledWith(
         Classroom,
-        expect.objectContaining({ isActive: false }),
+        expect.objectContaining({ isActive: true }),
       );
-      expect(transactionManager.decrement).not.toHaveBeenCalled();
+      expect(transactionManager.decrement).toHaveBeenCalledWith(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        41.67,
+      );
     });
 
     it('throws if tutor not found', async () => {
@@ -301,12 +306,12 @@ describe('LessonsService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('does not deduct balance at booking time', async () => {
+    it('deducts the student balance at booking time', async () => {
       const savedLesson = {
         id: 'lesson-1',
         tutorId: 'tutor-1',
         studentId,
-        status: LessonStatus.PENDING,
+        status: LessonStatus.CONFIRMED,
         price: 41.67,
       };
       transactionManager.save.mockImplementation(async (entity, data) => {
@@ -317,7 +322,7 @@ describe('LessonsService', () => {
 
       await service.bookLesson(studentId, dto);
 
-      expect(transactionManager.decrement).not.toHaveBeenCalled();
+      expect(transactionManager.decrement).toHaveBeenCalled();
       expect(studentProfileRepository.decrement).not.toHaveBeenCalled();
     });
 

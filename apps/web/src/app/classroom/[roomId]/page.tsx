@@ -851,7 +851,7 @@ export default function ClassroomPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col select-none"
+      className="classroom-shell min-h-screen flex flex-col select-none"
       style={{ background: "var(--bg-main)" }}
     >
       <div
@@ -869,7 +869,7 @@ export default function ClassroomPage() {
       </div>
       {/* Top Bar */}
       <header
-        className="flex items-center justify-between px-2 md:px-4 py-2 shrink-0 flex-wrap gap-2"
+        className="classroom-topbar flex items-center justify-between px-2 md:px-4 py-2 shrink-0 flex-wrap gap-2"
         style={{
           background: "var(--canvas)",
           borderBottom: "1px solid var(--border)",
@@ -1065,10 +1065,10 @@ export default function ClassroomPage() {
       )}
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+      <div className="classroom-content flex flex-1 overflow-hidden flex-col lg:flex-row">
         {/* Whiteboard Area */}
         <div
-          className="flex flex-col flex-1 min-w-0 order-2 lg:order-1"
+          className="classroom-stage flex flex-col flex-1 min-w-0 order-2 lg:order-1"
           style={{ background: "var(--bg-main)" }}
         >
           {user?.role === "tutor" && (
@@ -1084,7 +1084,7 @@ export default function ClassroomPage() {
 
           {/* View + Drawing Toolbar */}
           <div
-            className="flex items-center gap-2 px-4 py-2 flex-wrap"
+            className="classroom-toolbar flex items-center gap-2 px-4 py-2 flex-wrap"
             style={{
               background: "var(--bg-light)",
               borderBottom: "1px solid var(--border-color)",
@@ -1343,7 +1343,20 @@ export default function ClassroomPage() {
           </div>
 
           {/* Main canvas / book area */}
-          <div className="flex-1 relative p-2 min-h-[320px]">
+          <div className="classroom-stage-surface flex-1 relative p-2 min-h-[320px]">
+            {mainView === "whiteboard" &&
+              !activeCall &&
+              Object.keys(remoteStreams).length === 0 && (
+                <div className="classroom-stage-empty" role="status">
+                  <div className="classroom-stage-empty__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5 19.5 8.25v7.5l-3.75-2.25M4.5 18.75h8.25A2.25 2.25 0 0 0 15 16.5v-9a2.25 2.25 0 0 0-2.25-2.25H4.5A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+                    </svg>
+                  </div>
+                  <h2>{t("ابدأ الدرس عندما تكون مستعدًا", "Start when you are ready")}</h2>
+                  <p>{t("فعّل الكاميرا أو الميكروفون من شريط التحكم السفلي للانضمام إلى معلمك.", "Turn on your camera or microphone from the control dock to connect with your tutor.")}</p>
+                </div>
+              )}
             {mainView === "book" && bookSession ? (
               <SecureBookViewer
                 lessonId={lessonId}
@@ -1369,7 +1382,7 @@ export default function ClassroomPage() {
             {Object.entries(remoteStreams).map(([pid, stream]) => (
               <div
                 key={pid}
-                className="absolute bottom-3 right-3 w-48 h-36 rounded-xl overflow-hidden shadow-xl border-2"
+                className="classroom-remote-tile absolute top-3 right-3 w-48 h-36 rounded-xl overflow-hidden shadow-xl border-2"
                 style={{ borderColor: "var(--signal)", zIndex: 10 }}
               >
                 <video
@@ -1384,7 +1397,7 @@ export default function ClassroomPage() {
             ))}
             {activeCall && localStreamRef.current && (
               <div
-                className="absolute bottom-3 left-3 w-32 h-24 rounded-xl overflow-hidden shadow-lg border"
+                className="classroom-local-tile absolute bottom-3 left-3 w-32 h-24 rounded-xl overflow-hidden shadow-lg border"
                 style={{ borderColor: "var(--border-color)", zIndex: 10 }}
               >
                 <video
@@ -1407,7 +1420,7 @@ export default function ClassroomPage() {
 
           {/* WebRTC Buttons */}
           <div
-            className="flex items-center gap-2 px-4 py-2"
+            className="classroom-media-controls classroom-dock flex items-center gap-2 px-4 py-2"
             style={{
               background: "var(--bg-light)",
               borderTop: "1px solid var(--border-color)",
@@ -1541,7 +1554,7 @@ export default function ClassroomPage() {
 
         {/* Side Panel */}
         <div
-          className="w-full lg:w-80 flex-shrink-0 flex flex-col order-1 lg:order-2 max-h-80 lg:max-h-none"
+          className="classroom-sidepanel w-full lg:w-80 flex-shrink-0 flex flex-col order-1 lg:order-2 max-h-80 lg:max-h-none"
           style={{
             background: "var(--bg-light)",
             borderBottom: "1px solid var(--border-color)",

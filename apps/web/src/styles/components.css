@@ -4271,3 +4271,186 @@ button:hover .directional-arrow[data-direction="backward"] {
   min-height: 7rem;
   border-radius: var(--radius-md);
 }
+
+/* Native classroom: focused graphite workspace with a persistent control dock. */
+.classroom-shell {
+  --classroom-bg: #111017;
+  --classroom-panel: #1b1923;
+  --classroom-panel-raised: #24212e;
+  --classroom-border: rgba(255, 255, 255, 0.1);
+  --classroom-text: #f6f3ff;
+  --classroom-muted: #aaa5ba;
+  --classroom-accent: #a78bfa;
+  background: var(--classroom-bg) !important;
+  color: var(--classroom-text);
+}
+
+.classroom-shell .classroom-topbar {
+  min-height: 58px;
+  background: rgba(17, 16, 23, 0.96) !important;
+  border-color: var(--classroom-border) !important;
+}
+
+.classroom-shell .classroom-topbar button,
+.classroom-shell .classroom-topbar a {
+  min-height: 38px;
+  border-radius: 9px;
+}
+
+.classroom-shell .classroom-content {
+  min-height: 0;
+}
+
+.classroom-shell .classroom-stage {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(104, 82, 150, 0.14), transparent 45%),
+    var(--classroom-bg) !important;
+}
+
+.classroom-shell .classroom-toolbar {
+  background: var(--classroom-panel) !important;
+  border-color: var(--classroom-border) !important;
+  min-height: 54px;
+}
+
+.classroom-shell .classroom-stage-surface {
+  background: #302e3c;
+  min-height: min(62vh, 680px);
+}
+
+.classroom-shell .classroom-stage-surface > canvas,
+.classroom-shell .classroom-stage-surface > [data-book-viewer] {
+  border-radius: 12px !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+}
+
+.classroom-shell .classroom-remote-tile,
+.classroom-shell .classroom-local-tile {
+  background: #09080d;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.classroom-shell .classroom-remote-tile {
+  width: clamp(148px, 18vw, 240px);
+  height: clamp(102px, 13vw, 160px);
+}
+
+.classroom-shell .classroom-local-tile {
+  width: clamp(112px, 13vw, 168px);
+  height: clamp(76px, 10vw, 112px);
+}
+
+.classroom-stage-empty {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  max-width: 420px;
+  margin: auto;
+  padding: 2rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.classroom-stage-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(167, 139, 250, 0.34);
+  border-radius: 15px;
+  color: var(--classroom-accent);
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.classroom-stage-empty__icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.classroom-stage-empty h2 {
+  margin: 0;
+  color: var(--classroom-text);
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.classroom-stage-empty p {
+  margin: 0;
+  color: var(--classroom-muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.classroom-shell .classroom-dock {
+  min-height: 84px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: rgba(20, 18, 27, 0.98) !important;
+  border-top: 1px solid var(--classroom-border);
+  border-bottom: 0 !important;
+}
+
+.classroom-shell .classroom-dock button {
+  min-height: 44px;
+  border: 1px solid var(--classroom-border);
+  border-radius: 10px;
+  background: var(--classroom-panel-raised);
+  color: var(--classroom-text);
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.classroom-shell .classroom-dock button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(167, 139, 250, 0.5);
+  background: #302b3d;
+}
+
+.classroom-shell .classroom-dock button:focus-visible,
+.classroom-shell .classroom-topbar button:focus-visible,
+.classroom-shell .classroom-topbar a:focus-visible {
+  outline: 2px solid var(--classroom-accent);
+  outline-offset: 2px;
+}
+
+.classroom-shell .classroom-sidepanel {
+  background: var(--classroom-panel) !important;
+  border-color: var(--classroom-border) !important;
+}
+
+.classroom-shell .classroom-sidepanel > div:first-child {
+  background: #17151e;
+  border-color: var(--classroom-border) !important;
+}
+
+.classroom-shell .classroom-sidepanel input {
+  background: var(--classroom-panel-raised);
+  border-color: var(--classroom-border);
+  color: var(--classroom-text);
+}
+
+@media (max-width: 1023px) {
+  .classroom-shell .classroom-stage-surface {
+    min-height: 52vh;
+  }
+
+  .classroom-shell .classroom-sidepanel {
+    max-height: 280px;
+  }
+}
+
+@media (max-width: 640px) {
+  .classroom-shell .classroom-dock {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .classroom-shell .classroom-dock button {
+    flex: 0 0 auto;
+  }
+}

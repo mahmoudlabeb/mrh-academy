@@ -93,6 +93,18 @@ export class TutorsController {
     return this.tutorsService.updateTutorProfile(user.id, dto);
   }
 
+  @Post('me/profile/video')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('video', { limits: { fileSize: 100 * 1024 * 1024 } }),
+  )
+  uploadProfileVideo(
+    @CurrentUser() user: { id: string },
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.tutorsService.uploadProfileVideo(user.id, file);
+  }
+
   @Get('me/stats')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)

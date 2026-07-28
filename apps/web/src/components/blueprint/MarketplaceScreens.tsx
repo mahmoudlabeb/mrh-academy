@@ -583,6 +583,10 @@ function BookingPanel({
           queryKey: ["blueprint-student-balance"],
         }),
         queryClient.invalidateQueries({ queryKey: ["student-lessons"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["tutor-availability", tutor.userId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["tutor-lessons"] }),
       ]);
       setConfirmed(true);
     },
@@ -619,7 +623,7 @@ function BookingPanel({
               ? t("جارٍ إرسال الطلب…", "Submitting request…")
               : t(
                   `إرسال طلب الموعد (${formatCurrency(lang, total)})`,
-                  `Submit time request (${formatCurrency(lang, total)})`,
+                  `Book lesson (${formatCurrency(lang, total)})`,
                 )}
           </button>
         )
@@ -634,13 +638,13 @@ function BookingPanel({
           <h3>
             {t(
               "استلم الخادم طلب الحجز",
-              "Booking request received by the server",
+              "Lesson booked successfully",
             )}
           </h3>
           <p>
             {t(
               "راجع حالة الدرس من صفحة دروسك. لا نعرض تأكيداً نهائياً قبل حالة الخادم.",
-              "Track the lesson from My Lessons. Final confirmation is shown only when returned by the server.",
+              "Your balance was updated and the classroom is ready. Open My Lessons to join when it is time.",
             )}
           </p>
           <Link className="btn-primary" href={`/${lang}/learn/lessons`}>

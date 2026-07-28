@@ -12,6 +12,7 @@ type TutorProfile = {
   specialization?: string;
   languages?: string[];
   hourlyRate?: number;
+  videoUrl?: string;
 };
 
 export default function SettingsView() {
@@ -24,6 +25,8 @@ export default function SettingsView() {
   const [specialization, setSpecialization] = useState("");
   const [teachingLanguages, setTeachingLanguages] = useState("");
   const [hourlyRate, setHourlyRate] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoMessage, setVideoMessage] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -48,6 +51,7 @@ export default function SettingsView() {
           ? String(profileQuery.data.hourlyRate)
           : "",
       );
+      setVideoUrl(profileQuery.data.videoUrl || "");
     }
   }, [profileQuery.data]);
 
@@ -72,6 +76,26 @@ export default function SettingsView() {
     onError: () => {
       setProfileMessage(t("فشل الحفظ", "Save failed"));
     },
+  });
+
+  const uploadVideoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("video", file);
+      const { data } = await apiClient.post<TutorProfile>(
+        "/tutors/me/profile/video",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      setVideoUrl(data.videoUrl || "");
+      setVideoMessage(t("تم رفع الفيديو بنجاح", "Profile video uploaded"));
+      queryClient.invalidateQueries({ queryKey: ["tutor-profile"] });
+    },
+    onError: () =>
+      setVideoMessage(t("تعذر رفع الفيديو", "Video upload failed")),
   });
 
   const changePasswordMutation = useMutation({
@@ -179,6 +203,37 @@ export default function SettingsView() {
               placeholder="25"
             />
           </div>
+        </div>
+        <div>
+          <label
+            className="block text-sm font-medium mb-1.5"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("فيديو تعريفي للطلاب", "Introduction video")}
+          </label>
+          <input
+            className="input-field"
+            type="file"
+            accept="video/*"
+            disabled={uploadVideoMutation.isPending}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) uploadVideoMutation.mutate(file);
+            }}
+          />
+          {videoUrl && (
+            <video
+              className="mt-3 w-full max-h-56 rounded-xl object-cover"
+              controls
+              preload="metadata"
+              src={videoUrl}
+            />
+          )}
+          {videoMessage && (
+            <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
+              {videoMessage}
+            </p>
+          )}
         </div>
         {profileMessage && (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
