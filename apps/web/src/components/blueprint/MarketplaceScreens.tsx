@@ -861,7 +861,7 @@ export function CourseCatalogScreen() {
                 {course.thumbnailUrl ? (
                   <Image
                     src={course.thumbnailUrl}
-                    alt=""
+                    alt={course.title}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                   />
@@ -941,7 +941,12 @@ function CourseDetailBody({
         <div>
           <div className="blueprint-course-hero">
             {course.thumbnailUrl ? (
-              <Image src={course.thumbnailUrl} alt="" fill sizes="800px" />
+              <Image
+                src={course.thumbnailUrl}
+                alt={course.title}
+                fill
+                sizes="(max-width: 900px) 100vw, 800px"
+              />
             ) : (
               <span>MRH Academy</span>
             )}
@@ -964,11 +969,7 @@ function CourseDetailBody({
                   </p>
                   <h2>{t("استمع إلى مقدمة الدورة", "Preview the course")}</h2>
                 </div>
-                <video
-                  controls
-                  preload="metadata"
-                  src={course.previewVideoUrl}
-                />
+                <video controls preload="none" src={course.previewVideoUrl} />
               </div>
             )}
             <p>{course.description}</p>
@@ -1114,7 +1115,11 @@ function EnrollmentPanel({
       }
     >
       {complete ? (
-        <div className="blueprint-result blueprint-result--success">
+        <div
+          className="blueprint-result blueprint-result--success"
+          role="status"
+          aria-live="polite"
+        >
           <span>✓</span>
           <h3>
             {t("أكد الخادم تسجيلك", "Enrollment confirmed by the server")}
@@ -1143,7 +1148,12 @@ function EnrollmentPanel({
           <div className="blueprint-product-summary">
             <div className="blueprint-course-thumb">
               {course.thumbnailUrl ? (
-                <Image src={course.thumbnailUrl} alt="" fill sizes="80px" />
+                <Image
+                  src={course.thumbnailUrl}
+                  alt={course.title}
+                  fill
+                  sizes="80px"
+                />
               ) : (
                 <span>MRH</span>
               )}

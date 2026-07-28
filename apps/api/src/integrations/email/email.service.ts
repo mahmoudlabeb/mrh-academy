@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import sanitizeHtml from 'sanitize-html';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -64,7 +65,13 @@ export class EmailService implements OnModuleInit {
       this.logger.debug(`[Email skipped] To: ${to} | Subject: ${subject}`);
       return;
     }
-    this.queue.push({ to, subject, html, retries: 0 });
+    this.queue.push({
+      to,
+      subject,
+      html: this.renderTemplate(subject, html),
+      text: sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }),
+      retries: 0,
+    });
     this.processQueue();
   }
 
@@ -94,6 +101,7 @@ export class EmailService implements OnModuleInit {
             to: task.to,
             subject: task.subject,
             html: task.html,
+            text: task.text,
           });
         } else {
           await this.mailTransporter.sendMail({
@@ -119,5 +127,27 @@ export class EmailService implements OnModuleInit {
     }
 
     this.processing = false;
+  }
+
+  private renderTemplate(subject: string, content: string) {
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${subject}</title>
+  </head>
+  <body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;color:#172033">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 12px;background:#f3f4f6">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#fff;border-radius:16px;overflow:hidden">
+          <tr><td style="padding:24px 30px;background:#172033;color:#fff;font-size:22px;font-weight:700">MRH Academy</td></tr>
+          <tr><td style="padding:30px;font-size:16px;line-height:1.65">${content}</td></tr>
+          <tr><td style="padding:20px 30px;background:#f8fafc;color:#667085;font-size:12px;line-height:1.5">This is a transactional message about your MRH Academy account or activity. Please do not share security links or codes.</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
   }
 }

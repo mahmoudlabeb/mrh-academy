@@ -14,9 +14,12 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".next-dev/**",
       "out/**",
       "build/**",
       "next-env.d.ts",
+      "capture-screenshots.js",
+      "verify-credentials.js",
     ],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),

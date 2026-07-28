@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useLanguage } from "@/contexts/language-context";
+import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
+import { useLanguage } from "@/contexts/language-context";
 import { apiClient } from "@/lib/api-client";
 
 function ResetPasswordForm() {
@@ -13,7 +13,6 @@ function ResetPasswordForm() {
   const router = useRouter();
   const token = searchParams.get("token");
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
-
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,42 +22,42 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="text-center">
-        <h3 className="text-xl font-bold mb-2 text-[var(--danger)]">
-          {t("رابط غير صالح", "Invalid Link")}
-        </h3>
+        <h2 className="text-xl font-bold mb-2 text-[var(--danger)]">
+          {t("رابط غير صالح", "Invalid link")}
+        </h2>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
           {t(
-            "رابط استعادة كلمة المرور غير صالح أو منتهي الصلاحية.",
+            "رابط استعادة كلمة المرور غير صالح أو انتهت صلاحيته.",
             "The password reset link is invalid or has expired.",
           )}
         </p>
         <Link href={`/${lang}/forgot-password`} className="btn-primary w-full">
-          {t("طلب رابط جديد", "Request New Link")}
+          {t("طلب رابط جديد", "Request a new link")}
         </Link>
       </div>
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError(t("كلمات المرور غير متطابقة", "Passwords do not match"));
+      setError(t("كلمتا المرور غير متطابقتين", "Passwords do not match"));
       return;
     }
 
     setLoading(true);
     setError("");
-
     try {
       await apiClient.post("/auth/reset-password", { token, newPassword });
       setSuccess(true);
-      setTimeout(() => {
-        router.push(`/${lang}/sign-in`);
-      }, 3000);
-    } catch (err) {
-      const error = err as { response?: { data?: { message?: string } } };
+      setTimeout(() => router.push(`/${lang}/sign-in`), 3000);
+    } catch (caughtError) {
+      const requestError = caughtError as {
+        response?: { data?: { message?: string } };
+      };
       setError(
-        error.response?.data?.message || t("حدث خطأ", "An error occurred"),
+        requestError.response?.data?.message ||
+          t("حدث خطأ. حاول مرة أخرى.", "Something went wrong. Try again."),
       );
     } finally {
       setLoading(false);
@@ -67,29 +66,20 @@ function ResetPasswordForm() {
 
   if (success) {
     return (
-      <div className="text-center">
-        <div className="w-16 h-16 rounded-full bg-[var(--success-soft)] flex items-center justify-center mx-auto mb-4 text-[var(--success)]">
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+      <div className="text-center" role="status" aria-live="polite">
+        <div
+          className="w-16 h-16 rounded-full bg-[var(--success-soft)] flex items-center justify-center mx-auto mb-4 text-[var(--success)]"
+          aria-hidden="true"
+        >
+          ✓
         </div>
-        <h3 className="text-xl font-bold mb-2 text-[var(--success)]">
-          {t("تم تغيير كلمة المرور بنجاح!", "Password Changed Successfully!")}
-        </h3>
+        <h2 className="text-xl font-bold mb-2 text-[var(--success)]">
+          {t("تم تغيير كلمة المرور بنجاح", "Password changed successfully")}
+        </h2>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
           {t(
-            "سيتم تحويلك إلى صفحة تسجيل الدخول...",
-            "Redirecting to login page...",
+            "سيتم تحويلك إلى صفحة تسجيل الدخول…",
+            "Redirecting to the sign-in page…",
           )}
         </p>
       </div>
@@ -99,51 +89,56 @@ function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="p-3 text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-[var(--danger)] rounded-lg">
+        <div
+          role="alert"
+          className="p-3 text-sm text-[var(--danger)] bg-[var(--danger-soft)] border border-[var(--danger)] rounded-lg"
+        >
           {error}
         </div>
       )}
-
       <div className="space-y-1.5">
-        <label className="block text-sm font-semibold">
-          {t("كلمة المرور الجديدة", "New Password")}
+        <label htmlFor="new-password" className="block text-sm font-semibold">
+          {t("كلمة المرور الجديدة", "New password")}
         </label>
         <input
+          id="new-password"
+          name="newPassword"
           type="password"
           required
+          autoComplete="new-password"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
+          onChange={(event) => setNewPassword(event.target.value)}
           className="input-field"
-          placeholder="••••••••"
           minLength={6}
         />
       </div>
-
       <div className="space-y-1.5">
-        <label className="block text-sm font-semibold">
-          {t("تأكيد كلمة المرور", "Confirm Password")}
+        <label
+          htmlFor="confirm-password"
+          className="block text-sm font-semibold"
+        >
+          {t("تأكيد كلمة المرور", "Confirm password")}
         </label>
         <input
+          id="confirm-password"
+          name="confirmPassword"
           type="password"
           required
+          autoComplete="new-password"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
+          onChange={(event) => setConfirmPassword(event.target.value)}
           className="input-field"
-          placeholder="••••••••"
           minLength={6}
         />
       </div>
-
       <button
         type="submit"
         disabled={loading || !newPassword || !confirmPassword}
         className="btn-primary w-full mt-4"
       >
-        {loading ? (
-          <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
-        ) : (
-          t("تغيير كلمة المرور", "Change Password")
-        )}
+        {loading
+          ? t("جارٍ التغيير…", "Changing…")
+          : t("تغيير كلمة المرور", "Change password")}
       </button>
     </form>
   );
@@ -160,25 +155,28 @@ export default function ResetPasswordPage() {
     >
       <Navbar />
       <div className="flex-1 flex items-center justify-center py-20 px-4">
-        <div className="w-full max-w-md card p-8 mx-auto mt-16 animate-slide-up">
+        <main className="w-full max-w-md card p-8 mx-auto mt-16 animate-slide-up">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2 gradient-text logo-font">
-              Mr.H Academy
+              MRH Academy
             </h1>
             <p
               className="text-sm font-medium"
               style={{ color: "var(--text-muted)" }}
             >
-              {t("تغيير كلمة المرور", "Reset Password")}
+              {t("إعادة تعيين كلمة المرور", "Reset password")}
             </p>
           </div>
-
           <Suspense
-            fallback={<div className="text-center p-4">Loading...</div>}
+            fallback={
+              <div className="text-center p-4">
+                {t("جارٍ التحميل…", "Loading…")}
+              </div>
+            }
           >
             <ResetPasswordForm />
           </Suspense>
-        </div>
+        </main>
       </div>
     </div>
   );

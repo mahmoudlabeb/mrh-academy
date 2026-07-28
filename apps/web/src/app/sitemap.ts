@@ -9,6 +9,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/become-a-tutor",
     "/resources",
     "/help",
+    "/privacy",
+    "/terms",
   ];
   return routes.flatMap((path) =>
     ["ar", "en"].map((locale) => ({

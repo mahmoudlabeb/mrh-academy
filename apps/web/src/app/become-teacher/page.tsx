@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/contexts/auth-context";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { formatCurrency } from "@/lib/format";
 
 type Certificate = { subject: string; name: string; dateRange: string };
 type Education = {
@@ -38,13 +39,19 @@ export default function BecomeTeacherWizard() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.replace("/login?redirect=/become-teacher");
+      router.replace(
+        `/${lang}/sign-in?redirect=${encodeURIComponent(`/${lang}/become-a-tutor`)}`,
+      );
       return;
     }
     if (user.role !== "student") {
-      router.replace(user.role === "tutor" ? "/tutor" : "/student");
+      router.replace(
+        user.role === "tutor"
+          ? `/${lang}/teach/overview`
+          : `/${lang}/learn/overview`,
+      );
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, lang]);
 
   // Step 1
   const [country, setCountry] = useState("");
@@ -124,7 +131,7 @@ export default function BecomeTeacherWizard() {
       });
       return data;
     },
-    onSuccess: () => router.push("/student?tab=settings"),
+    onSuccess: () => router.push(`/${lang}/account/roles`),
     onError: (error: unknown) => {
       const err = error as {
         response?: { data?: { message?: string | string[] } };
@@ -501,7 +508,7 @@ export default function BecomeTeacherWizard() {
                   className="font-bold text-xl"
                   style={{ color: "var(--signal)" }}
                 >
-                  ${hourlyRate}
+                  {formatCurrency(lang, hourlyRate, 0)}
                 </span>
               </div>
             </div>
@@ -534,7 +541,7 @@ export default function BecomeTeacherWizard() {
             {t("كن معلمًا", "Become a tutor")}
           </h1>
           <Link
-            href="/"
+            href={`/${lang}`}
             className="btn-secondary px-4 py-2 text-sm text-white"
             style={{ borderColor: "var(--ink-muted)" }}
           >

@@ -93,7 +93,10 @@ export class CoursesService {
       viewerRole === UserRole.SUBADMIN ||
       (viewerId && course.tutorId === viewerId);
 
-    if ((course.status !== CourseStatus.APPROVED || course.isDraft) && !canBypass) {
+    if (
+      (course.status !== CourseStatus.APPROVED || course.isDraft) &&
+      !canBypass
+    ) {
       throw new NotFoundException('Course not found');
     }
 
@@ -319,8 +322,7 @@ export class CoursesService {
     const nextOrder =
       dto.lessonOrder ??
       ((await this.lessonRepository.maximum('lessonOrder', { courseId })) ??
-        0) +
-        1;
+        0) + 1;
     return this.lessonRepository.save(
       this.lessonRepository.create({
         courseId,
@@ -367,11 +369,7 @@ export class CoursesService {
     return this.lessonRepository.save(lesson);
   }
 
-  async removeLesson(
-    tutorId: string,
-    courseId: string,
-    lessonId: string,
-  ) {
+  async removeLesson(tutorId: string, courseId: string, lessonId: string) {
     const course = await this.getOwnedCourse(tutorId, courseId);
     if (!course.isDraft) {
       throw new BadRequestException(
@@ -382,7 +380,8 @@ export class CoursesService {
       id: lessonId,
       courseId,
     });
-    if (!result.affected) throw new NotFoundException('Course lesson not found');
+    if (!result.affected)
+      throw new NotFoundException('Course lesson not found');
     return { deleted: true, lessonId };
   }
 

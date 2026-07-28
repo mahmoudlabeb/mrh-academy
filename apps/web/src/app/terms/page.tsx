@@ -1,126 +1,76 @@
 "use client";
 
-import { useLanguage } from "@/contexts/language-context";
-import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/layout/Navbar";
+import { useLanguage } from "@/contexts/language-context";
+
+const COPY = {
+  ar: {
+    title: "شروط الاستخدام",
+    intro:
+      "باستخدام MRH Academy فإنك توافق على هذه الشروط. يرجى قراءتها بعناية قبل إنشاء حساب أو حجز خدمة.",
+    sections: [
+      [
+        "الحسابات",
+        "أنت مسؤول عن صحة بيانات حسابك والحفاظ على سرية بيانات الدخول، وعن جميع الأنشطة التي تتم من خلال حسابك.",
+      ],
+      [
+        "الدروس والمدفوعات",
+        "تتم الحجوزات والمدفوعات من خلال المنصة. تُطبّق الأسعار وسياسات الإلغاء والاسترداد الظاهرة وقت الشراء.",
+      ],
+      [
+        "سلوك المستخدم",
+        "يُحظر استخدام المنصة في نشاط غير قانوني أو مسيء أو محاولة تجاوز وسائل الحماية. يجوز تعليق الحسابات المخالفة.",
+      ],
+      [
+        "تعديل الشروط",
+        "قد نحدّث هذه الشروط عند الحاجة، وسنعلن التغييرات الجوهرية داخل المنصة أو عبر وسائل التواصل المسجلة.",
+      ],
+    ],
+  },
+  en: {
+    title: "Terms of Service",
+    intro:
+      "By using MRH Academy, you agree to these terms. Please read them carefully before creating an account or booking a service.",
+    sections: [
+      [
+        "Accounts",
+        "You are responsible for accurate account information, safeguarding your credentials, and all activity performed through your account.",
+      ],
+      [
+        "Lessons and payments",
+        "Bookings and payments are handled through the platform. Prices and the cancellation and refund policies shown at purchase time apply.",
+      ],
+      [
+        "User conduct",
+        "Illegal, abusive, or security-bypassing activity is prohibited. Accounts that violate these rules may be suspended.",
+      ],
+      [
+        "Changes to these terms",
+        "We may update these terms when necessary and will announce material changes in the platform or through registered contact methods.",
+      ],
+    ],
+  },
+} as const;
 
 export default function TermsPage() {
   const { lang } = useLanguage();
-
+  const copy = COPY[lang];
   return (
-    <div
-      className="public-navbar-offset min-h-screen"
-      style={{ background: "var(--bg-main)" }}
-    >
+    <div className="public-navbar-offset min-h-screen">
       <Navbar />
       <main className="max-w-3xl mx-auto px-4 py-16">
-        <h1
-          className="text-3xl font-bold mb-8"
-          style={{ color: "var(--text-main)" }}
-        >
-          {lang === "ar" ? "شروط الاستخدام" : "Terms of Service"}
-        </h1>
-        <div
-          className="space-y-6 leading-relaxed"
-          style={{ color: "var(--text-muted)" }}
-        >
-          {lang === "ar" ? (
-            <>
-              <p>
-                باستخدام منصة Mr.H Academy، فإنك توافق على هذه الشروط والأحكام.
-                يرجى قراءتها بعناية.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                الحسابات
+        <h1 className="text-3xl font-bold mb-8">{copy.title}</h1>
+        <div className="space-y-6 leading-relaxed text-[var(--text-muted)]">
+          <p>{copy.intro}</p>
+          {copy.sections.map(([title, body]) => (
+            <section key={title}>
+              <h2 className="text-xl font-bold mt-8 mb-4 text-[var(--text-main)]">
+                {title}
               </h2>
-              <p>
-                يجب عليك إنشاء حساب للوصول إلى خدماتنا. أنت مسؤول عن الحفاظ على
-                سرية كلمة المرور الخاصة بك.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                الدروس والمدفوعات
-              </h2>
-              <p>
-                يتم حجز الدروس من خلال المنصة. يتم خصم الرصيد عند تأكيد الحجز.
-                يتم احتساب العمولات حسب هيكل الرسوم المعلن.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                سلوك المستخدم
-              </h2>
-              <p>
-                يحظر استخدام المنصة لأي نشاط غير قانوني أو مسيء. نحتفظ بالحق في
-                إنهاء الحسابات المخالفة.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                تعديل الشروط
-              </h2>
-              <p>
-                نحتفظ بالحق في تعديل هذه الشروط في أي وقت. سيتم إشعار المستخدمين
-                بالتغييرات الهامة.
-              </p>
-            </>
-          ) : (
-            <>
-              <p>
-                By using Mr.H Academy, you agree to these terms and conditions.
-                Please read them carefully.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                Accounts
-              </h2>
-              <p>
-                You must create an account to access our services. You are
-                responsible for maintaining your password confidentiality.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                Lessons & Payments
-              </h2>
-              <p>
-                Lessons are booked through the platform. Balance is deducted
-                upon booking confirmation. Commissions are calculated according
-                to the published fee structure.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                User Conduct
-              </h2>
-              <p>
-                Using the platform for any illegal or abusive activity is
-                prohibited. We reserve the right to terminate violating
-                accounts.
-              </p>
-              <h2
-                className="text-xl font-bold mt-8 mb-4"
-                style={{ color: "var(--text-main)" }}
-              >
-                Terms Modifications
-              </h2>
-              <p>
-                We reserve the right to modify these terms at any time. Users
-                will be notified of material changes.
-              </p>
-            </>
-          )}
+              <p>{body}</p>
+            </section>
+          ))}
         </div>
       </main>
       <Footer />

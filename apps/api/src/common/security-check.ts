@@ -38,10 +38,6 @@ export function checkSecurityEnvironment(
       errors.push('DATABASE_URL or DATABASE_PASSWORD must be configured');
     }
 
-    if (!config.get<string>('ADMIN_EMAILS')) {
-      warnings.push('ADMIN_EMAILS must be configured in production');
-    }
-
     if (!config.get<string>('SUBADMIN_DEFAULT_PASSWORD')) {
       errors.push('SUBADMIN_DEFAULT_PASSWORD must be set in production');
     }

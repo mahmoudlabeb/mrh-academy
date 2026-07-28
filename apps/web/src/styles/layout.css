@@ -899,6 +899,21 @@ html[data-theme="light"]
   font-weight: 800;
 }
 
+.workspace-brand .mrh-brand-mark {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  color: var(--signal);
+}
+
+.blueprint-workspace-teach .workspace-brand .mrh-brand-mark {
+  color: var(--ember);
+}
+
+.blueprint-workspace-ops .workspace-brand .mrh-brand-mark {
+  color: var(--ink);
+}
+
 .blueprint-workspace-teach .workspace-brand > span {
   background: var(--ember);
 }

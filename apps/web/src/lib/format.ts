@@ -1,4 +1,4 @@
-export type SupportedLocale = "ar" | "en";
+type SupportedLocale = "ar" | "en";
 
 export function formatCurrency(
   locale: SupportedLocale,

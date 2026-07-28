@@ -128,19 +128,12 @@ export class CoursesController {
     @Param('id') id: string,
     @Param('kind') kind: string,
     @UploadedFile()
-    file:
-      | { buffer: Buffer; mimetype: string; size: number }
-      | undefined,
+    file: { buffer: Buffer; mimetype: string; size: number } | undefined,
   ) {
     if (kind !== 'cover' && kind !== 'preview') {
       throw new BadRequestException('Media kind must be cover or preview');
     }
-    return this.coursesService.uploadOwnedCourseMedia(
-      user.id,
-      id,
-      kind,
-      file,
-    );
+    return this.coursesService.uploadOwnedCourseMedia(user.id, id, kind, file);
   }
 
   @Post(':id/lessons')
@@ -163,12 +156,7 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
     @Body() dto: UpsertCourseLessonDto,
   ) {
-    return this.coursesService.updateLesson(
-      user.id,
-      courseId,
-      lessonId,
-      dto,
-    );
+    return this.coursesService.updateLesson(user.id, courseId, lessonId, dto);
   }
 
   @Delete(':courseId/lessons/:lessonId')

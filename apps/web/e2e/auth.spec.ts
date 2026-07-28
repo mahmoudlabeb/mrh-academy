@@ -64,4 +64,39 @@ test.describe("Authentication Flow", () => {
     await expect(page).toHaveURL(/\/en\/sign-in/);
     await expect(page.getByRole("alert")).toBeVisible();
   });
+
+  test("should verify an email from a localized link", async ({ page }) => {
+    await page.route("**/auth/verify-email", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "verified" }),
+      });
+    });
+
+    await page.goto("/en/verify-email?token=e2e-verification-token");
+
+    await expect(page.getByRole("status")).toContainText("Email verified");
+  });
+
+  test("should reset a password from a localized link", async ({ page }) => {
+    await page.route("**/auth/reset-password", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "changed" }),
+      });
+    });
+
+    await page.goto("/en/reset-password?token=e2e-reset-token");
+    await page.getByLabel("New password").fill("New-browser-password-2026!");
+    await page
+      .getByLabel("Confirm password")
+      .fill("New-browser-password-2026!");
+    await page.getByRole("button", { name: "Change password" }).click();
+
+    await expect(page.getByRole("status")).toContainText(
+      "Password changed successfully",
+    );
+  });
 });

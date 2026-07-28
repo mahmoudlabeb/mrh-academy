@@ -313,7 +313,11 @@ function AddFundsPanel({ balance }: { balance: number }) {
       }
     >
       {submitted ? (
-        <div className="blueprint-result blueprint-result--success">
+        <div
+          className="blueprint-result blueprint-result--success"
+          role="status"
+          aria-live="polite"
+        >
           <span>✓</span>
           <h3>
             {t(
@@ -687,7 +691,11 @@ function PayoutPanel({
       }
     >
       {submitted ? (
-        <div className="blueprint-result blueprint-result--success">
+        <div
+          className="blueprint-result blueprint-result--success"
+          role="status"
+          aria-live="polite"
+        >
           <span>✓</span>
           <h3>
             {t(

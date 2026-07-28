@@ -3,7 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { apiClient } from "@/lib/api-client";
@@ -329,6 +329,12 @@ export function SignUpScreen() {
           <Link href={`/${lang}/sign-in`}>
             {t("لديك حساب؟ سجّل الدخول", "Already registered? Sign in")}
           </Link>
+          <Link href={`/${lang}/become-a-tutor`}>
+            {t(
+              "تريد التدريس؟ أنشئ حساباً ثم قدّم طلب معلّم",
+              "Want to teach? Create an account, then apply as a tutor",
+            )}
+          </Link>
         </div>
       )}
     </AuthFrame>
@@ -337,6 +343,7 @@ export function SignUpScreen() {
 
 export function ForgotPasswordScreen() {
   const { lang, t } = useCopy();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [complete, setComplete] = useState(false);
   const mutation = useMutation({
@@ -344,6 +351,10 @@ export function ForgotPasswordScreen() {
       apiClient.post("/auth/forgot-password", { email: email.trim() }),
     onSuccess: () => setComplete(true),
   });
+  useEffect(() => {
+    const requestedEmail = searchParams.get("email");
+    if (requestedEmail) setEmail(requestedEmail);
+  }, [searchParams]);
 
   return (
     <AuthFrame

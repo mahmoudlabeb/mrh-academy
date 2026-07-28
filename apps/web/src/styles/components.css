@@ -4267,3 +4267,7 @@ button:hover .directional-arrow[data-direction="backward"] {
     transition: none;
   }
 }
+.blueprint-skeleton-block {
+  min-height: 7rem;
+  border-radius: var(--radius-md);
+}

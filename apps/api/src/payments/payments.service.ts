@@ -274,10 +274,17 @@ export class PaymentsService {
         where: { id: payment.userId },
       });
       if (user?.email) {
+        const frontendUrl = this.configService.get<string>(
+          'FRONTEND_URL',
+          'http://localhost:3000',
+        );
+        const setPasswordUrl = `${frontendUrl}/ar/forgot-password?email=${encodeURIComponent(user.email)}`;
         await this.emailService.sendEmail(
           user.email,
           'Your MRH Academy course is ready',
-          '<p>Your payment was received and your course is ready.</p><p>If this is a new account, use “Forgot password” to create your password before signing in.</p>',
+          `<p>Your payment was received and your course is ready.</p>
+<p>If this is a new account, <a href="${setPasswordUrl}">set your password</a> before signing in.</p>
+<p>If you already have a password, you can sign in normally.</p>`,
         );
       }
     }
@@ -839,18 +846,14 @@ export class PaymentsService {
   /** Admin: all payout requests with tutor user info */
   async getAllPayouts() {
     const payouts = await this.payoutRepository.find({
-      relations: { tutor: { user: true } as never },
+      relations: { tutor: { user: true } },
       order: { createdAt: 'DESC' },
     });
     return payouts.map((p) => ({
       id: p.id,
       tutorId: p.tutorId,
-      tutorName: (
-        p.tutor as unknown as {
-          user?: { firstName?: string; lastName?: string };
-        }
-      )?.user
-        ? `${(p.tutor as unknown as { user: { firstName: string; lastName: string } }).user.firstName} ${(p.tutor as unknown as { user: { firstName: string; lastName: string } }).user.lastName}`
+      tutorName: p.tutor?.user
+        ? `${p.tutor.user.firstName} ${p.tutor.user.lastName}`
         : p.tutorId,
       amount: Number(p.amount),
       method: p.method,

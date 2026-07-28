@@ -25,3 +25,5 @@ jobs:
       - run: pnpm knip --production --strict
       - run: pnpm test
       - run: pnpm build
+        env:
+          NODE_ENV: production

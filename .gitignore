@@ -79,6 +79,7 @@ Thumbs.db
 .kiro/
 .codex/
 .codex-runtime/
+.codex-tmp/
 .agents/
 .claude/
 skills-lock.json
@@ -88,6 +89,10 @@ coverage/
 playwright-report/
 test-results/
 dogfood-output/
+qa-output/
+PROJECT_AUDIT_REPORT.md
+apps/web/capture-screenshots.js
+apps/web/verify-credentials.js
 *.tsbuildinfo
 lint-report.json
 lint_errors.txt

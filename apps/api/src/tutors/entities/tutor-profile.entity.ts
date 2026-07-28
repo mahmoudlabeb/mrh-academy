@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { CourseStatus } from '@mrh/types';
 import { ColumnNumericTransformer } from '../../common/transformers/numeric.transformer.js';
-import type { User } from '../../users/entities/user.entity.js';
+import { User } from '../../users/entities/user.entity.js';
 
 @Entity('tutor_profiles')
 export class TutorProfile {
@@ -75,7 +75,7 @@ export class TutorProfile {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne('User', (user: any) => user.tutorProfile)
+  @OneToOne(() => User, (user) => user.tutorProfile)
   @JoinColumn({ name: 'user_id' })
   user: User;
 }

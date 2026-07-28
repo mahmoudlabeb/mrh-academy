@@ -63,13 +63,6 @@ export class AuthService {
     assertPasswordAllowed(password);
   }
 
-  private getAdminEmails(): string[] {
-    return (this.configService.get<string>('ADMIN_EMAILS') ?? '')
-      .split(',')
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean);
-  }
-
   private hashToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
   }
@@ -133,12 +126,8 @@ export class AuthService {
     if (existing) return existing;
 
     const created = randomUUID();
-    if (typeof (this.redisService as any).setNX === 'function') {
-      await this.redisService.setNX(key, created, 30 * 24 * 60 * 60);
-      return (await this.redisService.get(key)) ?? created;
-    }
-    await this.redisService.set(key, created, 'EX', 30 * 24 * 60 * 60);
-    return created;
+    await this.redisService.setNX(key, created, 30 * 24 * 60 * 60);
+    return (await this.redisService.get(key)) ?? created;
   }
 
   private async revokeSessions(userId: string) {
@@ -228,13 +217,8 @@ export class AuthService {
 
     this.validatePassword(dto.password);
     const hashedPassword = await hashPassword(dto.password);
-    const adminEmails = this.getAdminEmails();
-    const isOwner = adminEmails.includes(dto.email.toLowerCase());
-
     let role: UserRole;
-    if (isOwner) {
-      role = UserRole.ADMIN;
-    } else if (dto.role === 'tutor') {
+    if (dto.role === 'tutor') {
       role = UserRole.TUTOR;
     } else {
       role = UserRole.STUDENT;

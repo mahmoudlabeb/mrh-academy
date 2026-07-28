@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,7 +45,7 @@ function StateBlock({
   if (loading)
     return (
       <div
-        className="skeleton h-28 rounded"
+        className="skeleton blueprint-skeleton-block"
         aria-label={t("جارٍ التحميل", "Loading")}
       />
     );
@@ -933,8 +934,13 @@ export function MessagesScreen() {
               >
                 <span className="blueprint-contact-avatar" aria-hidden="true">
                   {contact.user.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={contact.user.avatarUrl} alt="" />
+                    <Image
+                      src={contact.user.avatarUrl}
+                      alt={`${contact.user.firstName} ${contact.user.lastName}`}
+                      width={44}
+                      height={44}
+                      sizes="44px"
+                    />
                   ) : (
                     `${contact.user.firstName[0] ?? ""}${contact.user.lastName[0] ?? ""}`
                   )}

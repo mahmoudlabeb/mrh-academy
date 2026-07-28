@@ -121,7 +121,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.error('Redis setNX error', err);
       this.connected = false;
-      return true; // fail-open theoretically, or could also fallback here
+      const entry = this.fallbackCache.get(key);
+      if (entry && entry.expiresAt > Date.now()) return false;
+      this.fallbackCache.set(key, {
+        value,
+        expiresAt: Date.now() + ttlSeconds * 1000,
+      });
+      return true;
     }
   }
 

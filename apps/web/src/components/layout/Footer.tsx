@@ -20,11 +20,11 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
           href: localize("/tutors"),
         },
         {
-          label: isAr ? "كن معلّمًا" : "Become a tutor",
+          label: isAr ? "انضم كمدرّس" : "Become a tutor",
           href: localize("/become-a-tutor"),
         },
         {
-          label: isAr ? "موارد المعلّمين" : "Tutor resources",
+          label: isAr ? "موارد المعلّمين" : "Teaching resources",
           href: localize("/resources"),
         },
       ],
@@ -38,11 +38,11 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
         },
         {
           label: isAr ? "سياسة الخصوصية" : "Privacy policy",
-          href: "/privacy",
+          href: localize("/privacy"),
         },
         {
           label: isAr ? "شروط الاستخدام" : "Terms of use",
-          href: "/terms",
+          href: localize("/terms"),
         },
       ],
     },

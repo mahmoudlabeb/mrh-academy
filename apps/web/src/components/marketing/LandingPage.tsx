@@ -212,7 +212,7 @@ export default function LandingPage({ lang }: { lang: Language }) {
                         {tutor.user.avatarUrl ? (
                           <Image
                             src={tutor.user.avatarUrl}
-                            alt=""
+                            alt={`${tutor.user.firstName} ${tutor.user.lastName}`}
                             width={72}
                             height={72}
                           />
@@ -278,7 +278,7 @@ export default function LandingPage({ lang }: { lang: Language }) {
                       {course.thumbnailUrl ? (
                         <Image
                           src={course.thumbnailUrl}
-                          alt=""
+                          alt={course.title}
                           fill
                           sizes="(max-width: 640px) 86vw, 30vw"
                           style={{ objectFit: "cover" }}

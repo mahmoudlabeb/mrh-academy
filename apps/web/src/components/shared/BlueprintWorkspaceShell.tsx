@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { MoonIcon, SunIcon } from "@/components/icons/Icons";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useTheme } from "@/contexts/theme-context";
+import { BrandMark } from "@/components/shared/BrandMark";
 
 type Workspace = "learn" | "teach" | "ops";
 
@@ -114,9 +116,7 @@ export function BlueprintWorkspaceShell({
     >
       <header className="workspace-header">
         <Link className="workspace-brand" href={base}>
-          <span aria-hidden="true">
-            {workspace === "teach" ? "T" : workspace === "ops" ? "O" : "M"}
-          </span>
+          <BrandMark />
           <strong>
             {workspace === "ops" ? "MRH Operations Hub" : "MRH Academy"}
           </strong>
@@ -185,8 +185,13 @@ export function BlueprintWorkspaceShell({
           </button>
           <Link className="workspace-avatar" href={`/${lang}/account/profile`}>
             {user?.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.avatarUrl} alt="" />
+              <Image
+                src={user.avatarUrl}
+                alt={`${user.firstName} ${user.lastName}`}
+                width={34}
+                height={34}
+                sizes="34px"
+              />
             ) : (
               <span aria-hidden="true">
                 {user?.firstName?.[0]}
