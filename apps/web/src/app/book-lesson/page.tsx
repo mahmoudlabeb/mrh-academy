@@ -1,12 +1,12 @@
-'use client';
+﻿"use client";
 
-import React, { useState, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
-import { useLanguage } from '@/contexts/language-context';
-import Link from 'next/link';
-import { useAuth } from '@/contexts/auth-context';
+import React, { useState, useMemo } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
+import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
 
 interface TutorProfile {
   userId: string;
@@ -25,22 +25,57 @@ interface AvailabilitySlot {
   endTime: string;
 }
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-const DAY_LABELS_AR_SHORT = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'] as const;
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const DAY_LABELS_AR_SHORT = [
+  "أحد",
+  "إثنين",
+  "ثلاثاء",
+  "أربعاء",
+  "خميس",
+  "جمعة",
+  "سبت",
+] as const;
 const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
 ];
 const MONTH_NAMES_EN = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 function StarRating({ rating }: { rating: number }) {
   return (
     <span className="flex gap-0.5 text-sm">
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className={i < Math.round(rating) ? 'text-amber-400' : 'text-slate-200'}>
+        <span
+          key={i}
+          className={
+            i < Math.round(rating)
+              ? "text-[var(--rating)]"
+              : "text-[var(--ink-faint)]"
+          }
+        >
           &#9733;
         </span>
       ))}
@@ -48,36 +83,39 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-  
-
 function formatDateToISO(date: Date) {
   const y = date.getFullYear();
-  const m = (date.getMonth() + 1).toString().padStart(2, '0');
-  const d = date.getDate().toString().padStart(2, '0');
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  const d = date.getDate().toString().padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 function BookLessonContent() {
   const searchParams = useSearchParams();
+  const params = useParams<{ id?: string }>();
   const { lang } = useLanguage();
   const { user } = useAuth();
 
-  const tutorId = searchParams.get('tutorId');
+  const tutorId = searchParams.get("tutorId") ?? params.id ?? null;
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState('12:00');
+  const [selectedTime, setSelectedTime] = useState("12:00");
   const [duration, setDuration] = useState<25 | 50>(25);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
 
-  const t = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
 
-  const { data: tutor, isLoading: tutorLoading, error: tutorError } = useQuery({
-    queryKey: ['tutor', tutorId],
+  const {
+    data: tutor,
+    isLoading: tutorLoading,
+    error: tutorError,
+  } = useQuery({
+    queryKey: ["tutor", tutorId],
     queryFn: async () => {
       const { data } = await apiClient.get(`/tutors/${tutorId}`);
       return data as TutorProfile;
@@ -86,7 +124,7 @@ function BookLessonContent() {
   });
 
   const { data: availability } = useQuery({
-    queryKey: ['availability', tutorId],
+    queryKey: ["availability", tutorId],
     queryFn: async () => {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const { data } = await apiClient.get(`/tutors/${tutorId}/availability`, {
@@ -98,9 +136,11 @@ function BookLessonContent() {
   });
 
   const { data: userData } = useQuery({
-    queryKey: ['users-me'],
+    queryKey: ["users-me"],
     queryFn: async () => {
-      const { data } = await apiClient.get<{ studentProfile?: { balance: number } }>('/users/me');
+      const { data } = await apiClient.get<{
+        studentProfile?: { balance: number };
+      }>("/users/me");
       return data;
     },
   });
@@ -157,13 +197,13 @@ function BookLessonContent() {
 
   const bookMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedDate || !tutorId) throw new Error('Missing booking info');
+      if (!selectedDate || !tutorId) throw new Error("Missing booking info");
       const tzOffset = -new Date().getTimezoneOffset();
-      const sign = tzOffset >= 0 ? '+' : '-';
-      const pad = (n: number) => String(Math.abs(n)).padStart(2, '0');
+      const sign = tzOffset >= 0 ? "+" : "-";
+      const pad = (n: number) => String(Math.abs(n)).padStart(2, "0");
       const tz = `${sign}${pad(Math.floor(tzOffset / 60))}:${pad(tzOffset % 60)}`;
       const scheduledTime = `${formatDateToISO(selectedDate)}T${selectedTime}:00${tz}`;
-      const { data } = await apiClient.post('/lessons/book', {
+      const { data } = await apiClient.post("/lessons/book", {
         tutorId,
         scheduledTime,
         durationMinutes: duration,
@@ -175,7 +215,10 @@ function BookLessonContent() {
     },
     onError: (err: Error) => {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      const msg = axiosErr?.response?.data?.message || err?.message || 'حدث خطأ أثناء الحجز';
+      const msg =
+        axiosErr?.response?.data?.message ||
+        err?.message ||
+        "حدث خطأ أثناء الحجز";
       setErrorMsg(msg);
     },
   });
@@ -208,18 +251,36 @@ function BookLessonContent() {
     setErrorMsg(null);
   };
 
-  if (user && user.role !== 'student') {
+  if (user && user.role !== "student") {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-main)" }}
+      >
         <div className="text-center card p-12 max-w-md">
-          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('الحجز للطلاب فقط', 'Booking is for students only')}
+          <h2
+            className="text-xl font-bold mb-2"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("الحجز للطلاب فقط", "Booking is for students only")}
           </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('يجب تسجيل الدخول بحساب طالب لحجز درس.', 'You must be logged in as a student to book a lesson.')}
+          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "يجب تسجيل الدخول بحساب طالب لحجز درس.",
+              "You must be logged in as a student to book a lesson.",
+            )}
           </p>
-          <Link href={user.role === 'tutor' ? '/tutor' : user.role === 'admin' || user.role === 'subadmin' ? '/admin' : '/student'} className="btn-primary">
-            {t('العودة للوحة التحكم', 'Back to Dashboard')}
+          <Link
+            href={
+              user.role === "tutor"
+                ? "/tutor"
+                : user.role === "admin" || user.role === "subadmin"
+                  ? "/admin"
+                  : "/student"
+            }
+            className="btn-primary"
+          >
+            {t("العودة للوحة التحكم", "Back to Dashboard")}
           </Link>
         </div>
       </div>
@@ -228,21 +289,45 @@ function BookLessonContent() {
 
   if (!tutorId) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-main)" }}
+      >
         <div className="text-center card p-12 max-w-md">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{
+              background: "color-mix(in srgb, var(--signal) 10%, transparent)",
+            }}
+          >
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="var(--signal)"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('لم يتم اختيار معلم', 'No tutor selected')}
+          <h2
+            className="text-xl font-bold mb-2"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("لم يتم اختيار معلم", "No tutor selected")}
           </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('الرجاء اختيار معلم أولاً من صفحة المعلمين.', 'Please select a tutor first from the tutors page.')}
+          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "الرجاء اختيار معلم أولاً من صفحة المعلمين.",
+              "Please select a tutor first from the tutors page.",
+            )}
           </p>
           <Link href="/student/discover" className="btn-primary">
-            {t('تصفح المعلمين', 'Browse Tutors')}
+            {t("تصفح المعلمين", "Browse Tutors")}
           </Link>
         </div>
       </div>
@@ -251,10 +336,21 @@ function BookLessonContent() {
 
   if (tutorLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-main)" }}
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: '#D4A353' }} />
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('جاري تحميل بيانات المعلم...', 'Loading tutor data...')}</p>
+          <div
+            className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+            style={{
+              borderColor: "var(--border-color)",
+              borderTopColor: "var(--signal)",
+            }}
+          />
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            {t("جاري تحميل بيانات المعلم...", "Loading tutor data...")}
+          </p>
         </div>
       </div>
     );
@@ -262,25 +358,49 @@ function BookLessonContent() {
 
   if (bookingSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-main)" }}
+      >
         <div className="text-center card p-12 max-w-md animate-scale-in">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{
+              background: "color-mix(in srgb, var(--signal) 10%, transparent)",
+            }}
+          >
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="var(--signal)"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('تم إرسال طلب الحجز', 'Booking Request Sent')}
+          <h2
+            className="text-xl font-bold mb-2"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("تم إرسال طلب الحجز", "Booking Request Sent")}
           </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('بانتظار موافقة المعلم على الحجز واختيار الوقت المناسب. سنرسل لك إشعاراً عند التأكيد.', 'Awaiting tutor approval and time selection. You will be notified once confirmed.')}
+          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "بانتظار موافقة المعلم على الحجز واختيار الوقت المناسب. سنرسل لك إشعاراً عند التأكيد.",
+              "Awaiting tutor approval and time selection. You will be notified once confirmed.",
+            )}
           </p>
           <div className="flex gap-3 justify-center">
             <Link href="/student?tab=lessons" className="btn-primary">
-              {t('عرض دروسي', 'My Lessons')}
+              {t("عرض دروسي", "My Lessons")}
             </Link>
             <Link href="/student/discover" className="btn-secondary">
-              {t('العودة للمعلمين', 'Back to Tutors')}
+              {t("العودة للمعلمين", "Back to Tutors")}
             </Link>
           </div>
         </div>
@@ -290,21 +410,43 @@ function BookLessonContent() {
 
   if (tutorError || !tutor) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "var(--bg-main)" }}
+      >
         <div className="text-center card p-12 max-w-md">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(239,68,68,0.1)' }}>
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#ef4444">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: "var(--danger-soft)" }}
+          >
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="var(--danger)"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-main)' }}>
-            {t('خطأ في تحميل المعلم', 'Error loading tutor')}
+          <h2
+            className="text-xl font-bold mb-2"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("خطأ في تحميل المعلم", "Error loading tutor")}
           </h2>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
-            {t('لم نتمكن من العثور على هذا المعلم. قد يكون غير متاح حالياً.', 'Could not find this tutor. They may not be available.')}
+          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "لم نتمكن من العثور على هذا المعلم. قد يكون غير متاح حالياً.",
+              "Could not find this tutor. They may not be available.",
+            )}
           </p>
           <Link href="/student/discover" className="btn-primary">
-            {t('العودة للمعلمين', 'Back to Tutors')}
+            {t("العودة للمعلمين", "Back to Tutors")}
           </Link>
         </div>
       </div>
@@ -312,35 +454,74 @@ function BookLessonContent() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg-main)' }}>
+    <div className="min-h-screen" style={{ background: "var(--bg-main)" }}>
       <header className="dashboard-header">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link
             href="/student/discover"
             className="link inline-flex items-center gap-1 text-sm"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M15 19l-7-7 7-7' : 'M19 15l-7-7 7-7'} />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d={lang === "ar" ? "M15 19l-7-7 7-7" : "M19 15l-7-7 7-7"}
+              />
             </svg>
-            {t('العودة إلى المعلمين', 'Back to Tutors')}
+            {t("العودة إلى المعلمين", "Back to Tutors")}
           </Link>
-          <Link href="/" className="logo text-xl font-extrabold tracking-tight" style={{ color: '#D4A353', fontFamily: "'Inter', sans-serif" }}>
+          <Link
+            href="/"
+            className="logo text-xl font-extrabold tracking-tight"
+            style={{
+              color: "var(--signal)",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
             MR.H
           </Link>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8 text-center animate-fade-in" style={{ color: 'var(--text-main)' }}>
-          {t('احجز درسًا', 'Book a Lesson')}
+        <h1
+          className="text-2xl font-bold mb-8 text-center animate-fade-in"
+          style={{ color: "var(--text-main)" }}
+        >
+          {t("احجز درسًا", "Book a Lesson")}
         </h1>
 
         {errorMsg && (
-          <div className="mb-6 p-4 rounded-xl animate-scale-in flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#ef4444">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div
+            className="mb-6 p-4 rounded-xl animate-scale-in flex items-start gap-3"
+            style={{
+              background: "var(--danger-soft)",
+              border:
+                "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
+            }}
+          >
+            <svg
+              className="w-5 h-5 shrink-0 mt-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="var(--danger)"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            <p className="text-sm" style={{ color: '#ef4444' }}>{errorMsg}</p>
+            <p className="text-sm" style={{ color: "var(--danger)" }}>
+              {errorMsg}
+            </p>
           </div>
         )}
 
@@ -348,30 +529,55 @@ function BookLessonContent() {
           <div className="lg:col-span-3 space-y-6">
             <div className="card p-6 animate-slide-up">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg shrink-0" style={{ background: '#D4A353' }}>
+                <div
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg shrink-0"
+                  style={{ background: "var(--signal)" }}
+                >
                   {tutor.user.firstName[0]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-bold" style={{ color: 'var(--text-main)' }}>
+                  <h2
+                    className="text-lg font-bold"
+                    style={{ color: "var(--text-main)" }}
+                  >
                     {tutor.user.firstName} {tutor.user.lastName}
                   </h2>
-                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  <p
+                    className="text-sm mt-0.5"
+                    style={{ color: "var(--text-muted)" }}
+                  >
                     {tutor.specialization}
                   </p>
                   <div className="flex items-center gap-3 mt-1.5">
                     <div className="flex items-center gap-1">
                       <StarRating rating={tutor.averageRating} />
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <span
+                        className="text-xs"
+                        style={{ color: "var(--text-muted)" }}
+                      >
                         ({tutor.reviewCount})
                       </span>
                     </div>
-                    <span className="text-sm font-bold" style={{ color: '#D4A353' }}>
-                      ${tutor.hourlyRate}/{t('ساعة', 'hr')}
+                    <span
+                      className="text-sm font-bold"
+                      style={{ color: "var(--signal)" }}
+                    >
+                      ${tutor.hourlyRate}/{t("ساعة", "hr")}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {tutor.languages?.map((lang) => (
-                      <span key={lang} className="badge text-[10px]" style={{ background: 'rgba(212, 163, 83,0.1)', color: '#D4A353', border: '1px solid rgba(212, 163, 83,0.2)' }}>
+                      <span
+                        key={lang}
+                        className="badge text-[10px]"
+                        style={{
+                          background:
+                            "color-mix(in srgb, var(--signal) 10%, transparent)",
+                          color: "var(--signal)",
+                          border:
+                            "1px solid color-mix(in srgb, var(--signal) 20%, transparent)",
+                        }}
+                      >
                         {lang}
                       </span>
                     ))}
@@ -381,35 +587,62 @@ function BookLessonContent() {
             </div>
 
             <div className="card p-6 animate-slide-up">
-              <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-main)' }}>
-                {t('مدة الدرس', 'Lesson Duration')}
+              <h3
+                className="text-base font-bold mb-4"
+                style={{ color: "var(--text-main)" }}
+              >
+                {t("مدة الدرس", "Lesson Duration")}
               </h3>
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setDuration(25); }}
+                  onClick={() => {
+                    setDuration(25);
+                  }}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all ${
                     duration === 25
-                      ? 'bg-[#D4A353] text-[#0F3A40] shadow-md'
-                      : 'border text-[var(--text-main)] hover:border-[#D4A353]'
+                      ? "bg-[var(--signal)] text-[var(--ink)] shadow-md"
+                      : "border text-[var(--text-main)] hover:border-[var(--signal)]"
                   }`}
-                  style={duration !== 25 ? { borderColor: 'var(--border-color)', background: 'var(--bg-light)' } : {}}
+                  style={
+                    duration !== 25
+                      ? {
+                          borderColor: "var(--border-color)",
+                          background: "var(--bg-light)",
+                        }
+                      : {}
+                  }
                 >
-                  {t('٢٥ دقيقة', '25 min')}
-                  <span className="block text-[10px] font-medium mt-0.5" style={{ opacity: 0.8 }}>
+                  {t("٢٥ دقيقة", "25 min")}
+                  <span
+                    className="block text-[10px] font-medium mt-0.5"
+                    style={{ opacity: 0.8 }}
+                  >
                     ${((tutor.hourlyRate * 25) / 60).toFixed(2)}
                   </span>
                 </button>
                 <button
-                  onClick={() => { setDuration(50); }}
+                  onClick={() => {
+                    setDuration(50);
+                  }}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all ${
                     duration === 50
-                      ? 'bg-[#D4A353] text-[#0F3A40] shadow-md'
-                      : 'border text-[var(--text-main)] hover:border-[#D4A353]'
+                      ? "bg-[var(--signal)] text-[var(--ink)] shadow-md"
+                      : "border text-[var(--text-main)] hover:border-[var(--signal)]"
                   }`}
-                  style={duration !== 50 ? { borderColor: 'var(--border-color)', background: 'var(--bg-light)' } : {}}
+                  style={
+                    duration !== 50
+                      ? {
+                          borderColor: "var(--border-color)",
+                          background: "var(--bg-light)",
+                        }
+                      : {}
+                  }
                 >
-                  {t('٥٠ دقيقة', '50 min')}
-                  <span className="block text-[10px] font-medium mt-0.5" style={{ opacity: 0.8 }}>
+                  {t("٥٠ دقيقة", "50 min")}
+                  <span
+                    className="block text-[10px] font-medium mt-0.5"
+                    style={{ opacity: 0.8 }}
+                  >
                     ${((tutor.hourlyRate * 50) / 60).toFixed(2)}
                   </span>
                 </button>
@@ -418,37 +651,76 @@ function BookLessonContent() {
 
             <div className="card p-6 animate-slide-up">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
-                  {t('اختر التاريخ', 'Select Date')}
+                <h3
+                  className="text-base font-bold"
+                  style={{ color: "var(--text-main)" }}
+                >
+                  {t("اختر التاريخ", "Select Date")}
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={prevMonth}
                     disabled={isViewingCurrentMonth}
                     className="p-1.5 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    style={{ color: 'var(--text-muted)' }}
+                    style={{ color: "var(--text-muted)" }}
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M9 5l7 7-7 7' : 'M15 19l-7-7 7-7'} />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={lang === "ar" ? "M9 5l7 7-7 7" : "M15 19l-7-7 7-7"}
+                      />
                     </svg>
                   </button>
-                  <span className="text-sm font-semibold min-w-[120px] text-center" style={{ color: 'var(--text-main)' }}>
-                    {lang === 'ar' ? MONTH_NAMES_AR[calendarMonth.month] : MONTH_NAMES_EN[calendarMonth.month]} {calendarMonth.year}
+                  <span
+                    className="text-sm font-semibold min-w-[120px] text-center"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    {lang === "ar"
+                      ? MONTH_NAMES_AR[calendarMonth.month]
+                      : MONTH_NAMES_EN[calendarMonth.month]}{" "}
+                    {calendarMonth.year}
                   </span>
-                  <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={lang === 'ar' ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'} />
+                  <button
+                    onClick={nextMonth}
+                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={lang === "ar" ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
+                      />
                     </svg>
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-7 gap-1 mb-1">
-                {(lang === 'ar' ? DAY_LABELS_AR_SHORT : DAY_LABELS).map((label, idx) => (
-                  <div key={`${label}-${idx}`} className="text-center text-xs font-semibold py-2" style={{ color: 'var(--text-muted)' }}>
-                    {label}
-                  </div>
-                ))}
+                {(lang === "ar" ? DAY_LABELS_AR_SHORT : DAY_LABELS).map(
+                  (label, idx) => (
+                    <div
+                      key={`${label}-${idx}`}
+                      className="text-center text-xs font-semibold py-2"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {label}
+                    </div>
+                  ),
+                )}
               </div>
 
               <div className="grid grid-cols-7 gap-1">
@@ -460,8 +732,10 @@ function BookLessonContent() {
                   const iso = formatDateToISO(date);
                   const isPast = date < today;
                   const hasAvailability = availableDates.has(iso);
-                  const isSelected = selectedDate && formatDateToISO(selectedDate) === iso;
-                  const isToday = formatDateToISO(date) === formatDateToISO(today);
+                  const isSelected =
+                    selectedDate && formatDateToISO(selectedDate) === iso;
+                  const isToday =
+                    formatDateToISO(date) === formatDateToISO(today);
 
                   const canSelect = !isPast && hasAvailability;
 
@@ -472,20 +746,23 @@ function BookLessonContent() {
                       onClick={() => handleDateSelect(date)}
                       className={`relative py-2.5 text-sm rounded-lg font-medium transition-all ${
                         isSelected
-                          ? 'bg-[#D4A353] text-[#0F3A40] font-bold shadow-md'
+                          ? "bg-[var(--signal)] text-[var(--ink)] font-bold shadow-md"
                           : canSelect
-                            ? 'text-[var(--text-main)] hover:bg-white/5 cursor-pointer'
-                            : 'text-[var(--text-muted)] opacity-30 cursor-not-allowed'
+                            ? "text-[var(--text-main)] hover:bg-white/5 cursor-pointer"
+                            : "text-[var(--text-muted)] opacity-30 cursor-not-allowed"
                       }`}
                       style={
                         !isSelected && canSelect && isToday
-                          ? { border: '1px solid rgba(212, 163, 83,0.3)' }
+                          ? {
+                              border:
+                                "1px solid color-mix(in srgb, var(--signal) 30%, transparent)",
+                            }
                           : {}
                       }
                     >
                       {date.getDate()}
                       {hasAvailability && !isSelected && canSelect && (
-                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#D4A353]" />
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--signal)]" />
                       )}
                     </button>
                   );
@@ -496,30 +773,64 @@ function BookLessonContent() {
             {selectedDate && (
               <div className="card p-6 animate-scale-in">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(212, 163, 83,0.1)' }}>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#D4A353">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--signal) 10%, transparent)",
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="var(--signal)"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-base font-bold" style={{ color: 'var(--text-main)' }}>
-                      {t('اليوم والوقت المحدد', 'Selected Day & Time')}
+                    <h3
+                      className="text-base font-bold"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      {t("اليوم والوقت المحدد", "Selected Day & Time")}
                     </h3>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    <p
+                      className="text-sm"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {selectedDate.toLocaleDateString(
+                        lang === "ar" ? "ar-SA" : "en-US",
+                        { weekday: "long", day: "numeric", month: "long" },
+                      )}
                     </p>
                   </div>
                 </div>
                 <div className="mt-4">
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-main)' }}>
-                    {t('اختر الوقت', 'Select Time')}
+                  <label
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    {t("اختر الوقت", "Select Time")}
                   </label>
                   <input
                     type="time"
                     value={selectedTime}
                     onChange={(e) => setSelectedTime(e.target.value)}
                     className="input-field w-full"
-                    style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', color: 'var(--text-main)' }}
+                    style={{
+                      background: "var(--bg-main)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "0.75rem",
+                      padding: "0.625rem 0.875rem",
+                      color: "var(--text-main)",
+                    }}
                   />
                 </div>
               </div>
@@ -527,69 +838,131 @@ function BookLessonContent() {
           </div>
 
           <div className="lg:col-span-2">
-            <div className="card p-6 animate-slide-up sticky top-6" style={{ background: 'var(--bg-light)' }}>
-              <h3 className="text-base font-bold mb-5" style={{ color: 'var(--text-main)' }}>
-                {t('ملخص الحجز', 'Booking Summary')}
+            <div
+              className="card p-6 animate-slide-up sticky top-6"
+              style={{ background: "var(--bg-light)" }}
+            >
+              <h3
+                className="text-base font-bold mb-5"
+                style={{ color: "var(--text-main)" }}
+              >
+                {t("ملخص الحجز", "Booking Summary")}
               </h3>
 
               <div className="space-y-3.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('المعلم', 'Tutor')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text-main)' }}>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {t("المعلم", "Tutor")}
+                  </span>
+                  <span
+                    className="font-medium"
+                    style={{ color: "var(--text-main)" }}
+                  >
                     {tutor.user.firstName} {tutor.user.lastName}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('المدة', 'Duration')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text-main)' }}>
-                    {duration === 25 ? t('٢٥ دقيقة', '25 min') : t('٥٠ دقيقة', '50 min')}
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {t("المدة", "Duration")}
+                  </span>
+                  <span
+                    className="font-medium"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    {duration === 25
+                      ? t("٢٥ دقيقة", "25 min")
+                      : t("٥٠ دقيقة", "50 min")}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('السعر', 'Rate')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text-main)' }}>
-                    ${tutor.hourlyRate}/{t('ساعة', 'hr')}
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {t("السعر", "Rate")}
+                  </span>
+                  <span
+                    className="font-medium"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    ${tutor.hourlyRate}/{t("ساعة", "hr")}
                   </span>
                 </div>
 
                 {selectedDate && (
                   <div className="flex items-center justify-between text-sm">
-                    <span style={{ color: 'var(--text-muted)' }}>{t('اليوم', 'Day')}</span>
-                    <span className="font-medium" style={{ color: 'var(--text-main)' }}>
-                      {selectedDate.toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    <span style={{ color: "var(--text-muted)" }}>
+                      {t("اليوم", "Day")}
+                    </span>
+                    <span
+                      className="font-medium"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      {selectedDate.toLocaleDateString(
+                        lang === "ar" ? "ar-SA" : "en-US",
+                        { weekday: "short", day: "numeric", month: "short" },
+                      )}
                     </span>
                   </div>
                 )}
 
-                <hr style={{ borderColor: 'var(--border-color)' }} />
+                <hr style={{ borderColor: "var(--border-color)" }} />
 
                 <div className="flex items-center justify-between">
-                  <span className="font-bold" style={{ color: 'var(--text-main)' }}>
-                    {t('الإجمالي', 'Total')}
+                  <span
+                    className="font-bold"
+                    style={{ color: "var(--text-main)" }}
+                  >
+                    {t("الإجمالي", "Total")}
                   </span>
-                  <span className="text-xl font-bold" style={{ color: '#D4A353' }}>
+                  <span
+                    className="text-xl font-bold"
+                    style={{ color: "var(--signal)" }}
+                  >
                     ${totalCost.toFixed(2)}
                   </span>
                 </div>
 
-                <hr style={{ borderColor: 'var(--border-color)' }} />
+                <hr style={{ borderColor: "var(--border-color)" }} />
 
                 <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: 'var(--text-muted)' }}>{t('الرصيد المتاح', 'Your Balance')}</span>
-                  <span className="font-medium" style={{ color: 'var(--text-main)' }}>
+                  <span style={{ color: "var(--text-muted)" }}>
+                    {t("الرصيد المتاح", "Your Balance")}
+                  </span>
+                  <span
+                    className="font-medium"
+                    style={{ color: "var(--text-main)" }}
+                  >
                     ${(balance ?? 0).toFixed(2)}
                   </span>
                 </div>
 
                 {insufficientBalance && (
-                  <div className="p-3 rounded-xl text-xs flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="#ef4444">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <div
+                    className="p-3 rounded-xl text-xs flex items-start gap-2"
+                    style={{
+                      background: "var(--danger-soft)",
+                      border:
+                        "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
+                    }}
+                  >
+                    <svg
+                      className="w-4 h-4 shrink-0 mt-0.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="var(--danger)"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
-                    <span style={{ color: '#ef4444' }}>
-                      {t('رصيدك غير كافٍ. يرجى شحن رصيدك للمتابعة.', 'Insufficient balance. Please add credits to continue.')}
+                    <span style={{ color: "var(--danger)" }}>
+                      {t(
+                        "رصيدك غير كافٍ. يرجى شحن رصيدك للمتابعة.",
+                        "Insufficient balance. Please add credits to continue.",
+                      )}
                     </span>
                   </div>
                 )}
@@ -602,17 +975,23 @@ function BookLessonContent() {
               >
                 {bookMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 rounded-full border-2 border-[#0F3A40] border-t-transparent animate-spin" />
-                    {t('جاري الحجز...', 'Booking...')}
+                    <span className="w-4 h-4 rounded-full border-2 border-[var(--ink)] border-t-transparent animate-spin" />
+                    {t("جاري الحجز...", "Booking...")}
                   </span>
                 ) : (
-                  t('احجز الآن', 'Book Now')
+                  t("احجز الآن", "Book Now")
                 )}
               </button>
 
               {!selectedDate && (
-                <p className="text-xs text-center mt-3" style={{ color: 'var(--text-muted)' }}>
-                  {t('اختر تاريخاً ووقتاً للمتابعة', 'Select a date and time to continue')}
+                <p
+                  className="text-xs text-center mt-3"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {t(
+                    "اختر تاريخاً ووقتاً للمتابعة",
+                    "Select a date and time to continue",
+                  )}
                 </p>
               )}
             </div>
@@ -625,7 +1004,22 @@ function BookLessonContent() {
 
 export default function BookLessonPage() {
   return (
-    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}><div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--border-color)', borderTopColor: '#D4A353' }} /></div>}>
+    <React.Suspense
+      fallback={
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{ background: "var(--bg-main)" }}
+        >
+          <div
+            className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
+            style={{
+              borderColor: "var(--border-color)",
+              borderTopColor: "var(--signal)",
+            }}
+          />
+        </div>
+      }
+    >
       <BookLessonContent />
     </React.Suspense>
   );

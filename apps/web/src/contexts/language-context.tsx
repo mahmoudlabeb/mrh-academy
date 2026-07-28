@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useState,
+  useRef,
   useEffect,
   useCallback,
   type ReactNode,
@@ -33,15 +34,22 @@ function getInitialLanguage(): Language {
   return "ar";
 }
 
+function languageFromPath(pathname: string): Language | null {
+  const segment = pathname.split("/").filter(Boolean)[0];
+  return segment === "ar" || segment === "en" ? segment : null;
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  // The translated marketing route must start in English on the very first
-  // client render. Otherwise a persisted Arabic preference briefly paints the
-  // wrong navbar/footer before the route effect can synchronize the language.
-  const [lang, setLangState] = useState<Language>(() =>
-    pathname === "/en" ? "en" : getInitialLanguage(),
+  const initialPathname = useRef(pathname);
+  // Keep the server and first client render deterministic. Browser preferences
+  // are applied after hydration so persisted English cannot cause React to
+  // discard server-rendered Arabic content.
+  const [lang, setLangState] = useState<Language>(
+    languageFromPath(pathname) ?? "ar",
   );
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const applyLanguage = useCallback((l: Language) => {
     const root = document.documentElement;
@@ -70,21 +78,33 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLangState(next);
     applyLanguage(next);
 
-    // The marketing homepage has a translated route; application pages are
-    // shared and translate in place through this context.
-    if (pathname === "/" && next === "en") router.push("/en");
-    if (pathname === "/en" && next === "ar") router.push("/");
+    const routeLocale = languageFromPath(pathname);
+    if (routeLocale) {
+      const rest = pathname.split("/").slice(2).join("/");
+      router.push(`/${next}${rest ? `/${rest}` : ""}`);
+    }
   }, [applyLanguage, lang, pathname, router]);
 
   useEffect(() => {
+    const initialLanguage =
+      languageFromPath(initialPathname.current) ?? getInitialLanguage();
+    setLangState(initialLanguage);
+    applyLanguage(initialLanguage);
+    setHasHydrated(true);
+  }, [applyLanguage]);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
     // Keep direct links and refreshes on the translated marketing route in
     // English, even when no language preference has been stored yet.
-    if (pathname === "/en" && lang !== "en") {
-      setLangState("en");
+    const routeLanguage = languageFromPath(pathname);
+    if (routeLanguage && lang !== routeLanguage) {
+      setLangState(routeLanguage);
+      applyLanguage(routeLanguage);
       return;
     }
     applyLanguage(lang);
-  }, [pathname, lang, applyLanguage]);
+  }, [pathname, lang, applyLanguage, hasHydrated]);
 
   const dir = lang === "ar" ? "rtl" : "ltr";
 

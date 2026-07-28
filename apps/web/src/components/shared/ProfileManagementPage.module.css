@@ -1,10 +1,10 @@
-.page {
+﻿.page {
   min-height: 100vh;
   color: var(--text-main);
   background:
     radial-gradient(
       circle at 9% 0%,
-      color-mix(in srgb, var(--gold-bronze) 8%, transparent),
+      color-mix(in srgb, var(--signal) 8%, transparent),
       transparent 25rem
     ),
     var(--bg-main);
@@ -34,7 +34,7 @@
 .sectionHeading > div > span,
 .dangerEyebrow,
 .identityTopline {
-  color: var(--gold-luxury);
+  color: var(--signal);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -51,8 +51,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--gold-luxury);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold-luxury) 14%, transparent);
+  background: var(--signal);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--signal) 14%, transparent);
 }
 .headerInner h1 {
   margin: 0;
@@ -111,31 +111,23 @@
   top: 24px;
   overflow: hidden;
   padding: 28px;
-  color: var(--ivory-pure);
-  border: 1px solid color-mix(in srgb, var(--gold-luxury) 35%, transparent);
+  color: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--signal) 35%, transparent);
   border-radius: 18px;
-  background: linear-gradient(
-    155deg,
-    var(--green-dark),
-    color-mix(in srgb, var(--green-dark) 76%, #061e22)
-  );
+  background: var(--surface);
   box-shadow: 0 22px 50px rgba(0, 20, 24, 0.22);
 }
 .identityRule {
   width: 74px;
   height: 3px;
   margin-bottom: 24px;
-  background: linear-gradient(
-    115deg,
-    var(--gold-gradient-start),
-    var(--gold-gradient-end)
-  );
+  background: var(--signal);
 }
 .identityTopline {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: color-mix(in srgb, var(--ivory-pure) 62%, var(--gold-luxury));
+  color: color-mix(in srgb, var(--surface) 62%, var(--signal));
 }
 .identityCard :global(.avatar-uploader),
 .avatarFrame {
@@ -148,7 +140,7 @@
 .identityCard :global(.avatar-uploader) {
   width: 94px;
   height: 94px;
-  border: 3px solid color-mix(in srgb, var(--gold-luxury) 75%, transparent);
+  border: 3px solid color-mix(in srgb, var(--signal) 75%, transparent);
   border-radius: 50%;
 }
 .identityCard h2 {
@@ -159,7 +151,7 @@
 }
 .identityEmail {
   margin: 5px 0 16px;
-  color: color-mix(in srgb, var(--ivory-pure) 62%, transparent);
+  color: color-mix(in srgb, var(--surface) 62%, transparent);
   text-align: center;
   font-size: 0.78rem;
   overflow-wrap: anywhere;
@@ -178,8 +170,8 @@
   font-weight: 800;
 }
 .roleBadge {
-  color: var(--green-dark);
-  background: var(--gold-luxury);
+  color: var(--ink);
+  background: var(--signal);
 }
 .approvalBadge {
   color: #c8f4dd;
@@ -205,12 +197,12 @@
 .snapshot span,
 .completeness span,
 .completeness small {
-  color: color-mix(in srgb, var(--ivory-pure) 58%, transparent);
+  color: color-mix(in srgb, var(--surface) 58%, transparent);
   font-size: 0.72rem;
 }
 .snapshot strong,
 .completeness strong {
-  color: var(--ivory-pure);
+  color: var(--surface);
   font-size: 0.75rem;
 }
 .completeness {
@@ -230,11 +222,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    115deg,
-    var(--gold-gradient-start),
-    var(--gold-gradient-end)
-  );
+  background: var(--signal);
 }
 .completeness small {
   display: block;
@@ -267,8 +255,8 @@
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  color: var(--gold-luxury);
-  background: color-mix(in srgb, var(--gold-luxury) 13%, transparent);
+  color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 13%, transparent);
   font-size: 1.1rem;
 }
 .sectionHeading h2 {
@@ -318,8 +306,8 @@
     box-shadow 0.2s ease;
 }
 .input:focus {
-  border-color: var(--gold-bronze);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold-bronze) 15%, transparent);
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 15%, transparent);
 }
 .phoneGrid {
   display: grid;
@@ -335,13 +323,9 @@
 }
 .primaryButton {
   border: 0;
-  color: var(--green-dark);
-  background: linear-gradient(
-    115deg,
-    var(--gold-gradient-start),
-    var(--gold-gradient-end)
-  );
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--gold-bronze) 22%, transparent);
+  color: white;
+  background: var(--signal);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--signal) 22%, transparent);
 }
 .primaryButton:disabled,
 .dangerButton:disabled {
@@ -457,8 +441,8 @@
 .loader {
   width: 30px;
   height: 30px;
-  border: 3px solid color-mix(in srgb, var(--gold-luxury) 25%, transparent);
-  border-top-color: var(--gold-luxury);
+  border: 3px solid color-mix(in srgb, var(--signal) 25%, transparent);
+  border-top-color: var(--signal);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

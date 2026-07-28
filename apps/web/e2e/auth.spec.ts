@@ -7,7 +7,7 @@ test.describe("Authentication Flow", () => {
     const fixtures = await readE2EFixtures();
     const testEmail = `playwright-${fixtures.runId}-registration@mrh-academy.example`;
     const password = "Browser-registration-2026!";
-    await page.goto("/register");
+    await page.goto("/en/sign-up");
     await page.waitForLoadState("networkidle");
 
     await page.fill('input[name="firstName"]', "QA");
@@ -16,12 +16,12 @@ test.describe("Authentication Flow", () => {
     await page.fill('input[name="password"]', password);
     await page.fill('input[name="confirmPassword"]', password);
 
-    await page.click('button[type="submit"]');
+    await page.getByRole("button", { name: "Create account" }).click();
 
-    await expect(page).toHaveURL(/\/verify-email/);
-    await expect(page).toHaveURL(
-      new RegExp(`email=${encodeURIComponent(testEmail)}`),
-    );
+    await expect(page.getByText("Check your email")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Return to sign in" }),
+    ).toBeVisible();
   });
 
   test("should login with a provisioned admin account", async ({ page }) => {
@@ -34,15 +34,15 @@ test.describe("Authentication Flow", () => {
 
   test("should show validation errors on invalid login", async ({ page }) => {
     await page.context().clearCookies();
-    await page.goto("/login");
+    await page.goto("/en/sign-in");
     await page.waitForLoadState("networkidle");
 
     await page.fill('input[name="email"]', "invalid@mrh-academy.example");
     await page.fill('input[name="password"]', "Wrong-password-2026!");
 
-    await page.locator('button[type="submit"]').click();
+    await page.getByRole("button", { name: "Sign in" }).click();
 
-    // Should stay on login page (not redirect to dashboard)
-    await expect(page).toHaveURL(/\/login/);
+    await expect(page).toHaveURL(/\/en\/sign-in/);
+    await expect(page.getByRole("alert")).toBeVisible();
   });
 });

@@ -14,18 +14,18 @@ test.describe("Client Deliverables — Public", () => {
   });
 
   test("login page loads", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/en/sign-in");
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
   });
 
   test("register page loads", async ({ page }) => {
-    await page.goto("/register");
+    await page.goto("/en/sign-up");
     await expect(page.locator('input[name="email"]')).toBeVisible();
   });
 
   test("vocabulary page loads", async ({ page }) => {
-    await page.goto("/vocabulary");
+    await page.goto("/en/learn/words");
     await expect(page.locator("body")).toBeVisible();
   });
 });
@@ -36,22 +36,12 @@ test.describe("Client Deliverables — Student", () => {
   });
 
   test("student dashboard tabs", async ({ page }) => {
-    await expect(
-      page.locator("text=Discover").or(page.locator("text=اكتشف")).first(),
-    ).toBeVisible({ timeout: 10000 });
-    await page
-      .locator("text=Messages")
-      .or(page.locator("text=الرسائل"))
-      .first()
-      .click();
-    await page
-      .locator("text=Settings")
-      .or(page.locator("text=الإعدادات"))
-      .first()
-      .click();
-    await expect(
-      page.locator("text=Settings").or(page.locator("text=الإعدادات")).first(),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Today" })).toBeVisible();
+    await page.getByRole("link", { name: "Messages" }).click();
+    await expect(page).toHaveURL(/\/en\/messages$/);
+    await page.goto("/en/learn");
+    await page.getByRole("link", { name: "Vocabulary" }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/words$/);
   });
 
   test("book lesson page accessible", async ({ page }) => {
@@ -71,12 +61,12 @@ test.describe("Client Deliverables — Tutor", () => {
   });
 
   test("tutor dashboard sections", async ({ page }) => {
-    await expect(
-      page.getByRole("button", { name: /^(Dashboard|لوحة التحكم)$/i }),
-    ).toBeVisible({ timeout: 10000 });
-    await page.getByRole("button", { name: /^(Messages|الرسائل)$/i }).click();
-    await page.getByRole("button", { name: /^(Students|الطلاب)$/i }).click();
-    await page.getByRole("button", { name: /^(Settings|الإعدادات)$/i }).click();
+    await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
+    await page.getByRole("link", { name: "Messages" }).click();
+    await expect(page).toHaveURL(/\/en\/messages$/);
+    await page.goto("/en/teach");
+    await page.getByRole("link", { name: "Students" }).click();
+    await expect(page).toHaveURL(/\/en\/teach\/students$/);
   });
 
   test("tutor availability page", async ({ page }) => {
@@ -106,6 +96,6 @@ test.describe("Client Deliverables — Become Teacher", () => {
   test("redirects unauthenticated users to login", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("/become-teacher");
-    await expect(page).toHaveURL(/\/login/, { timeout: 15000 });
+    await expect(page).toHaveURL(/\/en\/sign-in/, { timeout: 15000 });
   });
 });

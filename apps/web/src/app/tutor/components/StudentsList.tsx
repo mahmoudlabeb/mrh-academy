@@ -1,13 +1,18 @@
-'use client';
+﻿"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
-import { useLanguage } from '@/contexts/language-context';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api-client";
+import { useLanguage } from "@/contexts/language-context";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 type StudentInfo = {
-  user: { id: string; firstName: string; lastName: string; avatarUrl: string | null };
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+  };
   lessonCount: number;
   totalHours: number;
 };
@@ -15,14 +20,14 @@ type StudentInfo = {
 export default function StudentsList() {
   const { lang } = useLanguage();
   const router = useRouter();
-  const isAr = lang === 'ar';
+  const isAr = lang === "ar";
 
-  const t = (ar: string, en: string) => isAr ? ar : en;
+  const t = (ar: string, en: string) => (isAr ? ar : en);
 
   const { data: students = [], isLoading } = useQuery<StudentInfo[]>({
-    queryKey: ['tutor', 'students'],
+    queryKey: ["tutor", "students"],
     queryFn: async () => {
-      const { data } = await apiClient.get('/tutors/me/students');
+      const { data } = await apiClient.get("/tutors/me/students");
       return data;
     },
   });
@@ -49,45 +54,108 @@ export default function StudentsList() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-main)' }}>{t('الطلاب', 'Students')}</h2>
-        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{t('الطلاب الذين حجزوا دروسًا معك.', 'Students who have booked lessons with you.')}</p>
+        <h2
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-main)" }}
+        >
+          {t("الطلاب", "Students")}
+        </h2>
+        <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+          {t(
+            "الطلاب الذين حجزوا دروسًا معك.",
+            "Students who have booked lessons with you.",
+          )}
+        </p>
       </div>
 
       <div className="space-y-3">
         {students.length === 0 ? (
           <div className="card-dark p-12 text-center">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('لا يوجد طلاب بعد', 'No students yet')}</p>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              {t("لا يوجد طلاب بعد", "No students yet")}
+            </p>
           </div>
         ) : (
           students.map((student) => (
-            <div key={student.user.id} className="card-dark p-4 flex items-center gap-4 hover:translate-y-0">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0" style={{ background: 'rgba(212, 163, 83,0.15)', color: 'var(--primary-color)' }}>
+            <div
+              key={student.user.id}
+              className="card-dark p-4 flex items-center gap-4 hover:translate-y-0"
+            >
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 15%, transparent)",
+                  color: "var(--primary-color)",
+                }}
+              >
                 {student.user.avatarUrl ? (
-                  <Image src={student.user.avatarUrl} alt="" width={48} height={48} className="w-full h-full rounded-full object-cover" />
+                  <Image
+                    src={student.user.avatarUrl}
+                    alt=""
+                    width={48}
+                    height={48}
+                    className="w-full h-full rounded-full object-cover"
+                  />
                 ) : (
-                  (student.user.firstName?.[0] ?? '?')
+                  (student.user.firstName?.[0] ?? "?")
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold" style={{ color: 'var(--text-main)' }}>{student.user.firstName} {student.user.lastName}</p>
+                <p
+                  className="font-semibold"
+                  style={{ color: "var(--text-main)" }}
+                >
+                  {student.user.firstName} {student.user.lastName}
+                </p>
                 <div className="flex items-center gap-4 mt-1">
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {t('الدروس:', 'Lessons:')} <span className="font-medium" style={{ color: 'var(--text-main)' }}>{student.lessonCount}</span>
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {t("الدروس:", "Lessons:")}{" "}
+                    <span
+                      className="font-medium"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      {student.lessonCount}
+                    </span>
                   </span>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {t('الساعات:', 'Hours:')} <span className="font-medium" style={{ color: 'var(--text-main)' }}>{student.totalHours.toFixed(1)}</span>
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {t("الساعات:", "Hours:")}{" "}
+                    <span
+                      className="font-medium"
+                      style={{ color: "var(--text-main)" }}
+                    >
+                      {student.totalHours.toFixed(1)}
+                    </span>
                   </span>
                 </div>
               </div>
               <button
                 type="button"
-                className="btn-outline-gold text-xs px-3 py-1.5"
-                onClick={() => router.push(`/tutor?tab=messages&with=${student.user.id}`)}
+                className="btn-outline-signal text-xs px-3 py-1.5"
+                onClick={() =>
+                  router.push(`/${lang}/messages/${student.user.id}`)
+                }
               >
-                <svg className="w-3.5 h-3.5 ms-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                <svg
+                  className="w-3.5 h-3.5 ms-1"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
+                  />
                 </svg>
-                {t('تواصل', 'Contact')}
+                {t("تواصل", "Contact")}
               </button>
             </div>
           ))

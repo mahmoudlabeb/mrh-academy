@@ -56,7 +56,13 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
         migrationsRun: false,
       }),
     }),
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: Number(process.env.THROTTLE_TTL_MS ?? 60000),
+        limit: Number(process.env.THROTTLE_LIMIT ?? 100),
+      },
+    ]),
     ScheduleModule.forRoot(),
     RedisModule,
     AuthModule,

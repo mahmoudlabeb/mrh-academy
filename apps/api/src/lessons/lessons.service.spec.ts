@@ -726,6 +726,38 @@ describe('LessonsService', () => {
     });
   });
 
+  describe('findByRoomId', () => {
+    it('uses the native room id first and keeps legacy meet-url compatibility', async () => {
+      const lesson = {
+        id: 'lesson-1',
+        roomId: 'native-room-1',
+        meetUrl: 'native-room-1',
+        studentId: 'student-1',
+        tutorId: 'tutor-1',
+        status: LessonStatus.CONFIRMED,
+        tutor: {},
+        student: {},
+      };
+      lessonRepository.findOne.mockResolvedValue(lesson);
+      classroomRepository.findOne.mockResolvedValue({
+        lessonId: lesson.id,
+        isActive: true,
+      });
+
+      await expect(
+        service.findByRoomId('native-room-1', 'student-1'),
+      ).resolves.toEqual(lesson);
+      expect(lessonRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: [
+            { roomId: 'native-room-1' },
+            { meetUrl: 'native-room-1' },
+          ],
+        }),
+      );
+    });
+  });
+
   describe('findLessonForParticipant', () => {
     it('returns lesson for a participant when classroom is active', async () => {
       const lesson = {

@@ -7,20 +7,20 @@ test.describe("AI Vocabulary Tool", () => {
   });
 
   test("should display vocabulary page", async ({ page }) => {
-    await page.goto("/vocabulary");
+    await page.goto("/en/learn/words");
 
     await expect(
       page
-        .locator("text=AI Vocabulary")
-        .or(page.locator("text=المفردات الذكي")),
+        .locator("text=AI Vocabulary Assistant")
+        .or(page.locator("text=قاموس المفردات الذكي")),
     ).toBeVisible({ timeout: 10000 });
   });
 
   test("should have search input", async ({ page }) => {
-    await page.goto("/vocabulary");
+    await page.goto("/en/learn/words");
 
     const searchInput = page.locator(
-      'input[placeholder*="word"], input[placeholder*="كلمة"]',
+      'input[placeholder*="Enter a word"], input[placeholder*="اكتب كلمة"]',
     );
     await expect(searchInput).toBeVisible({ timeout: 5000 });
   });

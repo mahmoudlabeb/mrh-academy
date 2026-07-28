@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, type ReactNode, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
+import { FocusDecisionStrip } from "@/components/shared/FocusDecisionStrip";
 
 function PanelLoader() {
   const { lang } = useLanguage();
@@ -196,17 +197,20 @@ function StudentDashboardContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 stagger-children">
             <Link
               href="/student/discover"
-              className="card-gold p-8 group animate-slide-up"
+              className="focus-card p-8 group animate-slide-up"
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all group-hover:scale-110"
-                style={{ background: "rgba(212, 163, 83,0.15)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 15%, transparent)",
+                }}
               >
                 <svg
                   className="w-7 h-7"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#D4A353"
+                  stroke="var(--signal)"
                 >
                   <path
                     strokeLinecap="round"
@@ -254,18 +258,21 @@ function StudentDashboardContent() {
             </Link>
             <Link
               href="/student/discover?sort=asc"
-              className="card-gold p-8 group animate-slide-up"
+              className="focus-card p-8 group animate-slide-up"
               style={{ animationDelay: "0.1s" }}
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all group-hover:scale-110"
-                style={{ background: "rgba(212, 163, 83,0.15)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 15%, transparent)",
+                }}
               >
                 <svg
                   className="w-7 h-7"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#D4A353"
+                  stroke="var(--signal)"
                 >
                   <path
                     strokeLinecap="round"
@@ -313,18 +320,21 @@ function StudentDashboardContent() {
             </Link>
             <Link
               href="/student/discover?sort=desc"
-              className="card-gold p-8 group animate-slide-up"
+              className="focus-card p-8 group animate-slide-up"
               style={{ animationDelay: "0.2s" }}
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 transition-all group-hover:scale-110"
-                style={{ background: "rgba(212, 163, 83,0.15)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 15%, transparent)",
+                }}
               >
                 <svg
                   className="w-7 h-7"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#D4A353"
+                  stroke="var(--signal)"
                 >
                   <path
                     strokeLinecap="round"
@@ -392,21 +402,27 @@ function StudentDashboardContent() {
               <Link
                 href="/"
                 className="logo text-lg md:text-xl font-extrabold tracking-tight"
-                style={{ color: "#D4A353", fontFamily: "'Inter', sans-serif" }}
+                style={{
+                  color: "var(--signal)",
+                  fontFamily: "'Inter', sans-serif",
+                }}
               >
                 MR.H
               </Link>
               <div
                 className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg"
-                style={{ background: "rgba(212, 163, 83,0.12)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 12%, transparent)",
+                }}
               >
                 <span
                   className="text-sm font-bold"
-                  style={{ color: "#D4A353" }}
+                  style={{ color: "var(--signal)" }}
                 >
                   {balance?.balance ?? "0.00"}
                 </span>
-                <span className="text-xs" style={{ color: "#E4CC9C" }}>
+                <span className="text-xs" style={{ color: "var(--ink-muted)" }}>
                   {t("رصيد", "Credits")}
                 </span>
               </div>
@@ -429,7 +445,7 @@ function StudentDashboardContent() {
                   className="w-5 h-5"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#FFFFF0"
+                  stroke="var(--focus-ink)"
                 >
                   <path
                     strokeLinecap="round"
@@ -439,7 +455,7 @@ function StudentDashboardContent() {
                   />
                 </svg>
                 {(notifData?.count ?? 0) > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-[var(--danger)] text-white text-[10px] font-bold flex items-center justify-center">
                     {(notifData?.count ?? 0) > 9 ? "9+" : notifData?.count}
                   </span>
                 )}
@@ -455,7 +471,7 @@ function StudentDashboardContent() {
                   className="w-5 h-5"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#FFFFF0"
+                  stroke="var(--focus-ink)"
                 >
                   <path
                     strokeLinecap="round"
@@ -465,7 +481,7 @@ function StudentDashboardContent() {
                   />
                 </svg>
                 {(msgUnread?.count ?? 0) > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-[var(--danger)] text-white text-[10px] font-bold flex items-center justify-center">
                     {(msgUnread?.count ?? 0) > 9 ? "9+" : msgUnread?.count}
                   </span>
                 )}
@@ -473,7 +489,7 @@ function StudentDashboardContent() {
 
               <button
                 onClick={toggleLanguage}
-                className="px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5 text-[#FFFFF0]"
+                className="px-2.5 py-1.5 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5 text-[var(--focus-ink)]"
               >
                 {lang === "ar" ? "EN" : "AR"}
               </button>
@@ -497,7 +513,7 @@ function StudentDashboardContent() {
                     className="w-5 h-5"
                     fill="none"
                     viewBox="0 0 24 24"
-                    stroke="#FFFFF0"
+                    stroke="var(--focus-ink)"
                   >
                     <path
                       strokeLinecap="round"
@@ -511,7 +527,7 @@ function StudentDashboardContent() {
                     className="w-5 h-5"
                     fill="none"
                     viewBox="0 0 24 24"
-                    stroke="#FFFFF0"
+                    stroke="var(--focus-ink)"
                   >
                     <path
                       strokeLinecap="round"
@@ -530,7 +546,7 @@ function StudentDashboardContent() {
                 >
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                    style={{ background: "#D4A353" }}
+                    style={{ background: "var(--signal)" }}
                   >
                     {user?.firstName?.[0] || "U"}
                   </div>
@@ -538,7 +554,7 @@ function StudentDashboardContent() {
                     className="w-3.5 h-3.5"
                     fill="none"
                     viewBox="0 0 24 24"
-                    stroke="#E4CC9C"
+                    stroke="var(--ink-muted)"
                   >
                     <path
                       strokeLinecap="round"
@@ -629,7 +645,7 @@ function StudentDashboardContent() {
                           logout();
                         }}
                         className="w-full text-right px-4 py-2.5 text-sm hover:bg-white/5 transition-colors flex items-center gap-2"
-                        style={{ color: "#ef4444" }}
+                        style={{ color: "var(--danger)" }}
                       >
                         <svg
                           className="w-4 h-4"
@@ -670,7 +686,7 @@ function StudentDashboardContent() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative ${
                   activeTab === tab.key
-                    ? "text-[#D4A353]"
+                    ? "text-[var(--signal)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
                 }`}
               >
@@ -679,7 +695,7 @@ function StudentDashboardContent() {
                 {activeTab === tab.key && (
                   <span
                     className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
-                    style={{ background: "#D4A353" }}
+                    style={{ background: "var(--signal)" }}
                   />
                 )}
               </button>
@@ -689,6 +705,39 @@ function StudentDashboardContent() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {activeTab === "discover" && (
+          <FocusDecisionStrip
+            eyebrow={t("اليوم", "Today")}
+            title={t(
+              `مرحبًا ${user?.firstName ?? ""}`,
+              `Welcome, ${user?.firstName ?? ""}`,
+            )}
+            description={t(
+              "اختر خطوتك التالية. الأرقام هنا من حالة حسابك الحالية.",
+              "Choose your next step. These figures reflect your current account state.",
+            )}
+            facts={[
+              {
+                label: t("الرصيد", "Wallet"),
+                value: <bdi>${balance?.balance ?? "0.00"}</bdi>,
+                tone: "success",
+              },
+              {
+                label: t("غير مقروء", "Unread"),
+                value: (notifData?.count ?? 0) + (msgUnread?.count ?? 0),
+                tone:
+                  (notifData?.count ?? 0) + (msgUnread?.count ?? 0) > 0
+                    ? "attention"
+                    : "neutral",
+              },
+            ]}
+            action={
+              <Link className="btn-primary" href="/student/lessons">
+                {t("عرض دروسي", "View my lessons")}
+              </Link>
+            }
+          />
+        )}
         <div className="animate-fade-in" key={activeTab}>
           {renderContent()}
         </div>

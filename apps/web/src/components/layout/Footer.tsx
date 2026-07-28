@@ -2,41 +2,48 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { DirectionalArrow } from "@/components/shared/DirectionalArrow";
 
 export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
   const { lang } = useLanguage();
   const activeLanguage = language ?? lang;
   const isAr = activeLanguage === "ar";
+  const base = `/${activeLanguage}`;
+  const localize = (path: string) => `${base}${path}`;
   const groups = [
     {
       title: isAr ? "الأكاديمية" : "Academy",
       links: [
-        { label: isAr ? "الدورات" : "Courses", href: "/courses" },
+        { label: isAr ? "الدورات" : "Courses", href: localize("/courses") },
         {
-          label: isAr ? "ابحث عن معلم" : "Find a tutor",
-          href: "/student/discover",
+          label: isAr ? "ابحث عن معلّم" : "Find a tutor",
+          href: localize("/tutors"),
         },
         {
-          label: isAr ? "كن معلمًا" : "Become a tutor",
-          href: "/become-teacher",
+          label: isAr ? "كن معلّمًا" : "Become a tutor",
+          href: localize("/become-a-tutor"),
         },
         {
-          label: isAr ? "تدريب المعلمين" : "Tutor training",
-          href: "/teacher-training",
-        },
-        {
-          label: isAr ? "تدريب الشركات" : "Corporate training",
-          href: "/corporate-training",
+          label: isAr ? "موارد المعلّمين" : "Tutor resources",
+          href: localize("/resources"),
         },
       ],
     },
     {
       title: isAr ? "المساعدة" : "Support",
       links: [
-        { label: isAr ? "مركز المساعدة" : "Help center", href: "/help" },
-        { label: isAr ? "الأسئلة الشائعة" : "FAQ", href: "/faq" },
-        { label: isAr ? "سياسة الخصوصية" : "Privacy policy", href: "/privacy" },
-        { label: isAr ? "شروط الاستخدام" : "Terms of use", href: "/terms" },
+        {
+          label: isAr ? "مركز المساعدة" : "Help center",
+          href: localize("/help"),
+        },
+        {
+          label: isAr ? "سياسة الخصوصية" : "Privacy policy",
+          href: "/privacy",
+        },
+        {
+          label: isAr ? "شروط الاستخدام" : "Terms of use",
+          href: "/terms",
+        },
       ],
     },
   ];
@@ -48,32 +55,27 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
       dir={isAr ? "rtl" : "ltr"}
     >
       <div className="academy-footer-rule" aria-hidden="true">
-        <span>MR.H ACADEMY</span>
+        <span>MRH ACADEMY</span>
         <i />
       </div>
       <div className="academy-footer-inner">
         <div className="academy-footer-brand">
-          <Link href={isAr ? "/" : "/en"} className="academy-brand">
-            <span
-              className="academy-crest academy-crest-light"
-              aria-hidden="true"
-            >
-              <b>H</b>
-              <small>ACADEMY</small>
+          <Link href={base} className="academy-brand">
+            <span className="academy-crest academy-crest-light" aria-hidden="true">
+              <b>M</b>
             </span>
             <span className="academy-wordmark">
-              <strong>Mr.H</strong>
-              <small>{isAr ? "أكاديمية اللغات" : "LANGUAGE ACADEMY"}</small>
+              <strong>MRH Academy</strong>
             </span>
           </Link>
           <p>
             {isAr
-              ? "تعليم لغات شخصي يجمعك بمعلمين موثوقين، أينما كنت."
-              : "Personal language learning with trusted tutors, wherever you are."}
+              ? "تعلّم اللغات مع معلّمين معتمدين داخل تجربة آمنة ومتكاملة."
+              : "Personal language learning with approved tutors in a secure, complete experience."}
           </p>
-          <Link href="/student/discover" className="academy-footer-cta">
-            {isAr ? "اكتشف معلمك" : "Discover your tutor"}{" "}
-            <span aria-hidden="true">↗</span>
+          <Link href={localize("/tutors")} className="academy-footer-cta">
+            {isAr ? "اكتشف معلّمك" : "Discover your tutor"}{" "}
+            <DirectionalArrow diagonal />
           </Link>
         </div>
         {groups.map((group) => (
@@ -100,10 +102,12 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
       </div>
       <div className="academy-footer-bottom">
         <p>
-          © {new Date().getFullYear()} Mr.H Academy.{" "}
+          © {new Date().getFullYear()} MRH Academy.{" "}
           {isAr ? "جميع الحقوق محفوظة." : "All rights reserved."}
         </p>
-        <p>{isAr ? "تعليم يصنع أثرًا" : "Learning that moves you forward"}</p>
+        <p>
+          {isAr ? "تعلّم يصنع أثرًا" : "Learning that moves you forward"}
+        </p>
       </div>
     </footer>
   );

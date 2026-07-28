@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -227,7 +227,7 @@ export default function BecomeTeacherWizard() {
             <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
               {t(
                 "ارفع شهادة أو سيرة ذاتية بصيغة PDF أو Word (اختياري)",
-                "Upload a certificate or résumé as PDF or Word (optional)",
+                "Upload a certificate or rأ©sumأ© as PDF or Word (optional)",
               )}
             </p>
             <div className="mt-4">
@@ -273,7 +273,7 @@ export default function BecomeTeacherWizard() {
                   onClick={() =>
                     setCertificates((c) => c.filter((_, idx) => idx !== i))
                   }
-                  className="btn-secondary px-3 text-red-500"
+                  className="btn-secondary px-3 text-[var(--danger)]"
                 >
                   {t("إزالة", "Remove")}
                 </button>
@@ -321,7 +321,7 @@ export default function BecomeTeacherWizard() {
                   onClick={() =>
                     setEducation((e) => e.filter((_, idx) => idx !== i))
                   }
-                  className="btn-secondary px-3 text-red-500"
+                  className="btn-secondary px-3 text-[var(--danger)]"
                 >
                   {t("إزالة", "Remove")}
                 </button>
@@ -499,7 +499,7 @@ export default function BecomeTeacherWizard() {
                 />
                 <span
                   className="font-bold text-xl"
-                  style={{ color: "#D4A353" }}
+                  style={{ color: "var(--signal)" }}
                 >
                   ${hourlyRate}
                 </span>
@@ -508,7 +508,10 @@ export default function BecomeTeacherWizard() {
             {submitError && (
               <div
                 className="text-sm p-3 rounded mt-4"
-                style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                style={{
+                  background: "var(--danger-soft)",
+                  color: "var(--danger)",
+                }}
               >
                 {submitError}
               </div>
@@ -524,13 +527,16 @@ export default function BecomeTeacherWizard() {
     <div className="min-h-screen" style={{ background: "var(--bg-main)" }}>
       <div className="dashboard-header">
         <div className="max-w-3xl mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold" style={{ color: "#FFFFF0" }}>
+          <h1
+            className="text-3xl font-bold"
+            style={{ color: "var(--focus-ink)" }}
+          >
             {t("كن معلمًا", "Become a tutor")}
           </h1>
           <Link
             href="/"
             className="btn-secondary px-4 py-2 text-sm text-white"
-            style={{ borderColor: "#1D535B" }}
+            style={{ borderColor: "var(--ink-muted)" }}
           >
             {t("إلغاء", "Cancel")}
           </Link>
@@ -542,7 +548,7 @@ export default function BecomeTeacherWizard() {
           <div className="flex justify-between items-center mb-2">
             <span
               className="text-sm font-semibold"
-              style={{ color: "#D4A353" }}
+              style={{ color: "var(--signal)" }}
             >
               {t(`الخطوة ${step} من 8`, `Step ${step} of 8`)}
             </span>
@@ -556,7 +562,10 @@ export default function BecomeTeacherWizard() {
           >
             <div
               className="h-full transition-all duration-300"
-              style={{ width: `${(step / 8) * 100}%`, background: "#D4A353" }}
+              style={{
+                width: `${(step / 8) * 100}%`,
+                background: "var(--signal)",
+              }}
             />
           </div>
         </div>

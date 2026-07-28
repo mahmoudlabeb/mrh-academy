@@ -1,26 +1,18 @@
 import { test, expect } from "@playwright/test";
+import { loginAs } from "./helpers/auth";
 
 test.describe("Tutor Onboarding", () => {
-  // No unused variables here
-
-  test("should navigate to become-teacher page and see the form", async ({
-    page,
-  }) => {
-    await page.goto("/become-teacher");
-
-    await expect(page.locator("h1, h2").first()).toBeVisible({
-      timeout: 10000,
-    });
+  test("should route visitors to sign in", async ({ page }) => {
+    await page.goto("/en/become-a-tutor");
+    await expect(page).toHaveURL(/\/en\/sign-in/);
   });
 
-  test("should require login to submit application", async ({ page }) => {
-    await page.context().clearCookies();
-    await page.goto("/become-teacher");
-
-    const currentUrl = page.url();
-    if (!currentUrl.includes("login")) {
-      await page.goto("/login?intent=tutor");
-      await expect(page).toHaveURL(/\/login/);
-    }
+  test("should show the application wizard to a learner", async ({ page }) => {
+    await loginAs(page, "student");
+    await page.goto("/en/become-a-tutor");
+    await expect(
+      page.getByRole("heading", { name: "Become a tutor" }),
+    ).toBeVisible();
+    await expect(page.getByText("Step 1 of 8")).toBeVisible();
   });
 });

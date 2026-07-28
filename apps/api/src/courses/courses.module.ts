@@ -10,10 +10,12 @@ import { CoursesController } from './courses.controller.js';
 import { CoursesService } from './courses.service.js';
 import { BunnyService } from '../integrations/video/bunny.service.js';
 import { PaymentsModule } from '../payments/payments.module.js';
+import { StorageModule } from '../integrations/storage/storage.module.js';
 
 @Module({
   imports: [
     PaymentsModule,
+    StorageModule,
     TypeOrmModule.forFeature([
       Course,
       CourseEnrollment,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import Link from "next/link";
@@ -25,11 +25,13 @@ export default function TutorProfileError({
       <div className="card max-w-md w-full p-8 text-center animate-fade-in">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ background: "rgba(212, 163, 83, 0.1)" }}
+          style={{
+            background: "color-mix(in srgb, var(--signal) 10%, transparent)",
+          }}
         >
           <svg
             className="w-8 h-8"
-            style={{ color: "#D4A353" }}
+            style={{ color: "var(--signal)" }}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

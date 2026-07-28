@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useLanguage } from "@/contexts/language-context";
 import Navbar from "@/components/layout/Navbar";
@@ -102,7 +102,7 @@ export default function HelpPage() {
           <a
             href="mailto:hello@mrhacademy.com"
             className="text-sm font-semibold mt-2 inline-block"
-            style={{ color: "#D4A353" }}
+            style={{ color: "var(--signal)" }}
           >
             hello@mrhacademy.com
           </a>

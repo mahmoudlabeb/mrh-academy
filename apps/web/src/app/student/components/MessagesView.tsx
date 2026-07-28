@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
@@ -228,11 +228,17 @@ export default function MessagesView({
               ))}
             </div>
           ) : contactsError ? (
-            <p className="p-5 text-sm text-center text-red-500" role="alert">
+            <p
+              className="p-5 text-sm text-center text-[var(--danger)]"
+              role="alert"
+            >
               {t("تعذر تحميل المحادثات.", "Could not load conversations.")}
             </p>
           ) : targetError && targetTutorId && visibleContacts.length === 0 ? (
-            <p className="p-5 text-sm text-center text-red-500" role="alert">
+            <p
+              className="p-5 text-sm text-center text-[var(--danger)]"
+              role="alert"
+            >
               {t(
                 "تعذر تحميل بيانات المعلم المحدد.",
                 "Could not load the selected tutor.",
@@ -257,17 +263,17 @@ export default function MessagesView({
                 style={{
                   background:
                     selectedUserId === contact.user.id
-                      ? "rgba(212, 163, 83,0.08)"
+                      ? "color-mix(in srgb, var(--signal) 8%, transparent)"
                       : "transparent",
                   borderInlineEnd:
                     selectedUserId === contact.user.id
-                      ? "3px solid #D4A353"
+                      ? "3px solid var(--signal)"
                       : "3px solid transparent",
                 }}
               >
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden"
-                  style={{ background: "#D4A353", color: "#0F3A40" }}
+                  style={{ background: "var(--signal)", color: "var(--ink)" }}
                 >
                   {contact.user.avatarUrl ? (
                     <Image
@@ -314,7 +320,10 @@ export default function MessagesView({
                     {contact.unreadCount > 0 && (
                       <span
                         className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        style={{ background: "#D4A353", color: "#0F3A40" }}
+                        style={{
+                          background: "var(--signal)",
+                          color: "var(--ink)",
+                        }}
                       >
                         {contact.unreadCount}
                       </span>
@@ -339,7 +348,7 @@ export default function MessagesView({
             >
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm overflow-hidden"
-                style={{ background: "#D4A353", color: "#0F3A40" }}
+                style={{ background: "var(--signal)", color: "var(--ink)" }}
               >
                 {activeContact.user.avatarUrl ? (
                   <Image
@@ -414,8 +423,10 @@ export default function MessagesView({
                           isMine ? "rounded-br-md" : "rounded-bl-md"
                         }`}
                         style={{
-                          background: isMine ? "#D4A353" : "var(--bg-light)",
-                          color: isMine ? "#0F3A40" : "var(--text-main)",
+                          background: isMine
+                            ? "var(--signal)"
+                            : "var(--bg-light)",
+                          color: isMine ? "var(--ink)" : "var(--text-main)",
                         }}
                       >
                         <p>{message.content}</p>
@@ -471,7 +482,7 @@ export default function MessagesView({
                 </button>
               </div>
               {sendError && (
-                <p className="mt-2 text-xs text-red-500" role="alert">
+                <p className="mt-2 text-xs text-[var(--danger)]" role="alert">
                   {sendError}
                 </p>
               )}

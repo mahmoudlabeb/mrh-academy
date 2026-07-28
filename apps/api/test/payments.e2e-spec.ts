@@ -25,6 +25,17 @@ import { authenticateUser } from './isolated-fixtures.js';
 import { PaymentMethodConfig } from '../src/payments/entities/payment-method-config.entity.js';
 import { EmailService } from '../src/integrations/email/email.service.js';
 import { EmailServiceMock } from './email.mock.js';
+import { PayPalService } from '../src/payments/paypal/paypal.service.js';
+
+const payPalServiceMock = {
+  isConfigured: jest.fn(() => true),
+  createOrder: jest.fn(async () => ({
+    orderId: 'PAYPAL-E2E-ORDER',
+    approvalUrl:
+      'https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-E2E-ORDER',
+  })),
+  captureOrder: jest.fn(async () => 'PAYPAL-E2E-CAPTURE'),
+};
 
 function futureDayIso(daysAhead = 1): string {
   const date = new Date();
@@ -61,6 +72,8 @@ describe('Payments & Booking Flow (e2e)', () => {
       .useClass(RedisServiceMock)
       .overrideProvider(EmailService)
       .useClass(EmailServiceMock)
+      .overrideProvider(PayPalService)
+      .useValue(payPalServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -190,14 +203,20 @@ describe('Payments & Booking Flow (e2e)', () => {
     await app.close();
   });
 
-  it('Student PayPal top-up is auto-approved and credits balance', async () => {
+  it('credits a PayPal top-up only after verified server-side capture', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/payments/submit')
       .set('Authorization', `Bearer ${studentToken}`)
       .send({ amount: 1500, method: 'paypal' });
     if (res.status !== 201) console.error(res.body);
     expect(res.status).toBe(201);
-    expect(res.body.payment.status).toBe('approved');
+    expect(res.body.payment.status).toBe('pending');
+    expect(res.body.checkoutUrl).toContain('sandbox.paypal.com');
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/payments/paypal/${res.body.payment.id}/capture`)
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(201);
 
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },

@@ -1,9 +1,9 @@
-.page {
+﻿.page {
   min-height: 100vh;
   background:
     radial-gradient(
       circle at 12% 12%,
-      rgba(212, 163, 83, 0.08),
+      color-mix(in srgb, var(--signal) 8%, transparent),
       transparent 24rem
     ),
     var(--surface-canvas);
@@ -64,7 +64,7 @@
 
 .wordmark small {
   max-width: 42px;
-  border-inline-start: 1px solid var(--gold-rule);
+  border-inline-start: 1px solid var(--border-strong);
   padding-inline-start: 8px;
   font-size: 0.42rem;
   letter-spacing: 0.17em;
@@ -82,12 +82,12 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 28px 36px;
   overflow: hidden;
-  border: 1px solid rgba(228, 204, 156, 0.26);
+  border: 1px solid var(--border);
   border-radius: 28px;
   padding: clamp(24px, 4vw, 48px);
-  background: var(--green-dark);
-  box-shadow: 0 24px 70px rgba(15, 58, 64, 0.18);
-  color: var(--ivory-pure);
+  background: var(--ink);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--surface);
 }
 
 .heroGlow {
@@ -95,9 +95,9 @@
   inset: auto -90px -145px auto;
   width: 360px;
   height: 360px;
-  border: 1px solid rgba(228, 204, 156, 0.16);
+  border: 1px solid var(--border);
   border-radius: 50%;
-  box-shadow: 0 0 0 70px rgba(228, 204, 156, 0.025);
+  box-shadow: 0 0 0 70px color-mix(in srgb, var(--signal) 2%, transparent);
   pointer-events: none;
 }
 
@@ -118,9 +118,9 @@
   overflow: visible;
   border: 3px solid rgba(255, 255, 240, 0.88);
   border-radius: 50%;
-  background: var(--gold-bronze);
-  box-shadow: 0 0 0 8px rgba(228, 204, 156, 0.13);
-  color: var(--green-dark);
+  background: var(--signal);
+  box-shadow: 0 0 0 8px var(--signal-soft);
+  color: var(--ink);
   font:
     800 clamp(2.2rem, 5vw, 3.5rem) var(--font-plus-jakarta),
     sans-serif;
@@ -138,7 +138,7 @@
   inset: auto 4px 8px auto;
   width: 18px;
   height: 18px;
-  border: 3px solid var(--green-dark);
+  border: 3px solid var(--ink);
   border-radius: 50%;
   background: #78a985;
 }
@@ -153,7 +153,7 @@
 
 .eyebrow,
 .bookingEyebrow {
-  color: var(--gold-luxury);
+  color: var(--signal);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -169,7 +169,7 @@
 
 .nameLine h1 {
   margin: 0;
-  color: var(--ivory-pure);
+  color: var(--surface);
   font-size: clamp(2rem, 5vw, 3.5rem);
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -183,8 +183,8 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
-  background: var(--gold-luxury);
-  color: var(--green-dark);
+  background: var(--signal);
+  color: var(--ink);
 }
 
 .verified svg {
@@ -193,7 +193,7 @@
 
 .specialization {
   margin: 10px 0 0;
-  color: var(--gold-light);
+  color: var(--signal-soft);
   font-size: 1.05rem;
 }
 
@@ -216,7 +216,7 @@
   min-width: 148px;
   align-self: center;
   flex-direction: column;
-  border-inline-start: 1px solid rgba(228, 204, 156, 0.24);
+  border-inline-start: 1px solid var(--border);
   padding-inline-start: 32px;
 }
 
@@ -228,7 +228,7 @@
 
 .ratePanel strong {
   margin: 4px 0;
-  color: var(--gold-luxury);
+  color: var(--signal);
   font:
     800 2.9rem/1 var(--font-plus-jakarta),
     sans-serif;
@@ -239,7 +239,7 @@
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border-block: 1px solid rgba(228, 204, 156, 0.18);
+  border-block: 1px solid var(--border);
   padding-block: 20px;
 }
 
@@ -249,7 +249,7 @@
   justify-content: center;
   gap: 11px;
   min-width: 0;
-  border-inline-end: 1px solid rgba(228, 204, 156, 0.18);
+  border-inline-end: 1px solid var(--border);
   padding-inline: 12px;
 }
 
@@ -264,8 +264,8 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 11px;
-  background: rgba(228, 204, 156, 0.1);
-  color: var(--gold-luxury);
+  background: color-mix(in srgb, var(--signal) 6%, transparent);
+  color: var(--signal);
 }
 
 .statIcon svg {
@@ -278,7 +278,7 @@
 }
 
 .stat strong {
-  color: var(--ivory-pure);
+  color: var(--surface);
   font:
     800 1.05rem var(--font-plus-jakarta),
     sans-serif;
@@ -312,11 +312,11 @@
 }
 
 .languages > div span {
-  border: 1px solid rgba(228, 204, 156, 0.28);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 5px 10px;
-  background: rgba(228, 204, 156, 0.08);
-  color: var(--gold-light);
+  background: color-mix(in srgb, var(--signal) 5%, transparent);
+  color: var(--signal-soft);
   font-size: 0.73rem;
   font-weight: 700;
 }
@@ -351,15 +351,15 @@
 }
 
 .primaryAction {
-  border: 1px solid var(--gold-bronze);
-  background: var(--gold-bronze);
-  color: var(--green-dark);
+  border: 1px solid var(--signal);
+  background: var(--signal);
+  color: var(--ink);
 }
 
 .secondaryAction {
-  border: 1px solid rgba(228, 204, 156, 0.3);
+  border: 1px solid var(--border-strong);
   background: rgba(255, 255, 240, 0.055);
-  color: var(--ivory-pure);
+  color: var(--surface);
 }
 
 .primaryAction:hover,
@@ -368,8 +368,8 @@
 }
 
 .secondaryAction:hover:not(:disabled) {
-  border-color: rgba(228, 204, 156, 0.62);
-  background: rgba(228, 204, 156, 0.11);
+  border-color: var(--signal);
+  background: var(--signal-soft);
 }
 
 .primaryAction svg,
@@ -437,7 +437,7 @@
 }
 
 .sectionHeading > div {
-  border-inline-start: 1px solid var(--gold-rule);
+  border-inline-start: 1px solid var(--border-strong);
   padding-inline-start: 16px;
 }
 
@@ -477,7 +477,7 @@
   width: 100%;
   max-height: 440px;
   border-radius: 14px;
-  background: var(--green-dark);
+  background: var(--ink);
 }
 
 .availabilityGrid {
@@ -534,14 +534,8 @@
 }
 
 .dayAvailable {
-  border-color: var(--gold-rule);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--primary-color) 8%, transparent),
-      transparent 52%
-    ),
-    var(--surface-raised);
+  border-color: var(--border-strong);
+  background: var(--signal-soft);
 }
 
 .dayAvailable::before {
@@ -593,7 +587,7 @@
 .nextBadge {
   align-self: flex-start;
   margin-top: 8px;
-  border: 1px solid var(--gold-rule);
+  border: 1px solid var(--border-strong);
   padding: 3px 7px;
   background: color-mix(in srgb, var(--primary-color) 12%, transparent);
   color: var(--primary-color);
@@ -612,7 +606,7 @@
   width: 7px;
   height: 7px;
   flex: 0 0 auto;
-  border: 1px solid var(--gold-rule);
+  border: 1px solid var(--border-strong);
   border-radius: 50%;
   background: transparent;
 }
@@ -644,7 +638,7 @@
 }
 
 .slotList span {
-  border: 1px solid var(--gold-rule);
+  border: 1px solid var(--border-strong);
   border-radius: 7px;
   padding: 7px 10px;
   background: color-mix(in srgb, var(--primary-color) 10%, transparent);
@@ -666,7 +660,7 @@
   justify-content: space-between;
   gap: 20px;
   margin-top: 16px;
-  border: 1px solid var(--gold-rule);
+  border: 1px solid var(--border-strong);
   border-radius: 13px;
   padding: 16px 18px;
   background: color-mix(in srgb, var(--primary-color) 7%, transparent);
@@ -692,8 +686,8 @@
   flex: 0 0 auto;
   border-radius: 9px;
   padding: 10px 16px;
-  background: var(--gold-bronze);
-  color: var(--green-dark);
+  background: var(--signal);
+  color: var(--ink);
   font-size: 0.75rem;
   font-weight: 800;
   text-decoration: none;
@@ -704,14 +698,14 @@
 
 .plannerCta:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(184, 151, 84, 0.22);
+  box-shadow: var(--shadow-md);
 }
 
 .emptyState {
   display: flex;
   align-items: center;
   flex-direction: column;
-  border: 1px dashed var(--gold-rule);
+  border: 1px dashed var(--border-strong);
   border-radius: 14px;
   padding: 30px 20px;
   background: color-mix(in srgb, var(--primary-color) 5%, transparent);
@@ -724,7 +718,7 @@
   height: 48px;
   margin-bottom: 12px;
   place-items: center;
-  border: 1px solid var(--gold-rule);
+  border: 1px solid var(--border-strong);
   border-radius: 50%;
   color: var(--primary-color);
 }
@@ -770,8 +764,8 @@
   height: 44px;
   place-items: center;
   border-radius: 50%;
-  background: var(--green-dark);
-  color: var(--gold-light);
+  background: var(--ink);
+  color: var(--signal-soft);
   font-weight: 800;
 }
 
@@ -802,7 +796,7 @@
 }
 
 .starFilled {
-  color: var(--gold-bronze);
+  color: var(--signal);
 }
 
 .bookingAside {
@@ -843,9 +837,9 @@
   margin-top: 22px;
   border-radius: 9px;
   padding: 13px 15px;
-  background: var(--gold-bronze);
-  box-shadow: 0 10px 22px rgba(184, 151, 84, 0.2);
-  color: var(--green-dark);
+  background: var(--signal);
+  box-shadow: var(--shadow-md);
+  color: var(--ink);
   font-size: 0.78rem;
   font-weight: 800;
   text-decoration: none;
@@ -856,7 +850,7 @@
 
 .asideBookButton:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(184, 151, 84, 0.27);
+  box-shadow: var(--shadow-lg);
 }
 
 .asideBookButton svg {
@@ -917,7 +911,7 @@
     flex-direction: row;
     gap: 8px;
     border-inline-start: 0;
-    border-top: 1px solid rgba(228, 204, 156, 0.18);
+    border-top: 1px solid var(--border);
     padding: 18px 0 0;
   }
 

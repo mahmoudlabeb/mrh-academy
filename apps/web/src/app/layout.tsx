@@ -1,22 +1,24 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import '@/styles/animations.css';
-import '@/styles/components.css';
-import '@/styles/layout.css';
-import { Providers } from './providers';
-import { cairo, plusJakartaSans } from '@/lib/fonts';
-import { headers } from 'next/headers';
+﻿import type { Metadata } from "next";
+import "./globals.css";
+import "@/styles/animations.css";
+import "@/styles/layout.css";
+import "@/styles/components.css";
+import { Providers } from "./providers";
+import { fontVariables } from "@/lib/fonts";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
-  title: { default: 'Mr.H Academy', template: '%s | Mr.H Academy' },
-  description: 'Learn languages with expert tutors online.',
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  ),
+  title: { default: "Mr.H Academy", template: "%s | Mr.H Academy" },
+  description: "Learn languages with expert tutors online.",
 };
 
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
@@ -30,10 +32,10 @@ export default async function RootLayout({
                 var lang = localStorage.getItem('lang_pref');
                 function applyBodyClasses() {
                   if (!document.body) return;
-                  if (theme === 'light') {
-                    document.body.classList.remove('dark-theme');
-                  } else {
-                    document.body.classList.add('dark-theme');
+                if (theme === 'dark') {
+                  document.body.classList.add('dark-theme');
+                } else {
+                  document.body.classList.remove('dark-theme');
                   }
                   if (lang === 'en') {
                     document.body.classList.add('ltr');
@@ -41,12 +43,12 @@ export default async function RootLayout({
                     document.body.classList.remove('ltr');
                   }
                 }
-                if (theme === 'light') {
-                  document.documentElement.classList.remove('dark-theme');
-                } else {
+                if (theme === 'dark') {
                   document.documentElement.classList.add('dark-theme');
+                } else {
+                  document.documentElement.classList.remove('dark-theme');
                 }
-                document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+                document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
                 if (lang === 'en') {
                   document.documentElement.setAttribute('lang', 'en');
                   document.documentElement.setAttribute('dir', 'ltr');
@@ -67,11 +69,9 @@ export default async function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className={`antialiased min-h-screen dark-theme font-arabic ${cairo.variable} ${plusJakartaSans.variable}`}
+        className={`antialiased min-h-screen ${fontVariables}`}
       >
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

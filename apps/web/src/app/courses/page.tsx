@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
@@ -73,7 +73,7 @@ export default function CoursesPage() {
             {courses.map((course) => (
               <Link
                 key={course.id}
-                href={`/courses/${course.id}`}
+                href={`/${lang}/courses/${course.id}`}
                 className="card p-0 overflow-hidden group hover:translate-y-[-4px] transition-all duration-300"
               >
                 <div
@@ -91,13 +91,16 @@ export default function CoursesPage() {
                   ) : (
                     <div
                       className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{ background: "rgba(212, 163, 83,0.15)" }}
+                      style={{
+                        background:
+                          "color-mix(in srgb, var(--signal) 15%, transparent)",
+                      }}
                     >
                       <svg
                         className="w-8 h-8"
                         fill="none"
                         viewBox="0 0 24 24"
-                        stroke="#D4A353"
+                        stroke="var(--signal)"
                       >
                         <path
                           strokeLinecap="round"
@@ -129,7 +132,10 @@ export default function CoursesPage() {
                     >
                       {course.tutor.firstName} {course.tutor.lastName}
                     </span>
-                    <span className="font-bold" style={{ color: "#D4A353" }}>
+                    <span
+                      className="font-bold"
+                      style={{ color: "var(--signal)" }}
+                    >
                       ${course.price.toFixed(2)}
                     </span>
                   </div>

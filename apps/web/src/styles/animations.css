@@ -1,4 +1,4 @@
-/* =========================================
+﻿/* =========================================
    Animations — MRH Academy Design System
    ========================================= */
 
@@ -59,10 +59,10 @@
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(212, 163, 83, 0.3);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--signal) 30%, transparent);
   }
   50% {
-    box-shadow: 0 0 40px rgba(212, 163, 83, 0.6);
+    box-shadow: 0 0 40px color-mix(in srgb, var(--signal) 60%, transparent);
   }
 }
 @keyframes gradient-shift {

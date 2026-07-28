@@ -12,6 +12,7 @@ import { Payment } from '../payments/entities/payment.entity.js';
 import { Report } from '../reports/entities/report.entity.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
 import { EmailService } from '../integrations/email/email.service.js';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { EmailService } from '../integrations/email/email.service.js';
       Lesson,
       Payment,
       Report,
+      CourseEnrollment,
     ]),
     AvailabilityModule,
     StorageModule,

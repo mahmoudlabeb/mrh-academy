@@ -59,6 +59,7 @@ export class UsersService {
       relations: {
         studentProfile: true,
         tutorProfile: true,
+        subAdminProfile: true,
       },
     });
 
@@ -379,6 +380,12 @@ export class UsersService {
   private sanitizeUser(user: User) {
     const safeUser = { ...user } as Partial<User>;
     delete safeUser.passwordHash;
-    return safeUser;
+    return {
+      ...safeUser,
+      assignedPermissions:
+        user.role === UserRole.SUBADMIN
+          ? (user.subAdminProfile?.assignedPermissions ?? [])
+          : [],
+    };
   }
 }

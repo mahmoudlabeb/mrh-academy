@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
@@ -7,10 +7,11 @@ import { useAuth } from "@/contexts/auth-context";
 import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { RoutedPanel } from "@/components/shared/RoutedPanel";
 
 type CourseDetail = {
   id: string;
@@ -35,8 +36,15 @@ export default function CourseDetailPage() {
   const { user } = useAuth();
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const showEnrollmentPanel =
+    searchParams.get("panel") === "enroll" || pathname.endsWith("/enroll");
+  const closePanel = useCallback(
+    () => router.push(`/${lang}/courses/${params.id}`),
+    [lang, params.id, router],
+  );
   const referralStorageKey = `course_ref_${params.id}`;
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [streamError, setStreamError] = useState("");
@@ -245,13 +253,16 @@ export default function CourseDetailPage() {
               ) : (
                 <div
                   className="w-24 h-24 rounded-2xl flex items-center justify-center"
-                  style={{ background: "rgba(212, 163, 83,0.15)" }}
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--signal) 15%, transparent)",
+                  }}
                 >
                   <svg
                     className="w-12 h-12"
                     fill="none"
                     viewBox="0 0 24 24"
-                    stroke="#D4A353"
+                    stroke="var(--signal)"
                   >
                     <path
                       strokeLinecap="round"
@@ -289,7 +300,7 @@ export default function CourseDetailPage() {
                     </span>
                     <span
                       className="text-sm font-bold"
-                      style={{ color: "#D4A353" }}
+                      style={{ color: "var(--signal)" }}
                     >
                       {enrollment.progressPercentage}%
                     </span>
@@ -302,7 +313,7 @@ export default function CourseDetailPage() {
                       className="h-full rounded-full transition-all"
                       style={{
                         width: `${enrollment.progressPercentage}%`,
-                        background: "#D4A353",
+                        background: "var(--signal)",
                       }}
                     />
                   </div>
@@ -310,7 +321,7 @@ export default function CourseDetailPage() {
                 <button
                   type="button"
                   onClick={watchVideo}
-                  className="btn-outline-gold w-full text-sm"
+                  className="btn-outline-signal w-full text-sm"
                 >
                   {lang === "ar" ? "مشاهدة فيديو الكورس" : "Watch Course Video"}
                 </button>
@@ -355,9 +366,11 @@ export default function CourseDetailPage() {
                           className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
                           style={{
                             background: lesson.isCompleted
-                              ? "rgba(34,197,94,0.15)"
-                              : "rgba(212, 163, 83,0.15)",
-                            color: lesson.isCompleted ? "#22c55e" : "#D4A353",
+                              ? "color-mix(in srgb, var(--success) 15%, transparent)"
+                              : "color-mix(in srgb, var(--signal) 15%, transparent)",
+                            color: lesson.isCompleted
+                              ? "var(--success)"
+                              : "var(--signal)",
                           }}
                         >
                           {lesson.isCompleted ? "✓" : lesson.lessonOrder}
@@ -399,7 +412,7 @@ export default function CourseDetailPage() {
             <div className="card p-6 sticky top-24">
               <p
                 className="text-3xl font-bold mb-1"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
               >
                 ${course.price.toFixed(2)}
               </p>
@@ -426,7 +439,7 @@ export default function CourseDetailPage() {
                 enrollment ? (
                   <p
                     className="text-sm text-center py-3"
-                    style={{ color: "#22c55e" }}
+                    style={{ color: "var(--success)" }}
                   >
                     {lang === "ar"
                       ? "أنت مسجل في هذا الكورس"
@@ -434,7 +447,13 @@ export default function CourseDetailPage() {
                   </p>
                 ) : (
                   <button
-                    onClick={() => enrollMutation.mutate()}
+                    onClick={() => {
+                      if (!showEnrollmentPanel && /^\/(en|ar)\//.test(pathname)) {
+                        router.push(`/${lang}/courses/${params.id}/enroll`);
+                        return;
+                      }
+                      enrollMutation.mutate();
+                    }}
                     disabled={enrollMutation.isPending}
                     className="btn-primary w-full"
                   >
@@ -521,7 +540,7 @@ export default function CourseDetailPage() {
                         : "Pay by card & enroll"}
                   </button>
                   {guestCheckoutMutation.isError && (
-                    <p className="text-xs text-red-500 text-center">
+                    <p className="text-xs text-[var(--danger)] text-center">
                       {lang === "ar"
                         ? "تعذر بدء الدفع. تحقق من البيانات وحاول مجدداً."
                         : "Could not start checkout. Check your details and try again."}
@@ -543,6 +562,72 @@ export default function CourseDetailPage() {
         </div>
       </main>
       <Footer />
+      {showEnrollmentPanel && course && (
+        <RoutedPanel
+          title={lang === "ar" ? "التسجيل في الدورة" : "Enroll in Course"}
+          subtitle={course.title}
+          onClose={closePanel}
+          footer={
+            user?.role === "student" ? (
+              <button
+                type="button"
+                className="btn-primary w-full"
+                disabled={enrollMutation.isPending || Boolean(enrollment)}
+                onClick={() => enrollMutation.mutate()}
+              >
+                {enrollment
+                  ? lang === "ar"
+                    ? "أنت مسجل بالفعل"
+                    : "Already enrolled"
+                  : enrollMutation.isPending
+                    ? lang === "ar"
+                      ? "جارٍ تأكيد التسجيل..."
+                      : "Confirming enrollment..."
+                    : lang === "ar"
+                      ? `سجّل مقابل $${course.price.toFixed(2)}`
+                      : `Enroll for $${course.price.toFixed(2)}`}
+              </button>
+            ) : undefined
+          }
+        >
+          <article className="panel-summary">
+            <h3>{course.title}</h3>
+            <p>
+              {course.tutor.firstName} {course.tutor.lastName}
+            </p>
+          </article>
+          <dl className="panel-money-line">
+            <div>
+              <dt>{lang === "ar" ? "السعر الإجمالي" : "Total price"}</dt>
+              <dd>${course.price.toFixed(2)}</dd>
+            </div>
+          </dl>
+          <p className="panel-honesty-note">
+            {lang === "ar"
+              ? "يؤكد الخادم التسجيل والرصيد والسعر قبل إتمام العملية. لن تعرض الصفحة نجاحًا قبل استجابة الخادم."
+              : "The server revalidates enrollment, balance, and price before completion. This page never reports success before the server confirms it."}
+          </p>
+          {user?.role !== "student" && (
+            <div className="panel-unavailable" role="status">
+              {lang === "ar"
+                ? "يلزم تسجيل الدخول بحساب طالب لإتمام التسجيل."
+                : "Sign in with a learner account to complete enrollment."}
+            </div>
+          )}
+          {enrollMutation.isError && (
+            <p className="panel-error" role="alert">
+              {(
+                enrollMutation.error as {
+                  response?: { data?: { message?: string } };
+                }
+              )?.response?.data?.message ??
+                (lang === "ar"
+                  ? "تعذر إتمام التسجيل. راجع الرصيد وحاول مجددًا."
+                  : "Enrollment could not be completed. Check your balance and try again.")}
+            </p>
+          )}
+        </RoutedPanel>
+      )}
     </div>
   );
 }

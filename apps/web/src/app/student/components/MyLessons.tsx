@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -37,26 +37,26 @@ const statusConfig: Record<
   confirmed: {
     labelAr: "مؤكد",
     labelEn: "Confirmed",
-    bg: "rgba(34,197,94,0.1)",
-    color: "#22c55e",
+    bg: "var(--success-soft)",
+    color: "var(--success)",
   },
   pending: {
     labelAr: "بانتظار الموافقة",
     labelEn: "Awaiting Approval",
-    bg: "rgba(234,179,8,0.1)",
-    color: "#eab308",
+    bg: "var(--warning-soft)",
+    color: "var(--warning)",
   },
   completed: {
     labelAr: "مكتمل",
     labelEn: "Completed",
-    bg: "rgba(59,130,246,0.1)",
-    color: "#3b82f6",
+    bg: "var(--info-soft)",
+    color: "var(--info)",
   },
   cancelled: {
     labelAr: "ملغي",
     labelEn: "Cancelled",
-    bg: "rgba(239,68,68,0.1)",
-    color: "#ef4444",
+    bg: "var(--danger-soft)",
+    color: "var(--danger)",
   },
 };
 
@@ -231,13 +231,16 @@ export default function MyLessons() {
             <div className="card p-12 text-center">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: "rgba(212, 163, 83,0.1)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 10%, transparent)",
+                }}
               >
                 <svg
                   className="w-7 h-7"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#D4A353"
+                  stroke="var(--signal)"
                 >
                   <path
                     strokeLinecap="round"
@@ -276,13 +279,16 @@ export default function MyLessons() {
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: "rgba(212, 163, 83,0.1)" }}
+                        style={{
+                          background:
+                            "color-mix(in srgb, var(--signal) 10%, transparent)",
+                        }}
                       >
                         <svg
                           className="w-5 h-5"
                           fill="none"
                           viewBox="0 0 24 24"
-                          stroke="#D4A353"
+                          stroke="var(--signal)"
                         >
                           <path
                             strokeLinecap="round"
@@ -323,7 +329,7 @@ export default function MyLessons() {
                           <span>
                             {lesson.duration} {t("دقيقة", "min")}
                           </span>
-                          <span style={{ color: "#D4A353" }}>
+                          <span style={{ color: "var(--signal)" }}>
                             ${lesson.price}
                           </span>
                         </div>
@@ -343,8 +349,9 @@ export default function MyLessons() {
                           disabled={cancellingId === lesson.id}
                           className="text-xs px-3 py-2 rounded-lg border transition-colors disabled:opacity-50"
                           style={{
-                            borderColor: "rgba(239,68,68,0.3)",
-                            color: "#ef4444",
+                            borderColor:
+                              "color-mix(in srgb, var(--danger) 30%, transparent)",
+                            color: "var(--danger)",
                           }}
                         >
                           {cancellingId === lesson.id
@@ -368,8 +375,9 @@ export default function MyLessons() {
                           rel="noopener noreferrer"
                           className="text-xs px-3 py-2 rounded-lg border transition-colors"
                           style={{
-                            borderColor: "rgba(59,130,246,0.3)",
-                            color: "#3b82f6",
+                            borderColor:
+                              "color-mix(in srgb, var(--info) 30%, transparent)",
+                            color: "var(--info)",
                           }}
                         >
                           {lesson.googleMeetUrl.includes("meet.jit.si")
@@ -400,13 +408,16 @@ export default function MyLessons() {
             <div className="card p-12 text-center">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: "rgba(212, 163, 83,0.1)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 10%, transparent)",
+                }}
               >
                 <svg
                   className="w-7 h-7"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#D4A353"
+                  stroke="var(--signal)"
                 >
                   <path
                     strokeLinecap="round"
@@ -451,16 +462,16 @@ export default function MyLessons() {
                     <div
                       key={day}
                       className={`aspect-square p-1 rounded-lg flex flex-col items-center justify-center text-xs cursor-pointer transition-colors hover:bg-white/5 ${
-                        isToday ? "ring-2 ring-[#D4A353]" : ""
+                        isToday ? "ring-2 ring-[var(--signal)]" : ""
                       }`}
                       style={{
                         background: dayLessons.some((l) => isJoinable(l.status))
-                          ? "rgba(212, 163, 83,0.1)"
+                          ? "color-mix(in srgb, var(--signal) 10%, transparent)"
                           : "transparent",
                       }}
                     >
                       <span
-                        className={`font-semibold ${isToday ? "text-[#D4A353]" : ""}`}
+                        className={`font-semibold ${isToday ? "text-[var(--signal)]" : ""}`}
                         style={{
                           color: isToday ? undefined : "var(--text-main)",
                         }}
@@ -470,7 +481,7 @@ export default function MyLessons() {
                       {dayLessons.length > 0 && (
                         <span
                           className="w-1.5 h-1.5 rounded-full mt-0.5"
-                          style={{ background: "#D4A353" }}
+                          style={{ background: "var(--signal)" }}
                         />
                       )}
                     </div>
@@ -499,7 +510,10 @@ export default function MyLessons() {
                     >
                       <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                        style={{ background: "#D4A353", color: "#0F3A40" }}
+                        style={{
+                          background: "var(--signal)",
+                          color: "var(--ink)",
+                        }}
                       >
                         {new Date(lesson.date).getDate()}
                       </div>
@@ -538,8 +552,9 @@ export default function MyLessons() {
                           disabled={cancellingId === lesson.id}
                           className="text-xs px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
                           style={{
-                            borderColor: "rgba(239,68,68,0.3)",
-                            color: "#ef4444",
+                            borderColor:
+                              "color-mix(in srgb, var(--danger) 30%, transparent)",
+                            color: "var(--danger)",
                           }}
                         >
                           {cancellingId === lesson.id
@@ -576,13 +591,16 @@ export default function MyLessons() {
             <div className="card p-12 text-center">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: "rgba(212, 163, 83,0.1)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--signal) 10%, transparent)",
+                }}
               >
                 <svg
                   className="w-7 h-7"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#D4A353"
+                  stroke="var(--signal)"
                 >
                   <path
                     strokeLinecap="round"
@@ -618,7 +636,7 @@ export default function MyLessons() {
                   <div className="flex items-center gap-3 mb-4">
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
-                      style={{ background: "#D4A353" }}
+                      style={{ background: "var(--signal)" }}
                     >
                       {tutor.firstName[0]}
                     </div>
@@ -639,7 +657,7 @@ export default function MyLessons() {
                   </div>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-1 text-sm">
-                      <span style={{ color: "#D4A353" }}>
+                      <span style={{ color: "var(--signal)" }}>
                         {"★".repeat(Math.round(tutor.averageRating))}
                       </span>
                       <span
@@ -651,7 +669,7 @@ export default function MyLessons() {
                     </div>
                     <span
                       className="text-sm font-bold"
-                      style={{ color: "#D4A353" }}
+                      style={{ color: "var(--signal)" }}
                     >
                       ${tutor.hourlyRate}
                       <span

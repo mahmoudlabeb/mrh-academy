@@ -6,25 +6,19 @@ test.describe("Admin Dashboard", () => {
     await loginAs(page, "admin");
   });
 
-  test("should display admin overview tab", async ({ page }) => {
+  test("should display the operations queue", async ({ page }) => {
     await expect(
-      page.locator(`:has-text("Overview"), :has-text("نظرة عامة")`).first(),
-    ).toBeVisible({ timeout: 5000 });
+      page.getByRole("heading", { name: "Operations Decision Queue" }),
+    ).toBeVisible();
   });
 
-  test("should navigate tutor management tab", async ({ page }) => {
-    await page
-      .locator(`:has-text("Tutors"), :has-text("المدرسين")`)
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/admin/);
+  test("should navigate to the people directory", async ({ page }) => {
+    await page.getByRole("link", { name: "People" }).click();
+    await expect(page).toHaveURL(/\/en\/ops\/people$/);
   });
 
-  test("should navigate settings tab", async ({ page }) => {
-    await page
-      .locator(`:has-text("Settings"), :has-text("إعدادات")`)
-      .first()
-      .click();
-    await expect(page).toHaveURL(/\/admin/);
+  test("should navigate settings", async ({ page }) => {
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page).toHaveURL(/\/en\/ops\/settings$/);
   });
 });

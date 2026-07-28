@@ -30,6 +30,48 @@ export class Course {
   @Column({ nullable: true })
   thumbnailUrl: string;
 
+  @Column({ type: 'varchar', length: 20, default: 'recorded' })
+  courseType: 'recorded' | 'live';
+
+  @Column({ type: 'varchar', length: 240, nullable: true })
+  subtitle: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  previewVideoUrl: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  learningOutcomes: string[] | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  requirements: string[] | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  targetAudience: string[] | null;
+
+  @Column({ type: 'varchar', length: 80, default: 'Arabic' })
+  language: string;
+
+  @Column({ type: 'varchar', length: 30, default: 'beginner' })
+  level: string;
+
+  @Column({ type: 'varchar', length: 80, default: 'Africa/Cairo' })
+  timezone: string;
+
+  @Column({ type: 'int', nullable: true })
+  capacity: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  cohortStartAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  cohortEndAt: Date | null;
+
+  @Column({ type: 'boolean', default: false })
+  isDraft: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  submittedAt: Date | null;
+
   @Column({
     type: 'decimal',
     precision: 10,

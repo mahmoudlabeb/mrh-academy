@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -56,7 +56,7 @@ export default function StudentLessonsPage() {
         role="status"
         aria-label={t("جاري تحميل الدروس", "Loading lessons")}
       >
-        <div className="w-8 h-8 border-2 border-[#D4A353] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[var(--signal)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -99,8 +99,8 @@ export default function StudentLessonsPage() {
             style={
               activeTab === tab.key
                 ? {
-                    background: "linear-gradient(135deg, #F3E1B9, #B89754)",
-                    color: "#0F3A40",
+                    background: "var(--signal)",
+                    color: "var(--ink)",
                   }
                 : { background: "var(--bg-light)", color: "var(--text-muted)" }
             }
@@ -131,13 +131,13 @@ export default function StudentLessonsPage() {
           {tabLessons.map((lesson) => (
             <article
               key={lesson.id}
-              className="card-gold p-6 flex flex-col sm:flex-row sm:items-center gap-4"
+              className="focus-card p-6 flex flex-col sm:flex-row sm:items-center gap-4"
               data-testid="lesson-card"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <span
                   className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
-                  style={{ background: "#D4A353" }}
+                  style={{ background: "var(--signal)" }}
                   aria-hidden="true"
                 >
                   {lesson.tutorName?.trim()?.[0] || "T"}
@@ -167,8 +167,8 @@ export default function StudentLessonsPage() {
                     href={`/classroom/${lesson.meetUrl}`}
                     className="px-4 py-2 rounded-lg text-sm font-semibold text-center"
                     style={{
-                      background: "linear-gradient(135deg, #F3E1B9, #B89754)",
-                      color: "#0F3A40",
+                      background: "var(--signal)",
+                      color: "var(--ink)",
                     }}
                   >
                     {t("دخول الفصل", "Join Classroom")}
@@ -194,17 +194,17 @@ export default function StudentLessonsPage() {
               )}
 
               {lesson.status === LessonStatus.PENDING && (
-                <StatusBadge color="#eab308">
+                <StatusBadge color="var(--warning)">
                   {t("بانتظار القبول", "Awaiting Approval")}
                 </StatusBadge>
               )}
               {lesson.status === LessonStatus.COMPLETED && (
-                <StatusBadge color="#22c55e">
+                <StatusBadge color="var(--success)">
                   {t("مكتمل", "Completed")}
                 </StatusBadge>
               )}
               {lesson.status === LessonStatus.CANCELLED && (
-                <StatusBadge color="#ef4444">
+                <StatusBadge color="var(--danger)">
                   {t("ملغي", "Cancelled")}
                 </StatusBadge>
               )}

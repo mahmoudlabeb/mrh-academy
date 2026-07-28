@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,13 +79,15 @@ export default function LoginPage() {
         <div
           className="absolute top-0 right-1/4 w-96 h-96 rounded-full animate-float opacity-10"
           style={{
-            background: "radial-gradient(circle, #D4A353 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, var(--signal) 0%, transparent 70%)",
           }}
         />
         <div
           className="absolute bottom-0 left-1/4 w-80 h-80 rounded-full animate-float opacity-10"
           style={{
-            background: "radial-gradient(circle, #D4A353 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, var(--signal) 0%, transparent 70%)",
             animationDelay: "2s",
           }}
         />
@@ -96,7 +98,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
             <span
               className="text-2xl font-bold logo-font"
-              style={{ color: "#D4A353" }}
+              style={{ color: "var(--signal)" }}
             >
               Mr.H Academy
             </span>
@@ -112,7 +114,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="card-gold p-8 animate-scale-in">
+        <div className="focus-card p-8 animate-scale-in">
           <form
             onSubmit={handleSubmit((data) => mutation.mutate(data))}
             className="flex flex-col gap-5"
@@ -132,7 +134,7 @@ export default function LoginPage() {
                 className="input-field"
               />
               {errors.email && (
-                <p className="mt-1 text-xs" style={{ color: "#ef4444" }}>
+                <p className="mt-1 text-xs" style={{ color: "var(--danger)" }}>
                   {errors.email.message}
                 </p>
               )}
@@ -152,7 +154,7 @@ export default function LoginPage() {
                 className="input-field"
               />
               {errors.password && (
-                <p className="mt-1 text-xs" style={{ color: "#ef4444" }}>
+                <p className="mt-1 text-xs" style={{ color: "var(--danger)" }}>
                   {errors.password.message}
                 </p>
               )}
@@ -162,11 +164,12 @@ export default function LoginPage() {
               <div
                 className="rounded-xl px-4 py-3"
                 style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.2)",
+                  background: "var(--danger-soft)",
+                  border:
+                    "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                 }}
               >
-                <p className="text-sm" style={{ color: "#ef4444" }}>
+                <p className="text-sm" style={{ color: "var(--danger)" }}>
                   {(
                     mutation.error as {
                       response?: { data?: { message?: string } };

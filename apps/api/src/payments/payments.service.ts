@@ -720,21 +720,25 @@ export class PaymentsService {
   }
 
   async requestPayout(tutorId: string, dto: RequestPayoutDto) {
-    const existingPending = await this.payoutRepository.findOne({
-      where: { tutorId, status: PayoutStatus.PENDING },
-    });
-    if (existingPending) {
-      throw new BadRequestException(
-        'You already have a pending payout request. Please wait for it to be processed.',
-      );
-    }
-
     return this.dataSource.transaction(async (manager) => {
       const tutorProfile = await manager.findOne(TutorProfile, {
         where: { userId: tutorId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!tutorProfile) throw new NotFoundException('Tutor profile not found');
+
+      // The tutor row lock serializes payout requests for the same account.
+      // Check for an existing pending request only after acquiring it so two
+      // concurrent requests cannot both reserve the same available balance.
+      const existingPending = await manager.findOne(Payout, {
+        where: { tutorId, status: PayoutStatus.PENDING },
+      });
+      if (existingPending) {
+        throw new BadRequestException(
+          'You already have a pending payout request. Please wait for it to be processed.',
+        );
+      }
+
       if (tutorProfile.balance < dto.amount) {
         throw new BadRequestException(
           `Insufficient balance. Available: $${tutorProfile.balance.toFixed(2)}`,

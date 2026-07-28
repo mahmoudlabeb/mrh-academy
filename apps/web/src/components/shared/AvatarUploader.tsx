@@ -72,7 +72,7 @@ export function AvatarUploader({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={isUploading}
-        className="group relative h-24 w-24 overflow-hidden rounded-full border bg-gray-100 text-sm font-semibold text-gray-500 disabled:opacity-60"
+        className="group relative h-24 w-24 overflow-hidden rounded-full border bg-[var(--canvas-sunken)] text-sm font-semibold text-[var(--ink-muted)] disabled:opacity-60"
       >
         {previewUrl ? (
           <Image
@@ -103,7 +103,7 @@ export function AvatarUploader({
         onChange={handleFileChange}
       />
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
     </div>
   );
 }

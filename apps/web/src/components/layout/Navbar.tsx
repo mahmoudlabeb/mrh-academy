@@ -1,17 +1,17 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useAuth } from "@/contexts/auth-context";
-import { useLanguage } from "@/contexts/language-context";
-import { useTheme } from "@/contexts/theme-context";
+import { useEffect, useRef, useState } from "react";
 import {
   CloseIcon,
   MenuIcon,
   MoonIcon,
   SunIcon,
 } from "@/components/icons/Icons";
+import { useAuth } from "@/contexts/auth-context";
+import { useLanguage } from "@/contexts/language-context";
+import { useTheme } from "@/contexts/theme-context";
 import NotificationBell from "./NotificationBell";
 
 export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
@@ -24,43 +24,39 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
   const { lang, toggleLanguage } = useLanguage();
   const activeLanguage = language ?? lang;
   const isAr = activeLanguage === "ar";
+  const localeBase = `/${activeLanguage}`;
+  const localize = (path: string) =>
+    path === "/" ? localeBase : `${localeBase}${path}`;
 
-  const links = useMemo(
-    () => [
-      { label: isAr ? "الدورات" : "Courses", href: "/courses" },
+  const links = [
       {
-        label: isAr ? "ابحث عن معلم" : "Find a tutor",
-        href: "/student/discover",
-      },
-      { label: isAr ? "كن معلمًا" : "Become a tutor", href: "/become-teacher" },
-      {
-        label: isAr ? "تدريب المعلمين" : "Tutor training",
-        href: "/teacher-training",
+        label: isAr ? "ابحث عن معلّم" : "Find a tutor",
+        href: localize("/tutors"),
       },
       {
-        label: isAr ? "تدريب الشركات" : "Corporate training",
-        href: "/corporate-training",
+        label: isAr ? "مكتبة الدورات" : "Course library",
+        href: localize("/courses"),
       },
-    ],
-    [isAr],
-  );
+      {
+        label: isAr ? "انضم كمدرّس" : "Become a tutor",
+        href: localize("/become-a-tutor"),
+      },
+      {
+        label: isAr ? "موارد المعلّمين" : "Teaching resources",
+        href: localize("/resources"),
+      },
+    ];
 
   const dashboardHref = user
-    ? user.role === "student"
-      ? "/student"
+      ? user.role === "student"
+      ? localize("/learn")
       : user.role === "tutor"
-        ? "/tutor"
-        : "/admin"
-    : "/login";
+        ? localize("/teach")
+        : localize("/ops")
+    : localize("/sign-in");
   const ThemeToggleIcon = theme === "dark" ? SunIcon : MoonIcon;
-  const isActiveRoute = (href: string) =>
+  const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
-
-  const closeMobileMenu = (restoreFocus = false) => {
-    setMobileOpen(false);
-    if (restoreFocus)
-      requestAnimationFrame(() => menuButtonRef.current?.focus());
-  };
 
   useEffect(() => {
     setMobileOpen(false);
@@ -71,16 +67,15 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     requestAnimationFrame(() => firstMobileLinkRef.current?.focus());
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMobileOpen(false);
-        requestAnimationFrame(() => menuButtonRef.current?.focus());
-      }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMobileOpen(false);
+      requestAnimationFrame(() => menuButtonRef.current?.focus());
     };
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [mobileOpen]);
 
@@ -89,23 +84,21 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
       className="academy-navbar"
       lang={activeLanguage}
       dir={isAr ? "rtl" : "ltr"}
-      aria-label={isAr ? "التنقل الرئيسي" : "Main navigation"}
+      aria-label={isAr ? "التنقّل الرئيسي" : "Main navigation"}
     >
       <div className="academy-navbar-inner">
         <Link
-          href={isAr ? "/" : "/en"}
+          href={localeBase}
           className="academy-brand"
           aria-label={
-            isAr ? "الصفحة الرئيسية لأكاديمية مستر إتش" : "Mr.H Academy home"
+            isAr ? "الصفحة الرئيسية لأكاديمية MRH" : "MRH Academy home"
           }
         >
           <span className="academy-crest" aria-hidden="true">
-            <b>H</b>
-            <small>ACADEMY</small>
+            M
           </span>
           <span className="academy-wordmark">
-            <strong>Mr.H</strong>
-            <small>{isAr ? "أكاديمية اللغات" : "LANGUAGE ACADEMY"}</small>
+            <strong>MRH Academy</strong>
           </span>
         </Link>
 
@@ -115,8 +108,8 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={isActiveRoute(link.href) ? "active" : ""}
-                aria-current={isActiveRoute(link.href) ? "page" : undefined}
+                className={isActive(link.href) ? "active" : ""}
+                aria-current={isActive(link.href) ? "page" : undefined}
               >
                 {link.label}
               </Link>
@@ -126,22 +119,22 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
             {user ? (
               <>
                 <Link href={dashboardHref} className="academy-account-link">
-                  {isAr ? "لوحة التحكم" : "Dashboard"}
+                  {isAr ? "مساحة العمل" : "Workspace"}
                 </Link>
                 <button
                   type="button"
                   onClick={logout}
                   className="academy-signout"
                 >
-                  {isAr ? "خروج" : "Log out"}
+                  {isAr ? "تسجيل الخروج" : "Sign out"}
                 </button>
               </>
             ) : (
               <>
-                <Link href="/login" className="academy-login-link">
-                  {isAr ? "دخول" : "Log in"}
+                <Link href={localize("/sign-in")} className="academy-login-link">
+                  {isAr ? "تسجيل الدخول" : "Sign in"}
                 </Link>
-                <Link href="/register" className="academy-account-link">
+                <Link href={localize("/sign-up")} className="academy-account-link">
                   {isAr ? "ابدأ التعلّم" : "Start learning"}
                 </Link>
               </>
@@ -155,7 +148,13 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
             onClick={toggleTheme}
             className="academy-icon-button"
             aria-label={
-              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+              theme === "dark"
+                ? isAr
+                  ? "استخدم المظهر الفاتح"
+                  : "Use light theme"
+                : isAr
+                  ? "استخدم المظهر الداكن"
+                  : "Use dark theme"
             }
           >
             <ThemeToggleIcon />
@@ -172,9 +171,7 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
           <button
             ref={menuButtonRef}
             type="button"
-            onClick={() =>
-              mobileOpen ? closeMobileMenu(true) : setMobileOpen(true)
-            }
+            onClick={() => setMobileOpen((open) => !open)}
             className="academy-icon-button academy-mobile-menu-button"
             aria-label={
               mobileOpen
@@ -202,9 +199,9 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
                 key={link.href}
                 ref={index === 0 ? firstMobileLinkRef : undefined}
                 href={link.href}
-                className={isActiveRoute(link.href) ? "active" : ""}
-                aria-current={isActiveRoute(link.href) ? "page" : undefined}
-                onClick={() => closeMobileMenu()}
+                className={isActive(link.href) ? "active" : ""}
+                aria-current={isActive(link.href) ? "page" : undefined}
+                onClick={() => setMobileOpen(false)}
               >
                 <span>0{index + 1}</span>
                 {link.label}
@@ -213,38 +210,26 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
             <div className="academy-mobile-auth">
               {user ? (
                 <>
-                  <Link
-                    href={dashboardHref}
-                    className="academy-account-link"
-                    onClick={() => closeMobileMenu()}
-                  >
-                    {isAr ? "لوحة التحكم" : "Dashboard"}
+                  <Link href={dashboardHref} className="academy-account-link">
+                    {isAr ? "مساحة العمل" : "Workspace"}
                   </Link>
                   <button
                     type="button"
                     onClick={() => {
                       logout();
-                      closeMobileMenu();
+                      setMobileOpen(false);
                     }}
                     className="academy-signout"
                   >
-                    {isAr ? "تسجيل الخروج" : "Log out"}
+                    {isAr ? "تسجيل الخروج" : "Sign out"}
                   </button>
                 </>
               ) : (
                 <>
-                  <Link
-                    href="/login"
-                    className="academy-login-link"
-                    onClick={() => closeMobileMenu()}
-                  >
-                    {isAr ? "تسجيل الدخول" : "Log in"}
+                  <Link href={localize("/sign-in")} className="academy-login-link">
+                    {isAr ? "تسجيل الدخول" : "Sign in"}
                   </Link>
-                  <Link
-                    href="/register"
-                    className="academy-account-link"
-                    onClick={() => closeMobileMenu()}
-                  >
+                  <Link href={localize("/sign-up")} className="academy-account-link">
                     {isAr ? "ابدأ التعلّم" : "Start learning"}
                   </Link>
                 </>

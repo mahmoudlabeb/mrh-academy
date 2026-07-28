@@ -6,55 +6,45 @@ test.describe("Student Dashboard", () => {
     await loginAs(page, "student");
   });
 
-  test("should display dashboard with tabs", async ({ page }) => {
-    await expect(
-      page.locator("text=Discover").or(page.locator("text=اكتشف")).first(),
-    ).toBeVisible({ timeout: 5000 });
-    await expect(
-      page.locator("text=My Lessons").or(page.locator("text=دروسي")).first(),
-    ).toBeVisible();
-    await expect(
-      page.locator("text=Messages").or(page.locator("text=الرسائل")).first(),
-    ).toBeVisible();
-    await expect(
-      page.locator("text=Settings").or(page.locator("text=الإعدادات")).first(),
-    ).toBeVisible();
+  test("should display the learner workspace navigation", async ({ page }) => {
+    for (const name of [
+      "Today",
+      "Lessons",
+      "Courses",
+      "Messages",
+      "Wallet",
+      "Saved",
+      "Vocabulary",
+    ]) {
+      await expect(
+        page.getByRole("link", { name, exact: true }),
+      ).toBeVisible();
+    }
   });
 
   test("should show balance in header", async ({ page }) => {
+    await page.getByRole("link", { name: "Wallet", exact: true }).click();
     await expect(
-      page.locator("text=Credits").or(page.locator("text=رصيد")).first(),
-    ).toBeVisible({ timeout: 10000 });
+      page.getByRole("heading", { name: "MRH Wallet & Payments" }),
+    ).toBeVisible();
   });
 
   test("should navigate between tabs", async ({ page }) => {
-    await page
-      .locator("text=Messages")
-      .or(page.locator("text=الرسائل"))
-      .first()
-      .click();
-    await expect(
-      page.locator("text=Messages").or(page.locator("text=الرسائل")).first(),
-    ).toBeVisible();
-
-    await page
-      .locator("text=Settings")
-      .or(page.locator("text=الإعدادات"))
-      .first()
-      .click();
-    await expect(
-      page.locator("text=Settings").or(page.locator("text=الإعدادات")).first(),
-    ).toBeVisible();
+    await page.getByRole("link", { name: "Messages" }).click();
+    await expect(page).toHaveURL(/\/en\/messages$/);
+    await page.goto("/en/learn");
+    await page.getByRole("link", { name: "Saved" }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/saved$/);
   });
 
-  test("should open payment modal", async ({ page }) => {
-    await page
-      .locator("text=Subscribe")
-      .or(page.locator("text=اشتراك"))
-      .first()
-      .click();
+  test("should open the server-authoritative add-funds panel", async ({
+    page,
+  }) => {
+    await page.goto("/en/learn/wallet");
+    await page.getByRole("link", { name: /Add funds/i }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/wallet\/add$/);
     await expect(
-      page.locator("text=Subscribe").or(page.locator("text=اشتراك")).first(),
-    ).toBeVisible({ timeout: 5000 });
+      page.getByRole("heading", { name: "Add funds to MRH Wallet" }),
+    ).toBeVisible();
   });
 });

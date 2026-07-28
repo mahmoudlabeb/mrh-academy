@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -147,10 +147,13 @@ function DiscoverContent() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold" style={{ color: "#FFFFF0" }}>
+              <h1
+                className="text-3xl font-bold"
+                style={{ color: "var(--focus-ink)" }}
+              >
                 {t("ابحث عن معلم", "Find a tutor")}
               </h1>
-              <p className="mt-1" style={{ color: "#E4CC9C" }}>
+              <p className="mt-1" style={{ color: "var(--ink-muted)" }}>
                 {t(
                   "اعثر على المعلم المثالي لرحلتك التعليمية",
                   "Find the right tutor for your learning journey",
@@ -160,7 +163,10 @@ function DiscoverContent() {
             <Link
               href="/"
               className="btn-secondary px-4 py-2 text-sm"
-              style={{ borderColor: "#1D535B", color: "#FFFFF0" }}
+              style={{
+                borderColor: "var(--ink-muted)",
+                color: "var(--focus-ink)",
+              }}
             >
               {t("الرئيسية", "Home")}
             </Link>
@@ -176,7 +182,7 @@ function DiscoverContent() {
                 className="w-5 h-5"
                 fill="currentColor"
                 viewBox="0 0 24 24"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
               >
                 <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
               </svg>
@@ -192,12 +198,12 @@ function DiscoverContent() {
                 <Link
                   key={tutor.userId}
                   href={`/tutors/${tutor.userId}`}
-                  className="card-gold p-5 animate-slide-up"
+                  className="focus-card p-5 animate-slide-up"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm transition-transform hover:scale-110"
-                      style={{ background: "#D4A353" }}
+                      style={{ background: "var(--signal)" }}
                     >
                       {tutor.user.firstName[0]}
                     </div>
@@ -217,11 +223,17 @@ function DiscoverContent() {
                     </div>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium" style={{ color: "#D4A353" }}>
+                    <span
+                      className="font-medium"
+                      style={{ color: "var(--signal)" }}
+                    >
                       {"★".repeat(Math.round(tutor.averageRating || 0))}
                       {"☆".repeat(5 - Math.round(tutor.averageRating || 0))}
                     </span>
-                    <span className="font-bold" style={{ color: "#D4A353" }}>
+                    <span
+                      className="font-bold"
+                      style={{ color: "var(--signal)" }}
+                    >
                       ${tutor.hourlyRate}/{t("ساعة", "hour")}
                     </span>
                   </div>
@@ -270,50 +282,54 @@ function DiscoverContent() {
                   {t("اللغات", "Languages")}
                 </h3>
                 <div className="space-y-2">
-                  {["العربية", "English", "Français", "Español"].map((lang) => (
-                    <label
-                      key={lang}
-                      className="flex items-center gap-3 text-sm cursor-pointer group"
-                      style={{ color: "var(--text-main)" }}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                          languages.includes(lang)
-                            ? "border-[#D4A353] bg-[#D4A353]"
-                            : "border-[#1D535B]"
-                        }`}
+                  {["العربية", "English", "Franأ§ais", "Espaأ±ol"].map(
+                    (lang) => (
+                      <label
+                        key={lang}
+                        className="flex items-center gap-3 text-sm cursor-pointer group"
+                        style={{ color: "var(--text-main)" }}
                       >
-                        {languages.includes(lang) && (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={3}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={languages.includes(lang)}
-                        onChange={() => {
-                          const current = languages ? languages.split(",") : [];
-                          const next = current.includes(lang)
-                            ? current.filter((l) => l !== lang)
-                            : [...current, lang];
-                          updateFilter("languages", next.join(","));
-                        }}
-                        className="sr-only"
-                      />
-                      {lang}
-                    </label>
-                  ))}
+                        <div
+                          className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                            languages.includes(lang)
+                              ? "border-[var(--signal)] bg-[var(--signal)]"
+                              : "border-[var(--ink-muted)]"
+                          }`}
+                        >
+                          {languages.includes(lang) && (
+                            <svg
+                              className="w-3 h-3 text-white"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={3}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={languages.includes(lang)}
+                          onChange={() => {
+                            const current = languages
+                              ? languages.split(",")
+                              : [];
+                            const next = current.includes(lang)
+                              ? current.filter((l) => l !== lang)
+                              : [...current, lang];
+                            updateFilter("languages", next.join(","));
+                          }}
+                          className="sr-only"
+                        />
+                        {lang}
+                      </label>
+                    ),
+                  )}
                 </div>
               </div>
 
@@ -325,8 +341,8 @@ function DiscoverContent() {
                   <div
                     className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
                       nativeSpeaker
-                        ? "border-[#D4A353] bg-[#D4A353]"
-                        : "border-[#1D535B]"
+                        ? "border-[var(--signal)] bg-[var(--signal)]"
+                        : "border-[var(--ink-muted)]"
                     }`}
                   >
                     {nativeSpeaker && (
@@ -524,12 +540,12 @@ function DiscoverContent() {
                   <Link
                     key={tutor.userId}
                     href={`/tutors/${tutor.userId}`}
-                    className="card-gold p-5 relative animate-slide-up"
+                    className="focus-card p-5 relative animate-slide-up"
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div
                         className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm transition-transform hover:scale-110"
-                        style={{ background: "#D4A353" }}
+                        style={{ background: "var(--signal)" }}
                       >
                         {tutor.user.firstName[0]}
                       </div>
@@ -559,7 +575,7 @@ function DiscoverContent() {
                       }
                     >
                       <svg
-                        className={`w-5 h-5 transition-colors ${favoriteIds.has(tutor.userId) ? "text-red-500" : "text-gray-400 hover:text-red-500"}`}
+                        className={`w-5 h-5 transition-colors ${favoriteIds.has(tutor.userId) ? "text-[var(--danger)]" : "text-[var(--ink-faint)] hover:text-[var(--danger)]"}`}
                         fill={
                           favoriteIds.has(tutor.userId)
                             ? "currentColor"
@@ -589,9 +605,11 @@ function DiscoverContent() {
                             key={lang}
                             className="badge"
                             style={{
-                              background: "rgba(212, 163, 83,0.1)",
-                              color: "#D4A353",
-                              border: "1px solid rgba(212, 163, 83,0.2)",
+                              background:
+                                "color-mix(in srgb, var(--signal) 10%, transparent)",
+                              color: "var(--signal)",
+                              border:
+                                "1px solid color-mix(in srgb, var(--signal) 20%, transparent)",
                             }}
                           >
                             {lang}
@@ -600,7 +618,7 @@ function DiscoverContent() {
                       </div>
                       <span
                         className="font-bold text-lg"
-                        style={{ color: "#D4A353" }}
+                        style={{ color: "var(--signal)" }}
                       >
                         ${tutor.hourlyRate}
                         <span
@@ -617,7 +635,7 @@ function DiscoverContent() {
                           className="mt-3 pt-3 border-t flex items-center gap-1.5 text-sm"
                           style={{ borderColor: "var(--border-color)" }}
                         >
-                          <span style={{ color: "#D4A353" }}>
+                          <span style={{ color: "var(--signal)" }}>
                             {"★".repeat(Math.round(tutor.averageRating))}
                           </span>
                           <span style={{ color: "var(--text-muted)" }}>
@@ -650,7 +668,7 @@ export default function DiscoverPage() {
               className="w-8 h-8 animate-spin mx-auto mb-3"
               viewBox="0 0 24 24"
               fill="none"
-              style={{ color: "#D4A353" }}
+              style={{ color: "var(--signal)" }}
             >
               <circle
                 className="opacity-25"

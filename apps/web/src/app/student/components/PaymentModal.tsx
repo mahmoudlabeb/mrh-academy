@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -206,13 +206,15 @@ export default function PaymentModal({
         >
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: "rgba(212,163,83,0.1)" }}
+            style={{
+              background: "color-mix(in srgb, var(--signal) 10%, transparent)",
+            }}
           >
             <svg
               className="w-8 h-8"
               fill="none"
               viewBox="0 0 24 24"
-              stroke="#D4A353"
+              stroke="var(--signal)"
             >
               <path
                 strokeLinecap="round"
@@ -303,7 +305,10 @@ export default function PaymentModal({
             <span className="text-sm" style={{ color: "var(--text-muted)" }}>
               {t("الرصيد الحالي", "Current Balance")}
             </span>
-            <span className="text-base font-bold" style={{ color: "#D4A353" }}>
+            <span
+              className="text-base font-bold"
+              style={{ color: "var(--signal)" }}
+            >
               ${currentBalanceNum.toFixed(2)}
             </span>
           </div>
@@ -316,7 +321,7 @@ export default function PaymentModal({
               </span>
             )}
             {paymentMethodsQuery.isError && (
-              <span className="text-sm" style={{ color: "#ef4444" }}>
+              <span className="text-sm" style={{ color: "var(--danger)" }}>
                 {t("تعذر تحميل وسائل الدفع", "Could not load payment methods")}
               </span>
             )}
@@ -342,11 +347,11 @@ export default function PaymentModal({
                 style={{
                   background:
                     method?.key === pm.key
-                      ? "rgba(212,163,83,0.15)"
+                      ? "color-mix(in srgb, var(--signal) 15%, transparent)"
                       : "var(--bg-light)",
                   border:
                     method?.key === pm.key
-                      ? "2px solid #D4A353"
+                      ? "2px solid var(--signal)"
                       : "1px solid var(--border-color)",
                   color: "var(--text-main)",
                 }}
@@ -397,7 +402,7 @@ export default function PaymentModal({
           </div>
 
           {amountNum > 0 && (
-            <p className="text-xs" style={{ color: "#D4A353" }}>
+            <p className="text-xs" style={{ color: "var(--signal)" }}>
               {t("سيُضاف إلى رصيدك", "Added to your wallet")}: ${walletAmount}
               {currency === "EGP" && (
                 <span className="ms-2 opacity-70">(1 USD = {egpRate} EGP)</span>
@@ -413,7 +418,10 @@ export default function PaymentModal({
                 style={{ color: "var(--text-main)" }}
               >
                 {t("صورة الإيصال", "Payment Receipt")}
-                <span className="text-xs ms-1" style={{ color: "#ef4444" }}>
+                <span
+                  className="text-xs ms-1"
+                  style={{ color: "var(--danger)" }}
+                >
                   *
                 </span>
               </label>
@@ -441,14 +449,14 @@ export default function PaymentModal({
                       if (fileRef.current) fileRef.current.value = "";
                     }}
                     className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs"
-                    style={{ background: "#ef4444" }}
+                    style={{ background: "var(--danger)" }}
                   >
-                    ×
+                    أ—
                   </button>
                 </div>
               )}
               {file && !filePreview && (
-                <p className="text-xs" style={{ color: "#22c55e" }}>
+                <p className="text-xs" style={{ color: "var(--success)" }}>
                   ✓ {file.name}
                 </p>
               )}

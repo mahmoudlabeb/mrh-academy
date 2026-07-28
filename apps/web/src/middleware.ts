@@ -1,77 +1,109 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const dashboardPrefixes = ["/student", "/tutor", "/admin"];
-const sharedProtectedPrefixes = ["/classroom", "/book-lesson", "/vocabulary"];
-const authPages = ["/login", "/register"];
+const protectedLocalizedPrefixes = [
+  "/learn",
+  "/teach",
+  "/ops",
+  "/lesson",
+  "/room",
+  "/messages",
+  "/notifications",
+  "/account",
+];
+
+function localizedPath(pathname: string) {
+  const match = pathname.match(/^\/(en|ar)(\/.*)?$/);
+  if (!match) return null;
+  return { locale: match[1], route: match[2] || "/" };
+}
+
+function legacyDestination(pathname: string, search: string) {
+  const mappings: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+    [/^\/student$/, () => "/en/learn"],
+    [/^\/student\/lessons$/, () => "/en/learn/lessons"],
+    [/^\/student\/wallet$/, () => "/en/learn/wallet"],
+    [/^\/student\/discover$/, () => "/en/tutors"],
+    [/^\/tutor$/, () => "/en/teach"],
+    [/^\/tutor\/availability$/, () => "/en/teach/availability"],
+    [/^\/tutor\/earnings$/, () => "/en/teach/earnings"],
+    [/^\/tutor\/profile$/, () => "/en/teach/profile"],
+    [/^\/admin$/, () => "/en/ops"],
+    [/^\/courses$/, () => "/en/courses"],
+    [/^\/courses\/([^/]+)$/, (match) => `/en/courses/${match[1]}`],
+    [/^\/tutors\/([^/]+)$/, (match) => `/en/tutors/${match[1]}`],
+    [/^\/become-teacher$/, () => "/en/become-a-tutor"],
+    [/^\/teacher-training$/, () => "/en/resources"],
+    [/^\/help$/, () => "/en/help"],
+    [/^\/login$/, () => "/en/sign-in"],
+    [/^\/register$/, () => "/en/sign-up"],
+    [/^\/forgot-password$/, () => "/en/forgot-password"],
+    [/^\/messages$/, () => "/en/messages"],
+    [/^\/notifications$/, () => "/en/notifications"],
+    [/^\/account(?:\/profile)?$/, () => "/en/account/profile"],
+    [/^\/vocabulary$/, () => "/en/learn/words"],
+    [/^\/room\/([^/]+)$/, (match) => `/en/room/${match[1]}`],
+    [/^\/classroom\/([^/]+)$/, (match) => `/en/room/${match[1]}`],
+  ];
+  for (const [pattern, build] of mappings) {
+    const match = pathname.match(pattern);
+    if (match) return `${build(match)}${search}`;
+  }
+  return null;
+}
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const token = request.cookies.get("mrh_token")?.value;
+  const localized = localizedPath(pathname);
+  const legacy = !localized ? legacyDestination(pathname, search) : null;
 
-  const isDashboardRoute = dashboardPrefixes.some((prefix) =>
-    pathname.startsWith(prefix),
-  );
-  const isSharedRoute = sharedProtectedPrefixes.some((prefix) =>
-    pathname.startsWith(prefix),
-  );
-  const isProtected = isDashboardRoute || isSharedRoute;
-  const isAuthPage = authPages.includes(pathname);
+  if (legacy) return NextResponse.redirect(new URL(legacy, request.url));
+
+  if (localized) {
+    const isProtected = protectedLocalizedPrefixes.some(
+      (prefix) =>
+        localized.route === prefix ||
+        localized.route.startsWith(`${prefix}/`),
+    );
+    const isAuth =
+      localized.route === "/sign-in" || localized.route === "/sign-up";
+    if (!token && isProtected) {
+      const loginUrl = new URL(`/${localized.locale}/sign-in`, request.url);
+      loginUrl.searchParams.set("redirect", `${pathname}${search}`);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (token && isAuth) {
+      return NextResponse.redirect(
+        new URL(`/${localized.locale}/learn`, request.url),
+      );
+    }
+  }
 
   let response = NextResponse.next();
   if (process.env.NODE_ENV === "production") {
     const nonce = btoa(crypto.randomUUID());
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-nonce", nonce);
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'nonce-${nonce}'`,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com https://images.unsplash.com https://ui-avatars.com https://randomuser.me",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self'",
+      "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com",
       "connect-src 'self' https://api.mrh.academy wss:",
       "media-src 'self' https://video.bunnycdn.com https://iframe.mediadelivery.net",
       "frame-src 'self' https://iframe.mediadelivery.net https://hooks.stripe.com",
       "worker-src 'self' blob:",
     ].join("; ");
-    // Next.js reads the request CSP header to discover the nonce and applies it
-    // to its generated bootstrap scripts. The response header alone blocks
-    // those scripts and leaves client-rendered pages blank.
+    requestHeaders.set("x-nonce", nonce);
     requestHeaders.set("Content-Security-Policy", csp);
     response = NextResponse.next({ request: { headers: requestHeaders } });
     response.headers.set("Content-Security-Policy", csp);
     response.headers.set("x-nonce", nonce);
   }
-
-  if (!token && isProtected) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set(
-      "redirect",
-      `${pathname}${request.nextUrl.search}`,
-    );
-    return NextResponse.redirect(loginUrl);
-  }
-
-  if (token) {
-    if (isAuthPage) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-  }
-
   return response;
 }
 
 export const config = {
-  matcher: [
-    "/student/:path*",
-    "/tutor/:path*",
-    "/admin/:path*",
-    "/classroom/:path*",
-    "/book-lesson/:path*",
-    "/courses/:path*",
-    "/vocabulary/:path*",
-    "/login",
-    "/register",
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

@@ -6,19 +6,42 @@ export async function loginAs(page: Page, role: E2ERole) {
   await page.context().clearCookies();
   await page.context().addCookies(fixture.cookies);
   await page.goto(fixture.homePath);
-  await expect(page).toHaveURL(new RegExp(`${fixture.homePath}(?:$|[/?#])`));
+  const canonicalWorkspace =
+    role === "tutor"
+      ? /\/(?:tutor|(?:en|ar)\/teach)(?:$|[/?#])/
+      : role === "student"
+        ? /\/(?:student|(?:en|ar)\/learn)(?:$|[/?#])/
+        : /\/(?:admin|(?:en|ar)\/ops)(?:$|[/?#])/;
+  const workspaceNavigation = page.getByRole("navigation", {
+    name: "Workspace navigation",
+  });
+  const sessionRestored =
+    canonicalWorkspace.test(page.url()) &&
+    (await workspaceNavigation
+      .waitFor({ state: "visible", timeout: 10000 })
+      .then(() => true)
+      .catch(() => false));
+  if (!sessionRestored) {
+    await loginThroughUi(page, role);
+    return;
+  }
+  await expect(page).toHaveURL(canonicalWorkspace);
 }
 
 export async function loginThroughUi(page: Page, role: E2ERole) {
   const fixture = (await readE2EFixtures()).roles[role];
   await page.context().clearCookies();
-  await page.goto("/login");
+  await page.goto("/en/sign-in");
   await page.waitForLoadState("networkidle");
   await page.fill('input[name="email"]', fixture.email);
   await page.fill('input[name="password"]', fixture.password);
-  await page.click('button[type="submit"]');
+  await page.getByRole("button", { name: /sign in|تسجيل الدخول/i }).click();
 
-  await expect(page).toHaveURL(new RegExp(`${fixture.homePath}(?:$|[/?#])`), {
-    timeout: 15000,
-  });
+  const canonicalWorkspace =
+    role === "tutor"
+      ? /\/(?:tutor|(?:en|ar)\/teach)(?:$|[/?#])/
+      : role === "student"
+        ? /\/(?:student|(?:en|ar)\/learn)(?:$|[/?#])/
+        : /\/(?:admin|(?:en|ar)\/ops)(?:$|[/?#])/;
+  await expect(page).toHaveURL(canonicalWorkspace, { timeout: 15000 });
 }

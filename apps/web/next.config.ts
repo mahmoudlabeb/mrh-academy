@@ -5,6 +5,10 @@ const apiUrl =
   "http://localhost:4000";
 
 const nextConfig: NextConfig = {
+  // Keep the development compiler isolated from production builds. Running
+  // `next dev` and `next build` against the same output directory can leave a
+  // mixed webpack runtime whose vendor-chunk references no longer exist.
+  distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   productionBrowserSourceMaps: false,
   transpilePackages: ["@mrh/types"],
   webpack(config) {

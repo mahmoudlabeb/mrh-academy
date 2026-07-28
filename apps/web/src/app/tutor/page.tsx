@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import nextDynamic from "next/dynamic";
@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { FocusDecisionStrip } from "@/components/shared/FocusDecisionStrip";
 const DashboardPaneSkeleton = () => (
   <div className="dashboard-pane-skeleton" aria-hidden="true">
     <span />
@@ -494,6 +495,41 @@ function TutorPageContent() {
       case "dashboard":
         return (
           <div className="space-y-8">
+            <FocusDecisionStrip
+              eyebrow={t("الآن", "Now")}
+              title={
+                pendingLessons.length
+                  ? t("طلبات تحتاج إلى قرار", "Requests need a decision")
+                  : t("مساحة التدريس جاهزة", "Your teaching workspace is ready")
+              }
+              description={
+                pendingLessons.length
+                  ? t(
+                      "راجع كل طلب قبل القبول. يؤكد الخادم التعارض والرصيد قبل تغيير الحالة.",
+                      "Review each request before accepting. The server rechecks conflicts and balance before state changes.",
+                    )
+                  : t(
+                      "لا توجد طلبات معلقة. راجع جدولك أو جهّز فصلك التالي.",
+                      "No requests are pending. Review your schedule or prepare your next classroom.",
+                    )
+              }
+              facts={[
+                {
+                  label: t("طلبات معلقة", "Pending"),
+                  value: pendingLessons.length,
+                  tone: pendingLessons.length ? "attention" : "neutral",
+                },
+                {
+                  label: t("طلاب", "Students"),
+                  value: stats?.studentCount ?? 0,
+                },
+              ]}
+              action={
+                <Link className="btn-primary" href="/tutor/lessons">
+                  {t("فتح الجدول", "Open schedule")}
+                </Link>
+              }
+            />
             <div>
               <h2
                 className="text-2xl font-bold"
@@ -513,12 +549,18 @@ function TutorPageContent() {
             </div>
 
             <CourseStudio />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="card-dark p-5">
+            <div
+              className="focus-metric-ledger"
+              aria-label={t("ملخص التدريس", "Teaching summary")}
+            >
+              <div className="card-dark focus-metric p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: "rgba(212, 163, 83,0.12)" }}
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--signal) 12%, transparent)",
+                    }}
                   >
                     <svg
                       className="w-5 h-5"
@@ -542,7 +584,10 @@ function TutorPageContent() {
                     {t("الأرباح", "Earnings")}
                   </span>
                 </div>
-                <p className="text-2xl font-bold" style={{ color: "#22c55e" }}>
+                <p
+                  className="text-2xl font-bold"
+                  style={{ color: "var(--success)" }}
+                >
                   {statsQuery.isLoading ? (
                     <span className="inline-block w-16 h-8 skeleton rounded" />
                   ) : (
@@ -551,11 +596,14 @@ function TutorPageContent() {
                 </p>
               </div>
 
-              <div className="card-dark p-5">
+              <div className="card-dark focus-metric p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: "rgba(212, 163, 83,0.12)" }}
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--signal) 12%, transparent)",
+                    }}
                   >
                     <svg
                       className="w-5 h-5"
@@ -591,11 +639,14 @@ function TutorPageContent() {
                 </p>
               </div>
 
-              <div className="card-dark p-5">
+              <div className="card-dark focus-metric p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: "rgba(212, 163, 83,0.12)" }}
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--signal) 12%, transparent)",
+                    }}
                   >
                     <svg
                       className="w-5 h-5"
@@ -619,7 +670,10 @@ function TutorPageContent() {
                     {t("التقييم", "Rating")}
                   </span>
                 </div>
-                <p className="text-2xl font-bold" style={{ color: "#eab308" }}>
+                <p
+                  className="text-2xl font-bold"
+                  style={{ color: "var(--warning)" }}
+                >
                   {statsQuery.isLoading ? (
                     <span className="inline-block w-12 h-8 skeleton rounded" />
                   ) : stats?.averageRating ? (
@@ -630,11 +684,14 @@ function TutorPageContent() {
                 </p>
               </div>
 
-              <div className="card-dark p-5">
+              <div className="card-dark focus-metric p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: "rgba(212, 163, 83,0.12)" }}
+                    style={{
+                      background:
+                        "color-mix(in srgb, var(--signal) 12%, transparent)",
+                    }}
                   >
                     <svg
                       className="w-5 h-5"
@@ -674,18 +731,21 @@ function TutorPageContent() {
             {/* Earnings & Payouts quick link */}
             <Link
               href="/tutor/earnings"
-              className="card-gold p-5 flex items-center justify-between group transition-all hover:-translate-y-0.5"
+              className="focus-card p-5 flex items-center justify-between group transition-all hover:-translate-y-0.5"
             >
               <div className="flex items-center gap-3">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{ background: "rgba(212,163,83,0.15)" }}
+                  style={{
+                    background:
+                      "color-mix(in srgb, var(--signal) 15%, transparent)",
+                  }}
                 >
                   <svg
                     className="w-5 h-5"
                     fill="none"
                     viewBox="0 0 24 24"
-                    stroke="#D4A353"
+                    stroke="var(--signal)"
                     strokeWidth={1.5}
                   >
                     <path
@@ -718,7 +778,7 @@ function TutorPageContent() {
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
               >
                 <path
                   strokeLinecap="round"
@@ -743,10 +803,10 @@ function TutorPageContent() {
               ) : connectQuery.data?.onboardingComplete ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500" />
+                    <span className="w-3 h-3 rounded-full bg-[var(--success)]" />
                     <span
                       className="text-sm font-semibold"
-                      style={{ color: "#22c55e" }}
+                      style={{ color: "var(--success)" }}
                     >
                       {t("متصل ومفعل", "Connected & Active")}
                     </span>
@@ -760,7 +820,7 @@ function TutorPageContent() {
                 </div>
               ) : connectQuery.data?.connected ? (
                 <div className="space-y-3">
-                  <p className="text-sm" style={{ color: "#eab308" }}>
+                  <p className="text-sm" style={{ color: "var(--warning)" }}>
                     {t(
                       "الحساب متصل لكن لم يكتمل التسجيل",
                       "Account connected but onboarding not complete",
@@ -792,7 +852,7 @@ function TutorPageContent() {
                 </div>
               )}
               {connectError && (
-                <p className="mt-3 text-xs text-red-400" role="alert">
+                <p className="mt-3 text-xs text-[var(--danger)]" role="alert">
                   {connectError}
                 </p>
               )}
@@ -822,7 +882,8 @@ function TutorPageContent() {
                             <div
                               className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
                               style={{
-                                background: "rgba(212, 163, 83,0.12)",
+                                background:
+                                  "color-mix(in srgb, var(--signal) 12%, transparent)",
                                 color: "var(--primary-color)",
                               }}
                             >
@@ -860,9 +921,10 @@ function TutorPageContent() {
                               disabled={rejectLessonMutation.isPending}
                               className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
                               style={{
-                                background: "rgba(239,68,68,0.1)",
-                                color: "#ef4444",
-                                border: "1px solid rgba(239,68,68,0.3)",
+                                background: "var(--danger-soft)",
+                                color: "var(--danger)",
+                                border:
+                                  "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
                               }}
                             >
                               {t("رفض", "Decline")}
@@ -1000,7 +1062,7 @@ function TutorPageContent() {
                         {copiedId === course.id ? (
                           <span
                             className="flex items-center gap-1"
-                            style={{ color: "#22c55e" }}
+                            style={{ color: "var(--success)" }}
                           >
                             <svg
                               className="w-4 h-4"
@@ -1071,7 +1133,8 @@ function TutorPageContent() {
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
                         style={{
-                          background: "rgba(212, 163, 83,0.12)",
+                          background:
+                            "color-mix(in srgb, var(--signal) 12%, transparent)",
                           color: "var(--primary-color)",
                         }}
                       >
@@ -1096,8 +1159,8 @@ function TutorPageContent() {
                       <span
                         className="badge text-xs"
                         style={{
-                          background: "rgba(34,197,94,0.1)",
-                          color: "#22c55e",
+                          background: "var(--success-soft)",
+                          color: "var(--success)",
                         }}
                       >
                         {lesson.status}
@@ -1116,7 +1179,10 @@ function TutorPageContent() {
           <div className="card-dark p-8 text-center">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: "rgba(212, 163, 83,0.1)" }}
+              style={{
+                background:
+                  "color-mix(in srgb, var(--signal) 10%, transparent)",
+              }}
             >
               <svg
                 className="w-8 h-8"
@@ -1212,8 +1278,9 @@ function TutorPageContent() {
                         disabled={cancellingLessonId === lesson.id}
                         className="text-sm px-3 py-2 rounded-lg border transition-colors disabled:opacity-50"
                         style={{
-                          borderColor: "rgba(239,68,68,0.3)",
-                          color: "#ef4444",
+                          borderColor:
+                            "color-mix(in srgb, var(--danger) 30%, transparent)",
+                          color: "var(--danger)",
                         }}
                       >
                         {cancellingLessonId === lesson.id
@@ -1240,7 +1307,10 @@ function TutorPageContent() {
           <div className="card-dark p-8 text-center">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: "rgba(212, 163, 83,0.1)" }}
+              style={{
+                background:
+                  "color-mix(in srgb, var(--signal) 10%, transparent)",
+              }}
             >
               <svg
                 className="w-8 h-8"
@@ -1303,7 +1373,10 @@ function TutorPageContent() {
         >
           <div
             className="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center text-2xl"
-            style={{ background: "rgba(212,163,83,0.15)", color: "#D4A353" }}
+            style={{
+              background: "color-mix(in srgb, var(--signal) 15%, transparent)",
+              color: "var(--signal)",
+            }}
             aria-hidden="true"
           >
             {rejected ? "!" : "…"}
@@ -1357,7 +1430,7 @@ function TutorPageContent() {
             <Link
               href="/"
               className="text-lg font-bold logo-font"
-              style={{ color: "#D4A353" }}
+              style={{ color: "var(--signal)" }}
             >
               Mr.H Academy
             </Link>
@@ -1371,9 +1444,9 @@ function TutorPageContent() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
                       background: active
-                        ? "rgba(212, 163, 83,0.12)"
+                        ? "color-mix(in srgb, var(--signal) 12%, transparent)"
                         : "transparent",
-                      color: active ? "#D4A353" : "#E4CC9C",
+                      color: active ? "var(--signal)" : "var(--ink-muted)",
                     }}
                   >
                     <SidebarIcon section={item.key} />
@@ -1386,13 +1459,16 @@ function TutorPageContent() {
           <div className="flex items-center gap-2">
             <div
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl"
-              style={{ background: "rgba(212, 163, 83,0.1)" }}
+              style={{
+                background:
+                  "color-mix(in srgb, var(--signal) 10%, transparent)",
+              }}
             >
               <svg
                 className="w-4 h-4"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke="#22c55e"
+                stroke="var(--success)"
                 strokeWidth={1.5}
               >
                 <path
@@ -1403,7 +1479,7 @@ function TutorPageContent() {
               </svg>
               <span
                 className="text-sm font-semibold"
-                style={{ color: "#22c55e" }}
+                style={{ color: "var(--success)" }}
               >
                 {statsQuery.isLoading
                   ? "..."
@@ -1417,7 +1493,7 @@ function TutorPageContent() {
                   window.location.href = "/tutor/availability?mode=timeoff";
                 }}
                 className="btn-ghost tutor-timeoff text-sm px-3 py-2 rounded-xl"
-                style={{ color: "#FFFFF0" }}
+                style={{ color: "var(--focus-ink)" }}
               >
                 <svg
                   className="w-4 h-4 inline ms-1"
@@ -1441,7 +1517,7 @@ function TutorPageContent() {
                 onClick={() => setShowNotifications(true)}
                 className="relative p-2 rounded-xl hover:bg-white/5 transition-colors"
                 title={t("الإشعارات", "Notifications")}
-                style={{ color: "#FFFFF0" }}
+                style={{ color: "var(--focus-ink)" }}
               >
                 <svg
                   className="w-5 h-5"
@@ -1457,7 +1533,7 @@ function TutorPageContent() {
                   />
                 </svg>
                 {(notifData?.count ?? 0) > 0 && (
-                  <span className="absolute -top-0.5 -end-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-0.5 -end-0.5 w-4.5 h-4.5 rounded-full bg-[var(--danger)] text-white text-[10px] font-bold flex items-center justify-center">
                     {(notifData?.count ?? 0) > 9 ? "9+" : notifData?.count}
                   </span>
                 )}
@@ -1498,9 +1574,9 @@ function TutorPageContent() {
                     : t("التبديل إلى الوضع الداكن", "Switch to dark mode")
                 }
                 className="p-2 rounded-xl transition-colors tutor-theme-toggle"
-                style={{ color: "#FFFFF0" }}
+                style={{ color: "var(--focus-ink)" }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#1D535B")
+                  (e.currentTarget.style.background = "var(--ink-muted)")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = "transparent")
@@ -1541,9 +1617,9 @@ function TutorPageContent() {
               <button
                 onClick={toggleLanguage}
                 className="px-2 py-1 rounded-xl text-sm font-bold transition-colors tutor-language-toggle"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.background = "#1D535B")
+                  (e.currentTarget.style.background = "var(--ink-muted)")
                 }
                 onMouseLeave={(e) =>
                   (e.currentTarget.style.background = "transparent")
@@ -1557,9 +1633,9 @@ function TutorPageContent() {
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
                   className="flex items-center gap-2 p-1.5 rounded-xl transition-colors tutor-profile-trigger"
-                  style={{ color: "#FFFFF0" }}
+                  style={{ color: "var(--focus-ink)" }}
                   onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#1D535B")
+                    (e.currentTarget.style.background = "var(--ink-muted)")
                   }
                   onMouseLeave={(e) =>
                     (e.currentTarget.style.background = "transparent")
@@ -1568,8 +1644,9 @@ function TutorPageContent() {
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
                     style={{
-                      background: "rgba(212, 163, 83,0.2)",
-                      color: "#D4A353",
+                      background:
+                        "color-mix(in srgb, var(--signal) 20%, transparent)",
+                      color: "var(--signal)",
                     }}
                   >
                     {user?.firstName?.[0]}
@@ -1626,7 +1703,7 @@ function TutorPageContent() {
                           style={{ color: "var(--text-main)" }}
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.background =
-                              "rgba(212, 163, 83,0.08)")
+                              "color-mix(in srgb, var(--signal) 8%, transparent)")
                           }
                           onMouseLeave={(e) =>
                             (e.currentTarget.style.background = "transparent")
@@ -1640,10 +1717,10 @@ function TutorPageContent() {
                             setProfileOpen(false);
                           }}
                           className="w-full text-end px-4 py-2 text-sm transition-colors"
-                          style={{ color: "#ef4444" }}
+                          style={{ color: "var(--danger)" }}
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.background =
-                              "rgba(239,68,68,0.08)")
+                              "var(--danger-soft)")
                           }
                           onMouseLeave={(e) =>
                             (e.currentTarget.style.background = "transparent")
@@ -1664,7 +1741,10 @@ function TutorPageContent() {
       {/* Mobile Navigation */}
       <nav
         className="tutor-mobile-nav md:hidden flex gap-1 px-4 py-2 overflow-x-auto"
-        style={{ background: "#0F3A40", borderBottom: "1px solid #1D535B" }}
+        style={{
+          background: "var(--ink)",
+          borderBottom: "1px solid var(--ink-muted)",
+        }}
       >
         {SIDEBAR_ITEMS.map((item) => {
           const active = activeSection === item.key;
@@ -1674,8 +1754,10 @@ function TutorPageContent() {
               onClick={() => setActiveSection(item.key)}
               className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
               style={{
-                background: active ? "rgba(212, 163, 83,0.12)" : "transparent",
-                color: active ? "#D4A353" : "#E4CC9C",
+                background: active
+                  ? "color-mix(in srgb, var(--signal) 12%, transparent)"
+                  : "transparent",
+                color: active ? "var(--signal)" : "var(--ink-muted)",
               }}
             >
               <SidebarIcon section={item.key} />

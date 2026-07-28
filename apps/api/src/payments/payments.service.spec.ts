@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
-import { PaymentMethod, PaymentStatus } from '@mrh/types';
+import { PaymentMethod, PaymentStatus, PayoutStatus } from '@mrh/types';
 import { Payment } from './entities/payment.entity';
 import { Payout } from './entities/payout.entity';
 import { StudentProfile } from '../students/entities/student-profile.entity';
@@ -159,6 +159,46 @@ describe('PaymentsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('checks for an existing pending payout inside the locked transaction', async () => {
+    const manager = {
+      findOne: jest
+        .fn()
+        .mockResolvedValueOnce({ userId: 'tutor-1', balance: 500 })
+        .mockResolvedValueOnce({
+          id: 'pending-payout',
+          tutorId: 'tutor-1',
+          status: PayoutStatus.PENDING,
+        }),
+      decrement: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    };
+    dataSource.transaction.mockImplementationOnce(async (callback) =>
+      callback(manager),
+    );
+
+    await expect(
+      service.requestPayout('tutor-1', {
+        amount: 100,
+        method: 'bank_transfer',
+        accountDetails: 'redacted-test-destination',
+      }),
+    ).rejects.toThrow('You already have a pending payout request');
+
+    expect(manager.findOne).toHaveBeenNthCalledWith(
+      1,
+      TutorProfile,
+      expect.objectContaining({
+        where: { userId: 'tutor-1' },
+        lock: { mode: 'pessimistic_write' },
+      }),
+    );
+    expect(manager.findOne).toHaveBeenNthCalledWith(2, Payout, {
+      where: { tutorId: 'tutor-1', status: PayoutStatus.PENDING },
+    });
+    expect(manager.decrement).not.toHaveBeenCalled();
   });
 
   it('keeps card payments pending until Stripe confirms them', async () => {

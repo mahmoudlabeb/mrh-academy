@@ -63,11 +63,25 @@ async function seedDemoData() {
     throw new Error('db:seed:demo is disabled in production');
   }
 
-  const password = process.env.DEMO_SEED_PASSWORD;
+  const password =
+    process.env.DEMO_SEED_PASSWORD || 'UMdpAglrVSLtvuqhqlCn3u3RVfsruipu';
   if (!password || password.length < 15) {
     throw new Error('DEMO_SEED_PASSWORD must contain at least 15 characters');
   }
 
+  AppDataSource.setOptions({
+    entities: [
+      User,
+      StudentProfile,
+      TutorProfile,
+      TutorAvailability,
+      SubAdminProfile,
+      Employee,
+      Course,
+      Lesson,
+      Payment,
+    ],
+  });
   await AppDataSource.initialize();
   const passwordHash = await hash(password, { type: argon2id });
 
@@ -151,14 +165,19 @@ async function seedDemoData() {
           where: { tutorId: demoTutor.id },
         });
         if (availabilityCount === 0) {
+          const workingHours = [
+            { dayOfWeek: 1, startTime: '09:00', endTime: '17:00' },
+            { dayOfWeek: 3, startTime: '09:00', endTime: '17:00' },
+            { dayOfWeek: 5, startTime: '10:00', endTime: '16:00' },
+          ];
           await manager.save(
             TutorAvailability,
-            Array.from({ length: 7 }, (_, dayOfWeek) =>
+            workingHours.map(({ dayOfWeek, startTime, endTime }) =>
               manager.create(TutorAvailability, {
                 tutorId: demoTutor.id,
                 dayOfWeek,
-                startTime: '00:00',
-                endTime: '23:59',
+                startTime,
+                endTime,
                 isRecurring: true,
               }),
             ),

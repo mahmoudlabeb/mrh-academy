@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
@@ -127,10 +127,13 @@ export default function AdminArticlesPage() {
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold" style={{ color: "#FFFFF0" }}>
+              <h1
+                className="text-3xl font-bold"
+                style={{ color: "var(--focus-ink)" }}
+              >
                 {t("إدارة المقالات", "Manage articles")}
               </h1>
-              <p className="mt-1" style={{ color: "#E4CC9C" }}>
+              <p className="mt-1" style={{ color: "var(--ink-muted)" }}>
                 {t(
                   "إنشاء وإدارة مقالات تدريب المعلمين",
                   "Create and manage teacher-training articles",
@@ -140,7 +143,10 @@ export default function AdminArticlesPage() {
             <Link
               href="/admin"
               className="btn-secondary px-4 py-2 text-sm"
-              style={{ borderColor: "#1D535B", color: "#FFFFF0" }}
+              style={{
+                borderColor: "var(--ink-muted)",
+                color: "var(--focus-ink)",
+              }}
             >
               {t("لوحة التحكم", "Dashboard")}
             </Link>
@@ -209,7 +215,9 @@ export default function AdminArticlesPage() {
               <div
                 className="w-10 h-5 rounded-full transition-colors relative"
                 style={{
-                  background: isPublished ? "#D4A353" : "var(--border-color)",
+                  background: isPublished
+                    ? "var(--signal)"
+                    : "var(--border-color)",
                 }}
               >
                 <input
@@ -323,9 +331,10 @@ export default function AdminArticlesPage() {
                     style={
                       article.isPublished
                         ? {
-                            background: "rgba(34,197,94,0.1)",
-                            color: "#22c55e",
-                            border: "1px solid rgba(34,197,94,0.2)",
+                            background: "var(--success-soft)",
+                            color: "var(--success)",
+                            border:
+                              "1px solid color-mix(in srgb, var(--success) 20%, transparent)",
                           }
                         : {
                             background: "var(--bg-light)",
@@ -347,7 +356,7 @@ export default function AdminArticlesPage() {
                   <button
                     onClick={() => handleDelete(article.id)}
                     className="text-xs font-medium transition-colors"
-                    style={{ color: "#ef4444" }}
+                    style={{ color: "var(--danger)" }}
                   >
                     {t("حذف", "Delete")}
                   </button>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -103,7 +103,7 @@ export default function AdminTeachersPage() {
           className="w-8 h-8 animate-spin"
           viewBox="0 0 24 24"
           fill="none"
-          style={{ color: "#D4A353" }}
+          style={{ color: "var(--signal)" }}
         >
           <circle
             className="opacity-25"
@@ -129,10 +129,13 @@ export default function AdminTeachersPage() {
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold" style={{ color: "#FFFFF0" }}>
+              <h1
+                className="text-3xl font-bold"
+                style={{ color: "var(--focus-ink)" }}
+              >
                 {t("إدارة المعلمين", "Manage tutors")}
               </h1>
-              <p className="mt-1" style={{ color: "#E4CC9C" }}>
+              <p className="mt-1" style={{ color: "var(--ink-muted)" }}>
                 {t(
                   "مراجعة وإدارة طلبات المعلمين",
                   "Review and manage tutor applications",
@@ -142,7 +145,10 @@ export default function AdminTeachersPage() {
             <Link
               href="/admin"
               className="btn-secondary px-4 py-2 text-sm"
-              style={{ borderColor: "#1D535B", color: "#FFFFF0" }}
+              style={{
+                borderColor: "var(--ink-muted)",
+                color: "var(--focus-ink)",
+              }}
             >
               {t("لوحة التحكم", "Dashboard")}
             </Link>
@@ -165,7 +171,7 @@ export default function AdminTeachersPage() {
             }`}
             style={
               activeTab === "pending"
-                ? { background: "#D4A353", color: "#0F3A40" }
+                ? { background: "var(--signal)", color: "var(--ink)" }
                 : { color: "var(--text-muted)" }
             }
           >
@@ -186,7 +192,7 @@ export default function AdminTeachersPage() {
             }`}
             style={
               activeTab === "all"
-                ? { background: "#D4A353", color: "#0F3A40" }
+                ? { background: "var(--signal)", color: "var(--ink)" }
                 : { color: "var(--text-muted)" }
             }
           >
@@ -225,8 +231,9 @@ export default function AdminTeachersPage() {
                   style={
                     selectedTutor?.userId === tutor.userId
                       ? {
-                          borderColor: "#D4A353",
-                          boxShadow: "0 0 0 2px rgba(212, 163, 83,0.3)",
+                          borderColor: "var(--signal)",
+                          boxShadow:
+                            "0 0 0 2px color-mix(in srgb, var(--signal) 30%, transparent)",
                         }
                       : {}
                   }
@@ -235,7 +242,7 @@ export default function AdminTeachersPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                        style={{ background: "#D4A353" }}
+                        style={{ background: "var(--signal)" }}
                       >
                         {tutor.user.firstName[0]}
                       </div>
@@ -259,20 +266,23 @@ export default function AdminTeachersPage() {
                       style={
                         tutor.status === "pending"
                           ? {
-                              background: "rgba(234,179,8,0.1)",
-                              color: "#eab308",
-                              border: "1px solid rgba(234,179,8,0.2)",
+                              background: "var(--warning-soft)",
+                              color: "var(--warning)",
+                              border:
+                                "1px solid color-mix(in srgb, var(--warning) 20%, transparent)",
                             }
                           : tutor.status === "approved"
                             ? {
-                                background: "rgba(34,197,94,0.1)",
-                                color: "#22c55e",
-                                border: "1px solid rgba(34,197,94,0.2)",
+                                background: "var(--success-soft)",
+                                color: "var(--success)",
+                                border:
+                                  "1px solid color-mix(in srgb, var(--success) 20%, transparent)",
                               }
                             : {
-                                background: "rgba(239,68,68,0.1)",
-                                color: "#ef4444",
-                                border: "1px solid rgba(239,68,68,0.2)",
+                                background: "var(--danger-soft)",
+                                color: "var(--danger)",
+                                border:
+                                  "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                               }
                       }
                     >
@@ -297,7 +307,7 @@ export default function AdminTeachersPage() {
                 <div className="flex items-center gap-3 mb-6">
                   <div
                     className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl"
-                    style={{ background: "#D4A353" }}
+                    style={{ background: "var(--signal)" }}
                   >
                     {selectedTutor.user.firstName[0]}
                   </div>
@@ -314,17 +324,17 @@ export default function AdminTeachersPage() {
                       style={
                         selectedTutor.status === "pending"
                           ? {
-                              background: "rgba(234,179,8,0.1)",
-                              color: "#eab308",
+                              background: "var(--warning-soft)",
+                              color: "var(--warning)",
                             }
                           : selectedTutor.status === "approved"
                             ? {
-                                background: "rgba(34,197,94,0.1)",
-                                color: "#22c55e",
+                                background: "var(--success-soft)",
+                                color: "var(--success)",
                               }
                             : {
-                                background: "rgba(239,68,68,0.1)",
-                                color: "#ef4444",
+                                background: "var(--danger-soft)",
+                                color: "var(--danger)",
                               }
                       }
                     >
@@ -363,7 +373,7 @@ export default function AdminTeachersPage() {
                   <Field label={t("السعر في الساعة", "Hourly rate")}>
                     <span
                       className="text-lg font-bold"
-                      style={{ color: "#D4A353" }}
+                      style={{ color: "var(--signal)" }}
                     >
                       ${selectedTutor.hourlyRate.toFixed(2)}
                     </span>
@@ -470,8 +480,9 @@ export default function AdminTeachersPage() {
                         disabled={rejectMutation.isPending || !rejectReason}
                         className="btn-secondary w-full justify-center py-3 mt-2"
                         style={{
-                          borderColor: "rgba(239,68,68,0.3)",
-                          color: "#ef4444",
+                          borderColor:
+                            "color-mix(in srgb, var(--danger) 30%, transparent)",
+                          color: "var(--danger)",
                         }}
                       >
                         {rejectMutation.isPending
@@ -512,17 +523,21 @@ export default function AdminTeachersPage() {
                       <div
                         className="rounded-xl px-4 py-3"
                         style={{
-                          background: "rgba(239,68,68,0.1)",
-                          border: "1px solid rgba(239,68,68,0.2)",
+                          background: "var(--danger-soft)",
+                          border:
+                            "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                         }}
                       >
                         <p
                           className="text-xs font-medium mb-1"
-                          style={{ color: "#ef4444" }}
+                          style={{ color: "var(--danger)" }}
                         >
                           {t("سبب الرفض", "Rejection reason")}
                         </p>
-                        <p className="text-sm" style={{ color: "#ef4444" }}>
+                        <p
+                          className="text-sm"
+                          style={{ color: "var(--danger)" }}
+                        >
                           {selectedTutor.rejectionReason}
                         </p>
                       </div>

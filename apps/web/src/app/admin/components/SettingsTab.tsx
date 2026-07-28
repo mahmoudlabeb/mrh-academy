@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -85,7 +85,10 @@ export default function SettingsTab() {
         >
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: "rgba(212,163,83,.12)", color: "#D4A353" }}
+            style={{
+              background: "color-mix(in srgb, var(--signal) 12%, transparent)",
+              color: "var(--signal)",
+            }}
           >
             <SettingsIcon />
           </span>
@@ -124,11 +127,12 @@ export default function SettingsTab() {
               role="alert"
               className="rounded-xl border p-5 text-center"
               style={{
-                borderColor: "rgba(239,68,68,.35)",
-                background: "rgba(239,68,68,.06)",
+                borderColor:
+                  "color-mix(in srgb, var(--danger) 35%, transparent)",
+                background: "var(--danger-soft)",
               }}
             >
-              <p className="text-sm font-semibold text-red-500">
+              <p className="text-sm font-semibold text-[var(--danger)]">
                 {t(
                   "تعذر تحميل إعدادات المنصة.",
                   "Platform settings could not be loaded.",
@@ -240,11 +244,11 @@ export default function SettingsTab() {
                     className="peer sr-only"
                   />
                   <span
-                    className="absolute inset-0 rounded-full border transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#D4A353]"
+                    className="absolute inset-0 rounded-full border transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--signal)]"
                     style={{
                       borderColor: "var(--border-color)",
                       background: form.maintenance_mode
-                        ? "#D4A353"
+                        ? "var(--signal)"
                         : "var(--bg-main)",
                     }}
                   />
@@ -258,10 +262,11 @@ export default function SettingsTab() {
             {updateMutation.isError && (
               <p
                 role="alert"
-                className="rounded-lg border px-4 py-3 text-sm text-red-500"
+                className="rounded-lg border px-4 py-3 text-sm text-[var(--danger)]"
                 style={{
-                  borderColor: "rgba(239,68,68,.35)",
-                  background: "rgba(239,68,68,.06)",
+                  borderColor:
+                    "color-mix(in srgb, var(--danger) 35%, transparent)",
+                  background: "var(--danger-soft)",
                 }}
               >
                 {t(
@@ -286,7 +291,7 @@ export default function SettingsTab() {
               </button>
               <p
                 aria-live="polite"
-                className="flex items-center gap-1.5 text-sm font-semibold text-green-600"
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--success)]"
               >
                 {updateMutation.isSuccess && (
                   <>

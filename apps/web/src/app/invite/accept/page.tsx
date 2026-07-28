@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -24,11 +24,11 @@ function AcceptInviteForm() {
       <div className="text-center">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ background: "rgba(239,68,68,0.1)" }}
+          style={{ background: "var(--danger-soft)" }}
         >
           <svg
             className="w-8 h-8"
-            style={{ color: "#ef4444" }}
+            style={{ color: "var(--danger)" }}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -41,7 +41,10 @@ function AcceptInviteForm() {
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: "#ef4444" }}>
+        <h3
+          className="text-xl font-bold mb-2"
+          style={{ color: "var(--danger)" }}
+        >
           {t("رابط غير صالح", "Invalid link")}
         </h3>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
@@ -100,11 +103,11 @@ function AcceptInviteForm() {
       <div className="text-center">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ background: "rgba(34,197,94,0.1)" }}
+          style={{ background: "var(--success-soft)" }}
         >
           <svg
             className="w-8 h-8"
-            style={{ color: "#22c55e" }}
+            style={{ color: "var(--success)" }}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -117,7 +120,10 @@ function AcceptInviteForm() {
             />
           </svg>
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: "#22c55e" }}>
+        <h3
+          className="text-xl font-bold mb-2"
+          style={{ color: "var(--success)" }}
+        >
           {t("تم قبول الدعوة بنجاح!", "Invitation accepted!")}
         </h3>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
@@ -135,11 +141,13 @@ function AcceptInviteForm() {
       <div className="text-center mb-4">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ background: "rgba(212, 163, 83,0.1)" }}
+          style={{
+            background: "color-mix(in srgb, var(--signal) 10%, transparent)",
+          }}
         >
           <svg
             className="w-8 h-8"
-            style={{ color: "#D4A353" }}
+            style={{ color: "var(--signal)" }}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -154,7 +162,7 @@ function AcceptInviteForm() {
         </div>
         <h2
           className="text-2xl font-bold logo-font"
-          style={{ color: "#D4A353" }}
+          style={{ color: "var(--signal)" }}
         >
           Mr.H Academy
         </h2>
@@ -170,9 +178,10 @@ function AcceptInviteForm() {
         <div
           className="p-3 text-sm rounded-lg"
           style={{
-            background: "rgba(239,68,68,0.1)",
-            color: "#ef4444",
-            border: "1px solid rgba(239,68,68,0.2)",
+            background: "var(--danger-soft)",
+            color: "var(--danger)",
+            border:
+              "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
           }}
         >
           {error}

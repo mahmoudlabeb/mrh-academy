@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
@@ -33,14 +33,30 @@ type RecentActivity = {
 
 const activityVisuals = {
   lesson: {
-    color: "#0f766e",
-    bg: "rgba(15,118,110,.1)",
+    color: "var(--signal)",
+    bg: "var(--signal-soft)",
     Icon: LessonIcon,
   },
-  user: { color: "#2563eb", bg: "rgba(37,99,235,.1)", Icon: UserIcon },
-  payment: { color: "#16a34a", bg: "rgba(22,163,74,.1)", Icon: CreditCardIcon },
-  payout: { color: "#ca8a04", bg: "rgba(202,138,4,.1)", Icon: MoneyIcon },
-  course: { color: "#9333ea", bg: "rgba(147,51,234,.1)", Icon: BookIcon },
+  user: {
+    color: "var(--ink-muted)",
+    bg: "var(--canvas-sunken)",
+    Icon: UserIcon,
+  },
+  payment: {
+    color: "var(--success)",
+    bg: "var(--success-soft)",
+    Icon: CreditCardIcon,
+  },
+  payout: {
+    color: "var(--warning)",
+    bg: "var(--warning-soft)",
+    Icon: MoneyIcon,
+  },
+  course: {
+    color: "var(--ember)",
+    bg: "var(--signal-soft)",
+    Icon: BookIcon,
+  },
 };
 
 export default function OverviewTab() {
@@ -69,25 +85,25 @@ export default function OverviewTab() {
       label: t("إجمالي الأرباح", "Total Earnings"),
       value: stats?.totalEarnings ?? 0,
       prefix: "$",
-      color: "#16a34a",
+      color: "var(--success)",
       Icon: MoneyIcon,
     },
     {
       label: t("الطلاب النشطون", "Active Students"),
       value: stats?.totalStudents ?? 0,
-      color: "#D4A353",
+      color: "var(--signal)",
       Icon: UserIcon,
     },
     {
       label: t("طلبات المعلمين المعلقة", "Pending Tutor Requests"),
       value: stats?.pendingApplications ?? 0,
-      color: "#ca8a04",
+      color: "var(--warning)",
       Icon: UserIcon,
     },
     {
       label: t("البلاغات المفتوحة", "Open Reports"),
       value: stats?.openReports ?? 0,
-      color: "#dc2626",
+      color: "var(--danger)",
       Icon: AlertIcon,
     },
   ];
@@ -121,11 +137,14 @@ export default function OverviewTab() {
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3"
           style={{
-            borderColor: "rgba(239,68,68,.35)",
-            background: "rgba(239,68,68,.06)",
+            borderColor: "var(--danger)",
+            background: "var(--danger-soft)",
           }}
         >
-          <p className="text-sm font-semibold text-red-500">
+          <p
+            className="text-sm font-semibold"
+            style={{ color: "var(--danger)" }}
+          >
             {t(
               "تعذر تحديث ملخص الإحصاءات.",
               "The statistics summary could not be updated.",
@@ -154,7 +173,10 @@ export default function OverviewTab() {
               </span>
               <span
                 className="flex h-9 w-9 items-center justify-center rounded-lg"
-                style={{ color, background: `${color}14` }}
+                style={{
+                  color,
+                  background: `color-mix(in srgb, ${color} 9%, transparent)`,
+                }}
               >
                 <Icon />
               </span>
@@ -273,7 +295,10 @@ export default function OverviewTab() {
               </div>
             ) : activityQuery.isError ? (
               <div role="alert" className="py-6 text-center">
-                <p className="text-sm font-semibold text-red-500">
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--danger)" }}
+                >
                   {t(
                     "تعذر تحميل أحدث النشاطات.",
                     "Recent activity could not be loaded.",

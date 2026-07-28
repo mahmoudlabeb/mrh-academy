@@ -12,7 +12,10 @@ export default function Loading() {
       aria-live="polite"
       role="status"
     >
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+      <div
+        className="h-10 w-10 animate-spin rounded-full border-4 border-t-transparent"
+        style={{ borderColor: "var(--signal)", borderTopColor: "transparent" }}
+      />
       <span className="sr-only">{label}</span>
     </main>
   );

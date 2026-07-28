@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
 import {
@@ -68,42 +69,44 @@ const statusConfig: Record<
   pending: {
     ar: "قيد الانتظار",
     en: "Pending",
-    color: "#ca8a04",
-    bg: "rgba(202,138,4,.1)",
+    color: "var(--warning)",
+    bg: "var(--warning-soft)",
   },
   processing: {
     ar: "قيد المعالجة",
     en: "Processing",
-    color: "#2563eb",
-    bg: "rgba(37,99,235,.1)",
+    color: "var(--info)",
+    bg: "var(--info-soft)",
   },
   success: {
     ar: "مكتمل",
     en: "Completed",
-    color: "#16a34a",
-    bg: "rgba(22,163,74,.1)",
+    color: "var(--success)",
+    bg: "var(--success-soft)",
   },
   completed: {
     ar: "مكتمل",
     en: "Completed",
-    color: "#16a34a",
-    bg: "rgba(22,163,74,.1)",
+    color: "var(--success)",
+    bg: "var(--success-soft)",
   },
   failed: {
     ar: "فشل",
     en: "Failed",
-    color: "#dc2626",
-    bg: "rgba(220,38,38,.1)",
+    color: "var(--danger)",
+    bg: "var(--danger-soft)",
   },
   rejected: {
     ar: "مرفوض",
     en: "Rejected",
-    color: "#dc2626",
-    bg: "rgba(220,38,38,.1)",
+    color: "var(--danger)",
+    bg: "var(--danger-soft)",
   },
 };
 
 export default function TutorEarningsPage() {
+  const pathname = usePathname();
+  const router = useRouter();
   const { lang } = useLanguage();
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const locale = lang === "ar" ? "ar-EG" : "en-US";
@@ -113,6 +116,10 @@ export default function TutorEarningsPage() {
   const [method, setMethod] = useState<PayoutMethod>("bank_transfer");
   const [accountDetails, setAccountDetails] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const routedPanel = pathname.endsWith("/earnings/payout");
+  useEffect(() => {
+    if (routedPanel) setShowPayoutForm(true);
+  }, [routedPanel]);
 
   const profileQuery = useQuery({
     queryKey: ["tutor-profile-balance"],
@@ -180,7 +187,7 @@ export default function TutorEarningsPage() {
       <header>
         <p
           className="text-xs font-bold uppercase tracking-[.16em]"
-          style={{ color: "#D4A353" }}
+          style={{ color: "var(--signal)" }}
         >
           {t("المالية", "Financials")}
         </p>
@@ -199,7 +206,7 @@ export default function TutorEarningsPage() {
       </header>
 
       <section
-        className="card-gold overflow-hidden"
+        className="focus-card overflow-hidden"
         aria-labelledby="balance-title"
       >
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -215,7 +222,7 @@ export default function TutorEarningsPage() {
               <div className="mt-2 h-10 w-32 rounded skeleton" />
             ) : profileQuery.isError ? (
               <div className="mt-2">
-                <p className="text-sm text-red-500">
+                <p className="text-sm text-[var(--danger)]">
                   {t("تعذر تحميل الرصيد.", "Balance could not be loaded.")}
                 </p>
                 <button
@@ -231,7 +238,7 @@ export default function TutorEarningsPage() {
               <p
                 className="mt-1 text-4xl font-bold"
                 dir="ltr"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
               >
                 ${balance.toFixed(2)}
               </p>
@@ -241,6 +248,10 @@ export default function TutorEarningsPage() {
             <button
               type="button"
               onClick={() => {
+                if (!showPayoutForm && pathname.includes("/teach/earnings")) {
+                  router.push(`/${lang}/teach/earnings/payout`);
+                  return;
+                }
                 setShowPayoutForm((open) => !open);
                 requestPayoutMutation.reset();
               }}
@@ -279,9 +290,10 @@ export default function TutorEarningsPage() {
           <div
             className="flex items-start gap-3 rounded-xl border p-4"
             style={{
-              borderColor: "rgba(22,163,74,.3)",
-              background: "rgba(22,163,74,.08)",
-              color: "#16a34a",
+              borderColor:
+                "color-mix(in srgb, var(--success) 30%, transparent)",
+              background: "var(--success-soft)",
+              color: "var(--success)",
             }}
           >
             <CheckIcon className="mt-0.5 h-5 w-5 shrink-0" />
@@ -301,9 +313,18 @@ export default function TutorEarningsPage() {
 
       {showPayoutForm && (
         <section
-          className="card p-5 sm:p-6"
+          className={`card p-5 sm:p-6 ${routedPanel ? "routed-payout-form" : ""}`}
           aria-labelledby="payout-form-title"
         >
+          {routedPanel && (
+            <div className="routed-payment-header">
+              <div>
+                <strong>{t("طلب سحب", "Request Payout")}</strong>
+                <span>{t("طلب مالي يخضع لتأكيد الخادم", "Server-authoritative financial request")}</span>
+              </div>
+              <Link href={`/${lang}/teach/earnings`} aria-label={t("إغلاق", "Close")}>×</Link>
+            </div>
+          )}
           <h2
             id="payout-form-title"
             className="text-lg font-bold"
@@ -366,10 +387,12 @@ export default function TutorEarningsPage() {
                     className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors"
                     style={{
                       borderColor:
-                        method === key ? "#D4A353" : "var(--border-color)",
+                        method === key
+                          ? "var(--signal)"
+                          : "var(--border-color)",
                       background:
                         method === key
-                          ? "rgba(212,163,83,.1)"
+                          ? "color-mix(in srgb, var(--signal) 10%, transparent)"
                           : "var(--bg-light)",
                     }}
                   >
@@ -384,7 +407,10 @@ export default function TutorEarningsPage() {
                     <span
                       className="flex h-8 w-8 items-center justify-center rounded-md"
                       style={{
-                        color: method === key ? "#D4A353" : "var(--text-muted)",
+                        color:
+                          method === key
+                            ? "var(--signal)"
+                            : "var(--text-muted)",
                         background: "var(--bg-main)",
                       }}
                     >
@@ -397,7 +423,7 @@ export default function TutorEarningsPage() {
                       {lang === "ar" ? labelAr : labelEn}
                     </span>
                     {method === key && (
-                      <CheckIcon className="ms-auto h-4 w-4 text-[#D4A353]" />
+                      <CheckIcon className="ms-auto h-4 w-4 text-[var(--signal)]" />
                     )}
                   </label>
                 ))}
@@ -424,10 +450,11 @@ export default function TutorEarningsPage() {
             {requestPayoutMutation.isError && (
               <p
                 role="alert"
-                className="rounded-lg border px-4 py-3 text-sm text-red-500"
+                className="rounded-lg border px-4 py-3 text-sm text-[var(--danger)]"
                 style={{
-                  borderColor: "rgba(239,68,68,.35)",
-                  background: "rgba(239,68,68,.06)",
+                  borderColor:
+                    "color-mix(in srgb, var(--danger) 35%, transparent)",
+                  background: "var(--danger-soft)",
                 }}
               >
                 {(
@@ -494,9 +521,9 @@ export default function TutorEarningsPage() {
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                   style={{
                     background: earning
-                      ? "rgba(22,163,74,.1)"
-                      : "rgba(212,163,83,.12)",
-                    color: earning ? "#16a34a" : "#D4A353",
+                      ? "var(--success-soft)"
+                      : "color-mix(in srgb, var(--signal) 12%, transparent)",
+                    color: earning ? "var(--success)" : "var(--signal)",
                   }}
                 >
                   <Icon />
@@ -524,7 +551,9 @@ export default function TutorEarningsPage() {
                   <p
                     className="font-bold"
                     dir="ltr"
-                    style={{ color: earning ? "#16a34a" : "#dc2626" }}
+                    style={{
+                      color: earning ? "var(--success)" : "var(--danger)",
+                    }}
                   >
                     {transaction.amount >= 0 ? "+" : "−"}$
                     {Math.abs(transaction.amount).toFixed(2)}
@@ -571,8 +600,9 @@ export default function TutorEarningsPage() {
                   <span
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                     style={{
-                      color: "#D4A353",
-                      background: "rgba(212,163,83,.12)",
+                      color: "var(--signal)",
+                      background:
+                        "color-mix(in srgb, var(--signal) 12%, transparent)",
                     }}
                   >
                     <MoneyIcon />
@@ -605,7 +635,7 @@ export default function TutorEarningsPage() {
                     className="mt-2 text-xs"
                     style={{
                       color: payout.errorMessage
-                        ? "#dc2626"
+                        ? "var(--danger)"
                         : "var(--text-muted)",
                     }}
                   >
@@ -662,7 +692,9 @@ function HistorySection({
         </div>
       ) : error ? (
         <div role="alert" className="py-5 text-center">
-          <p className="text-sm font-semibold text-red-500">{errorText}</p>
+          <p className="text-sm font-semibold text-[var(--danger)]">
+            {errorText}
+          </p>
           <button
             type="button"
             onClick={retry}
@@ -677,7 +709,7 @@ function HistorySection({
           className="rounded-xl border border-dashed px-5 py-9 text-center"
           style={{ borderColor: "var(--border-color)" }}
         >
-          <MoneyIcon className="mx-auto h-7 w-7 text-[#D4A353]" />
+          <MoneyIcon className="mx-auto h-7 w-7 text-[var(--signal)]" />
           <p
             className="mt-3 text-sm font-semibold"
             style={{ color: "var(--text-muted)" }}

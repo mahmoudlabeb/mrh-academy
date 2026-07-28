@@ -1,6 +1,6 @@
-.page {
-  --corporate-gold: #d4a353;
-  --corporate-teal: #0f3a40;
+﻿.page {
+  --corporate-signal: var(--signal);
+  --corporate-ink: var(--ink);
   min-height: 100vh;
   overflow: hidden;
   color: var(--ink-strong);
@@ -18,25 +18,15 @@
   position: relative;
   isolation: isolate;
   padding: clamp(5rem, 9vw, 8.5rem) max(1.5rem, calc((100vw - 1240px) / 2));
-  background:
-    linear-gradient(
-      115deg,
-      rgba(255, 243, 218, 0.96),
-      rgba(253, 251, 247, 0.86)
-    ),
-    var(--hero-surface);
+  background: var(--canvas);
 }
 
 .hero::before {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(15, 58, 64, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 58, 64, 0.055) 1px, transparent 1px);
-  background-size: 54px 54px;
   content: "";
-  mask-image: linear-gradient(to left, black, transparent 72%);
+  border-inline-end: 1px solid var(--border);
 }
 
 .hero::after {
@@ -46,11 +36,11 @@
   height: 310px;
   inset-block-start: -160px;
   inset-inline-end: -90px;
-  border: 1px solid rgba(212, 163, 83, 0.55);
+  border: 1px solid color-mix(in srgb, var(--signal) 55%, transparent);
   border-radius: 50%;
   box-shadow:
-    0 0 0 54px rgba(212, 163, 83, 0.08),
-    0 0 0 108px rgba(212, 163, 83, 0.05);
+    0 0 0 54px color-mix(in srgb, var(--signal) 8%, transparent),
+    0 0 0 108px color-mix(in srgb, var(--signal) 5%, transparent);
   content: "";
 }
 
@@ -69,7 +59,7 @@
 }
 .eyebrow {
   margin-block-end: 1.15rem !important;
-  color: var(--corporate-gold);
+  color: var(--corporate-signal);
   font-size: 0.73rem;
   font-weight: 800;
   letter-spacing: 0.15em;
@@ -78,7 +68,7 @@
 
 .hero h1 {
   max-width: 760px;
-  color: var(--corporate-teal);
+  color: var(--corporate-ink);
   font-size: clamp(3rem, 6.5vw, 6.35rem);
   font-weight: 800;
   letter-spacing: -0.065em;
@@ -92,7 +82,7 @@
 .lead {
   max-width: 650px;
   margin-block-start: 2rem !important;
-  color: #365f63;
+  color: var(--ink-muted);
   font-size: clamp(1rem, 1.6vw, 1.22rem);
   line-height: 1.9;
 }
@@ -113,9 +103,9 @@
   justify-content: center;
   min-height: 52px;
   padding: 0.85rem 1.25rem;
-  color: #fffff0;
-  background: var(--corporate-teal);
-  border: 1px solid var(--corporate-teal);
+  color: var(--focus-ink);
+  background: var(--corporate-ink);
+  border: 1px solid var(--corporate-ink);
   font-size: 0.92rem;
   font-weight: 750;
   text-decoration: none;
@@ -141,14 +131,14 @@
 }
 .primaryButton:hover,
 .contactButton:hover {
-  color: var(--corporate-teal);
+  color: var(--corporate-ink);
   background: transparent;
   transform: translateY(-2px);
 }
 .textButton {
   padding-block: 0.6rem;
-  color: var(--corporate-teal);
-  border-block-end: 1px solid var(--corporate-gold);
+  color: var(--corporate-ink);
+  border-block-end: 1px solid var(--corporate-signal);
   font-size: 0.92rem;
   font-weight: 750;
   text-decoration: none;
@@ -156,9 +146,9 @@
 
 .outcomesPanel {
   position: relative;
-  color: #fffff0;
-  background: var(--corporate-teal);
-  box-shadow: 24px 24px 0 rgba(212, 163, 83, 0.2);
+  color: var(--focus-ink);
+  background: var(--focus-surface);
+  box-shadow: 24px 24px 0 color-mix(in srgb, var(--signal) 20%, transparent);
   animation: reveal 600ms 140ms ease both;
 }
 
@@ -167,11 +157,12 @@
   gap: 1.25rem;
   align-items: center;
   padding: 1.4rem 1.55rem;
-  border-block-end: 1px solid rgba(255, 255, 240, 0.16);
+  border-block-end: 1px solid
+    color-mix(in srgb, var(--focus-ink) 16%, transparent);
 }
 
 .panelTop span {
-  color: var(--corporate-gold);
+  color: var(--corporate-signal);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -190,14 +181,15 @@
   gap: 0.9rem;
   align-items: center;
   padding: 1.25rem 0;
-  border-block-end: 1px solid rgba(255, 255, 240, 0.14);
+  border-block-end: 1px solid
+    color-mix(in srgb, var(--focus-ink) 14%, transparent);
 }
 .outcome:last-child {
   border: 0;
 }
 .outcomeNumber {
   align-self: start;
-  color: var(--corporate-gold);
+  color: var(--corporate-signal);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -210,14 +202,14 @@
   font-size: 1rem;
 }
 .outcome small {
-  color: #e4cc9c;
+  color: var(--ink-muted);
   font-size: 0.78rem;
 }
 .outcome svg,
 .contactAction small svg {
   width: 18px;
   fill: none;
-  stroke: var(--corporate-gold);
+  stroke: var(--corporate-signal);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
@@ -270,7 +262,7 @@
   border-block-end: 1px solid var(--rule-subtle);
 }
 .benefit > span {
-  color: var(--corporate-gold);
+  color: var(--corporate-signal);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -319,7 +311,7 @@
   inset-block-start: 20px;
   inset-inline-start: 40px;
   width: calc(100% - 40px);
-  border-block-start: 1px solid var(--gold-rule);
+  border-block-start: 1px solid var(--border-strong);
   content: "";
 }
 .processList li:last-child::before {
@@ -332,8 +324,8 @@
   width: 42px;
   height: 42px;
   place-items: center;
-  color: var(--corporate-teal);
-  background: var(--corporate-gold);
+  color: var(--corporate-ink);
+  background: var(--corporate-signal);
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -387,7 +379,7 @@
 }
 .trackIndex,
 .trackLabel {
-  color: var(--corporate-gold) !important;
+  color: var(--corporate-signal) !important;
   font-size: 0.72rem !important;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -406,8 +398,8 @@
 
 .contact {
   padding: clamp(4.5rem, 8vw, 7rem) 1.5rem;
-  color: #fffff0;
-  background: var(--corporate-teal);
+  color: var(--focus-ink);
+  background: var(--focus-surface);
 }
 .contactInner {
   display: grid;
@@ -417,28 +409,28 @@
 }
 .contact h2 {
   max-width: 700px;
-  color: #fffff0;
+  color: var(--focus-ink);
 }
 .contactAction > p {
   margin-block-end: 1.6rem;
-  color: #e4cc9c;
+  color: var(--ink-muted);
   line-height: 1.8;
 }
 .contactButton {
-  color: var(--corporate-teal);
-  background: #fffff0;
-  border-color: #fffff0;
+  color: var(--focus-surface);
+  background: var(--focus-ink);
+  border-color: var(--focus-ink);
 }
 .contactButton:hover {
-  color: #fffff0;
-  border-color: var(--corporate-gold);
+  color: var(--focus-ink);
+  border-color: var(--corporate-signal);
 }
 .contactAction small {
   display: flex;
   gap: 0.55rem;
   align-items: center;
   margin-block-start: 1rem;
-  color: #e4cc9c;
+  color: var(--ink-muted);
   font-size: 0.73rem;
 }
 
@@ -482,7 +474,7 @@
     width: 1px;
     height: calc(100% + 2rem);
     border: 0;
-    border-inline-start: 1px solid var(--gold-rule);
+    border-inline-start: 1px solid var(--border-strong);
   }
   .tracksHeader {
     grid-template-columns: 1fr;
@@ -518,28 +510,24 @@
     width: 100%;
   }
   .outcomesPanel {
-    box-shadow: 12px 12px 0 rgba(212, 163, 83, 0.2);
+    box-shadow: 12px 12px 0 color-mix(in srgb, var(--signal) 20%, transparent);
   }
 }
 :global(html[data-theme="dark"]) .hero {
-  background:
-    linear-gradient(115deg, rgba(15, 58, 64, 0.98), rgba(22, 71, 77, 0.9)),
-    var(--hero-surface);
+  background: var(--canvas);
 }
 :global(html[data-theme="dark"]) .hero h1 {
-  color: #fffff0;
+  color: var(--focus-ink);
 }
 :global(html[data-theme="dark"]) .lead {
-  color: #e7dcc5;
+  color: var(--focus-muted);
 }
 :global(html[data-theme="dark"]) .hero::before {
-  background-image:
-    linear-gradient(rgba(228, 204, 156, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(228, 204, 156, 0.07) 1px, transparent 1px);
+  border-color: var(--border);
 }
 :global(html[data-theme="dark"]) .textButton {
-  color: #fffff0;
+  color: var(--focus-ink);
 }
 :global(html[data-theme="dark"]) .outcomesPanel {
-  background: #0a2e33;
+  background: var(--focus-surface);
 }

@@ -7,17 +7,13 @@ test.describe("Tutor Journey", () => {
   });
 
   test("tutor dashboard shows overview and navigation", async ({ page }) => {
-    await page.goto("/tutor");
-    await expect(
-      page.getByRole("button", { name: /^(Dashboard|لوحة التحكم)$/i }),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(
-      page.getByRole("button", { name: /^(Students|الطلاب)$/i }),
-    ).toBeVisible({ timeout: 5000 });
+    await page.goto("/en/teach");
+    await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Students" })).toBeVisible();
   });
 
   test("tutor can manage availability", async ({ page }) => {
-    await page.goto("/tutor/availability");
+    await page.goto("/en/teach/availability");
     await expect(page.locator("body")).toBeVisible({ timeout: 10000 });
 
     const timeSlot = page

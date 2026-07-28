@@ -5,7 +5,7 @@ test.describe("Public navigation", () => {
     await page.goto("/courses");
 
     await expect(
-      page.getByRole("link", { name: /الكورسات|Courses/ }).first(),
+      page.getByRole("link", { name: /الدورات|Courses/ }).first(),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -15,9 +15,10 @@ test.describe("Public navigation", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
-    const menuButton = page.getByRole("button", {
-      name: /فتح القائمة|Open menu/,
-    });
+    const menuButton = page.locator(
+      'button[aria-controls="mobile-navigation"]',
+    );
+    await expect(menuButton).toHaveAccessibleName(/فتح القائمة|Open menu/);
     await expect(menuButton).toHaveAttribute(
       "aria-controls",
       "mobile-navigation",

@@ -18,6 +18,7 @@ interface User {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  assignedPermissions?: string[];
 }
 
 interface AuthContextType {
@@ -43,6 +44,13 @@ const PUBLIC_AUTH_ROUTES = new Set([
   "/verify-email",
 ]);
 
+function canonicalAuthPath(pathname: string) {
+  const stripped = pathname.replace(/^\/(?:en|ar)(?=\/|$)/, "") || "/";
+  if (stripped === "/sign-in") return "/login";
+  if (stripped === "/sign-up") return "/register";
+  return stripped;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
@@ -60,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (PUBLIC_AUTH_ROUTES.has(pathname)) {
+    if (PUBLIC_AUTH_ROUTES.has(canonicalAuthPath(pathname))) {
       setUser(null);
       setIsLoading(false);
       return;

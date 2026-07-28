@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -19,6 +20,10 @@ import { CommissionService } from '../payments/commission.service.js';
 import { ConfigService } from '@nestjs/config';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { CourseFundingAllocation } from '../payments/entities/course-funding-allocation.entity.js';
+import {
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from '../integrations/storage/object-storage.js';
 
 @Injectable()
 export class CoursesService {
@@ -38,6 +43,7 @@ export class CoursesService {
     private readonly commissionService: CommissionService,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
+    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
   private isValidCourseReferral(
@@ -69,7 +75,7 @@ export class CoursesService {
 
   async findAllApproved() {
     return this.courseRepository.find({
-      where: { status: CourseStatus.APPROVED },
+      where: { status: CourseStatus.APPROVED, isDraft: false },
       relations: { tutor: true },
       order: { createdAt: 'DESC' },
     });
@@ -87,7 +93,7 @@ export class CoursesService {
       viewerRole === UserRole.SUBADMIN ||
       (viewerId && course.tutorId === viewerId);
 
-    if (course.status !== CourseStatus.APPROVED && !canBypass) {
+    if ((course.status !== CourseStatus.APPROVED || course.isDraft) && !canBypass) {
       throw new NotFoundException('Course not found');
     }
 
@@ -179,12 +185,269 @@ export class CoursesService {
       price: dto.price,
       thumbnailUrl: dto.thumbnailUrl,
       status: CourseStatus.PENDING,
+      isDraft: false,
+      submittedAt: new Date(),
     });
     const savedCourse = await this.courseRepository.save(course);
     return {
       ...savedCourse,
       referralCode: this.getCourseReferralCode(tutorId, savedCourse.id),
     };
+  }
+
+  async createDraft(tutorId: string, courseType: 'recorded' | 'live') {
+    await this.assertApprovedTutor(tutorId);
+    const draft = this.courseRepository.create({
+      tutorId,
+      title: '',
+      description: '',
+      price: 0,
+      courseType,
+      status: CourseStatus.PENDING,
+      isDraft: true,
+      soldBy: 'academy',
+    });
+    return this.courseRepository.save(draft);
+  }
+
+  async updateOwnedCourse(
+    tutorId: string,
+    courseId: string,
+    dto: {
+      title?: string;
+      subtitle?: string;
+      description?: string;
+      price?: number;
+      thumbnailUrl?: string;
+      previewVideoUrl?: string;
+      courseType?: 'recorded' | 'live';
+      learningOutcomes?: string[];
+      requirements?: string[];
+      targetAudience?: string[];
+      language?: string;
+      level?: string;
+      timezone?: string;
+      capacity?: number;
+      cohortStartAt?: string;
+      cohortEndAt?: string;
+    },
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft && course.status === CourseStatus.APPROVED) {
+      throw new BadRequestException(
+        'Approved courses must be returned to draft before structural changes',
+      );
+    }
+    Object.assign(course, {
+      ...dto,
+      cohortStartAt:
+        dto.cohortStartAt === undefined
+          ? course.cohortStartAt
+          : new Date(dto.cohortStartAt),
+      cohortEndAt:
+        dto.cohortEndAt === undefined
+          ? course.cohortEndAt
+          : new Date(dto.cohortEndAt),
+    });
+    return this.courseRepository.save(course);
+  }
+
+  async submitForReview(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    const lessons = await this.lessonRepository.find({
+      where: { courseId },
+      order: { lessonOrder: 'ASC' },
+    });
+    const missing: string[] = [];
+    if (!course.title.trim()) missing.push('course title');
+    if (!course.description.trim()) missing.push('course description');
+    if (!course.thumbnailUrl) missing.push('course cover');
+    if (!course.previewVideoUrl) missing.push('introduction video');
+    if (course.price < 0) missing.push('valid price');
+    if (!course.learningOutcomes?.length) missing.push('learning outcomes');
+    if (course.courseType === 'recorded' && lessons.length === 0) {
+      missing.push('at least one curriculum lesson');
+    }
+    if (course.courseType === 'live') {
+      if (!course.cohortStartAt) missing.push('cohort start date');
+      if (!course.cohortEndAt) missing.push('cohort end date');
+      if (!course.capacity) missing.push('cohort capacity');
+      if (
+        course.cohortStartAt &&
+        course.cohortEndAt &&
+        course.cohortEndAt <= course.cohortStartAt
+      ) {
+        missing.push('cohort end date after its start date');
+      }
+    }
+    if (missing.length) {
+      throw new BadRequestException(
+        `Course is not ready for review: ${missing.join(', ')}`,
+      );
+    }
+    course.isDraft = false;
+    course.status = CourseStatus.PENDING;
+    course.submittedAt = new Date();
+    const saved = await this.courseRepository.save(course);
+    return {
+      ...saved,
+      message: 'Course submitted for academy review',
+    };
+  }
+
+  async addLesson(
+    tutorId: string,
+    courseId: string,
+    dto: {
+      title: string;
+      description?: string;
+      contentType?: 'video' | 'article' | 'resource';
+      videoAssetId?: string;
+      articleContent?: string;
+      resourceUrl?: string;
+      durationMinutes?: number;
+      lessonOrder?: number;
+      isPreview?: boolean;
+    },
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const nextOrder =
+      dto.lessonOrder ??
+      ((await this.lessonRepository.maximum('lessonOrder', { courseId })) ??
+        0) +
+        1;
+    return this.lessonRepository.save(
+      this.lessonRepository.create({
+        courseId,
+        title: dto.title,
+        description: dto.description ?? null,
+        contentType: dto.contentType ?? 'video',
+        videoAssetId: dto.videoAssetId ?? null,
+        articleContent: dto.articleContent ?? null,
+        resourceUrl: dto.resourceUrl ?? null,
+        durationMinutes: dto.durationMinutes ?? 0,
+        lessonOrder: nextOrder,
+        isPreview: dto.isPreview ?? false,
+      }),
+    );
+  }
+
+  async updateLesson(
+    tutorId: string,
+    courseId: string,
+    lessonId: string,
+    dto: {
+      title?: string;
+      description?: string;
+      contentType?: 'video' | 'article' | 'resource';
+      videoAssetId?: string;
+      articleContent?: string;
+      resourceUrl?: string;
+      durationMinutes?: number;
+      lessonOrder?: number;
+      isPreview?: boolean;
+    },
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, courseId },
+    });
+    if (!lesson) throw new NotFoundException('Course lesson not found');
+    Object.assign(lesson, dto);
+    return this.lessonRepository.save(lesson);
+  }
+
+  async removeLesson(
+    tutorId: string,
+    courseId: string,
+    lessonId: string,
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const result = await this.lessonRepository.delete({
+      id: lessonId,
+      courseId,
+    });
+    if (!result.affected) throw new NotFoundException('Course lesson not found');
+    return { deleted: true, lessonId };
+  }
+
+  async uploadOwnedCourseMedia(
+    tutorId: string,
+    courseId: string,
+    kind: 'cover' | 'preview',
+    file: { buffer: Buffer; mimetype: string; size: number } | undefined,
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException('Media can only be changed on a draft');
+    }
+    if (!file) throw new BadRequestException('Media file is required');
+    const isCover = kind === 'cover';
+    const allowed = isCover
+      ? ['image/jpeg', 'image/png', 'image/webp']
+      : ['video/mp4', 'video/webm', 'video/quicktime'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException(
+        isCover
+          ? 'Course cover must be JPEG, PNG, or WebP'
+          : 'Introduction video must be MP4, WebM, or MOV',
+      );
+    }
+    const maximum = isCover ? 5 * 1024 * 1024 : 50 * 1024 * 1024;
+    if (file.size > maximum) {
+      throw new BadRequestException(
+        isCover
+          ? 'Course cover must be 5MB or smaller'
+          : 'Introduction video must be 50MB or smaller',
+      );
+    }
+    const uploaded = await this.storage.upload(file.buffer, {
+      folder: `mrh-academy/courses/${courseId}`,
+      resourceType: isCover ? 'image' : 'auto',
+    });
+    if (isCover) course.thumbnailUrl = uploaded.secureUrl;
+    else course.previewVideoUrl = uploaded.secureUrl;
+    await this.courseRepository.save(course);
+    return {
+      kind,
+      url: uploaded.secureUrl,
+      courseId,
+    };
+  }
+
+  private async assertApprovedTutor(tutorId: string) {
+    const tutorProfile = await this.tutorProfileRepository.findOne({
+      where: { userId: tutorId },
+      select: { userId: true, status: true },
+    });
+    if (tutorProfile?.status !== CourseStatus.APPROVED) {
+      throw new ForbiddenException(
+        'Your tutor account must be approved before creating courses',
+      );
+    }
+  }
+
+  private async getOwnedCourse(tutorId: string, courseId: string) {
+    const course = await this.courseRepository.findOne({
+      where: { id: courseId, tutorId },
+    });
+    if (!course) throw new NotFoundException('Course not found');
+    return course;
   }
 
   async enroll(

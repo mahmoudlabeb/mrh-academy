@@ -108,7 +108,7 @@ export default function TutorActions({
     <div className={styles.actionsWrap}>
       <div className={styles.actions}>
         <Link
-          href={`/book-lesson?tutorId=${tutorId}`}
+          href={`/${lang}/tutors/${tutorId}/book`}
           className={styles.primaryAction}
         >
           <svg

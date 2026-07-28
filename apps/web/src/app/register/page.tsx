@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { getApiBaseUrl } from "@/lib/api-url";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
+import { DirectionalArrow } from "@/components/shared/DirectionalArrow";
 import { useMemo } from "react";
 
 type RegisterForm = {
@@ -93,13 +94,15 @@ export default function RegisterPage() {
         <div
           className="absolute top-0 left-1/4 w-96 h-96 rounded-full opacity-10"
           style={{
-            background: "radial-gradient(circle, #D4A353 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, var(--signal) 0%, transparent 70%)",
           }}
         />
         <div
           className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full opacity-10"
           style={{
-            background: "radial-gradient(circle, #D4A353 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, var(--signal) 0%, transparent 70%)",
           }}
         />
       </div>
@@ -108,11 +111,11 @@ export default function RegisterPage() {
         <header className="mb-6 text-center sm:mb-8">
           <Link
             href="/"
-            className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A353] sm:mb-6"
+            className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--signal)] sm:mb-6"
           >
             <span
               className="text-2xl font-bold logo-font"
-              style={{ color: "#D4A353" }}
+              style={{ color: "var(--signal)" }}
             >
               Mr.H Academy
             </span>
@@ -128,7 +131,7 @@ export default function RegisterPage() {
           </p>
         </header>
 
-        <div className="card-gold auth-card-stable p-5 animate-scale-in sm:p-8">
+        <div className="focus-card auth-card-stable p-5 animate-scale-in sm:p-8">
           <form
             onSubmit={handleSubmit((data) => mutation.mutate(data))}
             className="flex flex-col gap-4"
@@ -159,7 +162,7 @@ export default function RegisterPage() {
                   <p
                     id="firstName-error"
                     className="mt-1 text-xs"
-                    style={{ color: "#ef4444" }}
+                    style={{ color: "var(--danger)" }}
                   >
                     {errors.firstName.message}
                   </p>
@@ -188,7 +191,7 @@ export default function RegisterPage() {
                   <p
                     id="lastName-error"
                     className="mt-1 text-xs"
-                    style={{ color: "#ef4444" }}
+                    style={{ color: "var(--danger)" }}
                   >
                     {errors.lastName.message}
                   </p>
@@ -220,7 +223,7 @@ export default function RegisterPage() {
                 <p
                   id="email-error"
                   className="mt-1 text-xs"
-                  style={{ color: "#ef4444" }}
+                  style={{ color: "var(--danger)" }}
                 >
                   {errors.email.message}
                 </p>
@@ -265,7 +268,7 @@ export default function RegisterPage() {
                   <p
                     id="password-error"
                     className="mt-1 text-xs"
-                    style={{ color: "#ef4444" }}
+                    style={{ color: "var(--danger)" }}
                   >
                     {errors.password.message}
                   </p>
@@ -297,7 +300,7 @@ export default function RegisterPage() {
                   <p
                     id="confirmPassword-error"
                     className="mt-1 text-xs"
-                    style={{ color: "#ef4444" }}
+                    style={{ color: "var(--danger)" }}
                   >
                     {errors.confirmPassword.message}
                   </p>
@@ -313,11 +316,12 @@ export default function RegisterPage() {
                 aria-live="assertive"
                 className="rounded-xl px-4 py-3"
                 style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.2)",
+                  background: "var(--danger-soft)",
+                  border:
+                    "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                 }}
               >
-                <p className="text-sm" style={{ color: "#ef4444" }}>
+                <p className="text-sm" style={{ color: "var(--danger)" }}>
                   {(
                     mutation.error as {
                       response?: { data?: { message?: string } };
@@ -426,8 +430,10 @@ export default function RegisterPage() {
             <aside
               className="rounded-2xl p-4 text-sm"
               style={{
-                background: "rgba(212, 163, 83,0.1)",
-                border: "1px solid rgba(212, 163, 83,0.2)",
+                background:
+                  "color-mix(in srgb, var(--signal) 10%, transparent)",
+                border:
+                  "1px solid color-mix(in srgb, var(--signal) 20%, transparent)",
                 color: "var(--text-main)",
               }}
             >
@@ -443,7 +449,8 @@ export default function RegisterPage() {
                 href="/become-teacher"
                 className="mt-3 inline-flex min-h-11 items-center font-semibold link"
               >
-                {isAr ? "قدم طلب التسجيل كمدرس ←" : "Apply to become a tutor →"}
+                {isAr ? "قدم طلب التسجيل كمدرس" : "Apply to become a tutor"}{" "}
+                <DirectionalArrow />
               </Link>
             </aside>
           </form>

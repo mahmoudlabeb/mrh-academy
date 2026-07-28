@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -190,7 +190,7 @@ export default function CoursesTab() {
           </div>
         ) : coursesQuery.isError ? (
           <div className="p-6 text-center" role="alert">
-            <p className="text-sm font-semibold text-red-500">
+            <p className="text-sm font-semibold text-[var(--danger)]">
               {t(
                 "تعذر تحميل الدورات من قاعدة البيانات.",
                 "Courses could not be loaded from the database.",
@@ -209,7 +209,11 @@ export default function CoursesTab() {
           <div className="px-5 py-12 text-center">
             <span
               className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl"
-              style={{ background: "rgba(212,163,83,.12)", color: "#D4A353" }}
+              style={{
+                background:
+                  "color-mix(in srgb, var(--signal) 12%, transparent)",
+                color: "var(--signal)",
+              }}
             >
               <BookIcon />
             </span>
@@ -281,7 +285,7 @@ export default function CoursesTab() {
                     <td
                       className="px-4 py-4 font-semibold"
                       dir="ltr"
-                      style={{ color: "#D4A353" }}
+                      style={{ color: "var(--signal)" }}
                     >
                       ${Number(course.price).toFixed(2)}
                     </td>
@@ -291,14 +295,16 @@ export default function CoursesTab() {
                         style={
                           course.isApproved
                             ? {
-                                background: "rgba(34,197,94,.08)",
-                                color: "#16a34a",
-                                borderColor: "rgba(34,197,94,.3)",
+                                background: "var(--success-soft)",
+                                color: "var(--success)",
+                                borderColor:
+                                  "color-mix(in srgb, var(--success) 30%, transparent)",
                               }
                             : {
-                                background: "rgba(234,179,8,.08)",
-                                color: "#ca8a04",
-                                borderColor: "rgba(234,179,8,.3)",
+                                background: "var(--warning-soft)",
+                                color: "var(--warning)",
+                                borderColor:
+                                  "color-mix(in srgb, var(--warning) 30%, transparent)",
                               }
                         }
                       >
@@ -318,7 +324,7 @@ export default function CoursesTab() {
                                 event.currentTarget,
                               )
                             }
-                            className="btn-ghost min-h-10 px-3 text-xs text-green-600"
+                            className="btn-ghost min-h-10 px-3 text-xs text-[var(--success)]"
                             aria-label={t(
                               `اعتماد ${course.title}`,
                               `Approve ${course.title}`,
@@ -336,7 +342,7 @@ export default function CoursesTab() {
                               event.currentTarget,
                             )
                           }
-                          className="btn-ghost min-h-10 px-3 text-xs text-red-500"
+                          className="btn-ghost min-h-10 px-3 text-xs text-[var(--danger)]"
                           aria-label={t(
                             `حذف ${course.title}`,
                             `Delete ${course.title}`,
@@ -427,7 +433,7 @@ export default function CoursesTab() {
                   </select>
                 </label>
                 {tutorsQuery.isError && (
-                  <p className="text-xs text-red-500">
+                  <p className="text-xs text-[var(--danger)]">
                     {t(
                       "تعذر تحميل قائمة المعلمين.",
                       "The tutor list could not be loaded.",
@@ -487,7 +493,7 @@ export default function CoursesTab() {
                   />
                 </label>
                 {createMutation.isError && (
-                  <p role="alert" className="text-sm text-red-500">
+                  <p role="alert" className="text-sm text-[var(--danger)]">
                     {t(
                       "تعذر إنشاء الدورة. حاول مجدداً.",
                       "Course creation failed. Try again.",
@@ -555,16 +561,16 @@ export default function CoursesTab() {
             >
               {confirmation.action === "approve"
                 ? t(
-                    `أؤكد أنني راجعت جودة جميع فيديوهات «${confirmation.course.title}» وأنها جاهزة للبيع.`,
+                    `أؤكد أنني راجعت جودة جميع فيديوهات آ«${confirmation.course.title}آ» وأنها جاهزة للبيع.`,
                     `I confirm every video in “${confirmation.course.title}” has been reviewed and is ready for sale.`,
                   )
                 : t(
-                    `سيتم حذف «${confirmation.course.title}» نهائياً. لا يمكن التراجع عن هذا الإجراء.`,
+                    `سيتم حذف آ«${confirmation.course.title}آ» نهائياً. لا يمكن التراجع عن هذا الإجراء.`,
                     `“${confirmation.course.title}” will be permanently deleted. This action cannot be undone.`,
                   )}
             </p>
             {confirmationError && (
-              <p role="alert" className="mt-3 text-sm text-red-500">
+              <p role="alert" className="mt-3 text-sm text-[var(--danger)]">
                 {t(
                   "تعذر تنفيذ الإجراء. حاول مجدداً.",
                   "The action failed. Try again.",
@@ -591,7 +597,7 @@ export default function CoursesTab() {
                 }
                 className={
                   confirmation.action === "delete"
-                    ? "btn-secondary min-h-11 text-red-500"
+                    ? "btn-secondary min-h-11 text-[var(--danger)]"
                     : "btn-primary min-h-11"
                 }
               >

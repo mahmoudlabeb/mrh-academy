@@ -23,6 +23,7 @@ import {
   type ObjectStorage,
 } from '../integrations/storage/object-storage.js';
 import { EmailService } from '../integrations/email/email.service.js';
+import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
 
 @Injectable()
 export class TutorsService {
@@ -41,6 +42,8 @@ export class TutorsService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Report)
     private readonly reportRepository: Repository<Report>,
+    @InjectRepository(CourseEnrollment)
+    private readonly courseEnrollmentRepository: Repository<CourseEnrollment>,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
@@ -372,14 +375,28 @@ export class TutorsService {
   }
 
   async getTutorStudents(tutorId: string) {
-    const lessons = await this.lessonRepository.find({
-      where: { tutorId },
-      relations: { student: true },
-    });
+    const [lessons, enrollments] = await Promise.all([
+      this.lessonRepository.find({
+        where: { tutorId },
+        relations: { student: true },
+      }),
+      this.courseEnrollmentRepository
+        .createQueryBuilder('enrollment')
+        .innerJoinAndSelect('enrollment.course', 'course')
+        .innerJoinAndSelect('enrollment.student', 'student')
+        .where('course.tutorId = :tutorId', { tutorId })
+        .getMany(),
+    ]);
 
     const studentMap = new Map<
       string,
-      { user: User; lessonCount: number; totalHours: number }
+      {
+        user: User;
+        lessonCount: number;
+        totalHours: number;
+        courseCount: number;
+        lastActivityAt: Date;
+      }
     >();
 
     for (const lesson of lessons) {
@@ -389,11 +406,35 @@ export class TutorsService {
       if (existing) {
         existing.lessonCount++;
         existing.totalHours += hours;
+        if (lesson.scheduledTime > existing.lastActivityAt) {
+          existing.lastActivityAt = lesson.scheduledTime;
+        }
       } else {
         studentMap.set(lesson.studentId, {
           user: lesson.student,
           lessonCount: 1,
           totalHours: hours,
+          courseCount: 0,
+          lastActivityAt: lesson.scheduledTime,
+        });
+      }
+    }
+
+    for (const enrollment of enrollments) {
+      if (!enrollment.student) continue;
+      const existing = studentMap.get(enrollment.studentId);
+      if (existing) {
+        existing.courseCount += 1;
+        if (enrollment.enrolledAt > existing.lastActivityAt) {
+          existing.lastActivityAt = enrollment.enrolledAt;
+        }
+      } else {
+        studentMap.set(enrollment.studentId, {
+          user: enrollment.student,
+          lessonCount: 0,
+          totalHours: 0,
+          courseCount: 1,
+          lastActivityAt: enrollment.enrolledAt,
         });
       }
     }
@@ -407,6 +448,14 @@ export class TutorsService {
       },
       lessonCount: entry.lessonCount,
       totalHours: entry.totalHours,
+      courseCount: entry.courseCount,
+      relationship:
+        entry.lessonCount > 0 && entry.courseCount > 0
+          ? 'live_and_recorded'
+          : entry.lessonCount > 0
+            ? 'live_lessons'
+            : 'recorded_courses',
+      lastActivityAt: entry.lastActivityAt,
     }));
   }
 

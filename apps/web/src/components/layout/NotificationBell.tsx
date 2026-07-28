@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -136,7 +136,7 @@ export default function NotificationBell() {
               <button
                 onClick={markAllRead}
                 className="text-xs"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
               >
                 {isAr ? "تحديد الكل كمقروء" : "Mark all read"}
               </button>
@@ -158,15 +158,15 @@ export default function NotificationBell() {
                   onClick={() => {
                     if (!notification.isRead) markRead(notification.id);
                   }}
-                  className="px-4 py-3 border-b cursor-pointer transition-colors hover:bg-[rgba(212,163,83,0.05)]"
+                  className="px-4 py-3 border-b cursor-pointer transition-colors hover:bg-[color-mix(in srgb, var(--signal) 5%, transparent)]"
                   style={{
                     borderColor: "var(--border-color)",
                     background: notification.isRead
                       ? "transparent"
-                      : "rgba(212, 163, 83, 0.08)",
+                      : "color-mix(in srgb, var(--signal) 8%, transparent)",
                     borderRight: notification.isRead
                       ? "none"
-                      : "3px solid #D4A353",
+                      : "3px solid var(--signal)",
                   }}
                 >
                   <p className="text-sm" style={{ color: "var(--text-main)" }}>

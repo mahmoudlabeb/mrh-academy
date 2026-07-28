@@ -1,7 +1,5 @@
-import LandingPage from '@/components/marketing/LandingPage';
-
-export const dynamic = 'force-dynamic';
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <LandingPage lang="ar" />;
+  redirect("/en");
 }

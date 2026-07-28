@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/contexts/theme-context";
 import { useLanguage } from "@/contexts/language-context";
@@ -205,18 +206,30 @@ const tabIcons: Record<string, React.ReactNode> = {
 
 export const dynamic = "force-dynamic";
 
-const SUBADMIN_RESTRICTED_TABS = new Set(["payments", "payouts", "settings"]);
-
 export default function AdminPage() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { lang, toggleLanguage } = useLanguage();
   const isSubAdmin = user?.role === "subadmin";
+  const assignedPermissions = new Set(user?.assignedPermissions ?? []);
   const filteredTabs = tabs.filter(
-    (t) => !isSubAdmin || !SUBADMIN_RESTRICTED_TABS.has(t.id),
+    (tab) =>
+      !isSubAdmin ||
+      (tab.id === "tutors" && assignedPermissions.has("manage_tutors")) ||
+      (tab.id === "students" && assignedPermissions.has("manage_students")),
   );
   const [activeTab, setActiveTab] = useState("overview");
   const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    if (
+      isSubAdmin &&
+      filteredTabs.length > 0 &&
+      !filteredTabs.some((tab) => tab.id === activeTab)
+    ) {
+      setActiveTab(filteredTabs[0].id);
+    }
+  }, [activeTab, filteredTabs, isSubAdmin]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -230,8 +243,21 @@ export default function AdminPage() {
   }, [filteredTabs]);
 
   const renderTab = () => {
-    if (isSubAdmin && SUBADMIN_RESTRICTED_TABS.has(activeTab)) {
-      return <OverviewTab />;
+    if (isSubAdmin && !filteredTabs.some((tab) => tab.id === activeTab)) {
+      return (
+        <section className="focus-empty">
+          <h1>
+            {lang === "ar"
+              ? "لا توجد صلاحية لهذه المساحة"
+              : "This area is not in your permissions"}
+          </h1>
+          <Link className="btn-secondary" href="/ops">
+            {lang === "ar"
+              ? "العودة إلى قائمة العمليات"
+              : "Return to operations queue"}
+          </Link>
+        </section>
+      );
     }
     switch (activeTab) {
       case "overview":
@@ -269,24 +295,28 @@ export default function AdminPage() {
       <header
         className="w-full shrink-0 flex flex-col"
         style={{
-          background: "#0F3A40",
-          borderBottom: "1px solid #1D535B",
+          background: "var(--ink)",
+          borderBottom: "1px solid var(--ink-muted)",
           borderInlineStart: "none",
         }}
       >
-        <div className="p-5 border-b border-[#1D535B]">
+        <div className="p-5 border-b border-[var(--ink-muted)]">
           <h2
             className="text-lg font-bold logo-font"
-            style={{ color: "#D4A353" }}
+            style={{ color: "var(--signal)" }}
           >
             Mr.H Academy
           </h2>
-          <p className="text-xs mt-0.5" style={{ color: "#E4CC9C" }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--ink-muted)" }}>
             لوحة الإدارة
           </p>
         </div>
         <nav
-          aria-label={lang === "ar" ? "التنقل في لوحة الإدارة" : "Admin dashboard navigation"}
+          aria-label={
+            lang === "ar"
+              ? "التنقل في لوحة الإدارة"
+              : "Admin dashboard navigation"
+          }
           className="admin-top-nav flex w-full gap-1 overflow-x-auto px-3 pb-3"
         >
           {filteredTabs.map((tab) => {
@@ -299,11 +329,11 @@ export default function AdminPage() {
                 aria-current={isActive ? "page" : undefined}
                 style={{
                   background: isActive
-                    ? "rgba(212, 163, 83,0.12)"
+                    ? "color-mix(in srgb, var(--signal) 12%, transparent)"
                     : "transparent",
-                  color: isActive ? "#D4A353" : "#E4CC9C",
+                  color: isActive ? "var(--signal)" : "var(--ink-muted)",
                   border: isActive
-                    ? "1px solid rgba(212, 163, 83,0.2)"
+                    ? "1px solid color-mix(in srgb, var(--signal) 20%, transparent)"
                     : "1px solid transparent",
                 }}
               >
@@ -323,16 +353,19 @@ export default function AdminPage() {
       <div className="flex-1 flex flex-col min-h-screen">
         <header
           className="sticky top-0 z-30"
-          style={{ background: "#0F3A40", borderBottom: "1px solid #1D535B" }}
+          style={{
+            background: "var(--ink)",
+            borderBottom: "1px solid var(--ink-muted)",
+          }}
         >
           <div className="flex items-center justify-between px-4 md:px-6 py-3">
             <div>
-              <p className="text-sm" style={{ color: "#E4CC9C" }}>
+              <p className="text-sm" style={{ color: "var(--ink-muted)" }}>
                 {lang === "ar"
                   ? `مرحبًا بعودتك، ${user?.firstName}`
                   : `Welcome back, ${user?.firstName}`}
               </p>
-              <p className="text-xs" style={{ color: "#5a7d73" }}>
+              <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
                 {user?.email}
               </p>
             </div>
@@ -340,14 +373,14 @@ export default function AdminPage() {
               <button
                 onClick={toggleLanguage}
                 className="btn-ghost px-3 py-2 text-xs font-bold"
-                style={{ color: "#D4A353" }}
+                style={{ color: "var(--signal)" }}
               >
                 {lang === "ar" ? "EN" : "AR"}
               </button>
               <button
                 onClick={toggleTheme}
                 className="btn-ghost px-3 py-2"
-                style={{ color: "#E4CC9C" }}
+                style={{ color: "var(--ink-muted)" }}
                 aria-label={
                   theme === "dark"
                     ? lang === "ar"
@@ -403,13 +436,13 @@ export default function AdminPage() {
                   className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all"
                   style={{
                     background: profileOpen
-                      ? "rgba(212, 163, 83,0.12)"
+                      ? "color-mix(in srgb, var(--signal) 12%, transparent)"
                       : "transparent",
                   }}
                 >
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                    style={{ background: "#D4A353" }}
+                    style={{ background: "var(--signal)" }}
                   >
                     {user?.firstName?.[0] || "A"}
                   </div>
@@ -418,7 +451,7 @@ export default function AdminPage() {
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
-                    style={{ color: "#E4CC9C" }}
+                    style={{ color: "var(--ink-muted)" }}
                   >
                     <path
                       strokeLinecap="round"
@@ -437,19 +470,22 @@ export default function AdminPage() {
                     <div
                       className="absolute left-0 top-full mt-1 w-56 z-20 rounded-xl overflow-hidden animate-scale-in"
                       style={{
-                        background: "#1D535B",
-                        border: "1px solid #1D535B",
+                        background: "var(--ink-muted)",
+                        border: "1px solid var(--ink-muted)",
                         boxShadow: "0 12px 24px rgba(0,0,0,0.4)",
                       }}
                     >
-                      <div className="px-4 py-3 border-b border-[#1D535B]">
+                      <div className="px-4 py-3 border-b border-[var(--ink-muted)]">
                         <p
                           className="text-sm font-semibold"
-                          style={{ color: "#FFFFF0" }}
+                          style={{ color: "var(--focus-ink)" }}
                         >
                           {user?.firstName} {user?.lastName}
                         </p>
-                        <p className="text-xs" style={{ color: "#E4CC9C" }}>
+                        <p
+                          className="text-xs"
+                          style={{ color: "var(--ink-muted)" }}
+                        >
                           {user?.email}
                         </p>
                       </div>
@@ -457,7 +493,7 @@ export default function AdminPage() {
                         <button
                           onClick={logout}
                           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all text-right"
-                          style={{ color: "#ef4444" }}
+                          style={{ color: "var(--danger)" }}
                         >
                           <svg
                             className="w-4 h-4"

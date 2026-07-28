@@ -24,6 +24,7 @@ describe('CoursesService course creation approval', () => {
     {} as never,
     {} as never,
     config as never,
+    {} as never,
   );
 
   beforeEach(() => {

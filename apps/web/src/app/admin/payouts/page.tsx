@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,20 +40,20 @@ const statusConfig: Record<
   pending: {
     ar: "قيد الانتظار",
     en: "Pending",
-    bg: "rgba(234,179,8,0.1)",
-    color: "#eab308",
+    bg: "var(--warning-soft)",
+    color: "var(--warning)",
   },
   success: {
     ar: "مكتمل",
     en: "Completed",
-    bg: "rgba(34,197,94,0.1)",
-    color: "#22c55e",
+    bg: "var(--success-soft)",
+    color: "var(--success)",
   },
   failed: {
     ar: "فشل",
     en: "Failed",
-    bg: "rgba(239,68,68,0.1)",
-    color: "#ef4444",
+    bg: "var(--danger-soft)",
+    color: "var(--danger)",
   },
 };
 
@@ -179,7 +179,7 @@ export default function AdminPayoutsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="w-8 h-8 border-2 border-[#D4A353] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[var(--signal)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -291,18 +291,21 @@ export default function AdminPayoutsPage() {
                       >
                         ${wallet.grossSales.toFixed(2)}
                       </td>
-                      <td className="px-3 py-3" style={{ color: "#D4A353" }}>
+                      <td
+                        className="px-3 py-3"
+                        style={{ color: "var(--signal)" }}
+                      >
                         ${wallet.academyCommission.toFixed(2)}
                       </td>
                       <td
                         className="px-3 py-3 font-bold"
-                        style={{ color: "#22c55e" }}
+                        style={{ color: "var(--success)" }}
                       >
                         ${wallet.tutorEarned.toFixed(2)}
                       </td>
                       <td
                         className="px-3 py-3 font-bold"
-                        style={{ color: "#22c55e" }}
+                        style={{ color: "var(--success)" }}
                       >
                         ${wallet.tutorAvailableBalance.toFixed(2)}
                       </td>
@@ -320,10 +323,10 @@ export default function AdminPayoutsPage() {
                               className="px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                               style={{
                                 background: stripeReady
-                                  ? "linear-gradient(135deg, #F3E1B9, #B89754)"
+                                  ? "var(--signal)"
                                   : "var(--bg-light)",
                                 color: stripeReady
-                                  ? "#0F3A40"
+                                  ? "var(--ink)"
                                   : "var(--text-muted)",
                                 border: stripeReady
                                   ? "none"
@@ -388,7 +391,10 @@ export default function AdminPayoutsPage() {
           {pending.length > 0 && (
             <span
               className="ms-2 px-2 py-0.5 text-xs rounded-full font-bold"
-              style={{ background: "#eab308", color: "#000" }}
+              style={{
+                background: "var(--warning)",
+                color: "var(--status-on-warning)",
+              }}
             >
               {pending.length}
             </span>
@@ -405,22 +411,22 @@ export default function AdminPayoutsPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {pending.map((payout) => (
-              <div key={payout.id} className="card-gold p-5">
+              <div key={payout.id} className="focus-card p-5">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <p
                         className="font-bold text-xl"
-                        style={{ color: "#D4A353" }}
+                        style={{ color: "var(--signal)" }}
                       >
                         ${payout.amount.toFixed(2)}
                       </p>
                       <span
                         className="badge text-xs"
                         style={{
-                          background: "rgba(234,179,8,0.1)",
-                          color: "#eab308",
-                          border: "1px solid rgba(234,179,8,0.2)",
+                          background: "var(--warning-soft)",
+                          color: "var(--warning)",
+                          border: "1px solid var(--warning)",
                         }}
                       >
                         {t("قيد الانتظار", "Pending")}
@@ -465,8 +471,8 @@ export default function AdminPayoutsPage() {
                       disabled={approveMutation.isPending}
                       className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-all"
                       style={{
-                        background: "linear-gradient(135deg, #F3E1B9, #B89754)",
-                        color: "#0F3A40",
+                        background: "var(--signal)",
+                        color: "var(--ink)",
                       }}
                     >
                       {t("اعتماد", "Approve")}
@@ -494,8 +500,8 @@ export default function AdminPayoutsPage() {
                         disabled={rejectMutation.isPending}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold border disabled:opacity-50"
                         style={{
-                          borderColor: "rgba(239,68,68,0.4)",
-                          color: "#ef4444",
+                          borderColor: "var(--danger)",
+                          color: "var(--danger)",
                         }}
                       >
                         {t("رفض", "Reject")}
@@ -574,7 +580,7 @@ export default function AdminPayoutsPage() {
                         </td>
                         <td
                           className="px-4 py-3 font-bold"
-                          style={{ color: "#22c55e" }}
+                          style={{ color: "var(--success)" }}
                         >
                           ${payout.amount.toFixed(2)}
                         </td>

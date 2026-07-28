@@ -792,7 +792,9 @@ ${studentRefundNote}`,
 
   async findByRoomId(roomId: string, userId: string) {
     const lesson = await this.lessonRepository.findOne({
-      where: { meetUrl: roomId },
+      // Native classroom rooms are authoritative. Keep the legacy meetUrl
+      // lookup only as a compatibility fallback for older lesson records.
+      where: [{ roomId }, { meetUrl: roomId }],
       relations: { tutor: true, student: true },
       select: {
         id: true,

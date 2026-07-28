@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
@@ -40,7 +40,7 @@ export default function TeacherTrainingPage() {
             className="w-8 h-8 animate-spin mx-auto mb-3"
             viewBox="0 0 24 24"
             fill="none"
-            style={{ color: "#D4A353" }}
+            style={{ color: "var(--signal)" }}
           >
             <circle
               className="opacity-25"
@@ -70,10 +70,13 @@ export default function TeacherTrainingPage() {
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold" style={{ color: "#FFFFF0" }}>
+              <h1
+                className="text-3xl font-bold"
+                style={{ color: "var(--focus-ink)" }}
+              >
                 {t("تدريب المعلمين", "Teacher Training")}
               </h1>
-              <p className="mt-1" style={{ color: "#E4CC9C" }}>
+              <p className="mt-1" style={{ color: "var(--ink-muted)" }}>
                 {t(
                   "مقالات وموارد لتحسين مهاراتك التدريسية",
                   "Articles and resources to sharpen your teaching skills",
@@ -83,7 +86,10 @@ export default function TeacherTrainingPage() {
             <Link
               href="/"
               className="btn-secondary px-4 py-2 text-sm"
-              style={{ borderColor: "#1D535B", color: "#FFFFF0" }}
+              style={{
+                borderColor: "var(--ink-muted)",
+                color: "var(--focus-ink)",
+              }}
             >
               {t("الرئيسية", "Home")}
             </Link>
@@ -125,7 +131,7 @@ export default function TeacherTrainingPage() {
             >
               <div
                 className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                style={{ background: "#D4A353" }}
+                style={{ background: "var(--signal)" }}
               >
                 {selected.author?.firstName?.[0] || "م"}
               </div>

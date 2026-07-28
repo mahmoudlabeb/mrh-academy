@@ -23,6 +23,18 @@ export class AvailabilityService {
     dto: CreateAvailabilityDto | UpdateAvailabilityDto,
     excludeId?: string,
   ) {
+    const startMinutes = this.toMinutes(dto.startTime!);
+    const endMinutes = this.toMinutes(dto.endTime!);
+    if (
+      !Number.isFinite(startMinutes) ||
+      !Number.isFinite(endMinutes) ||
+      endMinutes <= startMinutes
+    ) {
+      throw new BadRequestException(
+        'Availability end time must be later than start time',
+      );
+    }
+
     const existing = await this.availabilityRepository.find({
       where: { tutorId, dayOfWeek: dto.dayOfWeek! },
     });
@@ -45,8 +57,10 @@ export class AvailabilityService {
   }
 
   private toMinutes(time: string): number {
-    const parts = time.split(':');
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    const match = /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.exec(time);
+    if (!match) return Number.NaN;
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
   }
 
   private timesOverlap(
