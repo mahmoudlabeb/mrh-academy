@@ -280,6 +280,27 @@ describe('LessonsService', () => {
       );
     });
 
+    it('validates availability in the tutor timezone', async () => {
+      const scheduledDate = new Date('2030-01-05T23:30:00.000Z');
+      availabilityRepository.find.mockResolvedValueOnce([
+        {
+          tutorId: 'tutor-1',
+          dayOfWeek: 0,
+          startTime: '01:00',
+          endTime: '03:00',
+        },
+      ]);
+
+      await expect(
+        service['assertWithinAvailability'](
+          'tutor-1',
+          scheduledDate,
+          50,
+          'Africa/Cairo',
+        ),
+      ).resolves.toBeUndefined();
+    });
+
     it('does not deduct balance at booking time', async () => {
       const savedLesson = {
         id: 'lesson-1',
@@ -749,10 +770,7 @@ describe('LessonsService', () => {
       ).resolves.toEqual(lesson);
       expect(lessonRepository.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: [
-            { roomId: 'native-room-1' },
-            { meetUrl: 'native-room-1' },
-          ],
+          where: [{ roomId: 'native-room-1' }, { meetUrl: 'native-room-1' }],
         }),
       );
     });

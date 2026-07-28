@@ -168,6 +168,7 @@ export function SignUpScreen() {
     confirm: "",
   });
   const [complete, setComplete] = useState(false);
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
   const mutation = useMutation({
     mutationFn: () =>
       register({
@@ -211,102 +212,115 @@ export function SignUpScreen() {
         <>
           <GoogleAuthButton />
           <div className="blueprint-auth__divider">
-            <span>{t("أو أنشئ حسابًا بالبريد الإلكتروني", "or create an account with email")}</span>
+            <span>
+              {t(
+                "أو أنشئ حسابًا بالبريد الإلكتروني",
+                "or create an account with email",
+              )}
+            </span>
           </div>
           <form
             className="blueprint-auth__form blueprint-auth__form--two"
             onSubmit={(event) => {
               event.preventDefault();
-              if (form.password === form.confirm) mutation.mutate();
+              if (form.password !== form.confirm) {
+                setPasswordMismatch(true);
+                return;
+              }
+              setPasswordMismatch(false);
+              mutation.mutate();
             }}
           >
-          <label>
-            {t("الاسم الأول", "First name")}
-            <input
-              required
-              name="firstName"
-              autoComplete="given-name"
-              value={form.firstName}
-              onChange={(event) =>
-                setForm({ ...form, firstName: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            {t("اسم العائلة", "Last name")}
-            <input
-              required
-              name="lastName"
-              autoComplete="family-name"
-              value={form.lastName}
-              onChange={(event) =>
-                setForm({ ...form, lastName: event.target.value })
-              }
-            />
-          </label>
-          <label className="wide">
-            {t("البريد الإلكتروني", "Email address")}
-            <input
-              required
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={form.email}
-              onChange={(event) =>
-                setForm({ ...form, email: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            {t("كلمة المرور", "Password")}
-            <input
-              required
-              name="password"
-              minLength={15}
-              maxLength={128}
-              type="password"
-              autoComplete="new-password"
-              value={form.password}
-              onChange={(event) =>
-                setForm({ ...form, password: event.target.value })
-              }
-            />
-            <small>{t("15 حرفاً على الأقل", "At least 15 characters")}</small>
-          </label>
-          <label>
-            {t("تأكيد كلمة المرور", "Confirm password")}
-            <input
-              required
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              value={form.confirm}
-              onChange={(event) =>
-                setForm({ ...form, confirm: event.target.value })
-              }
-            />
-          </label>
-          {form.confirm && form.password !== form.confirm && (
-            <p className="blueprint-error wide">
-              {t("كلمتا المرور غير متطابقتين.", "Passwords do not match.")}
-            </p>
-          )}
-          {mutation.isError && (
-            <p className="blueprint-error wide" role="alert">
-              {mutationError(
-                mutation.error,
-                t("تعذّر إنشاء الحساب.", "Account creation failed."),
-              )}
-            </p>
-          )}
-          <button
-            className="btn-primary wide"
-            disabled={mutation.isPending || form.password !== form.confirm}
-          >
-            {mutation.isPending
-              ? t("جارٍ الإنشاء…", "Creating…")
-              : t("إنشاء الحساب", "Create account")}
-          </button>
+            <label>
+              {t("الاسم الأول", "First name")}
+              <input
+                required
+                name="firstName"
+                autoComplete="given-name"
+                value={form.firstName}
+                onChange={(event) =>
+                  setForm({ ...form, firstName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("اسم العائلة", "Last name")}
+              <input
+                required
+                name="lastName"
+                autoComplete="family-name"
+                value={form.lastName}
+                onChange={(event) =>
+                  setForm({ ...form, lastName: event.target.value })
+                }
+              />
+            </label>
+            <label className="wide">
+              {t("البريد الإلكتروني", "Email address")}
+              <input
+                required
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={form.email}
+                onChange={(event) =>
+                  setForm({ ...form, email: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {t("كلمة المرور", "Password")}
+              <input
+                required
+                name="password"
+                minLength={15}
+                maxLength={128}
+                type="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(event) => {
+                  setPasswordMismatch(false);
+                  setForm({ ...form, password: event.target.value });
+                }}
+              />
+              <small>{t("15 حرفاً على الأقل", "At least 15 characters")}</small>
+            </label>
+            <label>
+              {t("تأكيد كلمة المرور", "Confirm password")}
+              <input
+                required
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                value={form.confirm}
+                onChange={(event) => {
+                  setPasswordMismatch(false);
+                  setForm({ ...form, confirm: event.target.value });
+                }}
+              />
+            </label>
+            {(passwordMismatch ||
+              (form.confirm && form.password !== form.confirm)) && (
+              <p className="blueprint-error wide" role="alert">
+                {t("كلمتا المرور غير متطابقتين.", "Passwords do not match.")}
+              </p>
+            )}
+            {mutation.isError && (
+              <p className="blueprint-error wide" role="alert">
+                {mutationError(
+                  mutation.error,
+                  t("تعذّر إنشاء الحساب.", "Account creation failed."),
+                )}
+              </p>
+            )}
+            <button
+              className="btn-primary wide"
+              disabled={mutation.isPending || form.password !== form.confirm}
+            >
+              {mutation.isPending
+                ? t("جارٍ الإنشاء…", "Creating…")
+                : t("إنشاء الحساب", "Create account")}
+            </button>
           </form>
         </>
       )}

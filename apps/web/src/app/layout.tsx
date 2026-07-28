@@ -18,10 +18,13 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  const locale = requestHeaders.get("x-mrh-locale") === "en" ? "en" : "ar";
+  const direction = locale === "ar" ? "rtl" : "ltr";
 
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang={locale} dir={direction} suppressHydrationWarning>
       <head>
         <script
           nonce={nonce}
@@ -29,7 +32,7 @@ export default async function RootLayout({
             __html: `
               (function(){
                 var theme = localStorage.getItem('theme');
-                var lang = localStorage.getItem('lang_pref');
+                var lang = ${JSON.stringify(locale)};
                 function applyBodyClasses() {
                   if (!document.body) return;
                 if (theme === 'dark') {

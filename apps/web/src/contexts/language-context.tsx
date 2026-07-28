@@ -63,6 +63,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       body.classList.remove("ltr");
     }
     localStorage.setItem("lang_pref", l);
+    document.cookie = `lang_pref=${l}; Path=/; Max-Age=31536000; SameSite=Lax`;
   }, []);
 
   const setLanguage = useCallback(

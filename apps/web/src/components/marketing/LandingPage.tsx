@@ -9,6 +9,7 @@ import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
 import { useLanguage } from "@/contexts/language-context";
 import { apiClient } from "@/lib/api-client";
+import { formatCurrency } from "@/lib/format";
 
 type Language = "ar" | "en";
 
@@ -96,7 +97,7 @@ const COPY = {
       "اختر معلّمًا",
       "اطلب موعدًا",
       "يؤكد المعلّم الطلب",
-      "التقيا داخل فصل MRH",
+      "التقِ بمعلّمك داخل فصل MRH",
     ],
     courseSteps: [
       "اختر دورة",
@@ -125,7 +126,7 @@ export default function LandingPage({ lang }: { lang: Language }) {
   }, [lang, setLanguage]);
 
   const tutors = useQuery({
-    queryKey: ["home-approved-tutors"],
+    queryKey: ["home-approved-tutors", lang],
     queryFn: async () => (await apiClient.get<Tutor[]>("/tutors/top")).data,
     staleTime: 5 * 60_000,
     retry: 1,
@@ -224,7 +225,7 @@ export default function LandingPage({ lang }: { lang: Language }) {
                       <p>{tutor.languages.join(" · ")}</p>
                       <footer>
                         <strong>
-                          <bdi>${Number(tutor.hourlyRate).toFixed(2)}</bdi>{" "}
+                          <bdi>{formatCurrency(lang, tutor.hourlyRate)}</bdi>{" "}
                           {copy.hour}
                         </strong>
                         {typeof tutor.averageRating === "number" && (
@@ -298,7 +299,7 @@ export default function LandingPage({ lang }: { lang: Language }) {
                     </p>
                     <footer>
                       <strong>
-                        <bdi>${Number(course.price).toFixed(2)}</bdi>
+                        <bdi>{formatCurrency(lang, course.price)}</bdi>
                       </strong>
                     </footer>
                   </Link>

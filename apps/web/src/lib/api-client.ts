@@ -76,7 +76,17 @@ apiClient.interceptors.response.use(
       const isSessionProbe =
         originalRequest.method?.toLowerCase() === "get" &&
         originalRequest.url?.endsWith("/users/me");
-      if (!isSessionProbe) window.location.assign("/login");
+      if (!isSessionProbe) {
+        const locale =
+          window.location.pathname.match(/^\/(en|ar)(?:\/|$)/)?.[1] ??
+          (localStorage.getItem("lang_pref") === "en" ? "en" : "ar");
+        const redirect = `${window.location.pathname}${window.location.search}`;
+        const loginUrl = new URL(`/${locale}/sign-in`, window.location.origin);
+        if (redirect.startsWith(`/${locale}/`)) {
+          loginUrl.searchParams.set("redirect", redirect);
+        }
+        window.location.assign(`${loginUrl.pathname}${loginUrl.search}`);
+      }
       return Promise.reject(refreshError);
     }
   },

@@ -11,15 +11,19 @@ import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useTheme } from "@/contexts/theme-context";
 import NotificationPreferencesPanel from "@/components/NotificationPreferencesPanel";
+import { formatCurrency } from "@/lib/format";
 
 function useCopy() {
   const { lang, setLanguage } = useLanguage();
+  const { user } = useAuth();
   return {
     lang,
     setLanguage,
     t: (ar: string, en: string) => (lang === "ar" ? ar : en),
     date: (value: string) =>
-      new Date(value).toLocaleString(lang === "ar" ? "ar-EG" : "en-US"),
+      new Date(value).toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
+        timeZone: user?.timezone ?? "Africa/Cairo",
+      }),
   };
 }
 
@@ -65,6 +69,16 @@ type StudentLesson = {
   tutorName?: string;
   tutor?: { firstName?: string; lastName?: string };
 };
+
+function lessonStatusLabel(lang: "ar" | "en", status: LessonStatus): string {
+  const labels: Record<LessonStatus, { ar: string; en: string }> = {
+    [LessonStatus.PENDING]: { ar: "قيد الانتظار", en: "Pending" },
+    [LessonStatus.CONFIRMED]: { ar: "مؤكد", en: "Confirmed" },
+    [LessonStatus.COMPLETED]: { ar: "مكتمل", en: "Completed" },
+    [LessonStatus.CANCELLED]: { ar: "ملغي", en: "Cancelled" },
+  };
+  return labels[status]?.[lang] ?? String(status);
+}
 type Enrollment = {
   courseId: string;
   progressPercentage: number;
@@ -111,8 +125,8 @@ export function LearnerTodayScreen() {
           </p>
         </div>
         <Link className="btn-secondary" href={`/${lang}/learn/wallet`}>
-          {t("الرصيد", "Balance")}: $
-          {Number(balanceQuery.data?.balance ?? 0).toFixed(2)}
+          {t("الرصيد", "Balance")}:{" "}
+          {formatCurrency(lang, Number(balanceQuery.data?.balance ?? 0))}
         </Link>
       </header>
       <section className="blueprint-decision-card">
@@ -241,6 +255,8 @@ export function LearnerLessonsScreen() {
           <button
             role="tab"
             aria-selected={filter === key}
+            aria-controls={`lessons-panel-${key}`}
+            id={`lessons-tab-${key}`}
             key={key}
             onClick={() => setFilter(key)}
           >
@@ -252,7 +268,12 @@ export function LearnerLessonsScreen() {
           </button>
         ))}
       </div>
-      <section className="blueprint-table-section">
+      <section
+        className="blueprint-table-section"
+        role="tabpanel"
+        id={`lessons-panel-${filter}`}
+        aria-labelledby={`lessons-tab-${filter}`}
+      >
         <h2>
           {filter === "upcoming"
             ? t("الجلسات المؤكدة القادمة", "Upcoming confirmed sessions")
@@ -279,14 +300,14 @@ export function LearnerLessonsScreen() {
                   </strong>
                   <p>
                     {date(lesson.scheduledTime ?? lesson.date ?? "")} ·{" "}
-                    {lesson.durationMinutes ?? lesson.duration ?? 0} min · $
-                    {Number(lesson.price).toFixed(2)}
+                    {lesson.durationMinutes ?? lesson.duration ?? 0} min ·{" "}
+                    {formatCurrency(lang, lesson.price)}
                   </p>
                 </div>
                 <span
                   className={`blueprint-status blueprint-status--${String(lesson.status).toLowerCase()}`}
                 >
-                  {lesson.status}
+                  {lessonStatusLabel(lang, lesson.status)}
                 </span>
                 <Link
                   className="btn-secondary"
@@ -313,7 +334,7 @@ type TutorStats = {
 };
 type TutorLesson = {
   id: string;
-  status: string;
+  status: LessonStatus;
   scheduledTime: string;
   durationMinutes: number;
   price: number;
@@ -333,10 +354,10 @@ export function TutorTodayScreen() {
     queryFn: async () => (await apiClient.get<LessonPage>("/lessons")).data,
   });
   const pending = (lessonsQuery.data?.data ?? []).filter(
-    (lesson) => lesson.status === "pending",
+    (lesson) => lesson.status === LessonStatus.PENDING,
   );
   const upcoming = (lessonsQuery.data?.data ?? [])
-    .filter((lesson) => lesson.status === "confirmed")
+    .filter((lesson) => lesson.status === LessonStatus.CONFIRMED)
     .slice(0, 3);
   return (
     <main className="blueprint-workspace-page">
@@ -369,7 +390,7 @@ export function TutorTodayScreen() {
         <section>
           <small>{t("صافي الأرباح", "Net earnings")}</small>
           <strong>
-            ${Number(statsQuery.data?.totalEarnings ?? 0).toFixed(2)}
+            {formatCurrency(lang, Number(statsQuery.data?.totalEarnings ?? 0))}
           </strong>
         </section>
         <section>
@@ -761,10 +782,14 @@ export function OperationsQueueScreen() {
       </section>
       <nav className="blueprint-quick-grid">
         {canTutors && (
-          <Link href={`/${lang}/ops/people`}>{t("المعلمون", "Tutors")}</Link>
+          <Link href={`/${lang}/ops/people#tutors`}>
+            {t("المعلمون", "Tutors")}
+          </Link>
         )}
         {canStudents && (
-          <Link href={`/${lang}/ops/people`}>{t("الطلاب", "Students")}</Link>
+          <Link href={`/${lang}/ops/people#students`}>
+            {t("الطلاب", "Students")}
+          </Link>
         )}
         {fullAdmin && (
           <Link href={`/${lang}/ops/money/payments`}>

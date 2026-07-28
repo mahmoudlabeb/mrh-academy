@@ -92,6 +92,7 @@ export class LessonsService {
   async bookLesson(studentId: string, dto: BookLessonDto) {
     const tutorProfile = await this.tutorProfileRepository.findOne({
       where: { userId: dto.tutorId },
+      relations: { user: true },
     });
 
     if (!tutorProfile) {
@@ -122,6 +123,7 @@ export class LessonsService {
       dto.tutorId,
       scheduledDate,
       dto.durationMinutes,
+      tutorProfile.user?.timezone ?? 'UTC',
     );
 
     const lesson = await this.dataSource.transaction(async (manager) => {
@@ -899,6 +901,7 @@ ${studentRefundNote}`,
     tutorId: string,
     scheduledDate: Date,
     durationMinutes: number,
+    timezone: string,
   ): Promise<void> {
     const slots = await this.availabilityRepository.find({
       where: { tutorId },
@@ -906,13 +909,29 @@ ${studentRefundNote}`,
     if (slots.length === 0) {
       throw new BadRequestException('Tutor has not set availability');
     }
-    const dayOfWeek = scheduledDate.getUTCDay();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    const parts = formatter.formatToParts(scheduledDate);
+    const weekday = parts.find((part) => part.type === 'weekday')?.value;
+    const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
+      weekday ?? '',
+    );
     const daySlots = slots.filter((s) => s.dayOfWeek === dayOfWeek);
     if (daySlots.length === 0) {
       throw new BadRequestException('Tutor is not available on this day');
     }
-    const startMin =
-      scheduledDate.getUTCHours() * 60 + scheduledDate.getUTCMinutes();
+    const hours = Number(
+      parts.find((part) => part.type === 'hour')?.value ?? 0,
+    );
+    const minutes = Number(
+      parts.find((part) => part.type === 'minute')?.value ?? 0,
+    );
+    const startMin = hours * 60 + minutes;
     const endMin = startMin + durationMinutes;
     const fits = daySlots.some((slot) => {
       const slotStart = this.timeToMinutes(slot.startTime);

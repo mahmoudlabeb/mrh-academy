@@ -23,10 +23,10 @@ export default function VerifyEmailPage() {
       .post("/auth/verify-email", { token })
       .then(() => {
         setStatus("verified");
-        setTimeout(() => router.push("/login"), 1200);
+        setTimeout(() => router.push(`/${lang}/sign-in`), 1200);
       })
       .catch(() => setStatus("invalid"));
-  }, [params, router]);
+  }, [lang, params, router]);
   const messages = {
     verifying: t("جارٍ تأكيد بريدك الإلكتروني…", "Verifying your email…"),
     incomplete: t(

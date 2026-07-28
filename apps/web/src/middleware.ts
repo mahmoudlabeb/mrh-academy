@@ -18,32 +18,48 @@ function localizedPath(pathname: string) {
   return { locale: match[1], route: match[2] || "/" };
 }
 
-function legacyDestination(pathname: string, search: string) {
+function preferredLocale(request: NextRequest): "ar" | "en" {
+  const cookieLocale = request.cookies.get("lang_pref")?.value;
+  if (cookieLocale === "ar" || cookieLocale === "en") return cookieLocale;
+  return request.headers.get("accept-language")?.toLowerCase().includes("ar")
+    ? "ar"
+    : "en";
+}
+
+function legacyDestination(
+  pathname: string,
+  search: string,
+  locale: "ar" | "en",
+) {
+  const localized = (path: string) => `/${locale}${path}`;
   const mappings: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
-    [/^\/student$/, () => "/en/learn"],
-    [/^\/student\/lessons$/, () => "/en/learn/lessons"],
-    [/^\/student\/wallet$/, () => "/en/learn/wallet"],
-    [/^\/student\/discover$/, () => "/en/tutors"],
-    [/^\/tutor$/, () => "/en/teach"],
-    [/^\/tutor\/availability$/, () => "/en/teach/availability"],
-    [/^\/tutor\/earnings$/, () => "/en/teach/earnings"],
-    [/^\/tutor\/profile$/, () => "/en/teach/profile"],
-    [/^\/admin$/, () => "/en/ops"],
-    [/^\/courses$/, () => "/en/courses"],
-    [/^\/courses\/([^/]+)$/, (match) => `/en/courses/${match[1]}`],
-    [/^\/tutors\/([^/]+)$/, (match) => `/en/tutors/${match[1]}`],
-    [/^\/become-teacher$/, () => "/en/become-a-tutor"],
-    [/^\/teacher-training$/, () => "/en/resources"],
-    [/^\/help$/, () => "/en/help"],
-    [/^\/login$/, () => "/en/sign-in"],
-    [/^\/register$/, () => "/en/sign-up"],
-    [/^\/forgot-password$/, () => "/en/forgot-password"],
-    [/^\/messages$/, () => "/en/messages"],
-    [/^\/notifications$/, () => "/en/notifications"],
-    [/^\/account(?:\/profile)?$/, () => "/en/account/profile"],
-    [/^\/vocabulary$/, () => "/en/learn/words"],
-    [/^\/room\/([^/]+)$/, (match) => `/en/room/${match[1]}`],
-    [/^\/classroom\/([^/]+)$/, (match) => `/en/room/${match[1]}`],
+    [/^\/student$/, () => localized("/learn")],
+    [/^\/student\/lessons$/, () => localized("/learn/lessons")],
+    [/^\/student\/wallet$/, () => localized("/learn/wallet")],
+    [/^\/student\/discover$/, () => localized("/tutors")],
+    [/^\/tutor$/, () => localized("/teach")],
+    [/^\/tutor\/availability$/, () => localized("/teach/availability")],
+    [/^\/tutor\/earnings$/, () => localized("/teach/earnings")],
+    [/^\/tutor\/profile$/, () => localized("/teach/profile")],
+    [/^\/admin$/, () => localized("/ops")],
+    [/^\/courses$/, () => localized("/courses")],
+    [/^\/courses\/([^/]+)$/, (match) => localized(`/courses/${match[1]}`)],
+    [/^\/tutors\/([^/]+)$/, (match) => localized(`/tutors/${match[1]}`)],
+    [/^\/become-teacher$/, () => localized("/become-a-tutor")],
+    [/^\/teacher-training$/, () => localized("/resources")],
+    [/^\/help$/, () => localized("/help")],
+    [/^\/login$/, () => localized("/sign-in")],
+    [/^\/register$/, () => localized("/sign-up")],
+    [/^\/forgot-password$/, () => localized("/forgot-password")],
+    [/^\/reset-password$/, () => localized("/reset-password")],
+    [/^\/verify-email$/, () => localized("/verify-email")],
+    [/^\/auth\/callback$/, () => localized("/auth/callback")],
+    [/^\/messages$/, () => localized("/messages")],
+    [/^\/notifications$/, () => localized("/notifications")],
+    [/^\/account(?:\/profile)?$/, () => localized("/account/profile")],
+    [/^\/vocabulary$/, () => localized("/learn/words")],
+    [/^\/room\/([^/]+)$/, (match) => localized(`/room/${match[1]}`)],
+    [/^\/classroom\/([^/]+)$/, (match) => localized(`/room/${match[1]}`)],
   ];
   for (const [pattern, build] of mappings) {
     const match = pathname.match(pattern);
@@ -55,16 +71,24 @@ function legacyDestination(pathname: string, search: string) {
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const token = request.cookies.get("mrh_token")?.value;
+  const negotiatedLocale = preferredLocale(request);
   const localized = localizedPath(pathname);
-  const legacy = !localized ? legacyDestination(pathname, search) : null;
+  const legacy = !localized
+    ? legacyDestination(pathname, search, negotiatedLocale)
+    : null;
+
+  if (pathname === "/") {
+    return NextResponse.redirect(
+      new URL(`/${negotiatedLocale}${search}`, request.url),
+    );
+  }
 
   if (legacy) return NextResponse.redirect(new URL(legacy, request.url));
 
   if (localized) {
     const isProtected = protectedLocalizedPrefixes.some(
       (prefix) =>
-        localized.route === prefix ||
-        localized.route.startsWith(`${prefix}/`),
+        localized.route === prefix || localized.route.startsWith(`${prefix}/`),
     );
     const isAuth =
       localized.route === "/sign-in" || localized.route === "/sign-up";
@@ -80,17 +104,22 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  let response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-mrh-locale", localized?.locale ?? negotiatedLocale);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
   if (process.env.NODE_ENV === "production") {
     const nonce = btoa(crypto.randomUUID());
-    const requestHeaders = new Headers(request.headers);
+    const apiOrigin = new URL(
+      process.env.NEXT_PUBLIC_API_URL ?? "https://api.mrh.academy/api/v1",
+    ).origin;
+    const websocketOrigin = apiOrigin.replace(/^http/, "ws");
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'nonce-${nonce}'`,
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self'",
       "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com",
-      "connect-src 'self' https://api.mrh.academy wss:",
+      `connect-src 'self' ${apiOrigin} ${websocketOrigin}`,
       "media-src 'self' https://video.bunnycdn.com https://iframe.mediadelivery.net",
       "frame-src 'self' https://iframe.mediadelivery.net https://hooks.stripe.com",
       "worker-src 'self' blob:",

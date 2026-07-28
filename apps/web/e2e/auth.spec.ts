@@ -28,6 +28,25 @@ test.describe("Authentication Flow", () => {
     await loginThroughUi(page, "admin");
   });
 
+  test("shows a password mismatch when sign-up is submitted with Enter", async ({
+    page,
+  }) => {
+    await page.goto("/en/sign-up");
+    await page.fill('input[name="firstName"]', "QA");
+    await page.fill('input[name="lastName"]', "Bot");
+    await page.fill('input[name="email"]', "mismatch@mrh-academy.example");
+    await page.fill('input[name="password"]', "Browser-registration-2026!");
+    await page.fill(
+      'input[name="confirmPassword"]',
+      "Different-registration-2026!",
+    );
+    await page.locator('input[name="confirmPassword"]').press("Enter");
+
+    await expect(page.getByRole("alert")).toContainText(
+      "Passwords do not match.",
+    );
+  });
+
   test("should restore a provisioned student session", async ({ page }) => {
     await loginAs(page, "student");
   });

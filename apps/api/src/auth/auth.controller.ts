@@ -129,8 +129,12 @@ export class AuthController {
 
   @Delete('account')
   @HttpCode(HttpStatus.OK)
-  async deleteAccount(@CurrentUser() user: { id: string }) {
+  async deleteAccount(
+    @CurrentUser() user: { id: string },
+    @Res({ passthrough: true }) response: Response,
+  ) {
     await this.authService.deleteAccount(user.id);
+    this.clearAuthCookies(response);
     return { message: 'Account deleted successfully' };
   }
 
@@ -165,6 +169,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Get('google')
   @UseGuards(GoogleConfigGuard, GoogleOAuthGuard)
   @UseFilters(GoogleAuthExceptionFilter)
@@ -183,10 +188,13 @@ export class AuthController {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
+    // The frontend middleware negotiates the preferred locale and preserves
+    // the callback path before rendering the canonical localized route.
     res.redirect(`${frontendUrl}/auth/callback`);
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Get('facebook')
   async facebookAuth(@Res() res: Response) {
     res.redirect(
@@ -216,6 +224,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Get('apple')
   async appleAuth(@Res() res: Response) {
     res.redirect(await this.socialOAuthService.createAppleAuthorizationUrl());

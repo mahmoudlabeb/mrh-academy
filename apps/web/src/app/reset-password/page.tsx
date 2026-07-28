@@ -13,7 +13,6 @@ function ResetPasswordForm() {
   const router = useRouter();
   const token = searchParams.get("token");
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
-  const isAr = lang === "ar";
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -33,10 +32,7 @@ function ResetPasswordForm() {
             "The password reset link is invalid or has expired.",
           )}
         </p>
-        <Link
-          href={isAr ? "/forgot-password" : "/en/forgot-password"}
-          className="btn-primary w-full"
-        >
+        <Link href={`/${lang}/forgot-password`} className="btn-primary w-full">
           {t("طلب رابط جديد", "Request New Link")}
         </Link>
       </div>
@@ -57,7 +53,7 @@ function ResetPasswordForm() {
       await apiClient.post("/auth/reset-password", { token, newPassword });
       setSuccess(true);
       setTimeout(() => {
-        router.push(isAr ? "/login" : "/en/login");
+        router.push(`/${lang}/sign-in`);
       }, 3000);
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };

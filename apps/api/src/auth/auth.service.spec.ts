@@ -151,6 +151,11 @@ describe('AuthService', () => {
 
       expect(result.user.role).toBe(UserRole.STUDENT);
       expect(result.verificationRequired).toBe(true);
+      expect(emailService.sendEmail).toHaveBeenCalledWith(
+        'new@test.com',
+        expect.any(String),
+        expect.stringContaining('/ar/verify-email?token='),
+      );
     });
 
     it('registers a tutor role and creates tutor profile', async () => {
@@ -270,7 +275,11 @@ describe('AuthService', () => {
       });
 
       expect(redisService.set).toHaveBeenCalled();
-      expect(emailService.sendEmail).toHaveBeenCalled();
+      expect(emailService.sendEmail).toHaveBeenCalledWith(
+        'test@test.com',
+        expect.any(String),
+        expect.stringContaining('/ar/reset-password?token='),
+      );
       expect(result.message).toContain('reset link has been sent');
     });
 

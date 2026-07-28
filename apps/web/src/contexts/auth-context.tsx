@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
@@ -18,6 +19,7 @@ interface User {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  timezone?: string;
   assignedPermissions?: string[];
 }
 
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const sessionChecked = useRef(false);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -73,12 +76,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
+    if (sessionChecked.current) return;
+    sessionChecked.current = true;
     setIsLoading(true);
     fetchUser();
   }, [fetchUser, pathname]);
 
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await apiClient.post("/auth/login", { email, password });
+    sessionChecked.current = true;
     setUser(data.user);
     return data.user;
   }, []);
@@ -92,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: "student" | "tutor";
     }) => {
       const { data } = await apiClient.post("/auth/register", input);
+      sessionChecked.current = false;
       setUser(null);
       return data.user;
     },
@@ -105,8 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout API errors
     }
     setUser(null);
-    window.location.href = "/";
-  }, []);
+    const locale = pathname.match(/^\/(en|ar)(?:\/|$)/)?.[1] ?? "ar";
+    window.location.href = `/${locale}/sign-in`;
+  }, [pathname]);
 
   return (
     <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>

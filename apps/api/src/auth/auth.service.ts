@@ -95,7 +95,7 @@ export class AuthService {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const verifyUrl = `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
+    const verifyUrl = `${frontendUrl}/ar/verify-email?token=${encodeURIComponent(token)}`;
     await this.emailService.sendEmail(
       user.email,
       'Verify your MRH Academy email',
@@ -410,10 +410,10 @@ export class AuthService {
 
         const savedUser = await this.dataSource.transaction(async (manager) => {
           const s = await manager.save(newUser);
-          const profile = manager.create(StudentProfile, {
+          const studentProfile = manager.create(StudentProfile, {
             userId: s.id,
           });
-          await manager.save(profile);
+          await manager.save(studentProfile);
           return s;
         });
 
@@ -447,7 +447,7 @@ export class AuthService {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const resetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+    const resetUrl = `${frontendUrl}/ar/reset-password?token=${encodeURIComponent(token)}`;
 
     await this.emailService.sendEmail(
       dto.email,

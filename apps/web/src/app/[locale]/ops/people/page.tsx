@@ -18,11 +18,11 @@ export default function OpsPeopleRoute() {
       }
     >
       <div className="workspace-split">
-        <section>
+        <section id="tutors">
           <h2>{lang === "ar" ? "المعلّمون" : "Tutors"}</h2>
           <TutorsTab />
         </section>
-        <section>
+        <section id="students">
           <h2>{lang === "ar" ? "الطلاب" : "Learners"}</h2>
           <StudentsTab />
         </section>
