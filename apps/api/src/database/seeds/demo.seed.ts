@@ -91,50 +91,72 @@ async function seedDemoData() {
         const existing = await manager.findOne(User, {
           where: { email: fixture.email },
         });
-        if (existing) {
-          existing.passwordHash = passwordHash;
-          existing.isVerified = true;
-          await manager.save(existing);
-          return;
-        }
-
         const user = await manager.save(
           User,
-          manager.create(User, {
-            ...fixture,
-            passwordHash,
-            isVerified: true,
-          }),
+          existing
+            ? Object.assign(existing, {
+                ...fixture,
+                passwordHash,
+                isVerified: true,
+                isActive: true,
+                deletedAt: null,
+              })
+            : manager.create(User, {
+                ...fixture,
+                passwordHash,
+                isVerified: true,
+              }),
         );
 
         if (fixture.role === UserRole.STUDENT) {
-          await manager.save(
-            StudentProfile,
-            manager.create(StudentProfile, {
-              userId: user.id,
-              balance: 100,
-            }),
-          );
+          const profile = await manager.findOne(StudentProfile, {
+            where: { userId: user.id },
+          });
+          if (!profile) {
+            await manager.save(
+              StudentProfile,
+              manager.create(StudentProfile, {
+                userId: user.id,
+                balance: 100,
+              }),
+            );
+          }
         } else if (fixture.role === UserRole.TUTOR) {
-          await manager.save(
-            TutorProfile,
-            manager.create(TutorProfile, {
-              userId: user.id,
-              bio: 'Fictional tutor profile for local development.',
-              specialization: 'Demo curriculum',
-              languages: ['Arabic', 'English'],
-              hourlyRate: 15,
-              status: fixture.tutorStatus,
-            }),
-          );
+          const profile = await manager.findOne(TutorProfile, {
+            where: { userId: user.id },
+          });
+          if (!profile) {
+            await manager.save(
+              TutorProfile,
+              manager.create(TutorProfile, {
+                userId: user.id,
+                bio: 'Fictional tutor profile for local development.',
+                specialization: 'Demo curriculum',
+                languages: ['Arabic', 'English'],
+                hourlyRate: 15,
+                status: fixture.tutorStatus,
+              }),
+            );
+          } else {
+            profile.status = fixture.tutorStatus;
+            await manager.save(profile);
+          }
         } else if (fixture.role === UserRole.SUBADMIN) {
-          await manager.save(
-            SubAdminProfile,
-            manager.create(SubAdminProfile, {
-              userId: user.id,
-              assignedPermissions: [...supportSubAdminPermissions],
-            }),
-          );
+          const profile = await manager.findOne(SubAdminProfile, {
+            where: { userId: user.id },
+          });
+          if (!profile) {
+            await manager.save(
+              SubAdminProfile,
+              manager.create(SubAdminProfile, {
+                userId: user.id,
+                assignedPermissions: [...supportSubAdminPermissions],
+              }),
+            );
+          } else {
+            profile.assignedPermissions = [...supportSubAdminPermissions];
+            await manager.save(profile);
+          }
           const existingEmployee = await manager.findOne(Employee, {
             where: { email: fixture.email },
           });

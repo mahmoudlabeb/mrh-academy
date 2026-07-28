@@ -16,6 +16,7 @@ export const environmentValidationSchema = Joi.object({
   DATABASE_SSL_REJECT_UNAUTHORIZED: Joi.string()
     .valid('true', 'false')
     .default('true'),
+  DATABASE_LOGGING: Joi.string().valid('true', 'false').default('false'),
   JWT_SECRET: Joi.string()
     .min(32)
     .when('NODE_ENV', {
