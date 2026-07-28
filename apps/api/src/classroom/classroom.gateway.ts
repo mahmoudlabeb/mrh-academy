@@ -55,6 +55,7 @@ export class ClassroomGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnApplicationShutdown
 {
   private static readonly MAX_ACTIONS_PER_PAGE = 2000;
+  private static readonly MAX_POINTS_PER_ACTION = 5000;
   private static readonly MAX_WHITEBOARD_PAGES = 50;
   private static readonly MAX_CHAT_PER_MINUTE = 30;
   @WebSocketServer()
@@ -169,8 +170,13 @@ export class ClassroomGateway
   }
 
   handleDisconnect(socket: Socket) {
-    const { userId } = getClassroomSocketData(socket);
+    const { userId, currentLesson } = getClassroomSocketData(socket);
     if (!userId) return;
+
+    this.healthRecords.delete(socket.id);
+    if (currentLesson) {
+      socket.to(currentLesson).emit('peer_left', { userId });
+    }
 
     const clients = this.connectedClients.get(userId) || [];
     const filtered = clients.filter((c) => c.socketId !== socket.id);
@@ -220,6 +226,30 @@ export class ClassroomGateway
     socket.join(lessonId);
 
     setClassroomSocketData(socket, { currentLesson: lessonId });
+
+    const participants = Array.from(this.server.sockets.sockets.values())
+      .filter(
+        (candidate) =>
+          candidate.id !== socket.id && candidate.rooms.has(lessonId),
+      )
+      .map((candidate) => {
+        const data = getClassroomSocketData(candidate);
+        return { userId: data.userId, role: data.role };
+      })
+      .filter(
+        (
+          participant,
+        ): participant is {
+          userId: string;
+          role: string;
+        } => Boolean(participant.userId && participant.role),
+      )
+      .filter(
+        (participant, index, all) =>
+          all.findIndex((entry) => entry.userId === participant.userId) ===
+          index,
+      );
+    socket.emit('room_participants', { participants });
 
     const whiteboardKey = `whiteboard:${lessonId}`;
     let whiteboardState = await this.redisService.get(whiteboardKey);
@@ -285,6 +315,62 @@ export class ClassroomGateway
     return true;
   }
 
+  private isValidDrawAction(data: unknown): boolean {
+    if (!data || typeof data !== 'object') return false;
+    const action = data as {
+      type?: unknown;
+      points?: unknown;
+      color?: unknown;
+      width?: unknown;
+      normalized?: unknown;
+    };
+    if (action.type !== 'stroke' && action.type !== 'erase') return false;
+    if (
+      !Array.isArray(action.points) ||
+      action.points.length < 2 ||
+      action.points.length > ClassroomGateway.MAX_POINTS_PER_ACTION
+    ) {
+      return false;
+    }
+    if (
+      typeof action.width !== 'number' ||
+      !Number.isFinite(action.width) ||
+      action.width < 1 ||
+      action.width > 100
+    ) {
+      return false;
+    }
+    if (typeof action.color !== 'string' || action.color.length > 32) {
+      return false;
+    }
+    return action.points.every((point) => {
+      if (!point || typeof point !== 'object') return false;
+      const candidate = point as { x?: unknown; y?: unknown };
+      if (
+        typeof candidate.x !== 'number' ||
+        typeof candidate.y !== 'number' ||
+        !Number.isFinite(candidate.x) ||
+        !Number.isFinite(candidate.y)
+      ) {
+        return false;
+      }
+      if (action.normalized === true) {
+        return (
+          candidate.x >= 0 &&
+          candidate.x <= 1 &&
+          candidate.y >= 0 &&
+          candidate.y <= 1
+        );
+      }
+      return (
+        candidate.x >= 0 &&
+        candidate.x <= 10000 &&
+        candidate.y >= 0 &&
+        candidate.y <= 10000
+      );
+    });
+  }
+
   @SubscribeMessage('send_chat')
   handleSendChat(
     socket: Socket,
@@ -316,6 +402,14 @@ export class ClassroomGateway
   ) {
     const { lessonId, page, data } = payload;
     if (!this.assertLessonMembership(socket, lessonId)) return;
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > ClassroomGateway.MAX_WHITEBOARD_PAGES ||
+      !this.isValidDrawAction(data)
+    ) {
+      return;
+    }
     socket.to(lessonId).emit('canvas_update', {
       userId: this.socketData(socket).userId,
       page,
@@ -393,6 +487,44 @@ export class ClassroomGateway
     }
 
     socket.to(lessonId).emit('whiteboard_page_change', { page });
+  }
+
+  @SubscribeMessage('whiteboard_page_replace')
+  async handleWhiteboardPageReplace(
+    socket: Socket,
+    payload: { lessonId: string; page: number; actions: unknown[] },
+  ) {
+    const { lessonId, page, actions } = payload;
+    if (!this.assertLessonMembership(socket, lessonId)) return;
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > ClassroomGateway.MAX_WHITEBOARD_PAGES ||
+      !Array.isArray(actions) ||
+      actions.length > ClassroomGateway.MAX_ACTIONS_PER_PAGE ||
+      !actions.every((action) => this.isValidDrawAction(action))
+    ) {
+      return;
+    }
+
+    const whiteboardKey = `whiteboard:${lessonId}`;
+    const existing = await this.redisService.get(whiteboardKey);
+    if (!existing) return;
+
+    try {
+      const parsed = JSON.parse(existing);
+      parsed.pages[String(page)] = actions;
+      await this.redisService.set(
+        whiteboardKey,
+        JSON.stringify(parsed),
+        'EX',
+        86400,
+      );
+      await this.persistWhiteboardToDb(lessonId, parsed);
+      socket.to(lessonId).emit('whiteboard_page_replaced', { page, actions });
+    } catch {
+      // Ignore invalid cached state; a future sync will restore DB state.
+    }
   }
 
   @SubscribeMessage('book_present')

@@ -26,6 +26,7 @@ interface DrawAction {
   points: { x: number; y: number }[];
   color: string;
   width: number;
+  normalized?: boolean;
 }
 
 interface Participant {
@@ -79,6 +80,7 @@ export default function ClassroomPage() {
   const [sideTab, setSideTab] = useState<"chat" | "participants">("chat");
   const [elapsed, setElapsed] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [roomError, setRoomError] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [reportSubject, setReportSubject] = useState("");
@@ -134,7 +136,13 @@ export default function ClassroomPage() {
     connectionStatus,
     startCall,
     stopCall,
-  } = useWebRTC(lessonId ?? "", user?.id || "", peerUser?.userId || null);
+    setMicrophoneEnabled,
+    setCameraEnabled: setWebRtcCameraEnabled,
+  } = useWebRTC(lessonId ?? "", user?.id || "", peerUser?.userId || null, {
+    microphone: micEnabled,
+    camera: cameraEnabled,
+  });
+  const autoStartedPeerRef = useRef<string | null>(null);
 
   const [showFallback, setShowFallback] = useState(false);
   const fallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -222,7 +230,39 @@ export default function ClassroomPage() {
     preflightStream?.getVideoTracks().forEach((track) => {
       track.enabled = cameraEnabled;
     });
-  }, [cameraEnabled, preflightStream]);
+    setWebRtcCameraEnabled(cameraEnabled);
+  }, [cameraEnabled, preflightStream, setWebRtcCameraEnabled]);
+
+  useEffect(() => {
+    setMicrophoneEnabled(micEnabled);
+  }, [micEnabled, setMicrophoneEnabled]);
+
+  useEffect(() => {
+    if (
+      !joined ||
+      !peerUser?.userId ||
+      !user?.id ||
+      activeCall ||
+      isCallLoading ||
+      autoStartedPeerRef.current === peerUser.userId
+    ) {
+      return;
+    }
+    // A deterministic initiator prevents both participants from creating
+    // competing offers when the second participant joins.
+    if (user.id.localeCompare(peerUser.userId) < 0) {
+      autoStartedPeerRef.current = peerUser.userId;
+      void startCall(cameraEnabled ? "camera" : "voice");
+    }
+  }, [
+    activeCall,
+    cameraEnabled,
+    isCallLoading,
+    joined,
+    peerUser?.userId,
+    startCall,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (connectionStatus === "failed") {
@@ -266,11 +306,20 @@ export default function ClassroomPage() {
       } else {
         ctx.globalCompositeOperation = "source-over";
         ctx.strokeStyle = action.color;
-        ctx.lineWidth = action.width;
+      ctx.lineWidth = action.width;
       }
-      ctx.moveTo(action.points[0].x, action.points[0].y);
+      const scalePoint = (point: { x: number; y: number }) =>
+        action.normalized
+          ? {
+              x: point.x * ctx.canvas.clientWidth,
+              y: point.y * ctx.canvas.clientHeight,
+            }
+          : point;
+      const firstPoint = scalePoint(action.points[0]);
+      ctx.moveTo(firstPoint.x, firstPoint.y);
       for (let i = 1; i < action.points.length; i++) {
-        ctx.lineTo(action.points[i].x, action.points[i].y);
+        const point = scalePoint(action.points[i]);
+        ctx.lineTo(point.x, point.y);
       }
       ctx.stroke();
       ctx.globalCompositeOperation = "source-over";
@@ -294,10 +343,13 @@ export default function ClassroomPage() {
 
   useEffect(() => {
     initCanvas();
-    const handleResize = () => initCanvas();
+    const handleResize = () => {
+      initCanvas();
+      requestAnimationFrame(() => redrawPage(currentPage));
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [initCanvas]);
+  }, [currentPage, initCanvas, redrawPage]);
 
   useEffect(() => {
     if (canvasRef.current && ctxRef.current) {
@@ -316,6 +368,10 @@ export default function ClassroomPage() {
 
     const onDisconnect = () => {
       setConnected(false);
+    };
+
+    const onRoomError = (message: string) => {
+      setRoomError(message);
     };
 
     const onWhiteboardSync = (state: WhiteboardState) => {
@@ -368,8 +424,31 @@ export default function ClassroomPage() {
       });
     };
 
+    const onRoomParticipants = (payload: {
+      participants?: Participant[];
+    }) => {
+      setParticipants(
+        (payload.participants ?? []).filter(
+          (participant) => participant.userId !== user.id,
+        ),
+      );
+    };
+
     const onPeerLeft = (p: { userId: string }) => {
       setParticipants((prev) => prev.filter((x) => x.userId !== p.userId));
+      if (autoStartedPeerRef.current === p.userId) {
+        autoStartedPeerRef.current = null;
+      }
+    };
+
+    const onWhiteboardPageReplaced = (payload: {
+      page: number;
+      actions: DrawAction[];
+    }) => {
+      setPages((prev) => ({
+        ...prev,
+        [String(payload.page)]: payload.actions,
+      }));
     };
 
     const onPongHealth = (payload: {
@@ -399,12 +478,8 @@ export default function ClassroomPage() {
 
     let healthInterval: ReturnType<typeof setInterval> | null = null;
 
-    if (socket.connected) {
-      onConnect();
-    } else {
-      socket.on("connect", onConnect);
-    }
     socket.on("disconnect", onDisconnect);
+    socket.on("error_message", onRoomError);
     socket.on("whiteboard_sync", onWhiteboardSync);
     socket.on("canvas_update", onCanvasUpdate);
     socket.on("chat_message", onChatMessage);
@@ -414,6 +489,14 @@ export default function ClassroomPage() {
     socket.on("book_close", onBookClose);
     socket.on("peer_joined", onPeerJoined);
     socket.on("peer_left", onPeerLeft);
+    socket.on("room_participants", onRoomParticipants);
+    socket.on("whiteboard_page_replaced", onWhiteboardPageReplaced);
+
+    if (socket.connected) {
+      onConnect();
+    } else {
+      socket.on("connect", onConnect);
+    }
     socket.on("pong_health", onPongHealth);
     socket.on("connection_health", onConnectionHealth);
 
@@ -427,6 +510,7 @@ export default function ClassroomPage() {
       socket.emit("leave_lesson", { lessonId });
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
+      socket.off("error_message", onRoomError);
       socket.off("whiteboard_sync", onWhiteboardSync);
       socket.off("canvas_update", onCanvasUpdate);
       socket.off("chat_message", onChatMessage);
@@ -436,6 +520,8 @@ export default function ClassroomPage() {
       socket.off("book_close", onBookClose);
       socket.off("peer_joined", onPeerJoined);
       socket.off("peer_left", onPeerLeft);
+      socket.off("room_participants", onRoomParticipants);
+      socket.off("whiteboard_page_replaced", onWhiteboardPageReplaced);
       socket.off("pong_health", onPongHealth);
       socket.off("connection_health", onConnectionHealth);
     };
@@ -479,14 +565,15 @@ export default function ClassroomPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const getPointerPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getPointerPos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
     isDrawing.current = true;
     const pos = getPointerPos(e);
     currentStroke.current = { points: [pos] };
@@ -506,7 +593,7 @@ export default function ClassroomPage() {
     ctx.moveTo(pos.x, pos.y);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing.current) return;
     const pos = getPointerPos(e);
     currentStroke.current.points.push(pos);
@@ -517,18 +604,28 @@ export default function ClassroomPage() {
     ctx.stroke();
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e?: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
+    if (e?.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
 
     const points = currentStroke.current.points;
     if (points.length < 2) return;
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    if (!rect?.width || !rect.height) return;
 
     const action: DrawAction = {
       type: isEraser ? "erase" : "stroke",
-      points: [...points],
+      points: points.map((point) => ({
+        x: point.x / rect.width,
+        y: point.y / rect.height,
+      })),
       color: isEraser ? "" : toolColor,
       width: isEraser ? ERASER_WIDTH : toolWidth,
+      normalized: true,
     };
 
     const pageStr = String(currentPage);
@@ -546,19 +643,24 @@ export default function ClassroomPage() {
     setPages((prev) => {
       const actions = prev[pageStr] || [];
       if (actions.length === 0) return prev;
-      return { ...prev, [pageStr]: actions.slice(0, -1) };
+      const nextActions = actions.slice(0, -1);
+      getSocket().emit("whiteboard_page_replace", {
+        lessonId,
+        page: currentPage,
+        actions: nextActions,
+      });
+      return { ...prev, [pageStr]: nextActions };
     });
-    const canvas = canvasRef.current;
-    const ctx = ctxRef.current;
-    if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width / 2, canvas.height / 2);
-      redrawPage(currentPage);
-    }
   };
 
   const handleClear = () => {
     const pageStr = String(currentPage);
     setPages((prev) => ({ ...prev, [pageStr]: [] }));
+    getSocket().emit("whiteboard_page_replace", {
+      lessonId,
+      page: currentPage,
+      actions: [],
+    });
     const ctx = ctxRef.current;
     const canvas = canvasRef.current;
     if (ctx && canvas) {
@@ -999,6 +1101,19 @@ export default function ClassroomPage() {
           </button>
         </div>
       </header>
+      {roomError && (
+        <div
+          role="alert"
+          className="px-4 py-2 text-sm"
+          style={{
+            color: "var(--danger)",
+            background: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            borderBottom: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+          }}
+        >
+          {roomError}
+        </div>
+      )}
 
       {/* Google Meet Fallback Banner */}
       {showFallback && lesson?.googleMeetUrl && (
@@ -1370,10 +1485,10 @@ export default function ClassroomPage() {
             ) : (
               <canvas
                 ref={canvasRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
                 className="w-full h-full rounded-xl cursor-crosshair"
                 style={{ background: "#ffffff", touchAction: "none" }}
               />
@@ -1436,18 +1551,24 @@ export default function ClassroomPage() {
             ) : (
               <>
                 <button
-                  onClick={() =>
-                    activeCall === "voice"
-                      ? stopCall("voice")
-                      : startCall("voice")
-                  }
+                  type="button"
+                  onClick={() => {
+                    if (!activeCall) {
+                      void startCall("voice");
+                      return;
+                    }
+                    setMicEnabled((enabled) => !enabled);
+                  }}
                   disabled={isCallLoading}
                   className="btn-ghost text-xs px-3 py-1.5"
+                  aria-pressed={micEnabled}
+                  aria-label={
+                    micEnabled
+                      ? t("كتم الميكروفون", "Mute microphone")
+                      : t("تشغيل الميكروفون", "Unmute microphone")
+                  }
                   style={{
-                    color:
-                      activeCall === "voice"
-                        ? "var(--success)"
-                        : "var(--text-muted)",
+                    color: micEnabled ? "var(--success)" : "var(--danger)",
                   }}
                 >
                   <svg
@@ -1471,23 +1592,33 @@ export default function ClassroomPage() {
                       />
                     )}
                   </svg>
-                  {activeCall === "voice"
-                    ? t("إنهاء المكالمة", "End Call")
-                    : t("مكالمة صوتية", "Voice Call")}
+                  {micEnabled
+                    ? t("الميكروفون", "Microphone")
+                    : t("إلغاء الكتم", "Unmute")}
                 </button>
                 <button
-                  onClick={() =>
-                    activeCall === "camera"
-                      ? stopCall("camera")
-                      : startCall("camera")
-                  }
+                  type="button"
+                  onClick={() => {
+                    if (!activeCall || activeCall === "voice") {
+                      setCameraEnabled(true);
+                      setWebRtcCameraEnabled(true);
+                      void startCall("camera");
+                      return;
+                    }
+                    setCameraEnabled((enabled) => !enabled);
+                  }}
                   disabled={isCallLoading}
                   className="btn-ghost text-xs px-3 py-1.5"
+                  aria-pressed={cameraEnabled}
+                  aria-label={
+                    cameraEnabled
+                      ? t("إيقاف الكاميرا", "Turn camera off")
+                      : t("تشغيل الكاميرا", "Turn camera on")
+                  }
                   style={{
-                    color:
-                      activeCall === "camera"
-                        ? "var(--success)"
-                        : "var(--text-muted)",
+                    color: cameraEnabled
+                      ? "var(--success)"
+                      : "var(--danger)",
                   }}
                 >
                   <svg
@@ -1503,9 +1634,9 @@ export default function ClassroomPage() {
                       d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
                     />
                   </svg>
-                  {activeCall === "camera"
-                    ? t("إيقاف الكاميرا", "Stop Camera")
-                    : t("الكاميرا", "Camera")}
+                  {cameraEnabled
+                    ? t("الكاميرا", "Camera")
+                    : t("تشغيل الكاميرا", "Start camera")}
                 </button>
                 <button
                   onClick={() =>
