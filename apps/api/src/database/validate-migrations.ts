@@ -34,7 +34,6 @@ const EXPECTED_TABLES = [
   'course_funding_allocations',
   'course_refund_reversals',
   'lesson_books',
-  'student_favorites',
   'migrations',
 ];
 

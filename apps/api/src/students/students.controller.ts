@@ -1,14 +1,4 @@
-import {
-  Controller,
-  Get,
-  Put,
-  Post,
-  Delete,
-  Body,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Put, Body, Query, UseGuards } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,7 +9,6 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { StudentsService } from './students.service.js';
 import { UsersService } from '../users/users.service.js';
 import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
-import { AddFavoriteDto } from './dto/add-favorite.dto.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
@@ -102,26 +91,5 @@ export class StudentsController {
       meetUrl: l.meetUrl,
       googleMeetUrl: l.googleMeetUrl,
     }));
-  }
-
-  @Get('favorite-tutors')
-  getFavoriteTutors(@CurrentUser() user: AuthenticatedUser) {
-    return this.studentsService.getFavoriteTutors(user.id);
-  }
-
-  @Post('favorites')
-  addFavorite(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: AddFavoriteDto,
-  ) {
-    return this.studentsService.addFavorite(user.id, dto.tutorId);
-  }
-
-  @Delete('favorites/:tutorId')
-  removeFavorite(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('tutorId') tutorId: string,
-  ) {
-    return this.studentsService.removeFavorite(user.id, tutorId);
   }
 }

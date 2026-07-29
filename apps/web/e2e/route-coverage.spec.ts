@@ -79,8 +79,6 @@ const roleRoutes: Record<E2ERole, readonly string[]> = {
     "/ar/learn/wallet",
     "/en/learn/wallet/add",
     "/ar/learn/wallet/add",
-    "/en/learn/saved",
-    "/ar/learn/saved",
     "/en/learn/messages",
     "/ar/learn/messages",
     "/en/learn/settings",

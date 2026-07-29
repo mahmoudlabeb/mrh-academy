@@ -237,9 +237,9 @@ test("learner messages stays in the workspace and logout is visible and function
   ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("404");
   await page.goto("/ar/learn");
-  await expect(page.getByRole("link", { name: "المحفوظات" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "المحفظة" })).toHaveAttribute(
     "href",
-    "/ar/learn/saved",
+    "/ar/learn/wallet",
   );
   await page.getByRole("button", { name: "فتح قائمة الحساب" }).click();
   await expect(page.getByRole("link", { name: "الإعدادات" })).toHaveAttribute(

@@ -32,12 +32,11 @@ const navigation: Record<Workspace, readonly NavigationItem[]> = {
     { path: "/courses", en: "Courses", ar: "الدورات" },
     { path: "/messages", en: "Messages", ar: "الرسائل" },
     { path: "/wallet", en: "Wallet", ar: "المحفظة" },
-    { path: "/saved", en: "Saved", ar: "المحفوظات" },
   ],
   teach: [
     { path: "", en: "Home", ar: "الرئيسية" },
     { path: "/classroom", en: "Classroom", ar: "الفصل" },
-    { path: "/schedule", en: "Schedule & availability", ar: "الجدول والتوافر" },
+    { path: "/schedule", en: "Schedule", ar: "الجدول والتوافر" },
     { path: "/students", en: "Students", ar: "الطلاب" },
     { path: "/messages", en: "Messages", ar: "الرسائل" },
     { path: "/courses", en: "Courses", ar: "الدورات" },

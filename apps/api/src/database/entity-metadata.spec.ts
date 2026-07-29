@@ -11,12 +11,14 @@ describe('entity metadata', () => {
       namingStrategy: new SnakeNamingStrategy(),
     });
 
-    await expect(
-      (
-        dataSource as unknown as {
-          buildMetadatas(): Promise<void>;
-        }
-      ).buildMetadatas(),
-    ).resolves.toBeUndefined();
+    await (
+      dataSource as unknown as {
+        buildMetadatas(): Promise<void>;
+      }
+    ).buildMetadatas();
+
+    expect(
+      dataSource.entityMetadatas.map((metadata) => metadata.tableName),
+    ).not.toContain('student_favorites');
   });
 });

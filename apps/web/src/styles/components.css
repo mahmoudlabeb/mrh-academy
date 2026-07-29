@@ -1544,57 +1544,6 @@
   width: 100%;
 }
 
-.saved-tutor-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
-  gap: 18px;
-}
-
-.saved-tutor-card {
-  padding: 18px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.saved-avatar {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--signal-soft);
-  color: var(--signal);
-  font-weight: 800;
-}
-
-.saved-tutor-card h2,
-.saved-tutor-card p {
-  margin: 0;
-}
-
-.saved-tutor-card h2 {
-  font-size: 1rem;
-}
-
-.saved-tutor-card p {
-  color: var(--ink-muted);
-  font-size: 0.8125rem;
-}
-
-.saved-tutor-card > strong {
-  color: var(--signal);
-}
-
-.saved-tutor-card > strong,
-.saved-tutor-card > .btn-primary {
-  grid-column: span 1;
-}
-
 .wallet-route-panel::before {
   content: "";
   position: fixed;
@@ -2794,7 +2743,12 @@ button:hover .directional-arrow[data-direction="backward"] {
 
 .practice-room__media article.is-empty {
   background:
-    linear-gradient(135deg, transparent 49%, rgba(255, 255, 255, 0.04) 50%, transparent 51%),
+    linear-gradient(
+      135deg,
+      transparent 49%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 51%
+    ),
     #10131d;
 }
 
@@ -4303,7 +4257,11 @@ button:hover .directional-arrow[data-direction="backward"] {
 
 .classroom-shell .classroom-stage {
   background:
-    radial-gradient(circle at 50% 18%, rgba(104, 82, 150, 0.14), transparent 45%),
+    radial-gradient(
+      circle at 50% 18%,
+      rgba(104, 82, 150, 0.14),
+      transparent 45%
+    ),
     var(--classroom-bg) !important;
 }
 
@@ -4401,7 +4359,10 @@ button:hover .directional-arrow[data-direction="backward"] {
   border-radius: 10px;
   background: var(--classroom-panel-raised);
   color: var(--classroom-text);
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
 }
 
 .classroom-shell .classroom-dock button:hover:not(:disabled) {

@@ -1,18 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
-import { CourseStatus, ReviewStatus } from '@mrh/types';
+import { Repository } from 'typeorm';
 import { PaymentMethodConfig } from '../payments/entities/payment-method-config.entity.js';
 import { StudentProfile } from './entities/student-profile.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
-import { StudentFavorite } from './entities/student-favorite.entity.js';
-import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
-import { Review } from '../reviews/entities/review.entity.js';
 import { Setting } from '../admin/entities/setting.entity.js';
 import { CommissionService } from '../payments/commission.service.js';
 
@@ -25,12 +17,6 @@ export class StudentsService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
-    @InjectRepository(StudentFavorite)
-    private readonly favoriteRepository: Repository<StudentFavorite>,
-    @InjectRepository(TutorProfile)
-    private readonly tutorProfileRepository: Repository<TutorProfile>,
-    @InjectRepository(Review)
-    private readonly reviewRepository: Repository<Review>,
     @InjectRepository(Setting)
     private readonly settingRepository: Repository<Setting>,
     @InjectRepository(PaymentMethodConfig)
@@ -121,79 +107,5 @@ export class StudentsService {
     });
 
     return { payments, lessons };
-  }
-
-  async addFavorite(studentId: string, tutorId: string) {
-    const tutor = await this.tutorProfileRepository.findOne({
-      where: { userId: tutorId, status: CourseStatus.APPROVED },
-    });
-    if (!tutor) {
-      throw new NotFoundException('Tutor not found');
-    }
-
-    const existing = await this.favoriteRepository.findOne({
-      where: { studentId, tutorId },
-    });
-    if (existing) {
-      throw new ConflictException('Tutor is already in favorites');
-    }
-
-    const favorite = this.favoriteRepository.create({ studentId, tutorId });
-    await this.favoriteRepository.save(favorite);
-    return { success: true, tutorId };
-  }
-
-  async removeFavorite(studentId: string, tutorId: string) {
-    const result = await this.favoriteRepository.delete({ studentId, tutorId });
-    if (result.affected === 0) {
-      throw new NotFoundException('Favorite not found');
-    }
-    return { success: true, tutorId };
-  }
-
-  async getFavoriteTutorIds(studentId: string): Promise<string[]> {
-    const favorites = await this.favoriteRepository.find({
-      where: { studentId },
-    });
-    return favorites.map((f) => f.tutorId);
-  }
-
-  async getFavoriteTutors(studentId: string) {
-    const tutorIds = await this.getFavoriteTutorIds(studentId);
-    if (tutorIds.length === 0) return [];
-
-    const tutors = await this.tutorProfileRepository.find({
-      where: { userId: In(tutorIds), status: CourseStatus.APPROVED },
-      relations: { user: true },
-    });
-
-    const ratings = await this.reviewRepository
-      .createQueryBuilder('review')
-      .select('review.tutorId', 'tutorId')
-      .addSelect('AVG(review.rating)', 'averageRating')
-      .where('review.tutorId IN (:...tutorIds)', { tutorIds })
-      .andWhere('review.status = :status', {
-        status: ReviewStatus.APPROVED,
-      })
-      .groupBy('review.tutorId')
-      .getRawMany<{ tutorId: string; averageRating: string | null }>();
-    const ratingsByTutor = new Map(
-      ratings.map((rating) => [
-        rating.tutorId,
-        Number(rating.averageRating ?? 0),
-      ]),
-    );
-    const result = tutors.map((t) => {
-      return {
-        userId: t.userId,
-        firstName: t.user?.firstName ?? '',
-        lastName: t.user?.lastName ?? '',
-        specialization: t.specialization,
-        hourlyRate: t.hourlyRate,
-        averageRating: ratingsByTutor.get(t.userId) ?? 0,
-      };
-    });
-
-    return result.sort((a, b) => b.averageRating - a.averageRating);
   }
 }

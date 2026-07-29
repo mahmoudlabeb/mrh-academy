@@ -7,14 +7,7 @@ test.describe("Student Dashboard", () => {
   });
 
   test("should display the learner workspace navigation", async ({ page }) => {
-    for (const name of [
-      "Today",
-      "Lessons",
-      "Courses",
-      "Messages",
-      "Wallet",
-      "Saved",
-    ]) {
+    for (const name of ["Today", "Lessons", "Courses", "Messages", "Wallet"]) {
       await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
     }
   });
@@ -53,8 +46,8 @@ test.describe("Student Dashboard", () => {
       page.getByRole("navigation", { name: "Workspace navigation" }),
     ).toBeVisible();
     await page.getByRole("link", { name: "Today", exact: true }).click();
-    await page.getByRole("link", { name: "Saved" }).click();
-    await expect(page).toHaveURL(/\/en\/learn\/saved$/);
+    await page.getByRole("link", { name: "Wallet" }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/wallet$/);
   });
 
   test("should open the server-authoritative add-funds panel", async ({

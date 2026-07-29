@@ -457,17 +457,6 @@ export class InitialSchema1784505600000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "student_favorites" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-        "student_id" uuid NOT NULL,
-        "tutor_id" uuid NOT NULL,
-        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "pk_student_favorites" PRIMARY KEY ("id"),
-        CONSTRAINT "uq_student_favorites_student_tutor" UNIQUE ("student_id", "tutor_id")
-      )
-    `);
-
     const indexes: Array<[string, string, string]> = [
       [
         'tutor_availabilities',
@@ -530,12 +519,6 @@ export class InitialSchema1784505600000 implements MigrationInterface {
         '("course_id")',
       ],
       ['lesson_books', 'idx_lesson_books_lesson_id', '("lesson_id")'],
-      [
-        'student_favorites',
-        'idx_student_favorites_student_id',
-        '("student_id")',
-      ],
-      ['student_favorites', 'idx_student_favorites_tutor_id', '("tutor_id")'],
     ];
 
     for (const [table, name, columns] of indexes) {
@@ -719,25 +702,12 @@ export class InitialSchema1784505600000 implements MigrationInterface {
       'fk_lesson_books_lesson',
       'FOREIGN KEY ("lesson_id") REFERENCES "lessons"("id") ON DELETE CASCADE',
     );
-    await ensureForeignKey(
-      queryRunner,
-      'student_favorites',
-      'fk_student_favorites_student',
-      'FOREIGN KEY ("student_id") REFERENCES "users"("id") ON DELETE CASCADE',
-    );
-    await ensureForeignKey(
-      queryRunner,
-      'student_favorites',
-      'fk_student_favorites_tutor',
-      'FOREIGN KEY ("tutor_id") REFERENCES "users"("id") ON DELETE CASCADE',
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const tables = [
       'processed_webhook_events',
       'payment_method_configs',
-      'student_favorites',
       'lesson_books',
       'course_promo_codes',
       'payouts',

@@ -19,16 +19,7 @@ interface Lesson {
   googleMeetUrl?: string;
 }
 
-interface FavoriteTutor {
-  userId: string;
-  firstName: string;
-  lastName: string;
-  specialization: string;
-  hourlyRate: number;
-  averageRating: number;
-}
-
-type SubTab = "history" | "calendar" | "favorites";
+type SubTab = "history" | "calendar";
 
 const statusConfig: Record<
   string,
@@ -86,27 +77,12 @@ export default function MyLessons() {
   const subTabs: { key: SubTab; labelAr: string; labelEn: string }[] = [
     { key: "history", labelAr: "سجل الدروس", labelEn: "Lesson History" },
     { key: "calendar", labelAr: "التقويم", labelEn: "Schedule Calendar" },
-    {
-      key: "favorites",
-      labelAr: "المعلمون المفضلون",
-      labelEn: "Favorite Tutors",
-    },
   ];
 
   const { data: lessons = [], isLoading: loadingLessons } = useQuery({
     queryKey: ["my-lessons"],
     queryFn: async () => {
       const { data } = await apiClient.get<Lesson[]>("/students/lessons");
-      return data;
-    },
-  });
-
-  const { data: favorites = [], isLoading: loadingFavorites } = useQuery({
-    queryKey: ["favorite-tutors"],
-    queryFn: async () => {
-      const { data } = await apiClient.get<FavoriteTutor[]>(
-        "/students/favorite-tutors",
-      );
       return data;
     },
   });
@@ -565,123 +541,6 @@ export default function MyLessons() {
                     </div>
                   ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {subTab === "favorites" && (
-        <div>
-          {loadingFavorites ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="card p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-full skeleton" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-28 skeleton" />
-                      <div className="h-3 w-20 skeleton" />
-                    </div>
-                  </div>
-                  <div className="h-3 w-full skeleton" />
-                </div>
-              ))}
-            </div>
-          ) : favorites.length === 0 ? (
-            <div className="card p-12 text-center">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{
-                  background:
-                    "color-mix(in srgb, var(--signal) 10%, transparent)",
-                }}
-              >
-                <svg
-                  className="w-7 h-7"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="var(--signal)"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                  />
-                </svg>
-              </div>
-              <p
-                className="font-semibold"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {t("لا يوجد معلمون مفضلون", "No favorite tutors")}
-              </p>
-              <p
-                className="text-sm mt-1"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {t(
-                  "ابحث عن معلمين وأضفهم إلى المفضلة",
-                  "Search for tutors and add them to favorites",
-                )}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {favorites.map((tutor) => (
-                <div
-                  key={tutor.userId}
-                  className="card p-5 hover:translate-y-0"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
-                      style={{ background: "var(--signal)" }}
-                    >
-                      {tutor.firstName[0]}
-                    </div>
-                    <div className="min-w-0">
-                      <p
-                        className="font-semibold text-sm"
-                        style={{ color: "var(--text-main)" }}
-                      >
-                        {tutor.firstName} {tutor.lastName}
-                      </p>
-                      <p
-                        className="text-xs mt-0.5"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        {tutor.specialization}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1 text-sm">
-                      <span style={{ color: "var(--signal)" }}>
-                        {"★".repeat(Math.round(tutor.averageRating))}
-                      </span>
-                      <span
-                        className="text-xs"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        ({tutor.averageRating.toFixed(1)})
-                      </span>
-                    </div>
-                    <span
-                      className="text-sm font-bold"
-                      style={{ color: "var(--signal)" }}
-                    >
-                      ${tutor.hourlyRate}
-                      <span
-                        className="text-xs font-normal"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        /{t("ساعة", "hr")}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </div>

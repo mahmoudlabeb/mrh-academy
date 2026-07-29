@@ -35,8 +35,8 @@ test.describe("Client Deliverables — Student", () => {
     await page.getByRole("link", { name: "Messages" }).click();
     await expect(page).toHaveURL(/\/en\/learn\/messages$/);
     await page.getByRole("link", { name: "Today", exact: true }).click();
-    await page.getByRole("link", { name: "Saved" }).click();
-    await expect(page).toHaveURL(/\/en\/learn\/saved$/);
+    await page.getByRole("link", { name: "Wallet" }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/wallet$/);
   });
 
   test("book lesson page accessible", async ({ page }) => {
