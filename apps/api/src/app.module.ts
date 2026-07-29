@@ -25,7 +25,6 @@ import { ReportsModule } from './reports/reports.module.js';
 import { ClassroomModule } from './classroom/classroom.module.js';
 import { CoursesModule } from './courses/courses.module.js';
 import { StudentsModule } from './students/students.module.js';
-import { VocabularyModule } from './vocabulary/vocabulary.module.js';
 import { CsrfOriginMiddleware } from './common/csrf.middleware.js';
 import { HealthModule } from './health/health.module.js';
 import { SnakeNamingStrategy } from './common/database/snake-naming.strategy.js';
@@ -79,7 +78,6 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
     ClassroomModule,
     CoursesModule,
     StudentsModule,
-    VocabularyModule,
     HealthModule,
   ],
   controllers: [],

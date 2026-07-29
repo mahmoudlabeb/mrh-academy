@@ -340,6 +340,7 @@ function TutorProfileBody({
   panel?: boolean;
 }) {
   const { lang, t } = useCopy();
+  const { user } = useAuth();
   const tutorQuery = useQuery({
     queryKey: ["blueprint-tutor", tutorId],
     queryFn: async () =>
@@ -490,9 +491,14 @@ function TutorProfileBody({
           >
             {t("احجز درساً", "Book a lesson")}
           </Link>
-          <Link className="btn-secondary" href={`/${lang}/messages/${tutorId}`}>
-            {t("راسل المعلم", "Message tutor")}
-          </Link>
+          {(user?.role === "student" || user?.role === "tutor") && (
+            <Link
+              className="btn-secondary"
+              href={`/${lang}/${user.role === "tutor" ? "teach" : "learn"}/messages/${tutorId}`}
+            >
+              {t("راسل المعلم", "Message tutor")}
+            </Link>
+          )}
           <p>
             {t(
               "يتم الخصم فقط بعد تأكيد الخادم للحجز.",

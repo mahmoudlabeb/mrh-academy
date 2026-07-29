@@ -1,10 +1,5 @@
-import { redirect } from "next/navigation";
+import { MessagesScreen } from "@/components/blueprint/CoreScreens";
 
-export default async function LegacyLearnerMessagesRoute({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  redirect(`/${locale}/messages`);
+export default function Page() {
+  return <MessagesScreen workspace="learn" />;
 }

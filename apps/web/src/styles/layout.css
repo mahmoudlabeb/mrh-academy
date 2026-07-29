@@ -866,43 +866,36 @@ html[data-theme="light"]
   position: sticky;
   inset-block-start: 0;
   z-index: 900;
-  min-height: 64px;
-  padding-inline: max(20px, calc((100vw - 1400px) / 2));
+  min-height: 72px;
+  padding: 10px max(20px, calc((100vw - 1400px) / 2));
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 28px;
+  gap: clamp(18px, 3vw, 46px);
   border-block-end: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(130%);
 }
 
 .workspace-brand {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   color: var(--ink);
   text-decoration: none;
+  letter-spacing: -0.025em;
 }
 
-.workspace-brand > span,
-.workspace-avatar {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--signal);
-  color: #fff;
-  font-weight: 800;
+.workspace-brand strong {
+  font-size: 0.94rem;
+  font-weight: 760;
 }
 
 .workspace-brand .mrh-brand-mark {
-  width: 36px;
-  height: 36px;
-  flex: 0 0 36px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   color: var(--signal);
 }
 
@@ -914,51 +907,74 @@ html[data-theme="light"]
   color: var(--ink);
 }
 
-.blueprint-workspace-teach .workspace-brand > span {
-  background: var(--ember);
-}
-
-.blueprint-workspace-ops .workspace-brand > span {
-  background: var(--ink);
-}
-
 .workspace-header nav {
   min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  justify-self: center;
   display: flex;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
+  padding: 4px;
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--canvas-sunken) 82%, var(--surface));
   scrollbar-width: none;
 }
 
 .workspace-header nav a {
-  min-height: 44px;
-  padding-inline: 13px;
+  min-height: 38px;
+  padding-inline: 14px;
   display: inline-flex;
   align-items: center;
-  border-radius: 8px;
+  border-radius: 999px;
   color: var(--ink-muted);
   text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 550;
+  font-size: 0.84rem;
+  font-weight: 620;
   white-space: nowrap;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.workspace-header nav a:hover,
-.workspace-header nav a.active {
+.workspace-header nav a:hover {
   color: var(--signal);
-  background: var(--signal-soft);
 }
 
-.blueprint-workspace-teach .workspace-header nav a:hover,
+.workspace-header nav a.active {
+  color: var(--signal-strong);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--signal) 14%, var(--border)),
+    var(--shadow-sm);
+}
+
+.blueprint-workspace-teach .workspace-header nav a:hover {
+  color: var(--ember);
+}
+
 .blueprint-workspace-teach .workspace-header nav a.active {
   color: var(--ember);
-  background: color-mix(in srgb, var(--ember) 10%, var(--surface));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ember) 20%, var(--border)),
+    var(--shadow-sm);
 }
 
 .workspace-avatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
   border-radius: 50%;
-  text-decoration: none;
+  background: var(--signal);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
 }
 
 .workspace-avatar img {
@@ -970,19 +986,19 @@ html[data-theme="light"]
 .workspace-account-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .workspace-utility {
-  min-width: 44px;
-  min-height: 44px;
-  padding-inline: 10px;
+  min-width: 40px;
+  min-height: 40px;
+  padding-inline: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
@@ -1003,23 +1019,133 @@ html[data-theme="light"]
   background: var(--signal-soft);
 }
 
-.workspace-logout {
+.workspace-profile {
+  position: relative;
+}
+
+.workspace-profile-trigger {
+  min-width: 50px;
   min-height: 44px;
-  padding-inline: 12px;
+  padding: 2px 5px 2px 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
+  border-radius: 999px;
+  background: var(--surface);
   color: var(--ink-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 0.82rem;
-  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 
-.workspace-logout:hover,
-.workspace-logout:focus-visible {
-  border-color: var(--danger);
+.workspace-profile-trigger:hover,
+.workspace-profile-trigger:focus-visible,
+.workspace-profile-trigger[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--signal) 55%, var(--border));
+  box-shadow: 0 0 0 3px var(--signal-soft);
+}
+
+.profile-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 160ms ease;
+}
+
+.profile-chevron.open {
+  transform: rotate(180deg);
+}
+
+.workspace-profile-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-end: 0;
+  width: min(280px, calc(100vw - 28px));
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  transform-origin: top right;
+  animation: workspace-menu-in 140ms ease-out;
+}
+
+[dir="rtl"] .workspace-profile-menu {
+  transform-origin: top left;
+}
+
+.workspace-profile-identity {
+  min-width: 0;
+  padding: 11px 12px 13px;
+  display: grid;
+  gap: 3px;
+  border-block-end: 1px solid var(--border);
+  margin-block-end: 6px;
+}
+
+.workspace-profile-identity strong,
+.workspace-profile-identity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-profile-identity strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.workspace-profile-identity span {
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+}
+
+.workspace-profile-menu > a,
+.workspace-profile-menu > button {
+  width: 100%;
+  min-height: 44px;
+  padding-inline: 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-align: start;
+}
+
+.workspace-profile-menu > a:hover,
+.workspace-profile-menu > a:focus-visible {
+  color: var(--signal);
+  background: var(--signal-soft);
+}
+
+.workspace-profile-menu > button:hover,
+.workspace-profile-menu > button:focus-visible {
   color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.workspace-profile-menu svg {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes workspace-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .workspace-content {
@@ -1113,13 +1239,19 @@ html[data-theme="light"]
   .workspace-header {
     grid-template-columns: auto auto;
     gap: 12px;
-    padding: 8px 14px 0;
+    padding: 8px 14px;
   }
   .workspace-header nav {
     grid-column: 1 / -1;
     grid-row: 2;
     justify-content: flex-start;
+    width: calc(100% + 28px);
+    max-width: none;
+    margin-inline: -14px;
     padding-inline: 18px;
+    padding-block: 5px;
+    border-inline: 0;
+    border-radius: 0;
     scroll-padding-inline: 40px;
     -webkit-mask-image: linear-gradient(
       to right,
@@ -1139,17 +1271,20 @@ html[data-theme="light"]
   .workspace-account-actions {
     justify-self: end;
   }
-  .workspace-logout {
-    width: 44px;
-    overflow: hidden;
-    padding: 0;
-    font-size: 0;
-  }
-  .workspace-logout::before {
-    content: "↪";
-    font-size: 1rem;
+  .workspace-brand strong {
+    display: none;
   }
   .workspace-content {
     padding: 20px 14px 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-chevron,
+  .workspace-header nav a {
+    transition: none;
+  }
+  .workspace-profile-menu {
+    animation: none;
   }
 }

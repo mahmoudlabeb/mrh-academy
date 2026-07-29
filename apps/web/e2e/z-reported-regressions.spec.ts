@@ -141,7 +141,7 @@ test("tutor can add availability and receives an exact overlap explanation", asy
   await expect(page.getByRole("button", { name: "Add hours" })).toBeDisabled();
 });
 
-test("student contact opens the shared message route and server confirms delivery", async ({
+test("student contact stays in the tutor workspace and server confirms delivery", async ({
   page,
 }) => {
   await loginAs(page, "tutor");
@@ -149,12 +149,18 @@ test("student contact opens the shared message route and server confirms deliver
   await expect(
     page.getByRole("link", { name: "Availability" }),
   ).toHaveAttribute("href", "/en/teach/availability");
+  await page.getByRole("button", { name: "Open account menu" }).click();
   await expect(page.getByRole("link", { name: "Profile" })).toHaveAttribute(
     "href",
     "/en/teach/profile",
   );
+  await expect(page.getByRole("link", { name: "Settings" })).toHaveAttribute(
+    "href",
+    "/en/teach/settings",
+  );
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Contact" }).click();
-  await expect(page).toHaveURL(new RegExp(`/en/messages/${studentId}$`));
+  await expect(page).toHaveURL(new RegExp(`/en/teach/messages/${studentId}$`));
 
   const content = `Regression message ${randomUUID()}`;
   const responsePromise = page.waitForResponse(
@@ -220,25 +226,26 @@ test("the same confirmed native classroom is authorized for tutor and student", 
   }
 });
 
-test("legacy learner messages URL redirects and logout is visible and functional", async ({
+test("learner messages stays in the workspace and logout is visible and functional", async ({
   page,
 }) => {
   await loginAs(page, "student");
   await page.goto("/ar/learn/messages");
-  await expect(page).toHaveURL(/\/ar\/(?:learn\/)?messages$/);
+  await expect(page).toHaveURL(/\/ar\/learn\/messages$/);
+  await expect(
+    page.getByRole("navigation", { name: "تنقل مساحة العمل" }),
+  ).toBeVisible();
   await expect(page.locator("body")).not.toContainText("404");
   await page.goto("/ar/learn");
   await expect(page.getByRole("link", { name: "المحفوظات" })).toHaveAttribute(
     "href",
     "/ar/learn/saved",
   );
-  await expect(page.getByRole("link", { name: "المفردات" })).toHaveAttribute(
+  await page.getByRole("button", { name: "فتح قائمة الحساب" }).click();
+  await expect(page.getByRole("link", { name: "الإعدادات" })).toHaveAttribute(
     "href",
-    "/ar/learn/words",
+    "/ar/learn/settings",
   );
-  await expect(
-    page.getByRole("button", { name: "تسجيل الخروج" }),
-  ).toBeVisible();
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
   await expect(page).toHaveURL(
     /^http:\/\/(?:127\.0\.0\.1|localhost):3000\/(?:en|ar)?$/,

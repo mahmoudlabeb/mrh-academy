@@ -243,7 +243,7 @@ export function ProfileManagementPage({ title }: ProfileManagementPageProps) {
         : tr("قيد المراجعة", "Under review")
     : tr("حساب طالب", "Student account");
   const roleLabel = isTutor ? tr("مدرّس", "Tutor") : tr("طالب", "Student");
-  const dashboardHref = isTutor ? "/tutor" : "/student";
+  const dashboardHref = isTutor ? `/${lang}/teach` : `/${lang}/learn`;
 
   return (
     <div className={styles.page} dir={isAr ? "rtl" : "ltr"}>

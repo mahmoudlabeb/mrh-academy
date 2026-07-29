@@ -3,8 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
-import { MoonIcon, SunIcon } from "@/components/icons/Icons";
+import { useEffect, useRef, useState } from "react";
+import {
+  ChevronDownIcon,
+  LogoutIcon,
+  MoonIcon,
+  SettingsIcon,
+  SunIcon,
+  UserIcon,
+} from "@/components/icons/Icons";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useTheme } from "@/contexts/theme-context";
@@ -16,7 +23,6 @@ type NavigationItem = {
   path: string;
   en: string;
   ar: string;
-  shared?: boolean;
 };
 
 const navigation: Record<Workspace, readonly NavigationItem[]> = {
@@ -24,20 +30,18 @@ const navigation: Record<Workspace, readonly NavigationItem[]> = {
     { path: "", en: "Today", ar: "اليوم" },
     { path: "/lessons", en: "Lessons", ar: "الدروس" },
     { path: "/courses", en: "Courses", ar: "الدورات" },
-    { path: "/messages", en: "Messages", ar: "الرسائل", shared: true },
+    { path: "/messages", en: "Messages", ar: "الرسائل" },
     { path: "/wallet", en: "Wallet", ar: "المحفظة" },
     { path: "/saved", en: "Saved", ar: "المحفوظات" },
-    { path: "/words", en: "Vocabulary", ar: "المفردات" },
   ],
   teach: [
     { path: "", en: "Home", ar: "الرئيسية" },
     { path: "/classroom", en: "Classroom", ar: "الفصل" },
     { path: "/schedule", en: "Schedule & availability", ar: "الجدول والتوافر" },
     { path: "/students", en: "Students", ar: "الطلاب" },
-    { path: "/messages", en: "Messages", ar: "الرسائل", shared: true },
+    { path: "/messages", en: "Messages", ar: "الرسائل" },
     { path: "/courses", en: "Courses", ar: "الدورات" },
     { path: "/earnings", en: "Earnings", ar: "الأرباح" },
-    { path: "/profile", en: "Profile", ar: "الملف" },
   ],
   ops: [
     { path: "", en: "Queue", ar: "قائمة القرارات" },
@@ -59,9 +63,14 @@ export function BlueprintWorkspaceShell({
   const { user, isLoading, logout } = useAuth();
   const { lang, toggleLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const [profileOpen, setProfileOpen] = useState(false);
   const base = `/${lang}/${workspace}`;
+  const settingsHref =
+    workspace === "ops" ? `/${lang}/account/profile` : `${base}/settings`;
   const items = navigation[workspace];
   const navigationRef = useRef<HTMLElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
   const allowed =
     workspace === "learn"
       ? user?.role === "student"
@@ -82,6 +91,30 @@ export function BlueprintWorkspaceShell({
       inline: "center",
     });
   }, [lang, pathname, workspace]);
+
+  useEffect(() => {
+    setProfileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!profileRef.current?.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setProfileOpen(false);
+      requestAnimationFrame(() => profileButtonRef.current?.focus());
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [profileOpen]);
 
   if (isLoading) {
     return (
@@ -146,12 +179,9 @@ export function BlueprintWorkspaceShell({
           }
         >
           {items.map((item) => {
-            const href = item.shared
-              ? `/${lang}${item.path}`
-              : `${base}${item.path}`;
-            const active = item.shared
-              ? pathname === href || pathname.startsWith(`${href}/`)
-              : item.path === ""
+            const href = `${base}${item.path}`;
+            const active =
+              item.path === ""
                 ? pathname === base
                 : pathname === href || pathname.startsWith(`${href}/`);
             return (
@@ -203,28 +233,88 @@ export function BlueprintWorkspaceShell({
           >
             {theme === "dark" ? <SunIcon /> : <MoonIcon />}
           </button>
-          <Link className="workspace-avatar" href={`/${lang}/account/profile`}>
-            {user?.avatarUrl ? (
-              <Image
-                src={user.avatarUrl}
-                alt={`${user.firstName} ${user.lastName}`}
-                width={34}
-                height={34}
-                sizes="34px"
-              />
-            ) : (
-              <span aria-hidden="true">
-                {user?.firstName?.[0]}
-                {user?.lastName?.[0]}
+          <div className="workspace-profile" ref={profileRef}>
+            <button
+              ref={profileButtonRef}
+              className="workspace-profile-trigger"
+              type="button"
+              onClick={() => setProfileOpen((open) => !open)}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowDown") return;
+                event.preventDefault();
+                setProfileOpen(true);
+                requestAnimationFrame(() =>
+                  profileRef.current
+                    ?.querySelector<HTMLElement>("a, button:not(:first-child)")
+                    ?.focus(),
+                );
+              }}
+              aria-expanded={profileOpen}
+              aria-controls="workspace-profile-menu"
+              aria-label={
+                lang === "ar" ? "فتح قائمة الحساب" : "Open account menu"
+              }
+            >
+              <span className="workspace-avatar">
+                {user?.avatarUrl ? (
+                  <Image
+                    src={user.avatarUrl}
+                    alt=""
+                    width={38}
+                    height={38}
+                    sizes="38px"
+                  />
+                ) : (
+                  <span aria-hidden="true">
+                    {user?.firstName?.[0]}
+                    {user?.lastName?.[0]}
+                  </span>
+                )}
               </span>
+              <ChevronDownIcon
+                className={
+                  profileOpen ? "profile-chevron open" : "profile-chevron"
+                }
+              />
+            </button>
+            {profileOpen && (
+              <div
+                className="workspace-profile-menu"
+                id="workspace-profile-menu"
+              >
+                <div className="workspace-profile-identity">
+                  <strong>
+                    {user?.firstName} {user?.lastName}
+                  </strong>
+                  <span dir="auto">{user?.email}</span>
+                </div>
+                <Link href={settingsHref} onClick={() => setProfileOpen(false)}>
+                  <SettingsIcon />
+                  <span>{lang === "ar" ? "الإعدادات" : "Settings"}</span>
+                </Link>
+                {workspace === "teach" && (
+                  <Link
+                    href={`/${lang}/teach/profile`}
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <UserIcon />
+                    <span>{lang === "ar" ? "الملف الشخصي" : "Profile"}</span>
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  className="workspace-profile-logout"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    logout();
+                  }}
+                >
+                  <LogoutIcon />
+                  <span>{lang === "ar" ? "تسجيل الخروج" : "Log out"}</span>
+                </button>
+              </div>
             )}
-            <span className="sr-only">
-              {lang === "ar" ? "إعدادات الحساب" : "Account settings"}
-            </span>
-          </Link>
-          <button className="workspace-logout" type="button" onClick={logout}>
-            {lang === "ar" ? "تسجيل الخروج" : "Log out"}
-          </button>
+          </div>
         </div>
       </header>
       <div className="workspace-content">{children}</div>

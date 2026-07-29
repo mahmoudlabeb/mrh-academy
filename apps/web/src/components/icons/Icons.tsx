@@ -210,6 +210,26 @@ export function SettingsIcon(props: IconProps) {
   );
 }
 
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m7 10 5 5 5-5" />
+    </BaseIcon>
+  );
+}
+
+export function LogoutIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14 8V5.5A2.5 2.5 0 0 0 11.5 3h-6A2.5 2.5 0 0 0 3 5.5v13A2.5 2.5 0 0 0 5.5 21h6a2.5 2.5 0 0 0 2.5-2.5V16m-3-4h10m0 0-3-3m3 3-3 3"
+      />
+    </BaseIcon>
+  );
+}
+
 export function AlertIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>

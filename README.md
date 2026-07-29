@@ -9,7 +9,6 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
 - **Booking & Scheduling:** Tutor availability and lesson booking with commission tiers
 - **Payments:** 6 methods (Card/Stripe, PayPal auto-approve, manual methods with admin approval)
 - **Courses:** Bunny.net streaming, enrollment, referral tracking
-- **AI Vocabulary:** Gemini-powered vocabulary tool
 - **Security:** CSRF, rate limiting, session locking, JWT access/refresh separation
 
 ## Tech Stack

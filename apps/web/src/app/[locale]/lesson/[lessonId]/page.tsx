@@ -164,9 +164,14 @@ export default function LessonDetailRoute() {
               {lang === "ar" ? "دخول فصل MRH" : "Join MRH Classroom"}
             </Link>
           )}
-          <Link className="btn-secondary" href={`/${lang}/messages`}>
-            {lang === "ar" ? "إرسال رسالة" : "Message"}
-          </Link>
+          {(user?.role === "student" || user?.role === "tutor") && (
+            <Link
+              className="btn-secondary"
+              href={`/${lang}/${user.role === "tutor" ? "teach" : "learn"}/messages`}
+            >
+              {lang === "ar" ? "إرسال رسالة" : "Message"}
+            </Link>
+          )}
           {lesson.googleMeetUrl && (
             <a
               className="btn-outline-signal"

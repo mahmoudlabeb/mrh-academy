@@ -974,12 +974,17 @@ type Message = {
   createdAt: string;
 };
 
-export function MessagesScreen() {
+export function MessagesScreen({
+  workspace,
+}: {
+  workspace: "learn" | "teach";
+}) {
   const { lang, t, date } = useCopy();
   const { user, isLoading } = useAuth();
   const params = useParams<{ userId?: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const messagesBase = `/${lang}/${workspace}/messages`;
   const [selected, setSelected] = useState<string | null>(
     params.userId ?? null,
   );
@@ -1034,7 +1039,7 @@ export function MessagesScreen() {
         <h1>{t("سجل الدخول لعرض رسائلك", "Sign in to view your messages")}</h1>
         <Link
           className="btn-primary"
-          href={`/${lang}/sign-in?next=${encodeURIComponent(`/${lang}/messages`)}`}
+          href={`/${lang}/sign-in?next=${encodeURIComponent(messagesBase)}`}
         >
           {t("تسجيل الدخول", "Sign in")}
         </Link>
@@ -1065,12 +1070,6 @@ export function MessagesScreen() {
           </p>
           <h1>{t("الرسائل", "Messages")}</h1>
         </div>
-        <Link
-          className="btn-secondary"
-          href={`/${lang}/${user.role === "tutor" ? "teach" : "learn"}`}
-        >
-          {t("العودة لمساحة العمل", "Return to workspace")}
-        </Link>
       </header>
       <section className="blueprint-messages">
         <aside>
@@ -1088,7 +1087,7 @@ export function MessagesScreen() {
                 aria-pressed={active === contact.user.id}
                 onClick={() => {
                   setSelected(contact.user.id);
-                  router.push(`/${lang}/messages/${contact.user.id}`);
+                  router.push(`${messagesBase}/${contact.user.id}`);
                 }}
               >
                 <span className="blueprint-contact-avatar" aria-hidden="true">
@@ -1302,12 +1301,31 @@ type UserProfile = {
   role: string;
 };
 
-export function AccountScreen() {
+const ACCOUNT_SECTION_KEYS = new Set([
+  "profile",
+  "security",
+  "notifications",
+  "appearance",
+  "roles",
+]);
+
+export function AccountScreen({
+  workspace,
+}: {
+  workspace?: "learn" | "teach";
+} = {}) {
   const pathname = usePathname();
   const { lang, setLanguage, t } = useCopy();
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
-  const section = pathname.split("/").at(-1) ?? "profile";
+  const routeSection = pathname.split("/").at(-1);
+  const section =
+    routeSection && ACCOUNT_SECTION_KEYS.has(routeSection)
+      ? routeSection
+      : "profile";
+  const settingsBase = workspace
+    ? `/${lang}/${workspace}/settings`
+    : `/${lang}/account`;
   const me = useQuery({
     queryKey: ["core-account"],
     queryFn: async () => (await apiClient.get<UserProfile>("/users/me")).data,
@@ -1358,7 +1376,7 @@ export function AccountScreen() {
           </p>
           <h1>{t("إعدادات الحساب", "Account Settings")}</h1>
         </div>
-        {me.data && (
+        {me.data && !workspace && (
           <Link
             className="btn-secondary"
             href={
@@ -1377,13 +1395,9 @@ export function AccountScreen() {
         <nav>
           {sections.map(([key, label]) => (
             <Link
-              className={
-                section === key || (section === "account" && key === "profile")
-                  ? "active"
-                  : ""
-              }
+              className={section === key ? "active" : ""}
               key={key}
-              href={`/${lang}/account/${key}`}
+              href={`${settingsBase}/${key}`}
             >
               {label}
             </Link>
@@ -1396,7 +1410,7 @@ export function AccountScreen() {
             empty={false}
             emptyText=""
           >
-            {(section === "profile" || section === "account") && (
+            {section === "profile" && (
               <form
                 className="blueprint-account-form"
                 onSubmit={(event) => {

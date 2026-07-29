@@ -413,21 +413,6 @@ export class InitialSchema1784505600000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "vocabulary_words" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
-        "user_id" uuid NOT NULL,
-        "word" character varying NOT NULL,
-        "definition" text NOT NULL,
-        "examples" text,
-        "translation" text,
-        "language" character varying NOT NULL DEFAULT 'en',
-        "context_sentence" text,
-        "saved_at" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "pk_vocabulary_words" PRIMARY KEY ("id")
-      )
-    `);
-
-    await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "payouts" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "tutor_id" uuid NOT NULL,
@@ -537,7 +522,6 @@ export class InitialSchema1784505600000 implements MigrationInterface {
       ],
       ['reports', 'idx_reports_user_id', '("user_id")'],
       ['reports', 'idx_reports_lesson_id', '("lesson_id")'],
-      ['vocabulary_words', 'idx_vocabulary_words_user_id', '("user_id")'],
       ['payouts', 'idx_payouts_tutor_id', '("tutor_id")'],
       ['course_promo_codes', 'idx_course_promo_codes_tutor_id', '("tutor_id")'],
       [
@@ -713,12 +697,6 @@ export class InitialSchema1784505600000 implements MigrationInterface {
     );
     await ensureForeignKey(
       queryRunner,
-      'vocabulary_words',
-      'fk_vocabulary_words_user',
-      'FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE',
-    );
-    await ensureForeignKey(
-      queryRunner,
       'payouts',
       'fk_payouts_tutor',
       'FOREIGN KEY ("tutor_id") REFERENCES "tutor_profiles"("user_id") ON DELETE CASCADE',
@@ -763,7 +741,6 @@ export class InitialSchema1784505600000 implements MigrationInterface {
       'lesson_books',
       'course_promo_codes',
       'payouts',
-      'vocabulary_words',
       'reports',
       'teacher_training_articles',
       'reviews',

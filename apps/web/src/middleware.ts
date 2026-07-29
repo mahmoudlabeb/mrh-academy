@@ -7,7 +7,6 @@ const protectedLocalizedPrefixes = [
   "/ops",
   "/lesson",
   "/room",
-  "/messages",
   "/notifications",
   "/account",
 ];
@@ -54,10 +53,8 @@ function legacyDestination(
     [/^\/reset-password$/, () => localized("/reset-password")],
     [/^\/verify-email$/, () => localized("/verify-email")],
     [/^\/auth\/callback$/, () => localized("/auth/callback")],
-    [/^\/messages$/, () => localized("/messages")],
     [/^\/notifications$/, () => localized("/notifications")],
     [/^\/account(?:\/profile)?$/, () => localized("/account/profile")],
-    [/^\/vocabulary$/, () => localized("/learn/words")],
     [/^\/room\/([^/]+)$/, (match) => localized(`/room/${match[1]}`)],
     [/^\/classroom\/([^/]+)$/, (match) => localized(`/room/${match[1]}`)],
   ];

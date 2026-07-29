@@ -90,7 +90,7 @@ to a separate encrypted storage provider for longer retention.
 # API deliverables smoke test
 .\scripts\test-api-deliverables.ps1
 
-# Third-party integrations (Redis, Stripe, Bunny, Gemini status)
+# Third-party integrations (Redis, Stripe, and Bunny status)
 .\scripts\test-integrations.ps1
 
 # Playwright (starts web dev server; API must be running on :4000)
@@ -118,7 +118,6 @@ Integration health endpoint: `GET /api/v1/health/integrations`
 - [ ] Video, chat, whiteboard in classroom
 - [ ] Messages tab
 - [ ] Courses browse + enroll + progress + watch video (if Bunny configured)
-- [ ] Vocabulary at `/vocabulary`
 - [ ] Settings: change email, password, delete account, notification preferences
 
 ### Tutors
@@ -197,7 +196,6 @@ npx playwright test
 | `e2e/auth.spec.ts`             | Register, login, validation |
 | `e2e/dashboard.spec.ts`        | Student dashboard tabs      |
 | `e2e/courses.spec.ts`          | Course listing              |
-| `e2e/vocabulary.spec.ts`       | Vocabulary page             |
 | `e2e/admin.spec.ts`            | Admin panel                 |
 | `e2e/tutor-onboarding.spec.ts` | Become teacher flow         |
 | `e2e/deliverables.spec.ts`     | Full role-based smoke       |

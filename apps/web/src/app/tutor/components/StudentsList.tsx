@@ -139,7 +139,7 @@ export default function StudentsList() {
                 type="button"
                 className="btn-outline-signal text-xs px-3 py-1.5"
                 onClick={() =>
-                  router.push(`/${lang}/messages/${student.user.id}`)
+                  router.push(`/${lang}/teach/messages/${student.user.id}`)
                 }
               >
                 <svg

@@ -61,7 +61,7 @@ export default function TutorActions({
     },
   });
 
-  const messagePath = `/student?tab=messages&with=${encodeURIComponent(tutorId)}`;
+  const messagePath = `/${lang}/learn/messages/${encodeURIComponent(tutorId)}`;
 
   const requireStudent = (destination: string) => {
     if (!user) {

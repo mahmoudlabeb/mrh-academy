@@ -112,7 +112,7 @@ const COPY = {
       {
         number: "01",
         title: "Relevant content",
-        body: "Scenarios, vocabulary and practice drawn from your team’s working environment.",
+        body: "Scenarios, terminology and practice drawn from your team’s working environment.",
       },
       {
         number: "02",

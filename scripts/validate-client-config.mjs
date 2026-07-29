@@ -97,7 +97,6 @@ group("Bunny video", api, [
   "BUNNY_CDN_HOSTNAME",
   "BUNNY_TOKEN_AUTH_KEY",
 ]);
-group("Gemini vocabulary", api, ["GEMINI_API_KEY"]);
 group("Metered TURN", api, ["METERED_API_KEY", "METERED_APP_NAME"]);
 group("Stripe payments", api, [
   "STRIPE_SECRET_KEY",

@@ -19,7 +19,7 @@ export class AdminAuditLog {
   @Column()
   action: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ipAddress: string | null;
 
   @Column({ type: 'jsonb', default: () => "'{}'" })

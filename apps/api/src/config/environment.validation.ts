@@ -63,7 +63,6 @@ export const environmentValidationSchema = Joi.object({
   BUNNY_TOKEN_AUTH_KEY: Joi.string().allow('').optional(),
   METERED_API_KEY: Joi.string().allow('').optional(),
   METERED_APP_NAME: Joi.string().allow('').optional(),
-  GEMINI_API_KEY: Joi.string().allow('').optional(),
   SMTP_HOST: Joi.string().default('smtp.ethereal.email'),
   SMTP_PORT: Joi.number().default(587),
   SMTP_SECURE: Joi.string().valid('true', 'false').default('false'),

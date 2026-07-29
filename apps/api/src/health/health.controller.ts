@@ -50,7 +50,6 @@ export class HealthController {
           configured('BUNNY_API_KEY') && configured('BUNNY_CDN_HOSTNAME')
             ? 'configured'
             : 'unconfigured',
-        gemini: configured('GEMINI_API_KEY') ? 'configured' : 'unconfigured',
         googleOAuth:
           configured('GOOGLE_CLIENT_ID') && configured('GOOGLE_CLIENT_SECRET')
             ? 'configured'

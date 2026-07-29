@@ -233,7 +233,7 @@ async function seedDemoData() {
               tutorId: demoTutor.id,
               title: 'Business English Essentials',
               description:
-                'Workplace vocabulary, meetings, presentations, and professional writing.',
+                'Workplace terminology, meetings, presentations, and professional writing.',
               price: 65,
               soldBy: 'tutor',
               status: CourseStatus.PENDING,

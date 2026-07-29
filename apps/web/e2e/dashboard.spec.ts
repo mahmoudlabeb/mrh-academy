@@ -14,7 +14,6 @@ test.describe("Student Dashboard", () => {
       "Messages",
       "Wallet",
       "Saved",
-      "Vocabulary",
     ]) {
       await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
     }
@@ -27,10 +26,33 @@ test.describe("Student Dashboard", () => {
     ).toBeVisible();
   });
 
+  test("should expose settings and logout from the profile menu", async ({
+    page,
+  }) => {
+    const profileTrigger = page.getByRole("button", {
+      name: "Open account menu",
+    });
+    await profileTrigger.click();
+    await expect(profileTrigger).toHaveAttribute("aria-expanded", "true");
+    const settingsLink = page.getByRole("link", { name: "Settings" });
+    await expect(settingsLink).toHaveAttribute("href", "/en/learn/settings");
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+    await settingsLink.click();
+    await expect(page).toHaveURL(/\/en\/learn\/settings$/);
+    await expect(
+      page.getByRole("navigation", { name: "Workspace navigation" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Security" }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/settings\/security$/);
+  });
+
   test("should navigate between tabs", async ({ page }) => {
     await page.getByRole("link", { name: "Messages" }).click();
-    await expect(page).toHaveURL(/\/en\/messages$/);
-    await page.goto("/en/learn");
+    await expect(page).toHaveURL(/\/en\/learn\/messages$/);
+    await expect(
+      page.getByRole("navigation", { name: "Workspace navigation" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Today", exact: true }).click();
     await page.getByRole("link", { name: "Saved" }).click();
     await expect(page).toHaveURL(/\/en\/learn\/saved$/);
   });

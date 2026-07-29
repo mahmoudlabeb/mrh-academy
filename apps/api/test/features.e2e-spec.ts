@@ -13,7 +13,6 @@ import { StudentProfile } from '../src/students/entities/student-profile.entity.
 import { Course } from '../src/courses/entities/course.entity.js';
 import { CourseEnrollment } from '../src/courses/entities/course-enrollment.entity.js';
 import { CourseLesson } from '../src/courses/entities/course-lesson.entity.js';
-import { VocabularyWord } from '../src/vocabulary/entities/vocabulary-word.entity.js';
 import { Lesson } from '../src/lessons/entities/lesson.entity.js';
 import { RedisService } from '../src/redis/redis.service.js';
 import { RedisServiceMock } from './redis.mock.js';
@@ -383,98 +382,6 @@ describe('Courses (e2e)', () => {
       .get(`/api/v1/courses/${courseId}/stream-token`)
       .set('Authorization', `Bearer ${tutorSession.accessToken}`)
       .expect(404);
-  });
-});
-
-// ────────────────────────────────────────────────────────────
-// Vocabulary Module
-// ────────────────────────────────────────────────────────────
-describe('Vocabulary (e2e)', () => {
-  let app: INestApplication;
-  let userRepository: Repository<User>;
-  let vocabularyRepository: Repository<VocabularyWord>;
-
-  beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(RedisService)
-      .useClass(RedisServiceMock)
-      .overrideProvider(EmailService)
-      .useClass(EmailServiceMock)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    app.setGlobalPrefix('api/v1');
-    app.use(cookieParser());
-    app.use(helmet());
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-      }),
-    );
-    await app.init();
-
-    userRepository = app.get(getRepositoryToken(User));
-    vocabularyRepository = app.get(getRepositoryToken(VocabularyWord));
-  });
-
-  afterAll(async () => {
-    await app?.close();
-  });
-
-  it('saves, lists, and deletes a vocabulary word', async () => {
-    const email = `vocab-${Date.now()}@test.com`;
-
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email,
-        password,
-        firstName: 'Vocab',
-        lastName: 'Student',
-        role: UserRole.STUDENT,
-      })
-      .expect(201);
-
-    const user = await authenticateUser(app, userRepository, email, password);
-
-    const saveRes = await request(app.getHttpServer())
-      .post('/api/v1/vocabulary/save')
-      .set('Authorization', `Bearer ${user.accessToken}`)
-      .send({
-        word: 'ephemeral',
-        definition: 'lasting for a very short time',
-        language: 'en',
-      })
-      .expect(201);
-
-    const wordId = (saveRes.body as { id: string }).id;
-
-    const savedWord = await vocabularyRepository.findOneByOrFail({
-      id: wordId,
-    });
-    expect(savedWord.word).toBe('ephemeral');
-
-    const listRes = await request(app.getHttpServer())
-      .get('/api/v1/vocabulary')
-      .set('Authorization', `Bearer ${user.accessToken}`)
-      .expect(200);
-
-    expect(Array.isArray(listRes.body)).toBe(true);
-    expect(listRes.body.some((w: any) => w.word === 'ephemeral')).toBe(true);
-
-    await request(app.getHttpServer())
-      .delete(`/api/v1/vocabulary/${wordId}`)
-      .set('Authorization', `Bearer ${user.accessToken}`)
-      .expect(200);
-
-    const deleted = await vocabularyRepository.findOne({
-      where: { id: wordId },
-    });
-    expect(deleted).toBeNull();
   });
 });
 

@@ -29,7 +29,6 @@ const EXPECTED_TABLES = [
   'reviews',
   'teacher_training_articles',
   'reports',
-  'vocabulary_words',
   'payouts',
   'course_promo_codes',
   'course_funding_allocations',

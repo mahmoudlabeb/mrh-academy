@@ -23,11 +23,6 @@ test.describe("Client Deliverables — Public", () => {
     await page.goto("/en/sign-up");
     await expect(page.locator('input[name="email"]')).toBeVisible();
   });
-
-  test("vocabulary page loads", async ({ page }) => {
-    await page.goto("/en/learn/words");
-    await expect(page.locator("body")).toBeVisible();
-  });
 });
 
 test.describe("Client Deliverables — Student", () => {
@@ -38,10 +33,10 @@ test.describe("Client Deliverables — Student", () => {
   test("student dashboard tabs", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Today" })).toBeVisible();
     await page.getByRole("link", { name: "Messages" }).click();
-    await expect(page).toHaveURL(/\/en\/messages$/);
-    await page.goto("/en/learn");
-    await page.getByRole("link", { name: "Vocabulary" }).click();
-    await expect(page).toHaveURL(/\/en\/learn\/words$/);
+    await expect(page).toHaveURL(/\/en\/learn\/messages$/);
+    await page.getByRole("link", { name: "Today", exact: true }).click();
+    await page.getByRole("link", { name: "Saved" }).click();
+    await expect(page).toHaveURL(/\/en\/learn\/saved$/);
   });
 
   test("book lesson page accessible", async ({ page }) => {
@@ -63,8 +58,20 @@ test.describe("Client Deliverables — Tutor", () => {
   test("tutor dashboard sections", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
     await page.getByRole("link", { name: "Messages" }).click();
-    await expect(page).toHaveURL(/\/en\/messages$/);
-    await page.goto("/en/teach");
+    await expect(page).toHaveURL(/\/en\/teach\/messages$/);
+    await page.getByRole("button", { name: "Open account menu" }).click();
+    const settingsLink = page.getByRole("link", { name: "Settings" });
+    await expect(settingsLink).toHaveAttribute("href", "/en/teach/settings");
+    await expect(page.getByRole("link", { name: "Profile" })).toHaveAttribute(
+      "href",
+      "/en/teach/profile",
+    );
+    await settingsLink.click();
+    await expect(page).toHaveURL(/\/en\/teach\/settings$/);
+    await expect(
+      page.getByRole("navigation", { name: "Workspace navigation" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Home", exact: true }).click();
     await page.getByRole("link", { name: "Students" }).click();
     await expect(page).toHaveURL(/\/en\/teach\/students$/);
   });

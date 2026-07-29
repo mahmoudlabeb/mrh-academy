@@ -138,7 +138,6 @@
       "!**/courses/**",
       "!**/tutors/**",
       "!**/students/**",
-      "!**/vocabulary/**",
       "!**/messages/**",
       "!**/reports/**",
       "!**/redis/**",

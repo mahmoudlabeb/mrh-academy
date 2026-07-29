@@ -54,7 +54,7 @@ export class TutorProfile {
   @Column({ type: 'enum', enum: CourseStatus, default: CourseStatus.PENDING })
   status: CourseStatus;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   rejectionReason: string | null;
 
   @Column({ nullable: true })
@@ -63,7 +63,7 @@ export class TutorProfile {
   @Column({ nullable: true })
   documentUrl: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   country: string | null;
 
   @Column({ type: 'smallint', nullable: true })
