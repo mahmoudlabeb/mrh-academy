@@ -31,10 +31,7 @@ export default function VerifyEmailPage() {
   }, [lang, params, router]);
 
   const messages = {
-    verifying: t(
-      "جارٍ تأكيد بريدك الإلكتروني…",
-      "Verifying your email…",
-    ),
+    verifying: t("جارٍ تأكيد بريدك الإلكتروني…", "Verifying your email…"),
     incomplete: t(
       "رابط التأكيد غير مكتمل.",
       "This verification link is incomplete.",

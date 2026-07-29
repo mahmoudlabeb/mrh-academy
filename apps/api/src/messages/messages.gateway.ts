@@ -11,6 +11,8 @@ import { MessagesService } from './messages.service.js';
 import { websocketCors } from '../config/websocket.config.js';
 import { RedisService } from '../redis/redis.service.js';
 import { getSocketAccessToken } from '../auth/socket-token.js';
+import { ConfigService } from '@nestjs/config';
+import { getJwtVerifyOptions } from '../auth/jwt-profile.js';
 
 interface JwtPayload {
   sub: string;
@@ -51,6 +53,7 @@ export class MessagesGateway
     private readonly jwtService: JwtService,
     private readonly messagesService: MessagesService,
     private readonly redisService: RedisService,
+    private readonly configService: ConfigService,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -64,6 +67,7 @@ export class MessagesGateway
 
       const payload = await this.jwtService.verifyAsync<JwtPayload>(
         String(token),
+        getJwtVerifyOptions(this.configService),
       );
 
       if (

@@ -58,7 +58,10 @@ function AuthCallbackContent() {
               "Please try signing in again",
             )}
           </p>
-          <Link href={`/${lang}/sign-in`} className="btn-primary mt-5 px-5 py-2.5">
+          <Link
+            href={`/${lang}/sign-in`}
+            className="btn-primary mt-5 px-5 py-2.5"
+          >
             {t("العودة لتسجيل الدخول", "Back to login")}
           </Link>
         </div>

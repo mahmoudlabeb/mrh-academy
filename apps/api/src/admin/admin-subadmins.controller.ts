@@ -97,11 +97,16 @@ export class AdminSubAdminsController {
 
     await this.emailService.sendEmail(
       email,
-      'You are invited to join MRH Academy',
-      `<p>Hello ${dto.firstName},</p>
+      'دعوة للانضمام | You are invited to join MRH Academy',
+      `<div dir="rtl"><p>مرحبًا ${dto.firstName}،</p>
+<p>تمت دعوتك للانضمام إلى أكاديمية MRH كمشرف فرعي.</p>
+<p><a href="${inviteLink}">اقبل الدعوة واختر كلمة المرور</a>.</p>
+<p>تنتهي صلاحية الرابط خلال 48 ساعة.</p></div>
+<hr>
+<div dir="ltr"><p>Hello ${dto.firstName},</p>
 <p>You have been invited to join MRH Academy as a Sub-Admin.</p>
-<p>Click <a href="${inviteLink}">here</a> to accept your invitation and set your password.</p>
-<p>This link expires in 48 hours.</p>`,
+<p><a href="${inviteLink}">Accept the invitation and set your password</a>.</p>
+<p>This link expires in 48 hours.</p></div>`,
     );
 
     return { message: 'Invitation sent' };

@@ -5,24 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { randomBytes } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { UserRole } from '@mrh/types';
 import { Employee } from './entities/employee.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { SubAdminProfile } from './entities/sub-admin-profile.entity.js';
 import { ConfigService } from '@nestjs/config';
-import { hashPassword } from '../auth/password.js';
-
-function resolveSubAdminPassword(config: ConfigService): string {
-  const configured = config.get<string>('SUBADMIN_DEFAULT_PASSWORD')?.trim();
-  if (configured) {
-    return configured;
-  }
-  if (config.get<string>('NODE_ENV') === 'production') {
-    throw new Error('SUBADMIN_DEFAULT_PASSWORD must be set in production');
-  }
-  return randomBytes(12).toString('base64url');
-}
+import { EmailService } from '../integrations/email/email.service.js';
 
 type EmployeeDto = {
   firstName: string;
@@ -59,11 +48,13 @@ export class AdminEmployeesService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   private mapEmployee(employee: Employee) {
-    const [firstName = '', ...rest] = employee.name.split(' ');
-    const lastName = rest.join(' ');
+    const legacyParts = (employee.name ?? '').split(' ');
+    const firstName = employee.firstName || legacyParts.shift() || '';
+    const lastName = employee.lastName || legacyParts.join(' ');
     let permissions: string[] = [];
     try {
       permissions = JSON.parse(employee.permissions) as string[];
@@ -106,18 +97,20 @@ export class AdminEmployeesService {
       throw new ConflictException('An employee with this email already exists');
     }
 
-    const temporaryPassword = resolveSubAdminPassword(this.configService);
-    const passwordHash = await hashPassword(temporaryPassword);
+    const inviteToken = randomUUID();
+    const inviteTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
     const permissions = sanitizeSubAdminPermissions(dto.permissions);
 
     const result = await this.dataSource.transaction(async (manager) => {
       const user = manager.create(User, {
         email,
-        passwordHash,
+        passwordHash: null,
         firstName: dto.firstName.trim(),
         lastName: dto.lastName.trim(),
         role: UserRole.SUBADMIN,
-        isVerified: true,
+        isVerified: false,
+        inviteToken,
+        inviteTokenExpires,
       });
       const savedUser = await manager.save(user);
 
@@ -131,6 +124,8 @@ export class AdminEmployeesService {
 
       const employee = manager.create(Employee, {
         name: `${dto.firstName.trim()} ${dto.lastName.trim()}`.trim(),
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
         email,
         roleTitle: dto.roleTitle.trim(),
         permissions: JSON.stringify(permissions),
@@ -140,10 +135,23 @@ export class AdminEmployeesService {
       return savedEmployee;
     });
 
-    return {
-      ...this.mapEmployee(result),
-      temporaryPassword,
-    };
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    await this.emailService.sendEmail(
+      email,
+      'دعوة إلى إدارة MRH | You are invited to MRH Academy administration',
+      `<div dir="rtl"><p>تم إنشاء حساب إداري لك.</p>
+<p><a href="${frontendUrl}/invite/accept?token=${encodeURIComponent(inviteToken)}">اختر كلمة المرور واقبل الدعوة</a>.</p>
+<p>تنتهي صلاحية الدعوة خلال 48 ساعة.</p></div>
+<hr>
+<div dir="ltr"><p>An administrator account has been created for you.</p>
+<p><a href="${frontendUrl}/invite/accept?token=${encodeURIComponent(inviteToken)}">Choose your password and accept the invitation</a>.</p>
+<p>This invitation expires in 48 hours.</p></div>`,
+    );
+
+    return this.mapEmployee(result);
   }
 
   async update(id: string, dto: Partial<EmployeeDto>) {
@@ -163,10 +171,9 @@ export class AdminEmployeesService {
     }
 
     if (dto.firstName || dto.lastName) {
-      const [currentFirst = '', ...rest] = employee.name.split(' ');
-      const currentLast = rest.join(' ');
-      employee.name =
-        `${dto.firstName ?? currentFirst} ${dto.lastName ?? currentLast}`.trim();
+      employee.firstName = (dto.firstName ?? employee.firstName).trim();
+      employee.lastName = (dto.lastName ?? employee.lastName).trim();
+      employee.name = `${employee.firstName} ${employee.lastName}`.trim();
     }
     if (dto.email) employee.email = email;
     if (dto.roleTitle) employee.roleTitle = dto.roleTitle.trim();

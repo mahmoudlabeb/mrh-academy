@@ -70,7 +70,7 @@ const COPY = {
     ],
     charge: "You are charged only when your tutor confirms.",
     teach: "Teach on MRH",
-    corporate: "Training for teams",
+    corporate: "Teaching resources",
     hour: "per hour",
   },
   ar: {
@@ -107,8 +107,8 @@ const COPY = {
     ],
     charge: "لا تُخصم التكلفة إلا عندما يؤكد المعلّم طلبك.",
     teach: "درّس على MRH",
-    corporate: "تدريب للفرق",
-    hour: "للساعة",
+    corporate: "موارد المعلّمين",
+    hour: "في الساعة",
   },
 } satisfies Record<Language, Record<string, string | string[]>>;
 
@@ -126,7 +126,7 @@ export default function LandingPage({ lang }: { lang: Language }) {
   }, [lang, setLanguage]);
 
   const tutors = useQuery({
-    queryKey: ["home-approved-tutors", lang],
+    queryKey: ["home-approved-tutors"],
     queryFn: async () => (await apiClient.get<Tutor[]>("/tutors/top")).data,
     staleTime: 5 * 60_000,
     retry: 1,
@@ -230,7 +230,11 @@ export default function LandingPage({ lang }: { lang: Language }) {
                         </strong>
                         {typeof tutor.averageRating === "number" && (
                           <span aria-label={`${tutor.averageRating} / 5`}>
-                            ★ {tutor.averageRating.toFixed(1)}
+                            <span aria-hidden="true">★</span>{" "}
+                            <span className="sr-only">
+                              {lang === "ar" ? "التقييم" : "Rating"}
+                            </span>
+                            {tutor.averageRating.toFixed(1)}
                             {typeof tutor.reviewCount === "number"
                               ? ` (${tutor.reviewCount})`
                               : ""}

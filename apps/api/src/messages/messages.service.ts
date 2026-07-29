@@ -12,6 +12,7 @@ import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Notification } from './entities/notification.entity.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
+import { RedisService } from '../redis/redis.service.js';
 
 @Injectable()
 export class MessagesService {
@@ -24,6 +25,7 @@ export class MessagesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    private readonly redisService: RedisService,
   ) {}
 
   async getContacts(userId: string) {
@@ -66,45 +68,69 @@ export class MessagesService {
       select: { id: true, firstName: true, lastName: true, avatarUrl: true },
     });
 
-    const contacts = await Promise.all(
-      users.map(async (user) => {
-        const lastMessage = await this.messageRepository
-          .createQueryBuilder('m')
-          .where(
-            '(m.senderId = :userId AND m.receiverId = :contactId) OR (m.senderId = :contactId AND m.receiverId = :userId)',
-            { userId, contactId: user.id },
-          )
-          .orderBy('m.createdAt', 'DESC')
-          .getOne();
-
-        const unreadCount = await this.messageRepository.count({
-          where: {
-            senderId: user.id,
-            receiverId: userId,
-            isRead: false,
-          },
-        });
-
-        return {
-          user: {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            avatarUrl: user.avatarUrl,
-          },
-          lastMessage: lastMessage
-            ? {
-                id: lastMessage.id,
-                content: lastMessage.content,
-                createdAt: lastMessage.createdAt,
-                isRead: lastMessage.isRead,
-                senderId: lastMessage.senderId,
-              }
-            : null,
-          unreadCount,
-        };
-      }),
+    const [lastMessages, unreadRows] = await Promise.all([
+      this.messageRepository.query(
+        `
+          SELECT DISTINCT ON ("contact_id")
+            "contact_id", "id", "content", "created_at", "is_read", "sender_id"
+          FROM (
+            SELECT
+              CASE WHEN "sender_id" = $1 THEN "receiver_id" ELSE "sender_id" END AS "contact_id",
+              "id", "content", "created_at", "is_read", "sender_id"
+            FROM "messages"
+            WHERE "sender_id" = $1 OR "receiver_id" = $1
+          ) conversation_messages
+          ORDER BY "contact_id", "created_at" DESC
+        `,
+        [userId],
+      ) as Promise<
+        Array<{
+          contact_id: string;
+          id: string;
+          content: string;
+          created_at: Date;
+          is_read: boolean;
+          sender_id: string;
+        }>
+      >,
+      this.messageRepository.query(
+        `
+          SELECT "sender_id" AS "contact_id", COUNT(*)::int AS "count"
+          FROM "messages"
+          WHERE "receiver_id" = $1 AND "is_read" = false
+          GROUP BY "sender_id"
+        `,
+        [userId],
+      ) as Promise<Array<{ contact_id: string; count: number }>>,
+    ]);
+    const lastByContact = new Map(
+      lastMessages.map((message) => [message.contact_id, message]),
     );
+    const unreadByContact = new Map(
+      unreadRows.map((row) => [row.contact_id, Number(row.count)]),
+    );
+
+    const contacts = users.map((user) => {
+      const lastMessage = lastByContact.get(user.id);
+      return {
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          avatarUrl: user.avatarUrl,
+        },
+        lastMessage: lastMessage
+          ? {
+              id: lastMessage.id,
+              content: lastMessage.content,
+              createdAt: lastMessage.created_at,
+              isRead: lastMessage.is_read,
+              senderId: lastMessage.sender_id,
+            }
+          : null,
+        unreadCount: unreadByContact.get(user.id) ?? 0,
+      };
+    });
 
     contacts.sort((a, b) => {
       if (!a.lastMessage && !b.lastMessage) return 0;
@@ -129,7 +155,12 @@ export class MessagesService {
     return { count };
   }
 
-  async getNotifications(userId: string, unread?: boolean) {
+  async getNotifications(
+    userId: string,
+    unread?: boolean,
+    page = 1,
+    limit = 50,
+  ) {
     const where: { userId: string; isRead?: boolean } = { userId };
     if (unread === true) {
       where.isRead = false;
@@ -139,6 +170,8 @@ export class MessagesService {
     return this.notificationRepository.find({
       where,
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 
@@ -180,6 +213,10 @@ export class MessagesService {
       .take(limit)
       .getManyAndCount();
 
+    return { messages, total };
+  }
+
+  async markConversationRead(userId: string, contactId: string) {
     await this.messageRepository.update(
       {
         senderId: contactId,
@@ -188,8 +225,7 @@ export class MessagesService {
       },
       { isRead: true },
     );
-
-    return { messages, total };
+    return { message: 'Conversation marked as read' };
   }
 
   async sendMessage(senderId: string, dto: SendMessageDto) {
@@ -207,6 +243,17 @@ export class MessagesService {
     }
     if (!receiver) {
       throw new NotFoundException('Receiver not found');
+    }
+    if (
+      !(await this.redisService.consumeRateLimit(
+        `rate:messages:${senderId}:${dto.receiverId}`,
+        30,
+        60,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'Message limit reached. Please wait before sending more messages.',
+      );
     }
 
     const existingConversation = await this.messageRepository.findOne({
@@ -240,6 +287,20 @@ export class MessagesService {
       receiver.tutorProfile?.status === CourseStatus.APPROVED;
 
     if (
+      isStudentStartingApprovedTutorConversation &&
+      !existingConversation &&
+      !(await this.redisService.consumeRateLimit(
+        `rate:new-tutor-message:${senderId}`,
+        3,
+        24 * 60 * 60,
+      ))
+    ) {
+      throw new ForbiddenException(
+        'New tutor conversations are limited. Please try again later.',
+      );
+    }
+
+    if (
       !existingConversation &&
       !sharedLesson &&
       !isStudentStartingApprovedTutorConversation
@@ -262,7 +323,7 @@ export class MessagesService {
       userId: dto.receiverId,
       type: 'new_message',
       title: 'New message',
-      body: `You have a new message from ${sender ? `${sender.firstName} ${sender.lastName}` : 'a user'}`,
+      body: `رسالة جديدة من ${sender.firstName} ${sender.lastName} / New message from ${sender.firstName} ${sender.lastName}`,
     });
     await this.notificationRepository.save(notification);
 

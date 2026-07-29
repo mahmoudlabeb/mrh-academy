@@ -23,33 +23,56 @@ export class VocabularyService {
       );
     }
 
-    const prompt = `You are a vocabulary tutor. For the word/phrase "${word}" (language: ${language}), provide a JSON response with exactly these fields:
-{
-  "word": "${word}",
-  "pronunciation": "phonetic pronunciation",
-  "definition": "clear definition in English",
-  "examples": ["example sentence 1", "example sentence 2"],
-  "translation": "Arabic translation of the word",
-  "partOfSpeech": "noun/verb/adjective/etc"
-}
-Return ONLY valid JSON, no markdown formatting.`;
-
-    const raw = await this.geminiService.generate(prompt);
+    const request = JSON.stringify({ word: word.trim(), language });
+    const raw = await this.geminiService.generateJson(
+      `Define the vocabulary item in this JSON data: ${request}`,
+      {
+        type: 'OBJECT',
+        properties: {
+          word: { type: 'STRING' },
+          pronunciation: { type: 'STRING' },
+          definition: { type: 'STRING' },
+          examples: { type: 'ARRAY', items: { type: 'STRING' } },
+          translation: { type: 'STRING' },
+          partOfSpeech: { type: 'STRING' },
+        },
+        required: [
+          'word',
+          'pronunciation',
+          'definition',
+          'examples',
+          'translation',
+          'partOfSpeech',
+        ],
+      },
+    );
     try {
-      const cleaned = raw
-        .replace(/```json?/gi, '')
-        .replace(/```/g, '')
-        .trim();
-      return JSON.parse(cleaned) as Record<string, unknown>;
-    } catch {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (
+        typeof parsed.word !== 'string' ||
+        typeof parsed.pronunciation !== 'string' ||
+        typeof parsed.definition !== 'string' ||
+        !Array.isArray(parsed.examples) ||
+        !parsed.examples.every((example) => typeof example === 'string') ||
+        typeof parsed.translation !== 'string' ||
+        typeof parsed.partOfSpeech !== 'string'
+      ) {
+        throw new Error('Invalid vocabulary response shape');
+      }
       return {
-        word,
-        definition: raw,
-        examples: [],
-        translation: '',
-        pronunciation: '',
-        partOfSpeech: '',
+        word: parsed.word.slice(0, 100),
+        pronunciation: parsed.pronunciation.slice(0, 200),
+        definition: parsed.definition.slice(0, 2000),
+        examples: parsed.examples
+          .slice(0, 5)
+          .map((example) => example.slice(0, 500)),
+        translation: parsed.translation.slice(0, 500),
+        partOfSpeech: parsed.partOfSpeech.slice(0, 100),
       };
+    } catch {
+      throw new ServiceUnavailableException(
+        'AI vocabulary response could not be validated',
+      );
     }
   }
 

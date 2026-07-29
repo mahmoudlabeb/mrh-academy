@@ -5,6 +5,7 @@ import {
   UseGuards,
   UnauthorizedException,
   Res,
+  Req,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,6 +22,8 @@ import { RedisService } from '../redis/redis.service.js';
 import { randomUUID } from 'node:crypto';
 import { getJwtSignOptions } from '../auth/jwt-profile.js';
 import type { Response } from 'express';
+import type { Request } from 'express';
+import { AdminAuditLog } from './entities/admin-audit-log.entity.js';
 
 interface AdminUser {
   id: string;
@@ -34,6 +37,8 @@ export class AdminImpersonationController {
     private readonly jwtService: JwtService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(AdminAuditLog)
+    private readonly auditRepository: Repository<AdminAuditLog>,
     private readonly config: ConfigService,
     private readonly redis: RedisService,
   ) {}
@@ -46,6 +51,7 @@ export class AdminImpersonationController {
     @CurrentUser() admin: AdminUser,
     @Body() dto: { userId: string },
     @Res({ passthrough: true }) response: Response,
+    @Req() request: Request,
   ) {
     const targetUser = await this.userRepository.findOne({
       where: { id: dto.userId },
@@ -67,7 +73,6 @@ export class AdminImpersonationController {
       sub: targetUser.id,
       originalAdminId: admin.id,
       type: 'access',
-      sessionId: 'impersonated-session',
       tokenVersion,
       jti: randomUUID(),
     };
@@ -76,6 +81,15 @@ export class AdminImpersonationController {
       expiresIn: '1h',
     });
     this.setAccessCookie(response, accessToken);
+    await this.auditRepository.save(
+      this.auditRepository.create({
+        adminId: admin.id,
+        targetUserId: targetUser.id,
+        action: 'impersonation.started',
+        ipAddress: request.ip,
+        metadata: { targetRole: targetUser.role },
+      }),
+    );
 
     return { user: targetUser };
   }
@@ -85,6 +99,7 @@ export class AdminImpersonationController {
   async unimpersonate(
     @CurrentUser() admin: AdminUser,
     @Res({ passthrough: true }) response: Response,
+    @Req() request: Request,
   ) {
     if (!admin.originalAdminId) {
       throw new UnauthorizedException('Not currently impersonating');
@@ -117,6 +132,15 @@ export class AdminImpersonationController {
       expiresIn: '15m',
     });
     this.setAccessCookie(response, accessToken);
+    await this.auditRepository.save(
+      this.auditRepository.create({
+        adminId: originalAdmin.id,
+        targetUserId: admin.id,
+        action: 'impersonation.ended',
+        ipAddress: request.ip,
+        metadata: {},
+      }),
+    );
 
     return { user: originalAdmin };
   }

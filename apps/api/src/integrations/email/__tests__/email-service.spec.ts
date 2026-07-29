@@ -75,4 +75,27 @@ describe('EmailService delivery failures', () => {
     );
     await module.close();
   });
+
+  it('sanitizes HTML and includes a bilingual transactional footer', async () => {
+    mockSendMail.mockResolvedValueOnce({ accepted: ['recipient'] });
+    const { module, service } = await createService({
+      SMTP_HOST: 'smtp.example.test',
+      SMTP_USER: 'user',
+      SMTP_PASS: 'pass',
+    });
+
+    await service.sendEmail(
+      'recipient@mrh-academy.example',
+      'Welcome <script>alert(1)</script>',
+      '<div dir="rtl">مرحبًا</div><script>alert(1)</script><a href="javascript:alert(1)">unsafe</a>',
+    );
+    await jest.runAllTimersAsync();
+
+    const message = mockSendMail.mock.calls[0][0] as { html: string };
+    expect(message.html).toContain('هذه رسالة آلية');
+    expect(message.html).toContain('This is a transactional message');
+    expect(message.html).not.toContain('<script>');
+    expect(message.html).not.toContain('javascript:');
+    await module.close();
+  });
 });

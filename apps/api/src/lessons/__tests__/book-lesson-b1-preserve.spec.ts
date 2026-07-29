@@ -204,7 +204,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     expect(result!.scheduledTime.getUTCMinutes()).not.toBe(0);
   });
 
-  it('should create a Classroom entity during booking', async () => {
+  it('should defer Classroom creation until tutor approval', async () => {
     tutorRepo.findOne.mockResolvedValue({
       userId: 'tutor-1',
       status: CourseStatus.APPROVED,
@@ -272,7 +272,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     userRepo.findOne.mockResolvedValue(null);
 
     await service.bookLesson('student-1', validDto);
-    expect(classroomSave).toHaveBeenCalledTimes(1);
+    expect(classroomSave).not.toHaveBeenCalled();
   });
 
   it('should call Redis invalidation after booking', async () => {

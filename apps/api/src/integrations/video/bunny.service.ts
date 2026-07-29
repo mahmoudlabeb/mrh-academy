@@ -26,9 +26,13 @@ export class BunnyService {
       );
     }
     const expires = Math.floor(Date.now() / 1000) + expirySeconds;
-    const url = `https://${this.cdnHostname}/${videoId}/playlist.m3u8`;
-    const token = this.signUrl(url, expires, this.tokenSecurityKey);
-    return `${url}?token=${token}&expires=${expires}`;
+    const tokenPath = `/${videoId}/`;
+    const signingData = `token_path=${encodeURIComponent(tokenPath)}`;
+    const signature = crypto
+      .createHmac('sha256', this.tokenSecurityKey)
+      .update(`${tokenPath}${expires}${signingData}`)
+      .digest('base64url');
+    return `https://${this.cdnHostname}/bcdn_token=HS256-${signature}&expires=${expires}&${signingData}${tokenPath}playlist.m3u8`;
   }
 
   generateEmbedUrl(
@@ -51,19 +55,14 @@ export class BunnyService {
     };
   }
 
-  private signUrl(url: string, expires: number, key: string): string {
-    const hash = crypto
-      .createHmac('sha256', key)
-      .update(url + expires)
-      .digest('hex');
-    return hash;
-  }
-
   async getVideoInfo(videoId: string): Promise<any> {
     if (!this.apiKey) return { id: videoId, status: 'mock' };
     const response = await fetch(
       `https://video.bunnycdn.com/library/${this.libraryId}/videos/${videoId}`,
-      { headers: { Accept: 'application/json', AccessKey: this.apiKey } },
+      {
+        headers: { Accept: 'application/json', AccessKey: this.apiKey },
+        signal: AbortSignal.timeout(10_000),
+      },
     );
     if (!response.ok) return { id: videoId, status: 'error' };
     return response.json();

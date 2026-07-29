@@ -6,11 +6,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { PaymentMethod } from "@mrh/types";
 import { apiClient } from "@/lib/api-client";
+import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { RoutedPanel } from "@/components/shared/RoutedPanel";
 import { formatCurrency } from "@/lib/format";
 
-type Balance = { balance: number; creditPrice: number; egpRate: number };
+type Balance = { balance: number; creditPrice: number; egpRate: number | null };
 type Payment = {
   id: string;
   amount: number;
@@ -49,12 +50,41 @@ type Payout = {
 
 function useCopy() {
   const { lang } = useLanguage();
+  const { user } = useAuth();
   return {
     lang,
     t: (ar: string, en: string) => (lang === "ar" ? ar : en),
     formatDate: (value: string) =>
-      new Date(value).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US"),
+      new Date(value).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", {
+        timeZone: user?.timezone ?? "Africa/Cairo",
+      }),
   };
+}
+
+function paymentMethodLabel(method: string, lang: "ar" | "en"): string {
+  const labels: Record<string, { ar: string; en: string }> = {
+    card: { ar: "بطاقة", en: "Card" },
+    stripe: { ar: "بطاقة عبر Stripe", en: "Card via Stripe" },
+    paypal: { ar: "PayPal", en: "PayPal" },
+    vodafone_cash: { ar: "فودافون كاش", en: "Vodafone Cash" },
+    vodafone: { ar: "فودافون كاش", en: "Vodafone Cash" },
+    instapay: { ar: "إنستاباي", en: "Instapay" },
+    bank_transfer: { ar: "تحويل بنكي", en: "Bank transfer" },
+    bank: { ar: "تحويل بنكي", en: "Bank transfer" },
+    wallet: { ar: "محفظة MRH", en: "MRH Wallet" },
+  };
+  return labels[method]?.[lang] ?? method.replaceAll("_", " ");
+}
+
+function paymentStatusLabel(status: string, lang: "ar" | "en"): string {
+  const labels: Record<string, { ar: string; en: string }> = {
+    pending: { ar: "قيد المراجعة", en: "Pending" },
+    approved: { ar: "مقبولة", en: "Approved" },
+    rejected: { ar: "مرفوضة", en: "Rejected" },
+    completed: { ar: "مكتملة", en: "Completed" },
+    cancelled: { ar: "ملغاة", en: "Cancelled" },
+  };
+  return labels[status]?.[lang] ?? status;
 }
 
 function DataNotice({
@@ -128,6 +158,17 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
         ) : (
           <strong>{formatCurrency(lang, balance)}</strong>
         )}
+        {!balanceQuery.isLoading && !balanceQuery.isError && balance === 0 && (
+          <p>
+            {t(
+              "محفظتك فارغة. أضف رصيدًا لحجز أول درس.",
+              "Your wallet is empty. Add funds to book your first lesson.",
+            )}{" "}
+            <Link href={`/${lang}/learn/wallet/add`}>
+              {t("إضافة رصيد", "Add funds")}
+            </Link>
+          </p>
+        )}
         <p>
           ✓{" "}
           {t(
@@ -156,8 +197,13 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
             </div>
             {paymentsQuery.data?.map((payment) => (
               <div className="blueprint-data-row" role="row" key={payment.id}>
-                <strong>{payment.id}</strong>
-                <span>{payment.method}</span>
+                <strong title={payment.id}>
+                  {t(
+                    `إضافة رصيد عبر ${paymentMethodLabel(payment.method, lang)} (${payment.currency})`,
+                    `Wallet funding via ${paymentMethodLabel(payment.method, lang)} (${payment.currency})`,
+                  )}
+                </strong>
+                <span>{paymentMethodLabel(payment.method, lang)}</span>
                 <span>{formatDate(payment.createdAt)}</span>
                 <strong>
                   {payment.amount >= 0 ? "+" : "−"}
@@ -166,7 +212,7 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
                 <span
                   className={`blueprint-status blueprint-status--${payment.status}`}
                 >
-                  {payment.status}
+                  {paymentStatusLabel(payment.status, lang)}
                 </span>
               </div>
             ))}
@@ -349,7 +395,7 @@ function AddFundsPanel({ balance }: { balance: number }) {
           <fieldset>
             <legend>{t("اختر المبلغ", "Select amount")}</legend>
             <div className="blueprint-choice-row blueprint-choice-row--wide">
-              {[20, 50, 100].map((value) => (
+              {[5, 10, 20, 50, 100].map((value) => (
                 <button
                   type="button"
                   key={value}
@@ -493,6 +539,12 @@ function AddFundsPanel({ balance }: { balance: number }) {
 
 export function EarningsScreen({ payout = false }: { payout?: boolean }) {
   const { lang, t, formatDate } = useCopy();
+  const connectMutation = useMutation({
+    mutationFn: async () =>
+      (await apiClient.post<{ url: string }>("/stripe/connect/onboarding"))
+        .data,
+    onSuccess: ({ url }) => window.location.assign(url),
+  });
   const profileQuery = useQuery({
     queryKey: ["blueprint-tutor-financial-profile"],
     queryFn: async () =>
@@ -543,6 +595,26 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
               ? t("نشط", "Active")
               : t("غير مكتمل", "Not connected")}
           </strong>
+          {!profileQuery.data?.stripeOnboardingComplete && (
+            <button
+              className="btn-secondary"
+              type="button"
+              disabled={connectMutation.isPending}
+              onClick={() => connectMutation.mutate()}
+            >
+              {connectMutation.isPending
+                ? t("جارٍ فتح Stripe…", "Opening Stripe…")
+                : t("ربط حساب Stripe", "Connect Stripe")}
+            </button>
+          )}
+          {connectMutation.isError && (
+            <small className="blueprint-error" role="alert">
+              {t(
+                "تعذّر بدء ربط Stripe. حاول مرة أخرى.",
+                "Stripe connection could not be started. Try again.",
+              )}
+            </small>
+          )}
         </section>
         <section>
           <small>{t("طلبات السحب", "Payout requests")}</small>
@@ -571,7 +643,7 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
                 <span
                   className={`blueprint-status blueprint-status--${transaction.status}`}
                 >
-                  {transaction.status}
+                  {paymentStatusLabel(transaction.status, lang)}
                 </span>
               </div>
             ))}
@@ -598,7 +670,7 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
                 <span
                   className={`blueprint-status blueprint-status--${item.status}`}
                 >
-                  {item.status}
+                  {paymentStatusLabel(item.status, lang)}
                 </span>
               </div>
             ))}
@@ -637,6 +709,7 @@ function PayoutPanel({
     useState<(typeof PAYOUT_METHODS)[number]["key"]>("bank_transfer");
   const [details, setDetails] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [validationVisible, setValidationVisible] = useState(false);
   const amountNumber = Number(amount);
   const submit = useMutation({
     mutationFn: async () =>
@@ -664,6 +737,11 @@ function PayoutPanel({
   });
   const canSubmit =
     amountNumber >= 10 && amountNumber <= balance && details.trim().length > 3;
+  const amountInvalid =
+    !Number.isFinite(amountNumber) ||
+    amountNumber < 10 ||
+    amountNumber > balance;
+  const detailsInvalid = details.trim().length <= 3;
   return (
     <RoutedPanel
       title={t("طلب سحب", "Request payout")}
@@ -677,8 +755,11 @@ function PayoutPanel({
           <button
             className="btn-primary blueprint-panel-submit"
             type="button"
-            disabled={!canSubmit || submit.isPending}
-            onClick={() => submit.mutate()}
+            disabled={submit.isPending}
+            onClick={() => {
+              setValidationVisible(true);
+              if (canSubmit) submit.mutate();
+            }}
           >
             {submit.isPending
               ? t("جارٍ الإرسال…", "Submitting…")
@@ -733,9 +814,32 @@ function PayoutPanel({
               max={balance}
               step=".01"
               value={amount}
+              aria-invalid={validationVisible && amountInvalid}
+              aria-describedby={
+                validationVisible && amountInvalid
+                  ? "payout-amount-error"
+                  : undefined
+              }
               onChange={(event) => setAmount(event.target.value)}
             />
           </label>
+          {validationVisible && amountInvalid && (
+            <p
+              id="payout-amount-error"
+              className="blueprint-error"
+              role="alert"
+            >
+              {amountNumber < 10
+                ? t(
+                    `أدخل مبلغاً لا يقل عن ${formatCurrency(lang, 10)}.`,
+                    `Enter at least ${formatCurrency(lang, 10)}.`,
+                  )
+                : t(
+                    "لا يمكن أن يتجاوز مبلغ السحب الرصيد المتاح.",
+                    "The payout amount cannot exceed your available balance.",
+                  )}
+            </p>
+          )}
           <fieldset>
             <legend>{t("طريقة الاستلام", "Receiving method")}</legend>
             <div className="blueprint-choice-row">
@@ -755,6 +859,12 @@ function PayoutPanel({
             {t("تفاصيل الحساب", "Account details")}
             <input
               value={details}
+              aria-invalid={validationVisible && detailsInvalid}
+              aria-describedby={
+                validationVisible && detailsInvalid
+                  ? "payout-details-error"
+                  : undefined
+              }
               onChange={(event) => setDetails(event.target.value)}
               placeholder={
                 method === "bank_transfer"
@@ -763,6 +873,18 @@ function PayoutPanel({
               }
             />
           </label>
+          {validationVisible && detailsInvalid && (
+            <p
+              id="payout-details-error"
+              className="blueprint-error"
+              role="alert"
+            >
+              {t(
+                "أدخل تفاصيل حساب صالحة من أربعة أحرف على الأقل.",
+                "Enter valid account details with at least four characters.",
+              )}
+            </p>
+          )}
           {!stripeReady && (
             <p className="blueprint-note">
               {t(

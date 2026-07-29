@@ -71,8 +71,13 @@ export const environmentValidationSchema = Joi.object({
   SMTP_PASS: Joi.string().allow('').optional(),
   SMTP_FROM: Joi.string().default('no-reply@mrh-academy.example'),
   ADMIN_EMAILS: Joi.string().allow('').optional(),
-  SUBADMIN_DEFAULT_PASSWORD: Joi.string().min(15).allow('').optional(),
-  REFERRAL_SECRET: Joi.string().allow('').optional(),
+  // Subadmins are invited by email and set their own password.
+  SUBADMIN_DEFAULT_PASSWORD: Joi.string().allow('').optional(),
+  REFERRAL_SECRET: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().min(32).allow('').optional(),
+  }),
   ARABIC_PDF_FONT_PATH: Joi.string().allow('').optional(),
   CONFIRM_VALIDATE: Joi.string().allow('').optional(),
   DEMO_SEED_PASSWORD: Joi.string().allow('').optional(),

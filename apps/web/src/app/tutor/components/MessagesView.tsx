@@ -72,6 +72,7 @@ export default function MessagesView({
     queryFn: async () => {
       if (!selectedUserId) return { messages: [], total: 0 };
       const { data } = await apiClient.get(`/messages/${selectedUserId}`);
+      await apiClient.post(`/messages/${selectedUserId}/read`);
       return data;
     },
     enabled: !!selectedUserId,

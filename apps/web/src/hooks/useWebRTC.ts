@@ -20,9 +20,9 @@ export function useWebRTC(
   },
 ) {
   const peersRef = useRef<Map<string, PeerConnection>>(new Map());
-  const pendingCandidatesRef = useRef<
-    Map<string, RTCIceCandidateInit[]>
-  >(new Map());
+  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(
+    new Map(),
+  );
   const localStreamRef = useRef<MediaStream | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
@@ -136,14 +136,11 @@ export function useWebRTC(
             try {
               const offer = await pc.createOffer({ iceRestart: true });
               await pc.setLocalDescription(offer);
-              socket.emit(
-                `${type === "camera" ? "camera" : "webrtc"}_offer`,
-                {
-                  lessonId,
-                  targetUserId: peerId,
-                  offer: pc.localDescription,
-                },
-              );
+              socket.emit(`${type === "camera" ? "camera" : "webrtc"}_offer`, {
+                lessonId,
+                targetUserId: peerId,
+                offer: pc.localDescription,
+              });
               setConnectionStatus("connecting");
             } catch {
               // The timeout below performs the final cleanup if recovery fails.
@@ -246,12 +243,12 @@ export function useWebRTC(
           let microphoneTrack =
             cameraStreamRef.current?.getAudioTracks()[0] ?? null;
           if (!microphoneTrack) {
-            const microphoneStream =
-              await navigator.mediaDevices.getUserMedia({ audio: true });
+            const microphoneStream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
             microphoneTrack = microphoneStream.getAudioTracks()[0] ?? null;
             if (microphoneTrack) {
-              microphoneTrack.enabled =
-                mediaPreferencesRef.current.microphone;
+              microphoneTrack.enabled = mediaPreferencesRef.current.microphone;
               cameraStreamRef.current = microphoneStream;
             }
           }

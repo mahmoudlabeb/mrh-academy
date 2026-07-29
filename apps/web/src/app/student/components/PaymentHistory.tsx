@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
+import { formatPaymentMethod } from "@/lib/format";
 
 type PaymentRecord = {
   id: string;
@@ -152,7 +153,7 @@ export default function PaymentHistory() {
                         color: "var(--signal)",
                       }}
                     >
-                      {payment.method}
+                      {formatPaymentMethod(lang, payment.method)}
                     </span>
                   </div>
                 </div>

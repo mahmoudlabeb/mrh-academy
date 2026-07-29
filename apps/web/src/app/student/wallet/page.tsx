@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
 import { PaymentMethod } from "@mrh/types";
 import { FocusDecisionStrip } from "@/components/shared/FocusDecisionStrip";
+import { formatPaymentMethod } from "@/lib/format";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -274,7 +275,9 @@ export default function StudentWalletPage() {
   const routedPanel = pathname.endsWith("/wallet/add");
 
   return (
-    <div className={`max-w-4xl mx-auto p-4 md:p-6 space-y-8 ${routedPanel ? "wallet-route-panel" : ""}`}>
+    <div
+      className={`max-w-4xl mx-auto p-4 md:p-6 space-y-8 ${routedPanel ? "wallet-route-panel" : ""}`}
+    >
       <FocusDecisionStrip
         eyebrow={t("المحفظة", "Wallet")}
         title={t(
@@ -380,14 +383,26 @@ export default function StudentWalletPage() {
       )}
 
       {/* Payment form */}
-      <div id="wallet-top-up" className="card p-6 space-y-5 scroll-mt-24 routed-payment-form">
+      <div
+        id="wallet-top-up"
+        className="card p-6 space-y-5 scroll-mt-24 routed-payment-form"
+      >
         {routedPanel && (
           <div className="routed-payment-header">
             <div>
-              <strong>{t("إضافة رصيد إلى محفظة MRH", "Add Funds to MRH Wallet")}</strong>
-              <span>{t("تأكيد الإيداع من الخادم", "Server-authoritative deposit")}</span>
+              <strong>
+                {t("إضافة رصيد إلى محفظة MRH", "Add Funds to MRH Wallet")}
+              </strong>
+              <span>
+                {t("تأكيد الإيداع من الخادم", "Server-authoritative deposit")}
+              </span>
             </div>
-            <Link href={`/${lang}/learn/wallet`} aria-label={t("إغلاق", "Close")}>×</Link>
+            <Link
+              href={`/${lang}/learn/wallet`}
+              aria-label={t("إغلاق", "Close")}
+            >
+              ×
+            </Link>
           </div>
         )}
         <h2 className="text-lg font-bold" style={{ color: "var(--text-main)" }}>
@@ -726,7 +741,9 @@ export default function StudentWalletPage() {
                           className="flex items-center gap-2 text-xs mt-0.5"
                           style={{ color: "var(--text-muted)" }}
                         >
-                          <span>{payment.method}</span>
+                          <span>
+                            {formatPaymentMethod(lang, payment.method)}
+                          </span>
                           <span>·</span>
                           <span>
                             {new Date(payment.createdAt).toLocaleDateString(

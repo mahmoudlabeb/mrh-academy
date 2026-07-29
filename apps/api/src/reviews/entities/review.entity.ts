@@ -8,7 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { CourseStatus } from '@mrh/types';
+import { ReviewStatus } from '@mrh/types';
 import { User } from '../../users/entities/user.entity.js';
 import { Lesson } from '../../lessons/entities/lesson.entity.js';
 
@@ -35,8 +35,8 @@ export class Review {
   @Column({ type: 'text', nullable: true })
   comment: string | null;
 
-  @Column({ type: 'enum', enum: CourseStatus, default: CourseStatus.PENDING })
-  status: CourseStatus;
+  @Column({ type: 'enum', enum: ReviewStatus, default: ReviewStatus.PENDING })
+  status: ReviewStatus;
 
   @CreateDateColumn()
   createdAt: Date;

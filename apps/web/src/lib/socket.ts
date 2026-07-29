@@ -11,6 +11,9 @@ export function getSocket(): Socket {
   if (!socket) {
     const baseUrl = getSocketBaseUrl();
     socket = io(`${baseUrl}/classroom`, {
+      // Authentication is carried by the HttpOnly mrh_token cookie. It must not
+      // be copied into JavaScript-accessible socket auth state.
+      withCredentials: true,
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: Infinity,

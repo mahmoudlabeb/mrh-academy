@@ -46,6 +46,7 @@ describe('AdminPaymentsController phase 2 regression', () => {
       payoutRepo as unknown as ConstructorParameters<
         typeof AdminPaymentsController
       >[4],
+      {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[5],
     );
 
     await expect(controller.payoutTutor('tutor-1')).rejects.toBe(
@@ -112,6 +113,7 @@ describe('AdminPaymentsController phase 2 regression', () => {
       payoutRepo as unknown as ConstructorParameters<
         typeof AdminPaymentsController
       >[4],
+      {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[5],
     );
 
     const result = await controller.payoutTutor('tutor-1');

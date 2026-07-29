@@ -38,11 +38,18 @@ export default function LearnerCoursesRoute() {
       )}
     >
       {enrollments.isLoading ? (
-        <div className="focus-skeleton" aria-label={t("جارٍ تحميل الدورات", "Loading courses")} />
+        <div
+          className="focus-skeleton"
+          aria-label={t("جارٍ تحميل الدورات", "Loading courses")}
+        />
       ) : enrollments.isError ? (
         <section className="focus-empty" role="alert">
           <h2>{t("تعذر تحميل مكتبة الدورات", "Course library unavailable")}</h2>
-          <button type="button" className="btn-secondary" onClick={() => enrollments.refetch()}>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => enrollments.refetch()}
+          >
             {t("إعادة المحاولة", "Retry")}
           </button>
         </section>
@@ -74,10 +81,19 @@ export default function LearnerCoursesRoute() {
                   aria-valuemax={100}
                   aria-valuenow={enrollment.progressPercentage}
                 >
-                  <span style={{ inlineSize: `${Math.min(100, Math.max(0, enrollment.progressPercentage))}%` }} />
+                  <span
+                    style={{
+                      inlineSize: `${Math.min(100, Math.max(0, enrollment.progressPercentage))}%`,
+                    }}
+                  />
                 </div>
-                <p>{enrollment.progressPercentage}% {t("مكتمل", "completed")}</p>
-                <Link className="btn-primary" href={`/${lang}/learn/courses/${enrollment.courseId}`}>
+                <p>
+                  {enrollment.progressPercentage}% {t("مكتمل", "completed")}
+                </p>
+                <Link
+                  className="btn-primary"
+                  href={`/${lang}/learn/courses/${enrollment.courseId}`}
+                >
                   {t("متابعة التعلّم", "Continue Learning")}
                 </Link>
               </div>

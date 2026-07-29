@@ -203,6 +203,13 @@ describe('Payments & Booking Flow (e2e)', () => {
     await app.close();
   });
 
+  it('does not allow anonymous course checkout to create an account', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/payments/course-checkout')
+      .send({ courseId: 'course-that-does-not-matter' })
+      .expect(401);
+  });
+
   it('credits a PayPal top-up only after verified server-side capture', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/payments/submit')

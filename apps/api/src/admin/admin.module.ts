@@ -33,6 +33,7 @@ import { Payment } from '../payments/entities/payment.entity.js';
 import { PaymentMethodConfig } from '../payments/entities/payment-method-config.entity.js';
 import { Report } from '../reports/entities/report.entity.js';
 import { Payout } from '../payments/entities/payout.entity.js';
+import { AdminAuditLog } from './entities/admin-audit-log.entity.js';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { Payout } from '../payments/entities/payout.entity.js';
       Setting,
       Course,
       CourseEnrollment,
+      AdminAuditLog,
       Review,
       Payment,
       PaymentMethodConfig,

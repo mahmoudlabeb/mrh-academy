@@ -71,6 +71,7 @@ export default function BecomeTeacherWizard() {
   const [headline, setHeadline] = useState("");
   const [intro, setIntro] = useState("");
   const [experience, setExperience] = useState("");
+  const [experienceYears, setExperienceYears] = useState<number>(0);
   const [motivation, setMotivation] = useState("");
 
   // Step 6
@@ -123,6 +124,8 @@ export default function BecomeTeacherWizard() {
       formData.append("specialization", subject);
       langArray.forEach((lang) => formData.append("languages", lang));
       formData.append("hourlyRate", String(hourlyRate));
+      if (country.trim()) formData.append("country", country.trim());
+      formData.append("experienceYears", String(experienceYears));
       if (videoUrl) formData.append("videoUrl", videoUrl);
       if (document) formData.append("document", document);
 
@@ -398,6 +401,23 @@ export default function BecomeTeacherWizard() {
               >
                 {t("خبرة التدريس", "Teaching experience")}
               </label>
+              <input
+                type="number"
+                min={0}
+                max={80}
+                value={experienceYears}
+                onChange={(e) =>
+                  setExperienceYears(
+                    Math.max(0, Math.min(80, Number(e.target.value) || 0)),
+                  )
+                }
+                className="input-field mb-3"
+                aria-label={t(
+                  "سنوات خبرة التدريس",
+                  "Years of teaching experience",
+                )}
+                placeholder={t("عدد السنوات", "Number of years")}
+              />
               <textarea
                 value={experience}
                 onChange={(e) => setExperience(e.target.value)}

@@ -6,6 +6,7 @@ import type { Message } from './entities/message.entity';
 import type { Lesson } from '../lessons/entities/lesson.entity';
 import type { User } from '../users/entities/user.entity';
 import type { Notification } from './entities/notification.entity';
+import type { RedisService } from '../redis/redis.service';
 
 describe('MessagesService first-contact permissions', () => {
   const student = {
@@ -28,6 +29,7 @@ describe('MessagesService first-contact permissions', () => {
   let lessonRepository: jest.Mocked<Repository<Lesson>>;
   let userRepository: jest.Mocked<Repository<User>>;
   let notificationRepository: jest.Mocked<Repository<Notification>>;
+  let redisService: jest.Mocked<RedisService>;
   let service: MessagesService;
 
   beforeEach(() => {
@@ -46,15 +48,20 @@ describe('MessagesService first-contact permissions', () => {
         .mockResolvedValueOnce(approvedTutor),
     } as unknown as jest.Mocked<Repository<User>>;
     notificationRepository = {
+      find: jest.fn(),
       create: jest.fn((value) => value as Notification),
       save: jest.fn(async (value) => value as Notification),
     } as unknown as jest.Mocked<Repository<Notification>>;
+    redisService = {
+      consumeRateLimit: jest.fn().mockResolvedValue(true),
+    } as unknown as jest.Mocked<RedisService>;
 
     service = new MessagesService(
       messageRepository,
       lessonRepository,
       userRepository,
       notificationRepository,
+      redisService,
     );
   });
 
@@ -138,5 +145,18 @@ describe('MessagesService first-contact permissions', () => {
 
     expect(lessonRepository.findOne).not.toHaveBeenCalled();
     expect(messageRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('paginates notification history', async () => {
+    notificationRepository.find.mockResolvedValue([]);
+
+    await service.getNotifications(student.id, true, 3, 20);
+
+    expect(notificationRepository.find).toHaveBeenCalledWith({
+      where: { userId: student.id, isRead: false },
+      order: { createdAt: 'DESC' },
+      skip: 40,
+      take: 20,
+    });
   });
 });

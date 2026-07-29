@@ -11,18 +11,21 @@ export class CreateCourseCheckoutDto {
   @IsUUID()
   courseId: string;
 
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(80)
-  firstName: string;
+  firstName?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(2)
   @MaxLength(80)
-  lastName: string;
+  lastName?: string;
 
   @IsOptional()
   @IsString()

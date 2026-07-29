@@ -29,26 +29,26 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
     path === "/" ? localeBase : `${localeBase}${path}`;
 
   const links = [
-      {
-        label: isAr ? "ابحث عن معلّم" : "Find a tutor",
-        href: localize("/tutors"),
-      },
-      {
-        label: isAr ? "مكتبة الدورات" : "Course library",
-        href: localize("/courses"),
-      },
-      {
-        label: isAr ? "انضم كمدرّس" : "Become a tutor",
-        href: localize("/become-a-tutor"),
-      },
-      {
-        label: isAr ? "موارد المعلّمين" : "Teaching resources",
-        href: localize("/resources"),
-      },
-    ];
+    {
+      label: isAr ? "ابحث عن معلّم" : "Find a tutor",
+      href: localize("/tutors"),
+    },
+    {
+      label: isAr ? "مكتبة الدورات" : "Course library",
+      href: localize("/courses"),
+    },
+    {
+      label: isAr ? "انضم كمدرّس" : "Become a tutor",
+      href: localize("/become-a-tutor"),
+    },
+    {
+      label: isAr ? "موارد المعلّمين" : "Teaching resources",
+      href: localize("/resources"),
+    },
+  ];
 
   const dashboardHref = user
-      ? user.role === "student"
+    ? user.role === "student"
       ? localize("/learn")
       : user.role === "tutor"
         ? localize("/teach")
@@ -64,18 +64,39 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
 
   useEffect(() => {
     if (!mobileOpen) return;
+    const menuButton = menuButtonRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     requestAnimationFrame(() => firstMobileLinkRef.current?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setMobileOpen(false);
-      requestAnimationFrame(() => menuButtonRef.current?.focus());
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        requestAnimationFrame(() => menuButtonRef.current?.focus());
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const panel = document.getElementById("mobile-navigation");
+      const focusable = Array.from(
+        panel?.querySelectorAll<HTMLElement>(
+          "a[href], button:not(:disabled), [tabindex]:not([tabindex='-1'])",
+        ) ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
+      requestAnimationFrame(() => menuButton?.focus());
     };
   }, [mobileOpen]);
 
@@ -131,10 +152,16 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
               </>
             ) : (
               <>
-                <Link href={localize("/sign-in")} className="academy-login-link">
+                <Link
+                  href={localize("/sign-in")}
+                  className="academy-login-link"
+                >
                   {isAr ? "تسجيل الدخول" : "Sign in"}
                 </Link>
-                <Link href={localize("/sign-up")} className="academy-account-link">
+                <Link
+                  href={localize("/sign-up")}
+                  className="academy-account-link"
+                >
                   {isAr ? "ابدأ التعلّم" : "Start learning"}
                 </Link>
               </>
@@ -203,7 +230,7 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
                 aria-current={isActive(link.href) ? "page" : undefined}
                 onClick={() => setMobileOpen(false)}
               >
-                <span>0{index + 1}</span>
+                <span>{String(index + 1).padStart(2, "0")}</span>
                 {link.label}
               </Link>
             ))}
@@ -226,10 +253,16 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
                 </>
               ) : (
                 <>
-                  <Link href={localize("/sign-in")} className="academy-login-link">
+                  <Link
+                    href={localize("/sign-in")}
+                    className="academy-login-link"
+                  >
                     {isAr ? "تسجيل الدخول" : "Sign in"}
                   </Link>
-                  <Link href={localize("/sign-up")} className="academy-account-link">
+                  <Link
+                    href={localize("/sign-up")}
+                    className="academy-account-link"
+                  >
                     {isAr ? "ابدأ التعلّم" : "Start learning"}
                   </Link>
                 </>

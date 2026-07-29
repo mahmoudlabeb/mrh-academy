@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Patch,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
@@ -14,6 +15,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PaymentsService } from './payments.service.js';
 import { RequestPayoutDto } from './dto/request-payout.dto.js';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
 
 /**
  * Manual (non-Stripe) Payout System
@@ -41,31 +43,56 @@ export class PayoutController {
 
   @Get('my')
   @Roles(UserRole.TUTOR)
-  getMyPayouts(@CurrentUser() user: { id: string }) {
-    return this.paymentsService.getTutorPayouts(user.id);
+  getMyPayouts(
+    @CurrentUser() user: { id: string },
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentsService.getTutorPayouts(
+      user.id,
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+    );
   }
 
   @Get('my/transactions')
   @Roles(UserRole.TUTOR)
-  getMyTransactions(@CurrentUser() user: { id: string }) {
-    return this.paymentsService.getTutorTransactions(user.id);
+  getMyTransactions(
+    @CurrentUser() user: { id: string },
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentsService.getTutorTransactions(
+      user.id,
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+    );
   }
 
   /** Admin: list all payout requests */
   @Get()
-  @Roles(UserRole.ADMIN)
-  async getAllPayouts() {
-    return this.paymentsService.getAllPayouts();
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_payments')
+  async getAllPayouts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentsService.getAllPayouts(
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+    );
   }
 
   @Patch(':id/approve')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_payments')
   approvePayout(@Param('id') id: string, @CurrentUser() admin: { id: string }) {
     return this.paymentsService.approvePayout(id, admin.id);
   }
 
   @Patch(':id/reject')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_payments')
   rejectPayout(
     @Param('id') id: string,
     @Body('reason') reason: string,

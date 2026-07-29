@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CourseStatus, LessonStatus } from '@mrh/types';
+import { LessonStatus, ReviewStatus } from '@mrh/types';
 import { Repository } from 'typeorm';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { Review } from './entities/review.entity.js';
@@ -43,7 +43,7 @@ export class ReviewsService {
       lessonId: lesson.id,
       rating: dto.rating,
       comment: dto.comment ?? null,
-      status: CourseStatus.PENDING,
+      status: ReviewStatus.PENDING,
     });
 
     try {
@@ -58,15 +58,23 @@ export class ReviewsService {
 
   findApprovedForTutor(tutorId: string) {
     return this.reviewRepository.find({
-      where: { tutorId, status: CourseStatus.APPROVED },
+      where: { tutorId, status: ReviewStatus.APPROVED },
       relations: { student: true },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  findForStudent(studentId: string) {
+    return this.reviewRepository.find({
+      where: { studentId },
+      relations: { tutor: true, lesson: true },
       order: { createdAt: 'DESC' },
     });
   }
 
   findPending() {
     return this.reviewRepository.find({
-      where: { status: CourseStatus.PENDING },
+      where: { status: ReviewStatus.PENDING },
       order: { createdAt: 'ASC' },
     });
   }

@@ -24,6 +24,15 @@ export class StudentProfile {
   })
   balance: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: new ColumnNumericTransformer(),
+  })
+  heldBalance: number;
+
   @Column({ nullable: true })
   preferredLanguage: string;
 

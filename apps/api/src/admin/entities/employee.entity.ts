@@ -11,8 +11,14 @@ export class Employee {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name: string | null;
+
+  @Column({ default: '' })
+  firstName: string;
+
+  @Column({ default: '' })
+  lastName: string;
 
   @Column({ unique: true })
   email: string;

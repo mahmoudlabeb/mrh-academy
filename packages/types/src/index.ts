@@ -11,6 +11,7 @@ export enum LessonStatus {
   CONFIRMED = 'confirmed',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+  REJECTED = 'rejected',
 }
 
 export enum PaymentStatus {
@@ -35,6 +36,12 @@ export enum PayoutStatus {
 }
 
 export enum CourseStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
+export enum ReviewStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',

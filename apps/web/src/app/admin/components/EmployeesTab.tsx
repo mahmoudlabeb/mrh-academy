@@ -61,16 +61,14 @@ export default function EmployeesTab() {
       });
       return data;
     },
-    onSuccess: (data: { temporaryPassword?: string }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-employees"] });
       closeModal();
-      if (data?.temporaryPassword) {
-        alert(
-          lang === "ar"
-            ? `تم إنشاء حساب الموظف. كلمة المرور المؤقتة: ${data.temporaryPassword}`
-            : `Employee account created. Temporary password: ${data.temporaryPassword}`,
-        );
-      }
+      alert(
+        lang === "ar"
+          ? "تم إنشاء حساب الموظف وإرسال دعوة آمنة عبر البريد الإلكتروني."
+          : "Employee account created. A secure invitation was sent by email.",
+      );
     },
   });
 

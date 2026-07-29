@@ -34,7 +34,7 @@ export class SessionGuard implements CanActivate {
     }
 
     // Non-students (tutor, admin, subadmin) have no sessionId — skip Redis check
-    if (!user.sessionId) {
+    if (!user.sessionId || user.originalAdminId) {
       return true;
     }
 

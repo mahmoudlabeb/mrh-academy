@@ -306,7 +306,7 @@ export default function ClassroomPage() {
       } else {
         ctx.globalCompositeOperation = "source-over";
         ctx.strokeStyle = action.color;
-      ctx.lineWidth = action.width;
+        ctx.lineWidth = action.width;
       }
       const scalePoint = (point: { x: number; y: number }) =>
         action.normalized
@@ -424,9 +424,7 @@ export default function ClassroomPage() {
       });
     };
 
-    const onRoomParticipants = (payload: {
-      participants?: Participant[];
-    }) => {
+    const onRoomParticipants = (payload: { participants?: Participant[] }) => {
       setParticipants(
         (payload.participants ?? []).filter(
           (participant) => participant.userId !== user.id,
@@ -1108,7 +1106,8 @@ export default function ClassroomPage() {
           style={{
             color: "var(--danger)",
             background: "color-mix(in srgb, var(--danger) 10%, transparent)",
-            borderBottom: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
+            borderBottom:
+              "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
           }}
         >
           {roomError}
@@ -1463,13 +1462,35 @@ export default function ClassroomPage() {
               !activeCall &&
               Object.keys(remoteStreams).length === 0 && (
                 <div className="classroom-stage-empty" role="status">
-                  <div className="classroom-stage-empty__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5 19.5 8.25v7.5l-3.75-2.25M4.5 18.75h8.25A2.25 2.25 0 0 0 15 16.5v-9a2.25 2.25 0 0 0-2.25-2.25H4.5A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+                  <div
+                    className="classroom-stage-empty__icon"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15.75 10.5 19.5 8.25v7.5l-3.75-2.25M4.5 18.75h8.25A2.25 2.25 0 0 0 15 16.5v-9a2.25 2.25 0 0 0-2.25-2.25H4.5A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
+                      />
                     </svg>
                   </div>
-                  <h2>{t("ابدأ الدرس عندما تكون مستعدًا", "Start when you are ready")}</h2>
-                  <p>{t("فعّل الكاميرا أو الميكروفون من شريط التحكم السفلي للانضمام إلى معلمك.", "Turn on your camera or microphone from the control dock to connect with your tutor.")}</p>
+                  <h2>
+                    {t(
+                      "ابدأ الدرس عندما تكون مستعدًا",
+                      "Start when you are ready",
+                    )}
+                  </h2>
+                  <p>
+                    {t(
+                      "فعّل الكاميرا أو الميكروفون من شريط التحكم السفلي للانضمام إلى معلمك.",
+                      "Turn on your camera or microphone from the control dock to connect with your tutor.",
+                    )}
+                  </p>
                 </div>
               )}
             {mainView === "book" && bookSession ? (
@@ -1616,9 +1637,7 @@ export default function ClassroomPage() {
                       : t("تشغيل الكاميرا", "Turn camera on")
                   }
                   style={{
-                    color: cameraEnabled
-                      ? "var(--success)"
-                      : "var(--danger)",
+                    color: cameraEnabled ? "var(--success)" : "var(--danger)",
                   }}
                 >
                   <svg

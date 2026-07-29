@@ -61,7 +61,10 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
       <div className="academy-footer-inner">
         <div className="academy-footer-brand">
           <Link href={base} className="academy-brand">
-            <span className="academy-crest academy-crest-light" aria-hidden="true">
+            <span
+              className="academy-crest academy-crest-light"
+              aria-hidden="true"
+            >
               <b>M</b>
             </span>
             <span className="academy-wordmark">
@@ -105,9 +108,7 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
           © {new Date().getFullYear()} MRH Academy.{" "}
           {isAr ? "جميع الحقوق محفوظة." : "All rights reserved."}
         </p>
-        <p>
-          {isAr ? "تعلّم يصنع أثرًا" : "Learning that moves you forward"}
-        </p>
+        <p>{isAr ? "تعلّم يصنع أثرًا" : "Learning that moves you forward"}</p>
       </div>
     </footer>
   );

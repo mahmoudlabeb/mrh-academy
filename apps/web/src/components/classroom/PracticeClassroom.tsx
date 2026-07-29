@@ -175,13 +175,27 @@ export function PracticeClassroom() {
                 : t("فحص الكاميرا والميكروفون", "Test camera & microphone")}
           </button>
           <button type="button" className="btn-secondary" onClick={toggleMic}>
-            {micOn ? t("كتم الميكروفون", "Mute microphone") : t("تشغيل الميكروفون", "Turn microphone on")}
+            {micOn
+              ? t("كتم الميكروفون", "Mute microphone")
+              : t("تشغيل الميكروفون", "Turn microphone on")}
           </button>
-          <button type="button" className="btn-secondary" onClick={toggleCamera}>
-            {cameraOn ? t("إيقاف الكاميرا", "Turn camera off") : t("تشغيل الكاميرا", "Turn camera on")}
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={toggleCamera}
+          >
+            {cameraOn
+              ? t("إيقاف الكاميرا", "Turn camera off")
+              : t("تشغيل الكاميرا", "Turn camera on")}
           </button>
-          <button type="button" className="btn-secondary" onClick={toggleScreen}>
-            {sharing ? t("إيقاف المشاركة", "Stop sharing") : t("اختبار مشاركة الشاشة", "Test screen sharing")}
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={toggleScreen}
+          >
+            {sharing
+              ? t("إيقاف المشاركة", "Stop sharing")
+              : t("اختبار مشاركة الشاشة", "Test screen sharing")}
           </button>
         </div>
 
@@ -198,9 +212,18 @@ export function PracticeClassroom() {
           <header>
             <div>
               <strong>{t("سبورة التدريب", "Practice whiteboard")}</strong>
-              <small>{t("ارسم للتأكد من عمل القلم أو اللمس.", "Draw to verify mouse, pen, or touch input.")}</small>
+              <small>
+                {t(
+                  "ارسم للتأكد من عمل القلم أو اللمس.",
+                  "Draw to verify mouse, pen, or touch input.",
+                )}
+              </small>
             </div>
-            <button className="btn-secondary" type="button" onClick={clearBoard}>
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={clearBoard}
+            >
               {t("مسح السبورة", "Clear board")}
             </button>
           </header>

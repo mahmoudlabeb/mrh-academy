@@ -48,11 +48,6 @@ export default function CourseDetailPage() {
   const referralStorageKey = `course_ref_${params.id}`;
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [streamError, setStreamError] = useState("");
-  const [guest, setGuest] = useState({
-    email: "",
-    firstName: "",
-    lastName: "",
-  });
   const { data: course, isLoading } = useQuery({
     queryKey: ["course", params.id],
     queryFn: async () => {
@@ -150,33 +145,6 @@ export default function CourseDetailPage() {
       });
       router.push("/student?tab=lessons");
     },
-  });
-
-  const guestCheckoutMutation = useMutation({
-    mutationFn: async () => {
-      let referralCode = getCookie(referralStorageKey);
-      if (!referralCode && typeof window !== "undefined") {
-        try {
-          const stored = JSON.parse(
-            window.localStorage.getItem(referralStorageKey) || "null",
-          ) as { code?: string; expiresAt?: number } | null;
-          if (stored?.code && (stored.expiresAt ?? 0) > Date.now())
-            referralCode = stored.code;
-        } catch {
-          window.localStorage.removeItem(referralStorageKey);
-        }
-      }
-      const { data } = await apiClient.post<{ checkoutUrl: string }>(
-        "/payments/course-checkout",
-        {
-          courseId: params.id,
-          ...guest,
-          referralCode: referralCode || undefined,
-        },
-      );
-      return data;
-    },
-    onSuccess: ({ checkoutUrl }) => window.location.assign(checkoutUrl),
   });
 
   useEffect(() => {
@@ -448,7 +416,10 @@ export default function CourseDetailPage() {
                 ) : (
                   <button
                     onClick={() => {
-                      if (!showEnrollmentPanel && /^\/(en|ar)\//.test(pathname)) {
+                      if (
+                        !showEnrollmentPanel &&
+                        /^\/(en|ar)\//.test(pathname)
+                      ) {
                         router.push(`/${lang}/courses/${params.id}/enroll`);
                         return;
                       }
@@ -476,86 +447,29 @@ export default function CourseDetailPage() {
                     : "Enrollment is for students only"}
                 </p>
               ) : (
-                <form
-                  className="space-y-3"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    guestCheckoutMutation.mutate();
-                  }}
-                >
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      className="input text-sm"
-                      required
-                      minLength={2}
-                      placeholder={lang === "ar" ? "الاسم الأول" : "First name"}
-                      value={guest.firstName}
-                      onChange={(event) =>
-                        setGuest((value) => ({
-                          ...value,
-                          firstName: event.target.value,
-                        }))
-                      }
-                    />
-                    <input
-                      className="input text-sm"
-                      required
-                      minLength={2}
-                      placeholder={lang === "ar" ? "اسم العائلة" : "Last name"}
-                      value={guest.lastName}
-                      onChange={(event) =>
-                        setGuest((value) => ({
-                          ...value,
-                          lastName: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  <input
-                    className="input text-sm w-full"
-                    required
-                    type="email"
-                    placeholder={
-                      lang === "ar" ? "البريد الإلكتروني" : "Email address"
-                    }
-                    value={guest.email}
-                    onChange={(event) =>
-                      setGuest((value) => ({
-                        ...value,
-                        email: event.target.value,
-                      }))
-                    }
-                  />
-                  <button
-                    disabled={guestCheckoutMutation.isPending}
-                    className="btn-primary w-full"
-                    type="submit"
-                  >
-                    {guestCheckoutMutation.isPending
-                      ? lang === "ar"
-                        ? "جاري فتح الدفع..."
-                        : "Opening checkout..."
-                      : lang === "ar"
-                        ? "ادفع بالبطاقة وسجل الآن"
-                        : "Pay by card & enroll"}
-                  </button>
-                  {guestCheckoutMutation.isError && (
-                    <p className="text-xs text-[var(--danger)] text-center">
-                      {lang === "ar"
-                        ? "تعذر بدء الدفع. تحقق من البيانات وحاول مجدداً."
-                        : "Could not start checkout. Check your details and try again."}
-                    </p>
-                  )}
+                <div className="space-y-3 text-center">
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    {lang === "ar"
+                      ? "أنشئ حساب طالب موثقًا أو سجّل الدخول قبل الدفع الآمن."
+                      : "Create or sign in to a verified student account before secure checkout."}
+                  </p>
                   <Link
-                    href={`/login?redirect=${encodeURIComponent(`/courses/${params.id}`)}`}
-                    className="block text-center text-sm underline"
-                    style={{ color: "var(--text-muted)" }}
+                    className="btn-primary inline-flex w-full justify-center"
+                    href={`/${lang}/sign-in?redirect=${encodeURIComponent(`/${lang}/courses/${params.id}/enroll`)}`}
                   >
                     {lang === "ar"
-                      ? "لديك حساب؟ سجل الدخول"
-                      : "Already have an account? Sign in"}
+                      ? "تسجيل الدخول للمتابعة"
+                      : "Sign in to continue"}
                   </Link>
-                </form>
+                  <Link
+                    className="btn-secondary inline-flex w-full justify-center"
+                    href={`/${lang}/sign-up?redirect=${encodeURIComponent(`/${lang}/courses/${params.id}/enroll`)}`}
+                  >
+                    {lang === "ar"
+                      ? "إنشاء حساب طالب"
+                      : "Create a student account"}
+                  </Link>
+                </div>
               )}
             </div>
           </div>

@@ -76,7 +76,9 @@ export function SignInScreen() {
       const requested =
         searchParams.get("next") ?? searchParams.get("redirect");
       const safe =
-        requested?.startsWith(`/${lang}/`) && !requested.startsWith("//")
+        requested?.startsWith("/") &&
+        !requested.startsWith("//") &&
+        !requested.includes("\\")
           ? requested
           : null;
       const home =
@@ -169,6 +171,7 @@ export function SignUpScreen() {
   });
   const [complete, setComplete] = useState(false);
   const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
   const mutation = useMutation({
     mutationFn: () =>
       register({
@@ -293,18 +296,41 @@ export function SignUpScreen() {
                 type="password"
                 autoComplete="new-password"
                 value={form.confirm}
+                aria-invalid={
+                  confirmTouched &&
+                  (!form.confirm || form.password !== form.confirm)
+                }
+                aria-describedby={
+                  confirmTouched &&
+                  (!form.confirm || form.password !== form.confirm)
+                    ? "confirm-password-error"
+                    : undefined
+                }
+                onBlur={() => setConfirmTouched(true)}
                 onChange={(event) => {
                   setPasswordMismatch(false);
                   setForm({ ...form, confirm: event.target.value });
                 }}
               />
             </label>
-            {(passwordMismatch ||
-              (form.confirm && form.password !== form.confirm)) && (
-              <p className="blueprint-error wide" role="alert">
-                {t("كلمتا المرور غير متطابقتين.", "Passwords do not match.")}
-              </p>
-            )}
+            {(passwordMismatch || confirmTouched) &&
+              (!form.confirm || form.password !== form.confirm) && (
+                <p
+                  id="confirm-password-error"
+                  className="blueprint-error wide"
+                  role="alert"
+                >
+                  {!form.confirm
+                    ? t(
+                        "تأكيد كلمة المرور مطلوب.",
+                        "Password confirmation is required.",
+                      )
+                    : t(
+                        "كلمتا المرور غير متطابقتين.",
+                        "Passwords do not match.",
+                      )}
+                </p>
+              )}
             {mutation.isError && (
               <p className="blueprint-error wide" role="alert">
                 {mutationError(
@@ -313,10 +339,7 @@ export function SignUpScreen() {
                 )}
               </p>
             )}
-            <button
-              className="btn-primary wide"
-              disabled={mutation.isPending || form.password !== form.confirm}
-            >
+            <button className="btn-primary wide" disabled={mutation.isPending}>
               {mutation.isPending
                 ? t("جارٍ الإنشاء…", "Creating…")
                 : t("إنشاء الحساب", "Create account")}

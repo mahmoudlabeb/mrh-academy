@@ -23,6 +23,7 @@ import {
 } from '../common/types/classroom-socket.js';
 import { websocketCors } from '../config/websocket.config.js';
 import { getSocketAccessToken } from '../auth/socket-token.js';
+import { getJwtVerifyOptions } from '../auth/jwt-profile.js';
 
 interface ConnectedClient {
   socketId: string;
@@ -44,6 +45,11 @@ interface JwtHandshakePayload {
   type?: 'access' | 'refresh';
   jti: string;
   tokenVersion: string;
+}
+
+interface WhiteboardState {
+  pages: Record<string, unknown[]>;
+  currentPage: number;
 }
 
 @Injectable()
@@ -106,6 +112,7 @@ export class ClassroomGateway
 
       const payload = await this.jwtService.verifyAsync<JwtHandshakePayload>(
         String(token),
+        getJwtVerifyOptions(this.configService),
       );
 
       if (
@@ -174,6 +181,7 @@ export class ClassroomGateway
     if (!userId) return;
 
     this.healthRecords.delete(socket.id);
+    this.chatRateLimits.delete(socket.id);
     if (currentLesson) {
       socket.to(currentLesson).emit('peer_left', { userId });
     }
@@ -199,10 +207,7 @@ export class ClassroomGateway
       socket.emit('error_message', 'Lesson not found');
       return;
     }
-    if (
-      lesson.status === LessonStatus.COMPLETED ||
-      lesson.status === LessonStatus.CANCELLED
-    ) {
+    if (lesson.status !== LessonStatus.CONFIRMED) {
       socket.emit('error_message', 'This lesson is no longer available');
       return;
     }
@@ -270,7 +275,17 @@ export class ClassroomGateway
       await this.redisService.set(whiteboardKey, whiteboardState, 'EX', 86400);
     }
 
-    socket.emit('whiteboard_sync', JSON.parse(whiteboardState));
+    const parsedWhiteboard =
+      this.parseWhiteboardState(whiteboardState) ?? this.emptyWhiteboardState();
+    if (!this.parseWhiteboardState(whiteboardState)) {
+      await this.redisService.set(
+        whiteboardKey,
+        JSON.stringify(parsedWhiteboard),
+        'EX',
+        86400,
+      );
+    }
+    socket.emit('whiteboard_sync', parsedWhiteboard);
 
     const bookKey = `book:${lessonId}`;
     const bookState = await this.redisService.get(bookKey);
@@ -293,6 +308,9 @@ export class ClassroomGateway
       clearInterval(this.healthInterval);
       this.healthInterval = null;
     }
+    this.connectedClients.clear();
+    this.healthRecords.clear();
+    this.chatRateLimits.clear();
   }
 
   private socketData(socket: Socket) {
@@ -371,6 +389,59 @@ export class ClassroomGateway
     });
   }
 
+  private emptyWhiteboardState(): WhiteboardState {
+    return { pages: { '1': [] }, currentPage: 1 };
+  }
+
+  private parseWhiteboardState(raw: string): WhiteboardState | null {
+    try {
+      const candidate = JSON.parse(raw) as {
+        pages?: unknown;
+        currentPage?: unknown;
+      };
+      if (
+        !candidate.pages ||
+        typeof candidate.pages !== 'object' ||
+        Array.isArray(candidate.pages)
+      ) {
+        return null;
+      }
+      const entries = Object.entries(candidate.pages);
+      if (
+        entries.length < 1 ||
+        entries.length > ClassroomGateway.MAX_WHITEBOARD_PAGES
+      ) {
+        return null;
+      }
+      const pages: Record<string, unknown[]> = {};
+      for (const [pageKey, actions] of entries) {
+        const page = Number(pageKey);
+        if (
+          !Number.isInteger(page) ||
+          page < 1 ||
+          page > ClassroomGateway.MAX_WHITEBOARD_PAGES ||
+          !Array.isArray(actions) ||
+          actions.length > ClassroomGateway.MAX_ACTIONS_PER_PAGE ||
+          !actions.every((action) => this.isValidDrawAction(action))
+        ) {
+          return null;
+        }
+        pages[pageKey] = actions;
+      }
+      const currentPage = Number(candidate.currentPage);
+      if (
+        !Number.isInteger(currentPage) ||
+        currentPage < 1 ||
+        currentPage > ClassroomGateway.MAX_WHITEBOARD_PAGES
+      ) {
+        return null;
+      }
+      return { pages, currentPage };
+    } catch {
+      return null;
+    }
+  }
+
   @SubscribeMessage('send_chat')
   handleSendChat(
     socket: Socket,
@@ -420,7 +491,8 @@ export class ClassroomGateway
     const existing = await this.redisService.get(whiteboardKey);
     if (existing) {
       try {
-        const parsed = JSON.parse(existing);
+        const parsed = this.parseWhiteboardState(existing);
+        if (!parsed) return;
         const pageStr = String(page);
         if (
           !parsed.pages[pageStr] &&
@@ -457,7 +529,8 @@ export class ClassroomGateway
     const whiteboardKey = `whiteboard:${lessonId}`;
     const state = await this.redisService.get(whiteboardKey);
     if (state) {
-      socket.emit('whiteboard_sync', JSON.parse(state));
+      const parsed = this.parseWhiteboardState(state);
+      if (parsed) socket.emit('whiteboard_sync', parsed);
     }
   }
 
@@ -468,11 +541,19 @@ export class ClassroomGateway
   ) {
     const { lessonId, page } = payload;
     if (!this.assertLessonMembership(socket, lessonId)) return;
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > ClassroomGateway.MAX_WHITEBOARD_PAGES
+    ) {
+      return;
+    }
     const whiteboardKey = `whiteboard:${lessonId}`;
     const existing = await this.redisService.get(whiteboardKey);
     if (existing) {
       try {
-        const parsed = JSON.parse(existing);
+        const parsed = this.parseWhiteboardState(existing);
+        if (!parsed || !parsed.pages[String(page)]) return;
         parsed.currentPage = page;
         await this.redisService.set(
           whiteboardKey,
@@ -512,7 +593,15 @@ export class ClassroomGateway
     if (!existing) return;
 
     try {
-      const parsed = JSON.parse(existing);
+      const parsed = this.parseWhiteboardState(existing);
+      if (!parsed) return;
+      if (
+        !parsed.pages[String(page)] &&
+        Object.keys(parsed.pages).length >=
+          ClassroomGateway.MAX_WHITEBOARD_PAGES
+      ) {
+        return;
+      }
       parsed.pages[String(page)] = actions;
       await this.redisService.set(
         whiteboardKey,

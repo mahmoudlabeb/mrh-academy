@@ -320,9 +320,19 @@ export default function TutorEarningsPage() {
             <div className="routed-payment-header">
               <div>
                 <strong>{t("طلب سحب", "Request Payout")}</strong>
-                <span>{t("طلب مالي يخضع لتأكيد الخادم", "Server-authoritative financial request")}</span>
+                <span>
+                  {t(
+                    "طلب مالي يخضع لتأكيد الخادم",
+                    "Server-authoritative financial request",
+                  )}
+                </span>
               </div>
-              <Link href={`/${lang}/teach/earnings`} aria-label={t("إغلاق", "Close")}>×</Link>
+              <Link
+                href={`/${lang}/teach/earnings`}
+                aria-label={t("إغلاق", "Close")}
+              >
+                ×
+              </Link>
             </div>
           )}
           <h2

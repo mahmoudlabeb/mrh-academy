@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
+import { formatPaymentMethod } from "@/lib/format";
 
 type Payout = {
   id: string;
@@ -443,7 +444,8 @@ export default function AdminPayoutsPage() {
                         className="text-sm mt-1"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        {t("الطريقة:", "Method:")} {payout.method}
+                        {t("الطريقة:", "Method:")}{" "}
+                        {formatPaymentMethod(lang, payout.method)}
                       </p>
                     )}
                     {payout.accountDetails && (
@@ -588,7 +590,7 @@ export default function AdminPayoutsPage() {
                           className="px-4 py-3 text-xs"
                           style={{ color: "var(--text-muted)" }}
                         >
-                          {payout.method ?? "—"}
+                          {formatPaymentMethod(lang, payout.method)}
                         </td>
                         <td className="px-4 py-3">
                           <span

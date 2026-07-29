@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserRole } from '@mrh/types';
@@ -48,8 +49,16 @@ export class StudentsController {
   }
 
   @Get('payment-history')
-  getPaymentHistory(@CurrentUser() user: AuthenticatedUser) {
-    return this.studentsService.getPaymentHistory(user.id);
+  getPaymentHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.studentsService.getPaymentHistory(
+      user.id,
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+    );
   }
 
   @Get('payment-methods')
@@ -63,11 +72,22 @@ export class StudentsController {
   }
 
   @Get('lessons')
-  async getLessons(@CurrentUser() user: AuthenticatedUser) {
+  async getLessons(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safeLimit = Math.min(
+      100,
+      Math.max(1, Math.floor(Number(limit) || 50)),
+    );
     const lessons = await this.lessonRepository.find({
       where: { studentId: user.id },
       relations: { tutor: true },
       order: { scheduledTime: 'DESC' },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
     });
     return lessons.map((l) => ({
       id: l.id,

@@ -161,7 +161,15 @@ export class StripeWebhookController {
         }
       }
     } catch (err) {
-      if (err instanceof BadRequestException) throw err;
+      if (err instanceof BadRequestException) {
+        // The signature has already been verified. Invalid business metadata or
+        // an impossible state is permanent, so acknowledge it to prevent Stripe
+        // retrying the same event for days. The event id and reason remain in
+        // server logs for reconciliation.
+        this.logger.warn(`Webhook event ${event.id} rejected: ${err.message}`);
+        await this.recordProcessed(event);
+        return { received: true, skipped: 'invalid event data' };
+      }
       this.logger.error(
         `Webhook processing failed for event ${event.id}:`,
         err,

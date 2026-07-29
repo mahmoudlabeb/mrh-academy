@@ -82,7 +82,7 @@ apiClient.interceptors.response.use(
           (localStorage.getItem("lang_pref") === "en" ? "en" : "ar");
         const redirect = `${window.location.pathname}${window.location.search}`;
         const loginUrl = new URL(`/${locale}/sign-in`, window.location.origin);
-        if (redirect.startsWith(`/${locale}/`)) {
+        if (redirect.startsWith("/") && !redirect.startsWith("//")) {
           loginUrl.searchParams.set("redirect", redirect);
         }
         window.location.assign(`${loginUrl.pathname}${loginUrl.search}`);

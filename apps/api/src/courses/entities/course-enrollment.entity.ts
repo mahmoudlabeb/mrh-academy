@@ -57,6 +57,13 @@ export class CourseEnrollment {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   enrolledAt: Date;
 
+  @Index()
+  @Column({ type: 'timestamp' })
+  tutorShareAvailableAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  tutorShareReleasedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

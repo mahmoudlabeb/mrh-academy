@@ -72,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (PUBLIC_AUTH_ROUTES.has(canonicalAuthPath(pathname))) {
-      setUser(null);
       setIsLoading(false);
       return;
     }
@@ -112,7 +111,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout API errors
     }
     setUser(null);
-    const locale = pathname.match(/^\/(en|ar)(?:\/|$)/)?.[1] ?? "ar";
+    const pathLocale = pathname.match(/^\/(en|ar)(?:\/|$)/)?.[1];
+    let locale = pathLocale;
+    if (!locale) {
+      try {
+        locale = localStorage.getItem("lang_pref") === "en" ? "en" : "ar";
+      } catch {
+        locale = "ar";
+      }
+    }
     window.location.href = `/${locale}/sign-in`;
   }, [pathname]);
 

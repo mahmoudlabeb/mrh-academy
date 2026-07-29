@@ -11,6 +11,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UserRole } from '@mrh/types';
@@ -39,8 +40,13 @@ export class CoursesController {
 
   @Public()
   @Get()
-  findAllApproved() {
-    return this.coursesService.findAllApproved();
+  findAllApproved(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = Math.max(1, Number(page) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 24));
+    return this.coursesService.findAllApproved(parsedPage, parsedLimit);
   }
 
   @Get('my/enrollments')

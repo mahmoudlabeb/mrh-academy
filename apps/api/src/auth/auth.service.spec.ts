@@ -55,6 +55,7 @@ describe('AuthService', () => {
 
   const makeTransactionManager = () => ({
     create: jest.fn((_entity, data) => data),
+    findOne: jest.fn(),
     save: jest.fn(async (entity) => {
       if (entity.id) return entity;
       return { ...entity, id: 'new-user-id' };
@@ -130,6 +131,39 @@ describe('AuthService', () => {
       );
     });
 
+    it('lets the email owner claim an unverified checkout account', async () => {
+      const checkoutUser = {
+        id: 'checkout-user',
+        email: registerDto.email,
+        role: UserRole.STUDENT,
+        passwordHash: null,
+        isVerified: false,
+        firstName: 'Checkout',
+        lastName: 'Guest',
+      };
+      userRepository.findOne.mockResolvedValue(checkoutUser);
+      const txManager = makeTransactionManager();
+      txManager.findOne.mockResolvedValue({ ...checkoutUser });
+      txManager.save.mockImplementation(
+        async (...args: any[]) => args[1] ?? args[0],
+      );
+      dataSource.transaction.mockImplementation(async (cb) => cb(txManager));
+
+      const result = await service.register(registerDto);
+
+      expect(result.verificationRequired).toBe(true);
+      expect(txManager.save).toHaveBeenCalledWith(
+        User,
+        expect.objectContaining({
+          id: 'checkout-user',
+          passwordHash: 'hashed-password',
+          firstName: 'New',
+          lastName: 'User',
+        }),
+      );
+      expect(emailService.sendEmail).toHaveBeenCalled();
+    });
+
     it('registers a student role and creates student profile', async () => {
       userRepository.findOne.mockResolvedValue(null);
       const savedUser = {
@@ -154,7 +188,7 @@ describe('AuthService', () => {
       expect(emailService.sendEmail).toHaveBeenCalledWith(
         'new@test.com',
         expect.any(String),
-        expect.stringContaining('/ar/verify-email?token='),
+        expect.stringContaining('/verify-email?token='),
       );
     });
 
@@ -278,7 +312,7 @@ describe('AuthService', () => {
       expect(emailService.sendEmail).toHaveBeenCalledWith(
         'test@test.com',
         expect.any(String),
-        expect.stringContaining('/ar/reset-password?token='),
+        expect.stringContaining('/reset-password?token='),
       );
       expect(result.message).toContain('reset link has been sent');
     });

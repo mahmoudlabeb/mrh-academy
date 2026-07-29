@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { CourseStatus } from '@mrh/types';
+import { CourseStatus, ReviewStatus } from '@mrh/types';
 import { PaymentMethodConfig } from '../payments/entities/payment-method-config.entity.js';
 import { StudentProfile } from './entities/student-profile.entity.js';
 import { Payment } from '../payments/entities/payment.entity.js';
@@ -43,17 +43,22 @@ export class StudentsService {
       where: { userId },
     });
     if (!profile) throw new NotFoundException('Student profile not found');
-    const [creditPrice, egpRate] = await Promise.all([
-      this.commissionService.getCreditPrice(),
-      this.commissionService.getEgpRate(),
-    ]);
+    const creditPrice = await this.commissionService.getCreditPrice();
+    let egpRate: number | null = null;
+    try {
+      egpRate = await this.commissionService.getEgpRate();
+    } catch {
+      // USD wallet access must not depend on optional EGP deposits.
+    }
     return { balance: profile.balance, creditPrice, egpRate };
   }
 
-  async getPaymentHistory(userId: string) {
+  async getPaymentHistory(userId: string, page = 1, limit = 50) {
     const payments = await this.paymentRepository.find({
       where: { userId: userId },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
     return payments;
   }
@@ -65,31 +70,31 @@ export class StudentsService {
     if (configs.length === 0) {
       // Fallback uses PaymentMethod enum values — must match exactly
       return [
-        { type: 'card', label: 'Credit Card', enabled: true, details: null },
-        { type: 'paypal', label: 'PayPal', enabled: true, details: null },
+        { type: 'card', label: 'Credit Card', enabled: false, details: null },
+        { type: 'paypal', label: 'PayPal', enabled: false, details: null },
         {
           type: 'vodafone',
           label: 'Vodafone Cash',
-          enabled: true,
-          details: '01000000000',
+          enabled: false,
+          details: null,
         },
         {
           type: 'instapay',
           label: 'Instapay',
-          enabled: true,
-          details: '@mrh_academy',
+          enabled: false,
+          details: null,
         },
         {
           type: 'binance',
           label: 'Binance',
-          enabled: true,
-          details: 'Configure in admin settings',
+          enabled: false,
+          details: null,
         },
         {
           type: 'bank',
           label: 'Bank Transfer',
-          enabled: true,
-          details: 'Configure in admin settings',
+          enabled: false,
+          details: null,
         },
       ];
     }
@@ -162,26 +167,32 @@ export class StudentsService {
       relations: { user: true },
     });
 
-    const result = await Promise.all(
-      tutors.map(async (t) => {
-        const avg = await this.reviewRepository
-          .createQueryBuilder('review')
-          .where('review.tutorId = :tutorId', { tutorId: t.userId })
-          .andWhere('review.status = :status', {
-            status: CourseStatus.APPROVED,
-          })
-          .select('AVG(review.rating)', 'avg')
-          .getRawOne<{ avg: string | null }>();
-        return {
-          userId: t.userId,
-          firstName: t.user?.firstName ?? '',
-          lastName: t.user?.lastName ?? '',
-          specialization: t.specialization,
-          hourlyRate: t.hourlyRate,
-          averageRating: avg?.avg ? parseFloat(avg.avg) || 0 : 0,
-        };
-      }),
+    const ratings = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('review.tutorId', 'tutorId')
+      .addSelect('AVG(review.rating)', 'averageRating')
+      .where('review.tutorId IN (:...tutorIds)', { tutorIds })
+      .andWhere('review.status = :status', {
+        status: ReviewStatus.APPROVED,
+      })
+      .groupBy('review.tutorId')
+      .getRawMany<{ tutorId: string; averageRating: string | null }>();
+    const ratingsByTutor = new Map(
+      ratings.map((rating) => [
+        rating.tutorId,
+        Number(rating.averageRating ?? 0),
+      ]),
     );
+    const result = tutors.map((t) => {
+      return {
+        userId: t.userId,
+        firstName: t.user?.firstName ?? '',
+        lastName: t.user?.lastName ?? '',
+        specialization: t.specialization,
+        hourlyRate: t.hourlyRate,
+        averageRating: ratingsByTutor.get(t.userId) ?? 0,
+      };
+    });
 
     return result.sort((a, b) => b.averageRating - a.averageRating);
   }

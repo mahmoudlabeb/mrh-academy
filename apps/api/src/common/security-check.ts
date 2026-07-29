@@ -27,7 +27,11 @@ export function checkSecurityEnvironment(
       errors.push('JWT_SECRET must be at least 64 characters in production');
     }
 
-    if (jwtSecret === 'super-secret-mrh-academy-key-CHANGE-IN-PRODUCTION') {
+    if (
+      jwtSecret === 'super-secret-mrh-academy-key-CHANGE-IN-PRODUCTION' ||
+      jwtSecret ===
+        'change_me_to_a_random_secret_of_at_least_64_characters_before_production'
+    ) {
       errors.push('JWT_SECRET still set to default value — CHANGE IMMEDIATELY');
     }
 
@@ -36,10 +40,6 @@ export function checkSecurityEnvironment(
       !config.get<string>('DATABASE_PASSWORD')
     ) {
       errors.push('DATABASE_URL or DATABASE_PASSWORD must be configured');
-    }
-
-    if (!config.get<string>('SUBADMIN_DEFAULT_PASSWORD')) {
-      errors.push('SUBADMIN_DEFAULT_PASSWORD must be set in production');
     }
 
     if (!config.get<string>('STRIPE_SECRET_KEY')) {

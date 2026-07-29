@@ -7,7 +7,9 @@ import { WorkspaceSection } from "@/components/shared/WorkspaceSection";
 export default function OpsSettingsRoute() {
   const { lang } = useLanguage();
   return (
-    <WorkspaceSection title={lang === "ar" ? "إعدادات المنصة" : "Platform Settings"}>
+    <WorkspaceSection
+      title={lang === "ar" ? "إعدادات المنصة" : "Platform Settings"}
+    >
       <SettingsTab />
     </WorkspaceSection>
   );

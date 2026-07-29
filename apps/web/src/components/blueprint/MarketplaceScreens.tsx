@@ -288,7 +288,9 @@ export function TutorCatalogScreen() {
                   </h2>
                   <p>{tutor.specialization}</p>
                   <small>
-                    ★ {Number(tutor.averageRating ?? 0).toFixed(1)} (
+                    <span aria-hidden="true">★</span>{" "}
+                    <span className="sr-only">{t("التقييم", "Rating")}</span>
+                    {Number(tutor.averageRating ?? 0).toFixed(1)} (
                     {tutor.reviewCount ?? 0})
                   </small>
                 </div>
@@ -307,7 +309,7 @@ export function TutorCatalogScreen() {
               <div className="blueprint-card-actions">
                 <strong>
                   {formatCurrency(lang, tutor.hourlyRate, 0)}{" "}
-                  <small>/ hr</small>
+                  <small>{t("/ س", "/ hr")}</small>
                 </strong>
                 <Link
                   className="btn-secondary"
@@ -395,7 +397,9 @@ function TutorProfileBody({
             </h1>
             <p>{tutor.specialization}</p>
             <small>
-              {(tutor.languages ?? []).join(", ")} · ★{" "}
+              {(tutor.languages ?? []).join(", ")} ·{" "}
+              <span aria-hidden="true">★</span>{" "}
+              <span className="sr-only">{t("التقييم", "Rating")}</span>
               {Number(tutor.averageRating ?? 0).toFixed(1)}
             </small>
           </div>
@@ -435,8 +439,15 @@ function TutorProfileBody({
                       ? `${review.student.firstName} ${review.student.lastName}`
                       : t("طالب", "Student")}
                   </strong>
-                  <span>
-                    {"★".repeat(Math.max(0, Math.min(5, review.rating)))}
+                  <span
+                    aria-label={t(
+                      `التقييم ${review.rating} من 5`,
+                      `Rating ${review.rating} out of 5`,
+                    )}
+                  >
+                    <span aria-hidden="true">
+                      {"★".repeat(Math.max(0, Math.min(5, review.rating)))}
+                    </span>
                   </span>
                   <p>{review.comment}</p>
                 </article>
@@ -470,7 +481,8 @@ function TutorProfileBody({
         </div>
         <aside className="blueprint-purchase-card">
           <strong>
-            {formatCurrency(lang, tutor.hourlyRate, 0)} <small>/ hour</small>
+            {formatCurrency(lang, tutor.hourlyRate, 0)}{" "}
+            <small>{t("/ في الساعة", "/ hour")}</small>
           </strong>
           <Link
             className="btn-primary"
@@ -635,16 +647,11 @@ function BookingPanel({
           role="status"
         >
           <span>✓</span>
-          <h3>
-            {t(
-              "استلم الخادم طلب الحجز",
-              "Lesson booked successfully",
-            )}
-          </h3>
+          <h3>{t("استلم الخادم طلب الحجز", "Lesson booked successfully")}</h3>
           <p>
             {t(
               "راجع حالة الدرس من صفحة دروسك. لا نعرض تأكيداً نهائياً قبل حالة الخادم.",
-              "Your balance was updated and the classroom is ready. Open My Lessons to join when it is time.",
+              "Your request is awaiting tutor approval. Your wallet will be charged only if the tutor accepts.",
             )}
           </p>
           <Link className="btn-primary" href={`/${lang}/learn/lessons`}>
@@ -1003,7 +1010,9 @@ function CourseDetailBody({
                       {String(lesson.lessonOrder).padStart(2, "0")}.{" "}
                       {lesson.title}
                     </strong>
-                    <small>{lesson.durationMinutes} min</small>
+                    <small>
+                      {lesson.durationMinutes} {t("دقيقة", "min")}
+                    </small>
                   </div>
                 ))
               )
@@ -1135,17 +1144,41 @@ function EnrollmentPanel({
             {t("ابدأ التعلم", "Start learning")}
           </Link>
         </div>
-      ) : user?.role !== "student" ? (
+      ) : !user ? (
         <div className="blueprint-result">
           <h3>
-            {t("سجل الدخول كطالب للمتابعة", "Sign in as a student to continue")}
+            {t(
+              "أنشئ حساب طالب موثقًا أو سجل الدخول للمتابعة",
+              "Create or sign in to a verified student account to continue",
+            )}
           </h3>
+          <p>
+            {t(
+              "يجب تأكيد البريد الإلكتروني قبل إتمام التسجيل الآمن.",
+              "Email verification is required before secure enrollment.",
+            )}
+          </p>
           <Link
             className="btn-primary"
-            href={`/${lang}/sign-in?next=/${lang}/courses/${course.id}/enroll`}
+            href={`/${lang}/sign-in?redirect=${encodeURIComponent(`/${lang}/courses/${course.id}/enroll`)}`}
           >
             {t("تسجيل الدخول", "Sign in")}
           </Link>
+          <Link
+            className="btn-secondary"
+            href={`/${lang}/sign-up?redirect=${encodeURIComponent(`/${lang}/courses/${course.id}/enroll`)}`}
+          >
+            {t("إنشاء حساب طالب", "Create a student account")}
+          </Link>
+        </div>
+      ) : user.role !== "student" ? (
+        <div className="blueprint-result" role="status">
+          <h3>
+            {t(
+              "التسجيل في الدورات متاح لحسابات الطلاب فقط",
+              "Course enrollment is available to student accounts only",
+            )}
+          </h3>
         </div>
       ) : (
         <div className="blueprint-panel-form">

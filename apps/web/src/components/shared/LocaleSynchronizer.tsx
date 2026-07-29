@@ -11,10 +11,10 @@ export function LocaleSynchronizer({
   children: React.ReactNode;
 }) {
   const { setLanguage } = useLanguage();
-  useEffect(() => setLanguage(locale), [locale, setLanguage]);
-  return (
-    <div lang={locale} dir={locale === "ar" ? "rtl" : "ltr"}>
-      {children}
-    </div>
-  );
+  useEffect(() => {
+    setLanguage(locale);
+    document.documentElement.lang = locale;
+    document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
+  }, [locale, setLanguage]);
+  return children;
 }

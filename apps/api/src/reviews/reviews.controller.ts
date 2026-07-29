@@ -25,6 +25,12 @@ export class ReviewsController {
     return this.reviewsService.findApprovedForTutor(tutorId);
   }
 
+  @Get('my')
+  @Roles(UserRole.STUDENT)
+  getMine(@CurrentUser() user: AuthenticatedUser) {
+    return this.reviewsService.findForStudent(user.id);
+  }
+
   @Get('pending')
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
   getPending() {

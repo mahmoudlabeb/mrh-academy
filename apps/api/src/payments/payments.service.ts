@@ -9,10 +9,12 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Inject } from '@nestjs/common';
 import {
   DataSource,
+  LessThan,
   QueryFailedError,
   Repository,
   type DeepPartial,
 } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { LessonStatus, PaymentMethod, PaymentStatus } from '@mrh/types';
 import { Payment } from './entities/payment.entity.js';
 import { Payout } from './entities/payout.entity.js';
@@ -82,7 +84,7 @@ export class PaymentsService {
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
-  async createCourseCheckout(dto: CreateCourseCheckoutDto) {
+  async createCourseCheckout(userId: string, dto: CreateCourseCheckoutDto) {
     if (!this.stripeService.isConfigured()) {
       throw new BadRequestException('Stripe payments are not configured');
     }
@@ -91,35 +93,19 @@ export class PaymentsService {
     });
     if (!course) throw new NotFoundException('Course not found');
 
-    const email = dto.email.trim().toLowerCase();
-    let createdUser = false;
-    let user = await this.userRepository.findOne({ where: { email } });
-    if (user && user.role !== UserRole.STUDENT) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: { studentProfile: true },
+    });
+    if (!user || user.role !== UserRole.STUDENT) {
       throw new BadRequestException(
         'Course checkout requires a student account',
       );
     }
-
-    if (!user) {
-      user = await this.dataSource.transaction(async (manager) => {
-        const saved = await manager.save(
-          User,
-          manager.create(User, {
-            email,
-            firstName: dto.firstName.trim(),
-            lastName: dto.lastName.trim(),
-            role: UserRole.STUDENT,
-            passwordHash: null,
-            isVerified: false,
-          }),
-        );
-        await manager.save(
-          StudentProfile,
-          manager.create(StudentProfile, { userId: saved.id, balance: 0 }),
-        );
-        return saved;
-      });
-      createdUser = true;
+    if (!user.isVerified || !user.isActive) {
+      throw new BadRequestException(
+        'Verify and activate your student account before checkout',
+      );
     }
 
     const enrolled = await this.dataSource
@@ -148,7 +134,7 @@ export class PaymentsService {
         courseId: course.id,
         courseTitle: course.title,
         amount: Number(course.price),
-        email,
+        email: user.email,
         referralCode: dto.referralCode,
       });
       await this.paymentRepository.update(payment.id, {
@@ -157,12 +143,6 @@ export class PaymentsService {
       return { checkoutUrl: session.url };
     } catch (error) {
       await this.paymentRepository.delete(payment.id);
-      if (createdUser) {
-        await this.dataSource.transaction(async (manager) => {
-          await manager.delete(StudentProfile, { userId: user.id });
-          await manager.delete(User, { id: user.id });
-        });
-      }
       this.logger.error('Direct course checkout creation failed', error);
       throw new BadRequestException('Card checkout is currently unavailable');
     }
@@ -186,26 +166,25 @@ export class PaymentsService {
     stripeSessionId: string;
     stripePaymentIntentId?: string;
   }) {
-    const payment = await this.paymentRepository.findOne({
-      where: { id: input.paymentId },
-    });
-    if (!payment) throw new NotFoundException('Payment not found');
-
-    await this.paymentRepository.update(payment.id, {
-      stripeCheckoutSessionId: input.stripeSessionId,
-      stripePaymentIntentId: input.stripePaymentIntentId ?? null,
-    });
-    if (payment.status === PaymentStatus.PENDING) {
-      await this.approvePayment(payment.id, 'stripe-course-checkout');
-    } else if (payment.status !== PaymentStatus.APPROVED) {
-      throw new BadRequestException('Payment cannot be completed');
-    }
-
     const result = await this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(Payment, {
+        where: { id: input.paymentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+      if (
+        payment.status !== PaymentStatus.PENDING &&
+        payment.status !== PaymentStatus.APPROVED
+      ) {
+        throw new BadRequestException('Payment cannot be completed');
+      }
+
       const existing = await manager.findOne(CourseEnrollment, {
         where: { studentId: payment.userId, courseId: input.courseId },
       });
-      if (existing) return { enrollment: existing, created: false };
+      if (existing) {
+        return { enrollment: existing, created: false, payment };
+      }
 
       const course = await manager.findOne(Course, {
         where: { id: input.courseId, status: CourseStatus.APPROVED },
@@ -215,14 +194,6 @@ export class PaymentsService {
       if (Number(payment.amount) !== Number(course.price)) {
         throw new BadRequestException('Course price changed during checkout');
       }
-      const student = await manager.findOne(StudentProfile, {
-        where: { userId: payment.userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!student || Number(student.balance) < Number(course.price)) {
-        throw new BadRequestException('Course payment balance is unavailable');
-      }
-
       const soldBy = this.isValidReferral(course, input.referralCode)
         ? 'tutor'
         : 'academy';
@@ -231,18 +202,6 @@ export class PaymentsService {
           Number(course.price),
           soldBy,
         );
-      await manager.decrement(
-        StudentProfile,
-        { userId: payment.userId },
-        'balance',
-        Number(course.price),
-      );
-      await manager.increment(
-        TutorProfile,
-        { userId: course.tutorId },
-        'balance',
-        tutorShare,
-      );
       const enrollment = await manager.save(
         CourseEnrollment,
         manager.create(CourseEnrollment, {
@@ -252,6 +211,10 @@ export class PaymentsService {
           tutorShare,
           soldBy,
           referralTutorId: soldBy === 'tutor' ? course.tutorId : null,
+          tutorShareAvailableAt: new Date(
+            Date.now() + 14 * 24 * 60 * 60 * 1000,
+          ),
+          tutorShareReleasedAt: null,
         }),
       );
       await manager.save(
@@ -263,28 +226,27 @@ export class PaymentsService {
         }),
       );
       await manager.update(Payment, payment.id, {
+        status: PaymentStatus.APPROVED,
+        adminNote: 'Approved by stripe-course-checkout',
+        stripeCheckoutSessionId: input.stripeSessionId,
+        stripePaymentIntentId: input.stripePaymentIntentId ?? null,
         allocatedAmount: Number(course.price),
       });
       await manager.update(User, payment.userId, { isVerified: true });
-      return { enrollment, created: true };
+      return { enrollment, created: true, payment };
     });
 
     if (result.created) {
       const user = await this.userRepository.findOne({
-        where: { id: payment.userId },
+        where: { id: result.payment.userId },
       });
       if (user?.email) {
-        const frontendUrl = this.configService.get<string>(
-          'FRONTEND_URL',
-          'http://localhost:3000',
-        );
-        const setPasswordUrl = `${frontendUrl}/ar/forgot-password?email=${encodeURIComponent(user.email)}`;
         await this.emailService.sendEmail(
           user.email,
-          'Your MRH Academy course is ready',
-          `<p>Your payment was received and your course is ready.</p>
-<p>If this is a new account, <a href="${setPasswordUrl}">set your password</a> before signing in.</p>
-<p>If you already have a password, you can sign in normally.</p>`,
+          'دورتك جاهزة | Your MRH Academy course is ready',
+          `<div dir="rtl"><p>تم استلام دفعتك وأصبحت دورتك جاهزة الآن.</p><p>يمكنك فتح مكتبة دوراتك والبدء في التعلّم.</p></div>
+<hr>
+<div dir="ltr"><p>Your payment was received and your course is ready.</p><p>Open your course library to start learning.</p></div>`,
         );
       }
     }
@@ -443,26 +405,54 @@ export class PaymentsService {
   }
 
   async capturePayPalPayment(paymentId: string, userId: string) {
-    const payment = await this.paymentRepository.findOne({
-      where: { id: paymentId, userId, method: PaymentMethod.PAYPAL },
-    });
-    if (!payment) throw new NotFoundException('PayPal payment not found');
-    if (payment.status === PaymentStatus.APPROVED) return payment;
-    if (payment.status !== PaymentStatus.PENDING) {
-      throw new BadRequestException('PayPal payment cannot be captured');
-    }
+    const result = await this.dataSource.transaction(async (manager) => {
+      // Keep the row locked through provider capture and wallet crediting. A
+      // second request then waits and returns the approved row instead of
+      // racing PayPal and surfacing an error after a successful charge.
+      const payment = await manager.findOne(Payment, {
+        where: { id: paymentId, userId, method: PaymentMethod.PAYPAL },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) throw new NotFoundException('PayPal payment not found');
+      if (payment.status === PaymentStatus.APPROVED) {
+        return { payment, balanceToAdd: null };
+      }
+      if (payment.status !== PaymentStatus.PENDING) {
+        throw new BadRequestException('PayPal payment cannot be captured');
+      }
 
-    const captureId = await this.payPalService.captureOrder(payment);
-    await this.paymentRepository.update(payment.id, {
-      paypalCaptureId: captureId,
+      const captureId = await this.payPalService.captureOrder(payment);
+      payment.paypalCaptureId = captureId;
+      payment.status = PaymentStatus.APPROVED;
+      payment.adminNote = `Approved by paypal:${captureId}`;
+      payment.rejectionReason = null;
+      await manager.save(Payment, payment);
+
+      const amountInUsd =
+        payment.currency === 'EGP'
+          ? payment.amount / (await this.commissionService.getEgpRate())
+          : payment.amount;
+      const balanceToAdd = Math.round(amountInUsd * 100) / 100;
+      await manager.increment(
+        StudentProfile,
+        { userId: payment.userId },
+        'balance',
+        balanceToAdd,
+      );
+      return { payment, balanceToAdd };
     });
-    return this.approvePayment(payment.id, `paypal:${captureId}`);
+    if (result.balanceToAdd !== null) {
+      await this.notifyPaymentApproved(result.payment, result.balanceToAdd);
+    }
+    return result.payment;
   }
 
-  async getPaymentHistory(userId: string) {
+  async getPaymentHistory(userId: string, page = 1, limit = 50) {
     return this.paymentRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 
@@ -475,10 +465,12 @@ export class PaymentsService {
     return payment;
   }
 
-  async getAllPayments() {
+  async getAllPayments(page = 1, limit = 50) {
     return this.paymentRepository.find({
       relations: { user: true },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 
@@ -507,10 +499,9 @@ export class PaymentsService {
         // in USD. A deposit therefore credits its USD value one-for-one.
         // Dividing this value by the default lesson price made a $30 deposit
         // worth only 2 balance units while a $30 course still cost 30 units.
-        const egpRate = await this.commissionService.getEgpRate();
         const amountInUsd =
           payment.currency === 'EGP'
-            ? payment.amount / egpRate
+            ? payment.amount / (await this.commissionService.getEgpRate())
             : payment.amount;
         const balanceToAdd = Math.round(amountInUsd * 100) / 100;
         await manager.increment(
@@ -523,37 +514,44 @@ export class PaymentsService {
         return { payment, balanceToAdd };
       })
       .then(async ({ payment, balanceToAdd }) => {
-        try {
-          await this.notificationRepository.save(
-            this.notificationRepository.create({
-              userId: payment.userId,
-              type: 'payment_approved',
-              title: 'Payment approved',
-              body: `Your payment was approved and $${balanceToAdd.toFixed(2)} was added to your balance.`,
-            }),
-          );
-        } catch (error) {
-          this.logger.error('Payment approval notification failed', error);
-        }
-        const user = await this.userRepository.findOne({
-          where: { id: payment.userId },
-        });
-        if (user?.email) {
-          this.emailService
-            .sendEmail(
-              user.email,
-              'Payment Approved — MRH Academy',
-              `<p>Your payment has been approved.</p>
-<p>Amount: $${payment.amount.toFixed(2)}</p>
-<p>Method: ${payment.method}</p>
-<p>Balance Added: $${balanceToAdd.toFixed(2)}</p>`,
-            )
-            .catch((err) =>
-              this.logger.error('Payment approval email failed', err),
-            );
-        }
+        await this.notifyPaymentApproved(payment, balanceToAdd);
         return payment;
       });
+  }
+
+  private async notifyPaymentApproved(payment: Payment, balanceToAdd: number) {
+    try {
+      await this.notificationRepository.save(
+        this.notificationRepository.create({
+          userId: payment.userId,
+          type: 'payment_approved',
+          title: 'Payment approved | تمت الموافقة على الدفع',
+          body: `$${balanceToAdd.toFixed(2)} was added to your balance. | تمت إضافة $${balanceToAdd.toFixed(2)} إلى رصيدك.`,
+        }),
+      );
+    } catch (error) {
+      this.logger.error('Payment approval notification failed', error);
+    }
+    const user = await this.userRepository.findOne({
+      where: { id: payment.userId },
+    });
+    if (user?.email) {
+      this.emailService
+        .sendEmail(
+          user.email,
+          'Payment approved | تمت الموافقة على الدفع — MRH Academy',
+          `<div dir="rtl"><p>تمت الموافقة على دفعتك.</p>
+<p>المبلغ: $${payment.amount.toFixed(2)}</p>
+<p>المبلغ المضاف إلى الرصيد: $${balanceToAdd.toFixed(2)}</p></div>
+<hr>
+<div dir="ltr"><p>Your payment has been approved.</p>
+<p>Amount: $${payment.amount.toFixed(2)}</p>
+<p>Balance added: $${balanceToAdd.toFixed(2)}</p></div>`,
+        )
+        .catch((err) =>
+          this.logger.error('Payment approval email failed', err),
+        );
+    }
   }
 
   async rejectPayment(paymentId: string, adminId: string, reason?: string) {
@@ -636,7 +634,7 @@ export class PaymentsService {
           Number(enrollment.platformFee ?? 0) +
           Number(enrollment.tutorShare ?? 0);
 
-        if (enrollment.tutorShare > 0) {
+        if (enrollment.tutorShare > 0 && enrollment.tutorShareReleasedAt) {
           await manager.decrement(
             TutorProfile,
             { userId: enrollment.course.tutorId },
@@ -727,6 +725,7 @@ export class PaymentsService {
   }
 
   async requestPayout(tutorId: string, dto: RequestPayoutDto) {
+    await this.releaseMatureCourseEarnings(tutorId);
     return this.dataSource.transaction(async (manager) => {
       const tutorProfile = await manager.findOne(TutorProfile, {
         where: { userId: tutorId },
@@ -768,10 +767,12 @@ export class PaymentsService {
     });
   }
 
-  async getTutorPayouts(tutorId: string) {
+  async getTutorPayouts(tutorId: string, page = 1, limit = 50) {
     const payouts = await this.payoutRepository.find({
       where: { tutorId },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
     return payouts.map((p) => ({
       ...p,
@@ -779,13 +780,15 @@ export class PaymentsService {
     }));
   }
 
-  async getTutorTransactions(tutorId: string) {
+  async getTutorTransactions(tutorId: string, page = 1, limit = 50) {
+    await this.releaseMatureCourseEarnings(tutorId);
+    const sourceLimit = Math.min(page * limit, 1_000);
     const [lessons, courseSales, payouts] = await Promise.all([
       this.lessonRepository.find({
         where: { tutorId, status: LessonStatus.COMPLETED },
         relations: { student: true },
         order: { updatedAt: 'DESC' },
-        take: 100,
+        take: sourceLimit,
       }),
       this.dataSource
         .getRepository(CourseEnrollment)
@@ -794,12 +797,12 @@ export class PaymentsService {
         .leftJoinAndSelect('enrollment.student', 'student')
         .where('course.tutorId = :tutorId', { tutorId })
         .orderBy('enrollment.createdAt', 'DESC')
-        .take(100)
+        .take(sourceLimit)
         .getMany(),
       this.payoutRepository.find({
         where: { tutorId },
         order: { createdAt: 'DESC' },
-        take: 100,
+        take: sourceLimit,
       }),
     ]);
 
@@ -820,7 +823,7 @@ export class PaymentsService {
         id: `course:${enrollment.id}`,
         type: 'course_earning',
         amount: Number(enrollment.tutorShare ?? 0),
-        status: 'completed',
+        status: enrollment.tutorShareReleasedAt ? 'completed' : 'pending',
         description: `Course sale: ${enrollment.course?.title ?? 'Course'}`,
         createdAt: enrollment.createdAt,
       })),
@@ -840,14 +843,127 @@ export class PaymentsService {
         (left, right) =>
           new Date(right.createdAt).getTime() -
           new Date(left.createdAt).getTime(),
-      );
+      )
+      .slice((page - 1) * limit, page * limit);
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async releaseMatureCourseEarnings(tutorId?: string) {
+    await this.dataSource.transaction((manager) =>
+      manager.query(
+        `
+          WITH matured AS (
+            UPDATE course_enrollments AS enrollment
+            SET tutor_share_released_at = NOW()
+            FROM courses AS course
+            WHERE course.id = enrollment.course_id
+              AND enrollment.tutor_share_released_at IS NULL
+              AND enrollment.tutor_share_available_at <= NOW()
+              AND enrollment.tutor_share > 0
+              AND ($1::uuid IS NULL OR course.tutor_id = $1::uuid)
+            RETURNING course.tutor_id AS tutor_id, enrollment.tutor_share
+          ),
+          totals AS (
+            SELECT tutor_id, SUM(tutor_share) AS amount
+            FROM matured
+            GROUP BY tutor_id
+          )
+          UPDATE tutor_profiles AS profile
+          SET balance = profile.balance + totals.amount,
+              updated_at = NOW()
+          FROM totals
+          WHERE profile.user_id = totals.tutor_id
+        `,
+        [tutorId ?? null],
+      ),
+    );
+  }
+
+  /**
+   * Guest checkout creates a placeholder student so Stripe can carry a stable
+   * user id in its metadata. If the checkout is abandoned, that placeholder
+   * must not live forever or block the email from being registered later.
+   *
+   * Only accounts that still have no password, are unverified, have no
+   * enrollment, and have no other payment are eligible for removal.
+   */
+  @Cron(CronExpression.EVERY_6_HOURS)
+  async cleanupAbandonedGuestCheckouts() {
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const stalePayments = await this.paymentRepository.find({
+      where: {
+        status: PaymentStatus.PENDING,
+        createdAt: LessThan(cutoff),
+      },
+      select: {
+        id: true,
+        userId: true,
+        createdAt: true,
+        status: true,
+      },
+      take: 500,
+    });
+
+    let removed = 0;
+    for (const stalePayment of stalePayments) {
+      const deleted = await this.dataSource.transaction(async (manager) => {
+        const payment = await manager.findOne(Payment, {
+          where: { id: stalePayment.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (
+          !payment ||
+          payment.status !== PaymentStatus.PENDING ||
+          payment.createdAt >= cutoff
+        ) {
+          return false;
+        }
+
+        const user = await manager
+          .createQueryBuilder(User, 'user')
+          .addSelect('user.passwordHash')
+          .where('user.id = :userId', { userId: payment.userId })
+          .getOne();
+        if (
+          !user ||
+          user.role !== UserRole.STUDENT ||
+          user.isVerified ||
+          user.passwordHash
+        ) {
+          return false;
+        }
+
+        const [paymentCount, enrollmentCount] = await Promise.all([
+          manager.count(Payment, { where: { userId: user.id } }),
+          manager.count(CourseEnrollment, {
+            where: { studentId: user.id },
+          }),
+        ]);
+        if (paymentCount !== 1 || enrollmentCount !== 0) {
+          return false;
+        }
+
+        await manager.delete(Payment, { id: payment.id });
+        await manager.delete(StudentProfile, { userId: user.id });
+        await manager.delete(User, { id: user.id });
+        return true;
+      });
+      if (deleted) removed += 1;
+    }
+
+    if (removed > 0) {
+      this.logger.log(`Removed ${removed} abandoned guest checkout account(s)`);
+    }
+    return { removed };
   }
 
   /** Admin: all payout requests with tutor user info */
-  async getAllPayouts() {
+  async getAllPayouts(page = 1, limit = 50) {
     const payouts = await this.payoutRepository.find({
       relations: { tutor: { user: true } },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
     return payouts.map((p) => ({
       id: p.id,
@@ -866,7 +982,7 @@ export class PaymentsService {
   }
 
   async approvePayout(payoutId: string, adminId: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const payout = await this.dataSource.transaction(async (manager) => {
       const payout = await manager.findOne(Payout, {
         where: { id: payoutId },
         lock: { mode: 'pessimistic_write' },
@@ -879,10 +995,12 @@ export class PaymentsService {
       payout.adminNote = `Approved by admin ${adminId}`;
       return manager.save(Payout, payout);
     });
+    await this.notifyPayoutDecision(payout, true);
+    return payout;
   }
 
   async rejectPayout(payoutId: string, adminId: string, reason: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const payout = await this.dataSource.transaction(async (manager) => {
       const payout = await manager.findOne(Payout, {
         where: { id: payoutId },
         lock: { mode: 'pessimistic_write' },
@@ -901,6 +1019,42 @@ export class PaymentsService {
       payout.adminNote = reason;
       return manager.save(Payout, payout);
     });
+    await this.notifyPayoutDecision(payout, false, reason);
+    return payout;
+  }
+
+  private async notifyPayoutDecision(
+    payout: Payout,
+    approved: boolean,
+    reason?: string,
+  ) {
+    const titleEn = approved ? 'Payout approved' : 'Payout rejected';
+    const titleAr = approved ? 'تمت الموافقة على السحب' : 'تم رفض السحب';
+    const bodyEn = approved
+      ? `Your $${Number(payout.amount).toFixed(2)} payout was approved.`
+      : `Your payout was rejected${reason ? `: ${reason}` : '.'}`;
+    const bodyAr = approved
+      ? `تمت الموافقة على طلب السحب بقيمة $${Number(payout.amount).toFixed(2)}.`
+      : `تم رفض طلب السحب${reason ? `: ${reason}` : '.'}`;
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        userId: payout.tutorId,
+        type: approved ? 'payout_approved' : 'payout_rejected',
+        title: `${titleAr} | ${titleEn}`,
+        body: `${bodyAr} | ${bodyEn}`,
+      }),
+    );
+    const tutor = await this.userRepository.findOne({
+      where: { id: payout.tutorId },
+      select: { id: true, email: true },
+    });
+    if (tutor?.email) {
+      await this.emailService.sendEmail(
+        tutor.email,
+        `${titleAr} | ${titleEn} — MRH Academy`,
+        `<div dir="rtl"><p>${bodyAr}</p></div><hr><div dir="ltr"><p>${bodyEn}</p></div>`,
+      );
+    }
   }
 
   private uploadToCloudinary(buffer: Buffer): Promise<string> {

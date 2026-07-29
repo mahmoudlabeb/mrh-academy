@@ -28,7 +28,6 @@ function resolveArabicFontPath(configuredPath?: string) {
     configuredPath,
     resolve(process.cwd(), 'dist/assets/fonts/Amiri-Regular.ttf'),
     resolve(process.cwd(), 'public/fonts/Amiri-Regular.ttf'),
-    resolve(process.cwd(), 'src/assets/fonts/Amiri-Regular.ttf'),
   ].filter(Boolean) as string[];
 
   return candidates.find((candidate) => existsSync(candidate));
@@ -124,6 +123,16 @@ export class AdminTutorsController {
     );
 
     const doc = new PDFDocument({ margin: 50 });
+    doc.on('error', (error) => {
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Tutor PDF generation failed' });
+      } else {
+        res.destroy(error);
+      }
+    });
+    res.on('close', () => {
+      if (!res.writableEnded) doc.destroy();
+    });
     const arabicFontPath = resolveArabicFontPath(
       this.config.get<string>('ARABIC_PDF_FONT_PATH'),
     );

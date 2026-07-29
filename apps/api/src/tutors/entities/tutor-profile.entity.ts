@@ -55,13 +55,19 @@ export class TutorProfile {
   status: CourseStatus;
 
   @Column({ nullable: true })
-  rejectionReason: string;
+  rejectionReason: string | null;
 
   @Column({ nullable: true })
   videoUrl: string;
 
   @Column({ nullable: true })
   documentUrl: string;
+
+  @Column({ nullable: true })
+  country: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  experienceYears: number | null;
 
   @Column({ nullable: true })
   stripeAccountId: string;

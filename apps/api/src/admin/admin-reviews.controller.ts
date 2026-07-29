@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserRole, CourseStatus } from '@mrh/types';
+import { UserRole, ReviewStatus } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -41,7 +41,7 @@ export class AdminReviewsController {
         : 'Unknown',
       rating: r.rating,
       comment: r.comment,
-      isApproved: r.status === CourseStatus.APPROVED,
+      isApproved: r.status === ReviewStatus.APPROVED,
       createdAt: r.createdAt,
     }));
   }
@@ -52,7 +52,7 @@ export class AdminReviewsController {
   @RequirePermissions('manage_reviews')
   async approveReview(@Param('id') id: string) {
     await this.reviewRepository.update(id, {
-      status: CourseStatus.APPROVED,
+      status: ReviewStatus.APPROVED,
     });
     return { message: 'Review approved successfully' };
   }

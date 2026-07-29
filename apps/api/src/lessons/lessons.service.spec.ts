@@ -121,7 +121,14 @@ describe('LessonsService', () => {
           };
         }
         if (entity === StudentProfile) {
-          return { userId: 'student-1', balance: 100 };
+          return { userId: 'student-1', balance: 100, heldBalance: 50 };
+        }
+        if (entity === User) {
+          return {
+            id: 'student-1',
+            role: UserRole.STUDENT,
+            isActive: true,
+          };
         }
         if (entity === Lesson) {
           return {
@@ -151,6 +158,7 @@ describe('LessonsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    lessonRepository.findOne.mockReset();
 
     transactionManager = createTransactionManager();
     dataSource.transaction.mockImplementation(async (cb) =>
@@ -222,12 +230,12 @@ describe('LessonsService', () => {
       });
     });
 
-    it('creates a confirmed lesson with an active classroom', async () => {
+    it('creates a pending, uncharged lesson awaiting tutor approval', async () => {
       const savedLesson = {
         id: 'lesson-1',
         tutorId: 'tutor-1',
         studentId,
-        status: LessonStatus.CONFIRMED,
+        status: LessonStatus.PENDING,
         price: 41.67,
         durationMinutes: 50,
       };
@@ -239,17 +247,12 @@ describe('LessonsService', () => {
 
       const result = await service.bookLesson(studentId, dto);
 
-      expect(result?.status).toBe(LessonStatus.CONFIRMED);
-      expect(transactionManager.create).toHaveBeenCalledWith(
+      expect(result?.status).toBe(LessonStatus.PENDING);
+      expect(transactionManager.create).not.toHaveBeenCalledWith(
         Classroom,
-        expect.objectContaining({ isActive: true }),
+        expect.anything(),
       );
-      expect(transactionManager.decrement).toHaveBeenCalledWith(
-        StudentProfile,
-        { userId: studentId },
-        'balance',
-        41.67,
-      );
+      expect(transactionManager.decrement).not.toHaveBeenCalled();
     });
 
     it('throws if tutor not found', async () => {
@@ -306,7 +309,7 @@ describe('LessonsService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('deducts the student balance at booking time', async () => {
+    it('does not deduct the student balance before tutor approval', async () => {
       const savedLesson = {
         id: 'lesson-1',
         tutorId: 'tutor-1',
@@ -322,7 +325,7 @@ describe('LessonsService', () => {
 
       await service.bookLesson(studentId, dto);
 
-      expect(transactionManager.decrement).toHaveBeenCalled();
+      expect(transactionManager.decrement).not.toHaveBeenCalled();
       expect(studentProfileRepository.decrement).not.toHaveBeenCalled();
     });
 
@@ -407,11 +410,10 @@ describe('LessonsService', () => {
         'balance',
         expect.anything(),
       );
-      expect(transactionManager.update).toHaveBeenCalledWith(
-        Classroom,
-        { lessonId },
-        { isActive: true },
-      );
+      expect(transactionManager.create).toHaveBeenCalledWith(Classroom, {
+        lessonId,
+        isActive: true,
+      });
       expect(calendarService.createLessonMeetLink).toHaveBeenCalledWith(
         expect.objectContaining({
           start: scheduledDate,
@@ -477,18 +479,34 @@ describe('LessonsService', () => {
     const pendingLesson = {
       id: lessonId,
       tutorId,
+      studentId: 'student-1',
+      price: 50,
       status: LessonStatus.PENDING,
     };
 
-    it('rejects lesson and sets status to CANCELLED', async () => {
+    it('rejects lesson and preserves a distinct rejected status', async () => {
       lessonRepository.findOne.mockResolvedValue(pendingLesson);
+      transactionManager.findOne.mockImplementation(async (entity) => {
+        if (entity === Lesson) return pendingLesson;
+        if (entity === StudentProfile) {
+          return { userId: 'student-1', balance: 100, heldBalance: 50 };
+        }
+        return null;
+      });
 
       const result = await service.rejectLesson(lessonId, tutorId);
 
       expect(result.message).toContain('rejected');
-      expect(lessonRepository.update).toHaveBeenCalledWith(lessonId, {
-        status: LessonStatus.CANCELLED,
-      });
+      expect(transactionManager.save).toHaveBeenCalledWith(
+        Lesson,
+        expect.objectContaining({ status: LessonStatus.REJECTED }),
+      );
+      expect(transactionManager.decrement).toHaveBeenCalledWith(
+        StudentProfile,
+        { userId: 'student-1' },
+        'heldBalance',
+        50,
+      );
       expect(redisService.del).toHaveBeenCalledWith(
         `lessons:user:${pendingLesson.tutorId}`,
       );
@@ -683,7 +701,7 @@ describe('LessonsService', () => {
       );
     });
 
-    it('refunds the exact charged amount for a confirmed lesson even within 24h', async () => {
+    it('blocks student cancellation within the two-hour notice window', async () => {
       const confirmedLesson = buildConfirmedLesson(1);
       lessonRepository.findOne
         .mockResolvedValueOnce(confirmedLesson)
@@ -692,16 +710,10 @@ describe('LessonsService', () => {
           status: LessonStatus.CANCELLED,
         });
 
-      const result = await service.cancelLesson(lessonId, studentId);
-
-      expect(transactionManager.increment).toHaveBeenCalledWith(
-        StudentProfile,
-        { userId: studentId },
-        'balance',
-        50,
+      await expect(service.cancelLesson(lessonId, studentId)).rejects.toThrow(
+        'at least 2 hours notice',
       );
-      expect(result.refunded).toBe(true);
-      expect(result.refundAmount).toBe(50);
+      expect(transactionManager.increment).not.toHaveBeenCalled();
     });
 
     it('does not create money when a pending lesson is cancelled', async () => {
@@ -709,12 +721,7 @@ describe('LessonsService', () => {
         ...buildConfirmedLesson(),
         status: LessonStatus.PENDING,
       };
-      lessonRepository.findOne
-        .mockResolvedValueOnce(pendingLesson)
-        .mockResolvedValueOnce({
-          ...pendingLesson,
-          status: LessonStatus.CANCELLED,
-        });
+      lessonRepository.findOne.mockResolvedValue(pendingLesson);
       transactionManager.findOne.mockImplementation(async (entity) => {
         if (entity === Lesson) return pendingLesson;
         if (entity === StudentProfile) {

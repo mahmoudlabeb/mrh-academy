@@ -6,6 +6,7 @@ import {
   Header,
   Param,
   Post,
+  Query,
   Res,
   UploadedFile,
   UseGuards,
@@ -22,8 +23,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
 import { PaymentsService } from './payments.service.js';
 import { InvoiceService } from './invoice.service.js';
-import { Public } from '../auth/decorators/public.decorator.js';
 import { CreateCourseCheckoutDto } from './dto/create-course-checkout.dto.js';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('payments')
 export class PaymentsController {
@@ -32,10 +33,15 @@ export class PaymentsController {
     private readonly invoiceService: InvoiceService,
   ) {}
 
-  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60 * 60 * 1000 } })
   @Post('course-checkout')
-  async createCourseCheckout(@Body() dto: CreateCourseCheckoutDto) {
-    return this.paymentsService.createCourseCheckout(dto);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STUDENT)
+  async createCourseCheckout(
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreateCourseCheckoutDto,
+  ) {
+    return this.paymentsService.createCourseCheckout(user.id, dto);
   }
 
   @Post('submit')
@@ -73,8 +79,16 @@ export class PaymentsController {
   @Get('history')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
-  async getPaymentHistory(@CurrentUser() user: { id: string }) {
-    return this.paymentsService.getPaymentHistory(user.id);
+  async getPaymentHistory(
+    @CurrentUser() user: { id: string },
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentsService.getPaymentHistory(
+      user.id,
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+    );
   }
 
   @Post('paypal/:id/capture')

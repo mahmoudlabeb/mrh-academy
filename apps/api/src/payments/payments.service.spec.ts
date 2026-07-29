@@ -51,6 +51,9 @@ describe('PaymentsService', () => {
       id: 'user-1',
       email: 'student@example.com',
       role: UserRole.STUDENT,
+      isVerified: true,
+      isActive: true,
+      studentProfile: { userId: 'user-1' },
     })),
   };
   const courseRepository = {
@@ -161,7 +164,43 @@ describe('PaymentsService', () => {
     expect(service).toBeDefined();
   });
 
+  it('paginates student payment history', async () => {
+    paymentRepository.find.mockResolvedValueOnce([]);
+
+    await service.getPaymentHistory('student-1', 3, 20);
+
+    expect(paymentRepository.find).toHaveBeenCalledWith({
+      where: { userId: 'student-1' },
+      order: { createdAt: 'DESC' },
+      skip: 40,
+      take: 20,
+    });
+  });
+
+  it('paginates tutor and admin payout lists', async () => {
+    payoutRepository.find.mockResolvedValue([]);
+
+    await service.getTutorPayouts('tutor-1', 2, 25);
+    await service.getAllPayouts(4, 10);
+
+    expect(payoutRepository.find).toHaveBeenNthCalledWith(1, {
+      where: { tutorId: 'tutor-1' },
+      order: { createdAt: 'DESC' },
+      skip: 25,
+      take: 25,
+    });
+    expect(payoutRepository.find).toHaveBeenNthCalledWith(2, {
+      relations: { tutor: { user: true } },
+      order: { createdAt: 'DESC' },
+      skip: 30,
+      take: 10,
+    });
+  });
+
   it('checks for an existing pending payout inside the locked transaction', async () => {
+    jest
+      .spyOn(service, 'releaseMatureCourseEarnings')
+      .mockResolvedValueOnce(undefined);
     const manager = {
       findOne: jest
         .fn()
@@ -224,12 +263,9 @@ describe('PaymentsService', () => {
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
 
-  it('creates a direct Stripe course checkout for a guest email', async () => {
-    const result = await service.createCourseCheckout({
+  it('creates a direct Stripe course checkout for a verified student', async () => {
+    const result = await service.createCourseCheckout('user-1', {
       courseId: '5e784b46-ae4c-4a9b-9ca5-3d78f19ef4a9',
-      email: 'STUDENT@example.com',
-      firstName: 'Test',
-      lastName: 'Student',
     });
 
     expect(stripeService.createCourseCheckoutSession).toHaveBeenCalledWith(
@@ -244,6 +280,24 @@ describe('PaymentsService', () => {
       stripeCheckoutSessionId: 'cs_course',
     });
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/course');
+  });
+
+  it('rejects direct course checkout for an unverified account', async () => {
+    userRepository.findOne.mockResolvedValueOnce({
+      id: 'user-1',
+      email: 'student@example.com',
+      role: UserRole.STUDENT,
+      isVerified: false,
+      isActive: true,
+      studentProfile: { userId: 'user-1' },
+    });
+
+    await expect(
+      service.createCourseCheckout('user-1', {
+        courseId: '5e784b46-ae4c-4a9b-9ca5-3d78f19ef4a9',
+      }),
+    ).rejects.toThrow('Verify and activate your student account');
+    expect(stripeService.createCourseCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('keeps PayPal pending and redirects to a real PayPal approval URL', async () => {
@@ -268,22 +322,40 @@ describe('PaymentsService', () => {
   });
 
   it('credits PayPal only after server-side capture verification', async () => {
-    paymentRepository.findOne.mockResolvedValueOnce({
-      id: 'payment-1',
-      userId: 'user-1',
-      amount: 30,
-      currency: 'USD',
-      method: PaymentMethod.PAYPAL,
-      status: PaymentStatus.PENDING,
-      paypalOrderId: 'PAYPAL-ORDER-1',
-    });
+    const save = jest.fn(async (_entity, value) => value);
+    const increment = jest.fn();
+    dataSource.transaction.mockImplementationOnce(async (cb) =>
+      cb({
+        findOne: jest.fn(async () => ({
+          id: 'payment-1',
+          userId: 'user-1',
+          amount: 30,
+          currency: 'USD',
+          method: PaymentMethod.PAYPAL,
+          status: PaymentStatus.PENDING,
+          paypalOrderId: 'PAYPAL-ORDER-1',
+        })),
+        save,
+        increment,
+      }),
+    );
 
     await service.capturePayPalPayment('payment-1', 'user-1');
 
     expect(payPalService.captureOrder).toHaveBeenCalled();
-    expect(paymentRepository.update).toHaveBeenCalledWith('payment-1', {
-      paypalCaptureId: 'PAYPAL-CAPTURE-1',
-    });
+    expect(save).toHaveBeenCalledWith(
+      Payment,
+      expect.objectContaining({
+        paypalCaptureId: 'PAYPAL-CAPTURE-1',
+        status: PaymentStatus.APPROVED,
+      }),
+    );
+    expect(increment).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      30,
+    );
     expect(dataSource.transaction).toHaveBeenCalled();
   });
 
@@ -359,6 +431,7 @@ describe('PaymentsService', () => {
       courseId: 'course-1',
       platformFee: 53,
       tutorShare: 47,
+      tutorShareReleasedAt: new Date(),
       soldBy: 'academy',
       course: { tutorId: 'tutor-1' },
     };
@@ -418,5 +491,89 @@ describe('PaymentsService', () => {
       id: 'enrollment-1',
     });
     expect(notificationRepository.save).toHaveBeenCalled();
+  });
+
+  it('removes abandoned guest checkout placeholders after the retention window', async () => {
+    const cutoffPayment = {
+      id: 'stale-payment',
+      userId: 'guest-user',
+      status: PaymentStatus.PENDING,
+      createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000),
+    };
+    paymentRepository.find.mockResolvedValueOnce([cutoffPayment]);
+    const remove = jest.fn();
+    const manager = {
+      findOne: jest.fn(async () => cutoffPayment),
+      createQueryBuilder: jest.fn(() => ({
+        addSelect() {
+          return this;
+        },
+        where() {
+          return this;
+        },
+        getOne: jest.fn(async () => ({
+          id: 'guest-user',
+          role: UserRole.STUDENT,
+          isVerified: false,
+          passwordHash: null,
+        })),
+      })),
+      count: jest.fn(async (entity) => (entity === Payment ? 1 : 0)),
+      delete: remove,
+    };
+    dataSource.transaction.mockImplementationOnce(async (cb) => cb(manager));
+
+    await expect(service.cleanupAbandonedGuestCheckouts()).resolves.toEqual({
+      removed: 1,
+    });
+    expect(remove).toHaveBeenNthCalledWith(1, Payment, {
+      id: 'stale-payment',
+    });
+    expect(remove).toHaveBeenNthCalledWith(2, StudentProfile, {
+      userId: 'guest-user',
+    });
+    expect(remove).toHaveBeenNthCalledWith(3, User, { id: 'guest-user' });
+  });
+
+  it('keeps verified or password-bearing accounts during guest cleanup', async () => {
+    paymentRepository.find.mockResolvedValueOnce([
+      {
+        id: 'stale-payment',
+        userId: 'existing-user',
+        status: PaymentStatus.PENDING,
+        createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000),
+      },
+    ]);
+    const manager = {
+      findOne: jest.fn(async () => ({
+        id: 'stale-payment',
+        userId: 'existing-user',
+        status: PaymentStatus.PENDING,
+        createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000),
+      })),
+      createQueryBuilder: jest.fn(() => ({
+        addSelect() {
+          return this;
+        },
+        where() {
+          return this;
+        },
+        getOne: jest.fn(async () => ({
+          id: 'existing-user',
+          role: UserRole.STUDENT,
+          isVerified: true,
+          passwordHash: 'existing-password',
+        })),
+      })),
+      count: jest.fn(),
+      delete: jest.fn(),
+    };
+    dataSource.transaction.mockImplementationOnce(async (cb) => cb(manager));
+
+    await expect(service.cleanupAbandonedGuestCheckouts()).resolves.toEqual({
+      removed: 0,
+    });
+    expect(manager.delete).not.toHaveBeenCalled();
+    expect(manager.count).not.toHaveBeenCalled();
   });
 });

@@ -60,4 +60,13 @@ export class MessagesController {
       .emit('new_message', message);
     return message;
   }
+
+  @Post(':userId/read')
+  @UseGuards(JwtAuthGuard)
+  markConversationRead(
+    @CurrentUser() user: { id: string },
+    @Param('userId') contactId: string,
+  ) {
+    return this.messagesService.markConversationRead(user.id, contactId);
+  }
 }

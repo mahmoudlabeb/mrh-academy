@@ -26,14 +26,21 @@ export default function SavedTutorsRoute() {
   return (
     <WorkspaceSection
       title={t("المعلّمون المحفوظون", "Saved Tutors")}
-      description={t("قائمتك الشخصية للحجز السريع.", "Your personal shortlist for faster booking.")}
+      description={t(
+        "قائمتك الشخصية للحجز السريع.",
+        "Your personal shortlist for faster booking.",
+      )}
     >
       {favorites.isLoading ? (
         <div className="focus-skeleton" />
       ) : favorites.isError ? (
         <section className="focus-empty" role="alert">
           <h2>{t("تعذر تحميل المحفوظات", "Saved tutors unavailable")}</h2>
-          <button className="btn-secondary" type="button" onClick={() => favorites.refetch()}>
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={() => favorites.refetch()}
+          >
             {t("إعادة المحاولة", "Retry")}
           </button>
         </section>
@@ -49,14 +56,20 @@ export default function SavedTutorsRoute() {
           {favorites.data.map((tutor) => (
             <article className="saved-tutor-card" key={tutor.userId}>
               <span className="saved-avatar" aria-hidden="true">
-                {tutor.firstName[0]}{tutor.lastName[0]}
+                {tutor.firstName[0]}
+                {tutor.lastName[0]}
               </span>
               <div>
-                <h2>{tutor.firstName} {tutor.lastName}</h2>
+                <h2>
+                  {tutor.firstName} {tutor.lastName}
+                </h2>
                 <p>{tutor.specialization}</p>
               </div>
               <strong>${Number(tutor.hourlyRate).toFixed(2)} / hr</strong>
-              <Link className="btn-primary" href={`/${lang}/tutors/${tutor.userId}/book`}>
+              <Link
+                className="btn-primary"
+                href={`/${lang}/tutors/${tutor.userId}/book`}
+              >
                 {t("احجز درسًا", "Book Lesson")}
               </Link>
             </article>

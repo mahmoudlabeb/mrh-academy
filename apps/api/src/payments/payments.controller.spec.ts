@@ -3,6 +3,7 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { InvoiceService } from './invoice.service';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../redis/redis.service';
 
 describe('PaymentsController', () => {
   let controller: PaymentsController;
@@ -23,6 +24,10 @@ describe('PaymentsController', () => {
         { provide: PaymentsService, useValue: paymentsService },
         { provide: InvoiceService, useValue: invoiceService },
         { provide: ConfigService, useValue: { get: jest.fn() } },
+        {
+          provide: RedisService,
+          useValue: { consumeRateLimit: jest.fn().mockResolvedValue(true) },
+        },
       ],
     }).compile();
 
@@ -31,5 +36,17 @@ describe('PaymentsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('bounds payment history pagination parameters', async () => {
+    paymentsService.getPaymentHistory.mockResolvedValueOnce([]);
+
+    await controller.getPaymentHistory({ id: 'student-1' }, '2.8', '1000');
+
+    expect(paymentsService.getPaymentHistory).toHaveBeenCalledWith(
+      'student-1',
+      2,
+      100,
+    );
   });
 });

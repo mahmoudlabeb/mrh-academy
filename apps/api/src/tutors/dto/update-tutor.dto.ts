@@ -4,6 +4,8 @@ import {
   IsArray,
   IsNumber,
   IsEnum,
+  Min,
+  Max,
 } from 'class-validator';
 import { CourseStatus } from '@mrh/types';
 
@@ -31,4 +33,14 @@ export class UpdateTutorDto {
   @IsEnum(CourseStatus)
   @IsOptional()
   status?: CourseStatus;
+
+  @IsString()
+  @IsOptional()
+  country?: string;
+
+  @IsNumber()
+  @Min(0)
+  @Max(80)
+  @IsOptional()
+  experienceYears?: number;
 }

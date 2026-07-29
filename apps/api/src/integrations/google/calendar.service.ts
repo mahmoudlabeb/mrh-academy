@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { google } from 'googleapis';
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 type LessonMeetLinkInput = {
   summary: string;
@@ -49,19 +49,6 @@ export class CalendarService {
       ),
     });
     return google.calendar({ version: 'v3', auth });
-  }
-
-  /**
-   * Generates a free Jitsi Meet link as a fallback when Google Meet
-   * is not configured (no Google Workspace subscription required).
-   */
-  generateJitsiMeetLink(input: LessonMeetLinkInput): string {
-    const uniqueData = `${input.tutorEmail}-${input.studentEmail}-${input.start.toISOString()}-${randomUUID()}`;
-    const hash = createHash('sha256')
-      .update(uniqueData)
-      .digest('hex')
-      .substring(0, 12);
-    return `https://meet.jit.si/MRH-Lesson-${hash}`;
   }
 
   async deleteCalendarEvent(eventId: string): Promise<void> {
@@ -140,17 +127,16 @@ export class CalendarService {
         }
       } catch (error) {
         this.logger.warn(
-          `Google Meet link creation failed, falling back to Jitsi: ${
+          `Google Meet link creation failed: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );
       }
     }
 
-    const jitsiUrl = this.generateJitsiMeetLink(input);
-    const roomHash = jitsiUrl.split('/').pop();
-    this.logger.log(`Jitsi Meet link generated for room ${roomHash}`);
-    return { meetUrl: jitsiUrl };
+    // The built-in authenticated classroom remains available. Do not create a
+    // public third-party room when private Google Meet creation is unavailable.
+    return null;
   }
 
   private escapeIcsText(value: string): string {
@@ -179,7 +165,7 @@ export class CalendarService {
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Mr.H Academy//EN',
+      'PRODID:-//MRH Academy//Calendar 1.0//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
       'BEGIN:VEVENT',

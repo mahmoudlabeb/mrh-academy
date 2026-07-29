@@ -180,8 +180,10 @@ export class UsersService {
     const confirmationUrl = `${frontendUrl}/confirm-email?token=${encodeURIComponent(token)}`;
     await this.emailService.sendEmail(
       user.email,
-      'Confirm your MRH Academy email change',
-      `<p>A request was made to change your account email to ${dto.newEmail}.</p><p>Confirm it here: <a href="${confirmationUrl}">${confirmationUrl}</a></p>`,
+      'تأكيد تغيير البريد | Confirm your MRH Academy email change',
+      `<div dir="rtl"><p>تم طلب تغيير بريد حسابك إلى ${dto.newEmail}.</p><p><a href="${confirmationUrl}">أكد التغيير من هنا</a>.</p></div>
+<hr>
+<div dir="ltr"><p>A request was made to change your account email to ${dto.newEmail}.</p><p><a href="${confirmationUrl}">Confirm the change here</a>.</p></div>`,
     );
     return { message: 'Check your new email address to confirm the change' };
   }
@@ -222,8 +224,8 @@ export class UsersService {
     );
     await this.emailService.sendEmail(
       previousEmail,
-      'Your MRH Academy email was changed',
-      '<p>Your account email was changed. If you did not request this, contact support immediately.</p>',
+      'تم تغيير بريدك | Your MRH Academy email was changed',
+      '<div dir="rtl"><p>تم تغيير بريد حسابك. إذا لم تطلب ذلك، فتواصل مع الدعم فورًا.</p></div><hr><div dir="ltr"><p>Your account email was changed. If you did not request this, contact support immediately.</p></div>',
     );
     return { message: 'Email changed successfully' };
   }

@@ -48,4 +48,16 @@ export class ApplyTutorDto {
   @IsOptional()
   @IsUrl({ require_protocol: true })
   videoUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(2)
+  country?: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(80)
+  experienceYears?: number;
 }

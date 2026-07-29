@@ -54,6 +54,7 @@ describe('AllExceptionsFilter preservation (P2-H)', () => {
       error: 'InternalServerError',
       timestamp: expect.any(String),
       path: '/api/v1/test',
+      requestId: expect.any(String),
     });
   });
 

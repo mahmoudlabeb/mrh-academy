@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { LessonStatus } from "@mrh/types";
+import { LessonStatus, ReviewStatus } from "@mrh/types";
 import { isAxiosError } from "axios";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/contexts/auth-context";
@@ -13,6 +13,10 @@ import { useLanguage } from "@/contexts/language-context";
 import { useTheme } from "@/contexts/theme-context";
 import NotificationPreferencesPanel from "@/components/NotificationPreferencesPanel";
 import { formatCurrency } from "@/lib/format";
+import {
+  normalizeCollection,
+  type CollectionResponse,
+} from "@/lib/api-collection";
 
 function useCopy() {
   const { lang, setLanguage } = useLanguage();
@@ -69,7 +73,22 @@ type StudentLesson = {
   price: number;
   tutorName?: string;
   tutor?: { firstName?: string; lastName?: string };
+  roomId?: string;
+  meetUrl?: string;
 };
+type StudentReview = {
+  id: string;
+  lessonId: string;
+  status: ReviewStatus;
+};
+
+async function fetchStudentLessons(): Promise<StudentLesson[]> {
+  const { data } = await apiClient.get<CollectionResponse<StudentLesson>>(
+    "/students/lessons",
+    { params: { page: 1, limit: 50 } },
+  );
+  return normalizeCollection(data);
+}
 
 function lessonStatusLabel(lang: "ar" | "en", status: LessonStatus): string {
   const labels: Record<LessonStatus, { ar: string; en: string }> = {
@@ -77,6 +96,7 @@ function lessonStatusLabel(lang: "ar" | "en", status: LessonStatus): string {
     [LessonStatus.CONFIRMED]: { ar: "مؤكد", en: "Confirmed" },
     [LessonStatus.COMPLETED]: { ar: "مكتمل", en: "Completed" },
     [LessonStatus.CANCELLED]: { ar: "ملغي", en: "Cancelled" },
+    [LessonStatus.REJECTED]: { ar: "مرفوض", en: "Rejected" },
   };
   return labels[status]?.[lang] ?? String(status);
 }
@@ -95,8 +115,7 @@ export function LearnerTodayScreen() {
   });
   const lessonsQuery = useQuery({
     queryKey: ["core-student-lessons"],
-    queryFn: async () =>
-      (await apiClient.get<StudentLesson[]>("/students/lessons")).data,
+    queryFn: fetchStudentLessons,
   });
   const coursesQuery = useQuery({
     queryKey: ["core-student-enrollments"],
@@ -154,9 +173,15 @@ export function LearnerTodayScreen() {
               </div>
               <Link
                 className="btn-primary"
-                href={`/${lang}/lesson/${nextLesson.id}`}
+                href={
+                  nextLesson.roomId || nextLesson.meetUrl
+                    ? `/${lang}/room/${nextLesson.roomId ?? nextLesson.meetUrl}`
+                    : `/${lang}/lesson/${nextLesson.id}`
+                }
               >
-                {t("تفاصيل الدرس", "Lesson details")}
+                {nextLesson.roomId || nextLesson.meetUrl
+                  ? t("دخول الفصل", "Join classroom")
+                  : t("تفاصيل الدرس", "Lesson details")}
               </Link>
             </div>
           )}
@@ -213,21 +238,47 @@ export function LearnerTodayScreen() {
 
 export function LearnerLessonsScreen() {
   const { lang, t, date } = useCopy();
+  const queryClient = useQueryClient();
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [filter, setFilter] = useState<"upcoming" | "pending" | "past">(
     "upcoming",
   );
+  const [cancelLessonId, setCancelLessonId] = useState<string | null>(null);
   const lessonsQuery = useQuery({
     queryKey: ["core-student-lessons"],
-    queryFn: async () =>
-      (await apiClient.get<StudentLesson[]>("/students/lessons")).data,
+    queryFn: fetchStudentLessons,
   });
+  const cancelLesson = useMutation({
+    mutationFn: async (lessonId: string) =>
+      apiClient.post(`/lessons/${lessonId}/cancel`),
+    onSuccess: async () => {
+      setCancelLessonId(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["core-student-lessons"] }),
+        queryClient.invalidateQueries({ queryKey: ["student-lessons"] }),
+        queryClient.invalidateQueries({ queryKey: ["core-student-balance"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["blueprint-student-balance"],
+        }),
+      ]);
+    },
+  });
+  const reviewsQuery = useQuery({
+    queryKey: ["core-student-reviews"],
+    queryFn: async () =>
+      (await apiClient.get<StudentReview[]>("/reviews/my")).data,
+  });
+  const reviewsByLesson = new Map(
+    (reviewsQuery.data ?? []).map((review) => [review.lessonId, review]),
+  );
   const visible = (lessonsQuery.data ?? []).filter((lesson) =>
     filter === "upcoming"
       ? lesson.status === LessonStatus.CONFIRMED
       : filter === "pending"
         ? lesson.status === LessonStatus.PENDING
         : lesson.status === LessonStatus.COMPLETED ||
-          lesson.status === LessonStatus.CANCELLED,
+          lesson.status === LessonStatus.CANCELLED ||
+          lesson.status === LessonStatus.REJECTED,
   );
   return (
     <main className="blueprint-workspace-page">
@@ -251,15 +302,44 @@ export function LearnerLessonsScreen() {
           {t("فتح فصل التدريب", "Open practice classroom")}
         </Link>
       </header>
-      <div className="blueprint-tabs" role="tablist">
+      <div
+        className="blueprint-tabs"
+        role="tablist"
+        aria-label={t("تصفية الدروس", "Lesson filters")}
+      >
         {(["upcoming", "pending", "past"] as const).map((key) => (
           <button
+            ref={(node) => {
+              tabRefs.current[
+                key === "upcoming" ? 0 : key === "pending" ? 1 : 2
+              ] = node;
+            }}
             role="tab"
             aria-selected={filter === key}
             aria-controls={`lessons-panel-${key}`}
             id={`lessons-tab-${key}`}
+            tabIndex={filter === key ? 0 : -1}
             key={key}
             onClick={() => setFilter(key)}
+            onKeyDown={(event) => {
+              const keys = ["upcoming", "pending", "past"] as const;
+              const current = keys.indexOf(key);
+              let next = current;
+              if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = keys.length - 1;
+              else if (event.key === "ArrowRight")
+                next =
+                  (current + (lang === "ar" ? -1 : 1) + keys.length) %
+                  keys.length;
+              else if (event.key === "ArrowLeft")
+                next =
+                  (current + (lang === "ar" ? 1 : -1) + keys.length) %
+                  keys.length;
+              else return;
+              event.preventDefault();
+              setFilter(keys[next]);
+              tabRefs.current[next]?.focus();
+            }}
           >
             {key === "upcoming"
               ? t("قادمة", "Upcoming")
@@ -274,6 +354,7 @@ export function LearnerLessonsScreen() {
         role="tabpanel"
         id={`lessons-panel-${filter}`}
         aria-labelledby={`lessons-tab-${filter}`}
+        tabIndex={0}
       >
         <h2>
           {filter === "upcoming"
@@ -301,8 +382,8 @@ export function LearnerLessonsScreen() {
                   </strong>
                   <p>
                     {date(lesson.scheduledTime ?? lesson.date ?? "")} ·{" "}
-                    {lesson.durationMinutes ?? lesson.duration ?? 0} min ·{" "}
-                    {formatCurrency(lang, lesson.price)}
+                    {lesson.durationMinutes ?? lesson.duration ?? 0}{" "}
+                    {t("دقيقة", "min")} · {formatCurrency(lang, lesson.price)}
                   </p>
                 </div>
                 <span
@@ -310,16 +391,81 @@ export function LearnerLessonsScreen() {
                 >
                   {lessonStatusLabel(lang, lesson.status)}
                 </span>
+                {reviewsByLesson.get(lesson.id) && (
+                  <span
+                    className={`blueprint-status blueprint-status--${reviewsByLesson.get(lesson.id)?.status}`}
+                  >
+                    {reviewsByLesson.get(lesson.id)?.status ===
+                    ReviewStatus.PENDING
+                      ? t("المراجعة قيد الاعتماد", "Review pending approval")
+                      : reviewsByLesson.get(lesson.id)?.status ===
+                          ReviewStatus.APPROVED
+                        ? t("المراجعة منشورة", "Review published")
+                        : t("المراجعة مرفوضة", "Review rejected")}
+                  </span>
+                )}
                 <Link
                   className="btn-secondary"
                   href={`/${lang}/lesson/${lesson.id}`}
                 >
                   {t("التفاصيل", "Details")}
                 </Link>
+                {(lesson.status === LessonStatus.PENDING ||
+                  lesson.status === LessonStatus.CONFIRMED) && (
+                  <button
+                    className="btn-danger"
+                    type="button"
+                    onClick={() => setCancelLessonId(lesson.id)}
+                  >
+                    {t("إلغاء الدرس", "Cancel lesson")}
+                  </button>
+                )}
               </article>
             ))}
           </div>
         </StateBlock>
+        {cancelLessonId && (
+          <div
+            className="blueprint-confirmation"
+            role="alertdialog"
+            aria-modal="true"
+          >
+            <p>
+              {t(
+                "هل تريد بالتأكيد إلغاء هذا الدرس؟ قد تطبق سياسة الاسترداد.",
+                "Are you sure you want to cancel this lesson? The refund policy may apply.",
+              )}
+            </p>
+            <div>
+              <button
+                className="btn-danger"
+                type="button"
+                disabled={cancelLesson.isPending}
+                onClick={() => cancelLesson.mutate(cancelLessonId)}
+              >
+                {cancelLesson.isPending
+                  ? t("جارٍ الإلغاء…", "Cancelling…")
+                  : t("تأكيد الإلغاء", "Confirm cancellation")}
+              </button>
+              <button
+                className="btn-secondary"
+                type="button"
+                disabled={cancelLesson.isPending}
+                onClick={() => setCancelLessonId(null)}
+              >
+                {t("الاحتفاظ بالدرس", "Keep lesson")}
+              </button>
+            </div>
+          </div>
+        )}
+        {cancelLesson.isError && (
+          <p className="blueprint-error" role="alert">
+            {t(
+              "تعذر إلغاء الدرس. حاول مرة أخرى.",
+              "The lesson could not be cancelled. Please try again.",
+            )}
+          </p>
+        )}
       </section>
     </main>
   );
@@ -418,7 +564,8 @@ export function TutorTodayScreen() {
                     {lesson.student?.firstName} {lesson.student?.lastName}
                   </strong>
                   <p>
-                    {date(lesson.scheduledTime)} · {lesson.durationMinutes} min
+                    {date(lesson.scheduledTime)} · {lesson.durationMinutes}{" "}
+                    {t("دقيقة", "min")}
                   </p>
                 </div>
                 <Link
@@ -577,7 +724,10 @@ export function TutorScheduleScreen() {
               {days[slot.dayOfWeek]} {slot.startTime.slice(0, 5)}–
               {slot.endTime.slice(0, 5)}{" "}
               <button
-                aria-label={t("حذف", "Delete")}
+                aria-label={t(
+                  `حذف توافر ${days[slot.dayOfWeek]} من ${slot.startTime.slice(0, 5)} إلى ${slot.endTime.slice(0, 5)}`,
+                  `Delete availability on ${days[slot.dayOfWeek]} from ${slot.startTime.slice(0, 5)} to ${slot.endTime.slice(0, 5)}`,
+                )}
                 onClick={() => remove.mutate(slot.id)}
               >
                 ×
@@ -597,7 +747,7 @@ export function TutorClassroomScreen() {
     queryFn: async () => (await apiClient.get<LessonPage>("/lessons")).data,
   });
   const confirmed = (lessonsQuery.data?.data ?? []).filter(
-    (lesson) => lesson.status === "confirmed",
+    (lesson) => lesson.status === LessonStatus.CONFIRMED,
   );
   return (
     <main className="blueprint-workspace-page">
@@ -634,7 +784,8 @@ export function TutorClassroomScreen() {
                     {lesson.student?.firstName} {lesson.student?.lastName}
                   </strong>
                   <p>
-                    {date(lesson.scheduledTime)} · {lesson.durationMinutes} min
+                    {date(lesson.scheduledTime)} · {lesson.durationMinutes}{" "}
+                    {t("دقيقة", "min")}
                   </p>
                 </div>
                 <Link
@@ -708,7 +859,7 @@ export function OperationsQueueScreen() {
               `${stats.data.openReports} تحتاج مراجعة`,
               `${stats.data.openReports} need review`,
             ),
-            href: `/${lang}/ops/settings`,
+            href: `/admin?tab=reports`,
           },
         ]
       : []),
@@ -730,7 +881,11 @@ export function OperationsQueueScreen() {
             )}
           </p>
         </div>
-        <span className="focus-role-chip">{user?.role}</span>
+        <span className="focus-role-chip">
+          {user?.role === "admin"
+            ? t("مدير", "Admin")
+            : t("مدير فرعي", "Subadmin")}
+        </span>
       </header>
       <section className="blueprint-decision-card">
         <p className="blueprint-kicker">
@@ -841,9 +996,13 @@ export function MessagesScreen() {
   const active = selected ?? contactsQuery.data?.[0]?.user.id ?? null;
   const messagesQuery = useQuery({
     queryKey: ["core-conversation", active],
-    queryFn: async () =>
-      (await apiClient.get<{ messages: Message[] }>(`/messages/${active}`))
-        .data,
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ messages: Message[] }>(
+        `/messages/${active}`,
+      );
+      await apiClient.post(`/messages/${active}/read`);
+      return data;
+    },
     enabled: Boolean(active),
   });
   const send = useMutation({

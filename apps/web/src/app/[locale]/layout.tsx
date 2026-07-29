@@ -14,7 +14,5 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   if (locale !== "en" && locale !== "ar") notFound();
-  return (
-    <LocaleSynchronizer locale={locale}>{children}</LocaleSynchronizer>
-  );
+  return <LocaleSynchronizer locale={locale}>{children}</LocaleSynchronizer>;
 }

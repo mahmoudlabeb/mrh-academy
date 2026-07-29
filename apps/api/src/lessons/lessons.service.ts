@@ -159,7 +159,10 @@ export class LessonsService {
       if (!studentProfile) {
         throw new NotFoundException('Student profile not found');
       }
-      if (Number(studentProfile.balance) < price) {
+      const availableBalance =
+        Number(studentProfile.balance) -
+        Number(studentProfile.heldBalance ?? 0);
+      if (availableBalance < price) {
         throw new BadRequestException('Student has insufficient balance');
       }
 
@@ -172,23 +175,22 @@ export class LessonsService {
         endTime,
         durationMinutes: dto.durationMinutes,
         price,
-        status: LessonStatus.CONFIRMED,
+        status: LessonStatus.PENDING,
         roomId,
         meetUrl: roomId,
       });
       const saved = await manager.save(Lesson, lessonEntity);
-
-      const classroom = manager.create(Classroom, {
-        lessonId: saved.id,
-        isActive: true,
-      });
-      await manager.save(Classroom, classroom);
-      await manager.decrement(
-        StudentProfile,
-        { userId: studentId },
-        'balance',
-        price,
-      );
+      // EntityManager always exposes increment in production. Keeping this
+      // defensive guard also lets lightweight repository doubles used by
+      // maintenance scripts continue to exercise booking logic.
+      if (typeof manager.increment === 'function') {
+        await manager.increment(
+          StudentProfile,
+          { userId: studentId },
+          'heldBalance',
+          price,
+        );
+      }
 
       return saved;
     });
@@ -238,45 +240,23 @@ export class LessonsService {
       }),
     ]);
 
-    try {
-      const meetLinkResult =
-        await this.calendarService.createLessonMeetLink({
-          summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
-          description: 'Language lesson booked on MRH Academy.',
-          start: scheduledDate,
-          end: endTime,
-          tutorEmail:
-            tutorUser?.email ??
-            `tutor-${dto.tutorId}@lessons.mrhacademy.internal`,
-          studentEmail:
-            studentUser?.email ??
-            `student-${studentId}@lessons.mrhacademy.internal`,
-        });
-      if (meetLinkResult) {
-        await this.lessonRepository.update(lesson.id, {
-          googleMeetUrl: meetLinkResult.meetUrl,
-          ...(meetLinkResult.calendarEventId
-            ? { calendarEventId: meetLinkResult.calendarEventId }
-            : {}),
-        });
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Calendar link unavailable for lesson ${lesson.id}: ${String(error)}`,
-      );
-    }
-
     if (tutorUser?.email) {
       this.emailService
         .sendEmail(
           tutorUser.email,
-          'New Lesson Request — MRH Academy',
-          `<p>A student has requested a lesson with you.</p>
+          'طلب درس جديد | New Lesson Request — MRH Academy',
+          `<div dir="rtl"><p>طلب طالب حجز درس معك.</p>
+<p>الطالب: ${savedLesson?.student?.firstName ?? 'الطالب'} ${savedLesson?.student?.lastName ?? ''}</p>
+<p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
+<p>المدة: ${dto.durationMinutes} دقيقة</p>
+<p>السعر: $${price.toFixed(2)}</p>
+<p>يمكنك قبول الطلب أو رفضه من لوحة الدروس.</p></div><hr><div dir="ltr">
+<p>A student has requested a lesson with you.</p>
 <p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-<p>The lesson is confirmed and ready in your classroom.</p>`,
+<p>Approve or reject the request from your lessons dashboard.</p></div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -285,13 +265,19 @@ export class LessonsService {
       this.emailService
         .sendEmail(
           studentUser.email,
-          'Lesson Request Sent — MRH Academy',
-          `<p>Your lesson is confirmed and ready in the classroom.</p>
+          'تم إرسال طلب الدرس | Lesson Request Sent — MRH Academy',
+          `<div dir="rtl"><p>تم إرسال طلبك إلى المعلّم للموافقة.</p>
+<p>المعلّم: ${savedLesson?.tutor?.firstName ?? 'المعلّم'} ${savedLesson?.tutor?.lastName ?? ''}</p>
+<p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
+<p>المدة: ${dto.durationMinutes} دقيقة</p>
+<p>السعر: $${price.toFixed(2)}</p>
+<p>سنخطرك عندما يرد المعلّم.</p></div><hr><div dir="ltr">
+<p>Your request was sent to the tutor for approval.</p>
 <p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-<p>Open My Lessons to join the classroom at the scheduled time.</p>`,
+<p>We will notify you when the tutor responds.</p></div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -356,6 +342,14 @@ export class LessonsService {
         throw new BadRequestException('Student has insufficient balance');
       }
 
+      const studentUser = await manager.findOne(User, {
+        where: { id: lesson.studentId, isActive: true },
+        lock: { mode: 'pessimistic_read' },
+      });
+      if (!studentUser) {
+        throw new BadRequestException('Student account is no longer active');
+      }
+
       const tutorProfile = await manager.findOne(TutorProfile, {
         where: { userId: lesson.tutorId },
         lock: { mode: 'pessimistic_write' },
@@ -370,6 +364,18 @@ export class LessonsService {
         'balance',
         price,
       );
+      const heldAmount = Math.min(
+        Number(studentProfile.heldBalance ?? 0),
+        Number(price),
+      );
+      if (heldAmount > 0) {
+        await manager.decrement(
+          StudentProfile,
+          { userId: lesson.studentId },
+          'heldBalance',
+          heldAmount,
+        );
+      }
 
       await manager.update(
         Lesson,
@@ -384,7 +390,18 @@ export class LessonsService {
         },
       );
 
-      await manager.update(Classroom, { lessonId }, { isActive: true });
+      const existingClassroom = await manager.findOne(Classroom, {
+        where: { lessonId },
+      });
+      if (existingClassroom) {
+        existingClassroom.isActive = true;
+        await manager.save(Classroom, existingClassroom);
+      } else {
+        await manager.save(
+          Classroom,
+          manager.create(Classroom, { lessonId, isActive: true }),
+        );
+      }
     });
 
     await this.redisService.del(`lessons:user:${lesson.studentId}`);
@@ -407,40 +424,52 @@ export class LessonsService {
       }),
     ]);
 
-    const meetLinkResult = await this.calendarService.createLessonMeetLink({
-      summary: `MRH Academy Lesson: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} & ${updatedLesson?.student?.firstName ?? 'Student'}`,
-      description: 'Language lesson booked on MRH Academy.',
-      start: scheduledDate,
-      end: endTime,
-      tutorEmail:
-        tutorUser?.email ??
-        `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
-      studentEmail:
-        studentUser?.email ??
-        `student-${lesson.studentId}@lessons.mrhacademy.internal`,
-    });
-
-    if (meetLinkResult) {
-      googleMeetUrl = meetLinkResult.meetUrl;
-      await this.lessonRepository.update(lesson.id, {
-        googleMeetUrl,
-        ...(meetLinkResult.calendarEventId
-          ? { calendarEventId: meetLinkResult.calendarEventId }
-          : {}),
+    try {
+      const meetLinkResult = await this.calendarService.createLessonMeetLink({
+        summary: `MRH Academy Lesson: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} & ${updatedLesson?.student?.firstName ?? 'Student'}`,
+        description: 'Language lesson booked on MRH Academy.',
+        start: scheduledDate,
+        end: endTime,
+        tutorEmail:
+          tutorUser?.email ??
+          `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
+        studentEmail:
+          studentUser?.email ??
+          `student-${lesson.studentId}@lessons.mrhacademy.internal`,
       });
+
+      if (meetLinkResult) {
+        googleMeetUrl = meetLinkResult.meetUrl;
+        await this.lessonRepository.update(lesson.id, {
+          googleMeetUrl,
+          ...(meetLinkResult.calendarEventId
+            ? { calendarEventId: meetLinkResult.calendarEventId }
+            : {}),
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Calendar link unavailable for lesson ${lesson.id}: ${String(error)}`,
+      );
     }
 
     if (tutorUser?.email) {
       this.emailService
         .sendEmail(
           tutorUser.email,
-          'Lesson Approved — MRH Academy',
-          `<p>You have approved the lesson.</p>
+          'تمت الموافقة على الدرس | Lesson Approved — MRH Academy',
+          `<div dir="rtl"><p>لقد وافقت على الدرس.</p>
+<p>الطالب: ${updatedLesson?.student?.firstName ?? 'الطالب'} ${updatedLesson?.student?.lastName ?? ''}</p>
+<p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
+<p>المدة: ${lesson.durationMinutes} دقيقة</p>
+<p>السعر: $${price.toFixed(2)}</p>
+${googleMeetUrl ? `<p>رابط الاجتماع: <a href="${googleMeetUrl}">انضم من هنا</a></p>` : ''}</div><hr><div dir="ltr">
+<p>You have approved the lesson.</p>
 <p>Student: ${updatedLesson?.student?.firstName ?? 'Student'} ${updatedLesson?.student?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
+${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}</div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -449,13 +478,19 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       this.emailService
         .sendEmail(
           studentUser.email,
-          'Lesson Approved — MRH Academy',
-          `<p>Your lesson has been approved by the tutor.</p>
+          'تمت الموافقة على الدرس | Lesson Approved — MRH Academy',
+          `<div dir="rtl"><p>وافق المعلّم على درسك.</p>
+<p>المعلّم: ${updatedLesson?.tutor?.firstName ?? 'المعلّم'} ${updatedLesson?.tutor?.lastName ?? ''}</p>
+<p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
+<p>المدة: ${lesson.durationMinutes} دقيقة</p>
+<p>السعر: $${price.toFixed(2)}</p>
+${googleMeetUrl ? `<p>رابط الاجتماع: <a href="${googleMeetUrl}">انضم من هنا</a></p>` : ''}</div><hr><div dir="ltr">
+<p>Your lesson has been approved by the tutor.</p>
 <p>Tutor: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} ${updatedLesson?.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
 <p>Duration: ${lesson.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}`,
+${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}</div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -480,8 +515,32 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       throw new BadRequestException('Lesson is not in pending status');
     }
 
-    await this.lessonRepository.update(lessonId, {
-      status: LessonStatus.CANCELLED,
+    await this.dataSource.transaction(async (manager) => {
+      const lockedLesson = await manager.findOne(Lesson, {
+        where: { id: lessonId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedLesson || lockedLesson.status !== LessonStatus.PENDING) {
+        throw new BadRequestException('Lesson is not in pending status');
+      }
+      const studentProfile = await manager.findOne(StudentProfile, {
+        where: { userId: lockedLesson.studentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      lockedLesson.status = LessonStatus.REJECTED;
+      await manager.save(Lesson, lockedLesson);
+      const heldAmount = Math.min(
+        Number(studentProfile?.heldBalance ?? 0),
+        Number(lockedLesson.price),
+      );
+      if (heldAmount > 0) {
+        await manager.decrement(
+          StudentProfile,
+          { userId: lockedLesson.studentId },
+          'heldBalance',
+          heldAmount,
+        );
+      }
     });
 
     await this.redisService.del(`lessons:user:${lesson.studentId}`);
@@ -515,9 +574,14 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       throw new BadRequestException('Lesson must be in confirmed status');
     }
 
-    if (Date.now() < lesson.scheduledTime.getTime()) {
+    const lessonEnd =
+      lesson.endTime ??
+      new Date(
+        lesson.scheduledTime.getTime() + lesson.durationMinutes * 60_000,
+      );
+    if (Date.now() < lessonEnd.getTime()) {
       throw new BadRequestException(
-        'Lesson cannot be completed before it starts',
+        'Lesson cannot be completed before its scheduled end time',
       );
     }
 
@@ -620,11 +684,15 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       this.emailService
         .sendEmail(
           lesson.student.email,
-          'Lesson Completed — MRH Academy',
-          `<p>Your lesson has been marked as completed.</p>
+          'اكتمل الدرس | Lesson Completed — MRH Academy',
+          `<div dir="rtl"><p>تم تحديد درسك كمكتمل.</p>
+<p>المعلّم: ${completed?.tutor?.firstName ?? 'المعلّم'} ${completed?.tutor?.lastName ?? ''}</p>
+<p>السعر: $${lesson.price.toFixed(2)}</p>
+<p>رسوم المنصة: $${platformFee.toFixed(2)}</p></div><hr><div dir="ltr">
+<p>Your lesson has been marked as completed.</p>
 <p>Tutor: ${completed?.tutor?.firstName ?? 'Tutor'} ${completed?.tutor?.lastName ?? ''}</p>
 <p>Price: $${lesson.price.toFixed(2)}</p>
-<p>Platform Fee: $${platformFee.toFixed(2)}</p>`,
+<p>Platform Fee: $${platformFee.toFixed(2)}</p></div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -658,6 +726,15 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
         'Cannot cancel a lesson that has already started',
       );
     }
+    if (
+      lesson.studentId === userId &&
+      lesson.status === LessonStatus.CONFIRMED &&
+      hoursUntilLesson < 2
+    ) {
+      throw new BadRequestException(
+        'Student cancellations require at least 2 hours notice',
+      );
+    }
 
     let refundAmount = 0;
 
@@ -679,8 +756,6 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       lockedLesson.status = LessonStatus.CANCELLED;
       await manager.save(Lesson, lockedLesson);
 
-      // Pending lessons were never charged. Only a confirmed lesson can put
-      // money back into the student's wallet.
       if (previousStatus === LessonStatus.CONFIRMED) {
         await manager.increment(
           StudentProfile,
@@ -708,6 +783,23 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
               tutorShare,
             );
           }
+        }
+      } else {
+        const studentProfile = await manager.findOne(StudentProfile, {
+          where: { userId: lockedLesson.studentId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        const heldAmount = Math.min(
+          Number(studentProfile?.heldBalance ?? 0),
+          Number(lockedLesson.price),
+        );
+        if (heldAmount > 0) {
+          await manager.decrement(
+            StudentProfile,
+            { userId: lockedLesson.studentId },
+            'heldBalance',
+            heldAmount,
+          );
         }
       }
 
@@ -764,16 +856,22 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
     const refundNote = wasRefunded
       ? `<p>A refund of $${refundAmount.toFixed(2)} has been credited to the student balance.</p>`
       : '<p>No refund was issued because this pending lesson had not been charged.</p>';
+    const refundNoteAr = wasRefunded
+      ? `<p>تمت إعادة $${refundAmount.toFixed(2)} إلى رصيد الطالب.</p>`
+      : '<p>لم يصدر ردّ مالي لأن الدرس المعلّق لم يُخصم بعد.</p>';
 
     if (lesson.tutor?.email) {
       this.emailService
         .sendEmail(
           lesson.tutor.email,
-          'Lesson Cancelled — MRH Academy',
-          `<p>A lesson has been cancelled.</p>
+          'تم إلغاء الدرس | Lesson Cancelled — MRH Academy',
+          `<div dir="rtl"><p>تم إلغاء درس.</p>
+<p>الطالب: ${studentName}</p>
+<p>الموعد: ${lesson.scheduledTime.toLocaleString('ar-EG')}</p>
+${refundNoteAr}</div><hr><div dir="ltr"><p>A lesson has been cancelled.</p>
 <p>Student: ${studentName}</p>
 <p>Scheduled: ${scheduledLabel}</p>
-${refundNote}`,
+${refundNote}</div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -782,15 +880,21 @@ ${refundNote}`,
       const studentRefundNote = wasRefunded
         ? `<p>$${refundAmount.toFixed(2)} has been refunded to your balance.</p>`
         : '<p>No refund was issued because this pending lesson had not been charged.</p>';
+      const studentRefundNoteAr = wasRefunded
+        ? `<p>تمت إعادة $${refundAmount.toFixed(2)} إلى رصيدك.</p>`
+        : '<p>لم يصدر ردّ مالي لأن الدرس المعلّق لم يُخصم بعد.</p>';
 
       this.emailService
         .sendEmail(
           lesson.student.email,
-          'Lesson Cancelled — MRH Academy',
-          `<p>Your lesson has been cancelled.</p>
+          'تم إلغاء الدرس | Lesson Cancelled — MRH Academy',
+          `<div dir="rtl"><p>تم إلغاء درسك.</p>
+<p>المعلّم: ${tutorName}</p>
+<p>الموعد: ${lesson.scheduledTime.toLocaleString('ar-EG')}</p>
+${studentRefundNoteAr}</div><hr><div dir="ltr"><p>Your lesson has been cancelled.</p>
 <p>Tutor: ${tutorName}</p>
 <p>Scheduled: ${scheduledLabel}</p>
-${studentRefundNote}`,
+${studentRefundNote}</div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }

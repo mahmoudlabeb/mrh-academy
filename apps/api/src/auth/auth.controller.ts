@@ -27,6 +27,7 @@ import { CurrentUser } from './decorators/current-user.decorator.js';
 import { GoogleAuthExceptionFilter } from './filters/google-auth-exception.filter.js';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard.js';
 import { TokenDto } from './dto/token.dto.js';
+import { AppleCallbackDto } from './dto/apple-callback.dto.js';
 import { SocialOAuthService } from './social-oauth.service.js';
 
 @Controller('auth')
@@ -47,7 +48,9 @@ export class AuthController {
     const base = {
       httpOnly: true,
       secure,
-      sameSite: 'strict' as const,
+      // Lax keeps cookies protected on cross-site subrequests while preserving
+      // a signed-in session when a user follows a normal link from email.
+      sameSite: 'lax' as const,
       path: '/',
     };
     response.cookie('mrh_token', tokens.accessToken, {
@@ -178,6 +181,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Get('google/callback')
   @UseGuards(GoogleConfigGuard, GoogleOAuthGuard)
   @UseFilters(GoogleAuthExceptionFilter)
@@ -203,6 +207,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Get('facebook/callback')
   async facebookCallback(
     @Query('code') code: string,
@@ -231,12 +236,9 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('apple/callback')
-  async appleCallback(
-    @Body()
-    body: { code: string; state: string; id_token?: string; user?: string },
-    @Res() res: Response,
-  ) {
+  async appleCallback(@Body() body: AppleCallbackDto, @Res() res: Response) {
     const profile = await this.socialOAuthService.exchangeAppleCode({
       code: body.code,
       state: body.state,

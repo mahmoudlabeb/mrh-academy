@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CourseStatus, LessonStatus, UserRole } from '@mrh/types';
+import { CourseStatus, LessonStatus, ReviewStatus, UserRole } from '@mrh/types';
 import { TutorProfile } from './entities/tutor-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Review } from '../reviews/entities/review.entity.js';
@@ -55,6 +55,8 @@ export class TutorsService {
     languages?: string;
     sort?: 'asc' | 'desc';
     search?: string;
+    page?: number;
+    limit?: number;
   }) {
     const cacheKey = `tutors:filters:${JSON.stringify(filters)}`;
     return this.redisService.getOrSet(
@@ -96,6 +98,8 @@ export class TutorsService {
           'tutor.hourlyRate',
           filters.sort === 'desc' ? 'DESC' : 'ASC',
         );
+        query.skip(((filters.page ?? 1) - 1) * (filters.limit ?? 24));
+        query.take(filters.limit ?? 24);
 
         return query.getMany();
       },
@@ -124,7 +128,7 @@ export class TutorsService {
             .createQueryBuilder('review')
             .select('review.tutorId', 'tutorId')
             .addSelect('AVG(review.rating)', 'avg')
-            .where('review.status = :status', { status: CourseStatus.APPROVED })
+            .where('review.status = :status', { status: ReviewStatus.APPROVED })
             .groupBy('review.tutorId')
             .getRawMany(),
         ]);
@@ -160,13 +164,13 @@ export class TutorsService {
           .createQueryBuilder('review')
           .where('review.tutorId = :tutorId', { tutorId: userId })
           .andWhere('review.status = :status', {
-            status: CourseStatus.APPROVED,
+            status: ReviewStatus.APPROVED,
           })
           .select('AVG(review.rating)', 'avg')
           .getRawOne<{ avg: string | null }>();
 
         const reviewCount = await this.reviewRepository.count({
-          where: { tutorId: userId, status: CourseStatus.APPROVED },
+          where: { tutorId: userId, status: ReviewStatus.APPROVED },
         });
 
         // Compute additional fields for frontend
@@ -185,17 +189,6 @@ export class TutorsService {
           }),
         ]);
 
-        // Calculate experience years from profile creation date
-        const experienceYears = tutor.createdAt
-          ? Math.max(
-              1,
-              Math.floor(
-                (Date.now() - new Date(tutor.createdAt).getTime()) /
-                  (365.25 * 24 * 60 * 60 * 1000),
-              ),
-            )
-          : 5;
-
         const { user } = tutor;
         if (!user) {
           throw new NotFoundException('Tutor profile user not found');
@@ -212,8 +205,8 @@ export class TutorsService {
           reviewCount,
           studentsCount,
           lessonsCount,
-          experienceYears: `${experienceYears}+ سنوات`,
-          country: 'مصر', // Default country, could be added to user profile later
+          experienceYears: tutor.experienceYears,
+          country: tutor.country,
         };
       },
       300,
@@ -249,7 +242,7 @@ export class TutorsService {
       if (!allowedMimes.includes(documentFile.mimetype)) {
         throw new BadRequestException('Document must be a PDF or Word file');
       }
-      documentUrl = await this.uploadDocumentToCloudinary(documentFile.buffer);
+      documentUrl = await this.uploadDocumentToCloudinary(documentFile);
     }
 
     const tutorProfile = this.tutorProfileRepository.create({
@@ -259,6 +252,8 @@ export class TutorsService {
       languages: dto.languages,
       hourlyRate: dto.hourlyRate,
       videoUrl: dto.videoUrl,
+      country: dto.country?.trim() || null,
+      experienceYears: dto.experienceYears ?? null,
       documentUrl,
       status: CourseStatus.PENDING,
       balance: 0,
@@ -269,16 +264,36 @@ export class TutorsService {
 
     await this.sendEmail(
       user.email,
-      'Tutor Application Received — MRH Academy',
-      `Dear ${user.firstName},\n\nThank you for applying to become a tutor at MRH Academy. Your application has been received and is currently pending review by our moderation team.\n\nSpecialization: ${dto.specialization}\nLanguages: ${dto.languages.join(', ')}\nHourly Rate: $${dto.hourlyRate.toFixed(2)}\n\nWe will review your application within 2-3 business days and notify you of the outcome via email.\n\nBest regards,\nMRH Academy Team`,
+      'تم استلام طلب التدريس | Tutor Application Received — MRH Academy',
+      `مرحبًا ${user.firstName}،\n\nتم استلام طلبك للانضمام إلى معلّمي أكاديمية MRH وهو الآن قيد المراجعة.\nالتخصص: ${dto.specialization}\nاللغات: ${dto.languages.join(', ')}\nالسعر بالساعة: $${dto.hourlyRate.toFixed(2)}\nسنرسل إليك النتيجة خلال يومي عمل إلى ثلاثة أيام.\n\nفريق أكاديمية MRH\n\n---\n\nDear ${user.firstName},\n\nYour tutor application has been received and is pending moderation review.\nSpecialization: ${dto.specialization}\nLanguages: ${dto.languages.join(', ')}\nHourly rate: $${dto.hourlyRate.toFixed(2)}\nWe will notify you within 2-3 business days.\n\nMRH Academy Team`,
     );
 
     return savedProfile;
   }
 
-  async uploadDocumentToCloudinary(buffer: Buffer): Promise<string> {
-    if (buffer.subarray(0, 4).toString() !== '%PDF') {
-      throw new BadRequestException('Tutor document is not a valid PDF');
+  async uploadDocumentToCloudinary(file: Express.Multer.File): Promise<string> {
+    const { buffer, mimetype } = file;
+    const isPdf =
+      mimetype === 'application/pdf' &&
+      buffer.subarray(0, 5).toString('ascii') === '%PDF-' &&
+      buffer
+        .subarray(Math.max(0, buffer.length - 2048))
+        .includes(Buffer.from('%%EOF'));
+    const isLegacyWord =
+      mimetype === 'application/msword' &&
+      buffer
+        .subarray(0, 8)
+        .equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+    const isDocx =
+      mimetype ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
+      buffer.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])) &&
+      buffer.includes(Buffer.from('[Content_Types].xml')) &&
+      buffer.includes(Buffer.from('word/'));
+    if (!isPdf && !isLegacyWord && !isDocx) {
+      throw new BadRequestException(
+        'Tutor document content does not match a supported PDF or Word format',
+      );
     }
     const upload = await this.storage.upload(buffer, {
       folder: 'mrh-academy/tutor-documents',
@@ -363,14 +378,14 @@ export class TutorsService {
         });
 
         const reviewCount = await this.reviewRepository.count({
-          where: { tutorId: userId, status: CourseStatus.APPROVED },
+          where: { tutorId: userId, status: ReviewStatus.APPROVED },
         });
 
         const avg = await this.reviewRepository
           .createQueryBuilder('review')
           .where('review.tutorId = :tutorId', { tutorId: userId })
           .andWhere('review.status = :status', {
-            status: CourseStatus.APPROVED,
+            status: ReviewStatus.APPROVED,
           })
           .select('AVG(review.rating)', 'avg')
           .getRawOne<{ avg: string | null }>();
@@ -485,11 +500,8 @@ export class TutorsService {
     if (tutor.status === CourseStatus.APPROVED) {
       throw new BadRequestException('Tutor is already approved');
     }
-    if (tutor.status === CourseStatus.REJECTED) {
-      throw new BadRequestException('Tutor was rejected, cannot approve');
-    }
-
     tutor.status = CourseStatus.APPROVED;
+    tutor.rejectionReason = null;
     await this.tutorProfileRepository.save(tutor);
 
     const user = await this.userRepository.findOneBy({ id: userId });
@@ -502,8 +514,8 @@ export class TutorsService {
 
     await this.sendEmail(
       user.email,
-      'Congratulations! Your Tutor Application Has Been Approved',
-      `Hi ${user.firstName}, great news! Your tutor application has been approved. You can now start using the tutor dashboard.`,
+      'تم قبول طلب التدريس | Your Tutor Application Has Been Approved',
+      `مرحبًا ${user.firstName}، تمت الموافقة على طلبك ويمكنك الآن استخدام لوحة المعلّم.\n\n---\n\nHi ${user.firstName}, your tutor application has been approved. You can now use the tutor dashboard.`,
     );
 
     return tutor;
@@ -524,8 +536,8 @@ export class TutorsService {
 
     await this.sendEmail(
       tutor.user.email,
-      'Update on Your Tutor Application',
-      `Hi ${tutor.user.firstName}, unfortunately your tutor application has been rejected. Reason: ${reason}`,
+      'تحديث طلب التدريس | Update on Your Tutor Application',
+      `مرحبًا ${tutor.user.firstName}، تم رفض طلب التدريس. السبب: ${reason}\n\n---\n\nHi ${tutor.user.firstName}, your tutor application was rejected. Reason: ${reason}`,
     );
 
     return tutor;
@@ -535,8 +547,8 @@ export class TutorsService {
     const tutor = await this.findOneByUserId(userId);
     await this.sendEmail(
       tutor.user.email,
-      'Update on Your Tutor Application',
-      `Hi ${tutor.user.firstName}, your tutor application is still under review. The moderation team shared this note: ${reason}`,
+      'تحديث طلب التدريس | Update on Your Tutor Application',
+      `مرحبًا ${tutor.user.firstName}، ما زال طلب التدريس قيد المراجعة. ملاحظة فريق المراجعة: ${reason}\n\n---\n\nHi ${tutor.user.firstName}, your tutor application is still under review. Moderation note: ${reason}`,
     );
     return { message: 'Moderation note sent successfully' };
   }
@@ -553,7 +565,7 @@ export class TutorsService {
     totalRevenue: number;
   }> {
     const cacheKey = 'admin:stats';
-    return this.redisService.getOrSet(
+    const stats = await this.redisService.getOrSet(
       cacheKey,
       async () => {
         const totalUsers = await this.userRepository.count();
@@ -588,8 +600,6 @@ export class TutorsService {
           .getRawOne<{ total: number }>()
           .then((r) => parseFloat(String(r?.total ?? '0')));
 
-        const openReports = await this.reportRepository.count();
-
         return {
           totalUsers,
           totalTutors,
@@ -597,13 +607,17 @@ export class TutorsService {
           pendingApplications,
           approvedTutors,
           totalEarnings,
-          openReports,
+          openReports: 0,
           completedLessons,
           totalRevenue,
         };
       },
       60,
     ); // 1 min cache
+    return {
+      ...stats,
+      openReports: await this.reportRepository.count(),
+    };
   }
 
   private async sendEmail(to: string, subject: string, text: string) {

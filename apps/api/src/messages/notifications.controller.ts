@@ -20,11 +20,15 @@ export class NotificationsController {
   getNotifications(
     @CurrentUser() user: { id: string },
     @Query('unread') unread?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const isUnread = unread === 'true';
     return this.messagesService.getNotifications(
       user.id,
       unread ? isUnread : undefined,
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
     );
   }
 

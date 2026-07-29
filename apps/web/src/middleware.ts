@@ -110,9 +110,15 @@ export function middleware(request: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     const nonce = btoa(crypto.randomUUID());
     const apiOrigin = new URL(
-      process.env.NEXT_PUBLIC_API_URL ?? "https://api.mrh.academy/api/v1",
+      process.env.NEXT_PUBLIC_API_URL ??
+        process.env.NEXT_PUBLIC_WS_URL ??
+        "https://api.mrh.academy/api/v1",
     ).origin;
-    const websocketOrigin = apiOrigin.replace(/^http/, "ws");
+    const websocketOrigin = new URL(
+      process.env.NEXT_PUBLIC_WS_URL ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        "https://api.mrh.academy",
+    ).origin.replace(/^http/, "ws");
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'nonce-${nonce}'`,

@@ -199,6 +199,44 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return value;
   }
 
+  async consumeRateLimit(
+    key: string,
+    limit: number,
+    windowSeconds: number,
+  ): Promise<boolean> {
+    if (!this.connected) {
+      const now = Date.now();
+      const entry = this.fallbackCache.get(key);
+      const count =
+        entry && entry.expiresAt > now ? Number(entry.value) + 1 : 1;
+      this.fallbackCache.set(key, {
+        value: String(count),
+        expiresAt:
+          entry && entry.expiresAt > now
+            ? entry.expiresAt
+            : now + windowSeconds * 1000,
+      });
+      return count <= limit;
+    }
+    try {
+      const count = await this.redis.eval(
+        `
+          local count = redis.call('INCR', KEYS[1])
+          if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+          return count
+        `,
+        1,
+        key,
+        windowSeconds,
+      );
+      return Number(count) <= limit;
+    } catch (err) {
+      this.logger.error('Redis rate-limit error', err);
+      this.connected = false;
+      return this.consumeRateLimit(key, limit, windowSeconds);
+    }
+  }
+
   onModuleDestroy() {
     this.redis.disconnect();
   }

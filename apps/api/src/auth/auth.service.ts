@@ -88,11 +88,17 @@ export class AuthService {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const verifyUrl = `${frontendUrl}/ar/verify-email?token=${encodeURIComponent(token)}`;
+    const locale =
+      user.studentProfile?.preferredLanguage?.toLowerCase() === 'en'
+        ? 'en'
+        : 'ar';
+    const verifyUrl = `${frontendUrl.replace(/\/$/, '')}/${locale}/verify-email?token=${encodeURIComponent(token)}`;
     await this.emailService.sendEmail(
       user.email,
-      'Verify your MRH Academy email',
-      `<p>Confirm your email address by opening <a href="${verifyUrl}">this link</a>.</p><p>This link expires in 24 hours.</p>`,
+      'تأكيد بريدك الإلكتروني | Verify your MRH Academy email',
+      `<div dir="rtl"><p>أكّد عنوان بريدك الإلكتروني عبر <a href="${verifyUrl}">فتح هذا الرابط</a>.</p><p>تنتهي صلاحية الرابط خلال 24 ساعة.</p></div>
+<hr>
+<div dir="ltr"><p>Confirm your email address by opening <a href="${verifyUrl}">this link</a>.</p><p>This link expires in 24 hours.</p></div>`,
     );
   }
 
@@ -210,8 +216,22 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const existing = await this.userRepository.findOne({
       where: { email: dto.email },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isVerified: true,
+      },
     });
-    if (existing) {
+    const canClaimCheckoutAccount =
+      existing?.role === UserRole.STUDENT &&
+      existing.passwordHash === null &&
+      !existing.isVerified &&
+      dto.role !== 'tutor';
+    if (existing && !canClaimCheckoutAccount) {
       throw new ConflictException('Email is already registered');
     }
 
@@ -226,6 +246,33 @@ export class AuthService {
 
     try {
       const result = await this.dataSource.transaction(async (manager) => {
+        if (canClaimCheckoutAccount && existing) {
+          const checkoutUser = await manager.findOne(User, {
+            where: { id: existing.id },
+            select: {
+              id: true,
+              email: true,
+              passwordHash: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              isVerified: true,
+            },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (
+            !checkoutUser ||
+            checkoutUser.passwordHash !== null ||
+            checkoutUser.isVerified
+          ) {
+            throw new ConflictException('Email is already registered');
+          }
+          checkoutUser.passwordHash = hashedPassword;
+          checkoutUser.firstName = dto.firstName;
+          checkoutUser.lastName = dto.lastName;
+          return manager.save(User, checkoutUser);
+        }
+
         const user = manager.create(User, {
           email: dto.email,
           passwordHash: hashedPassword,
@@ -411,6 +458,7 @@ export class AuthService {
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
+      relations: { studentProfile: true },
     });
 
     if (!user) {
@@ -431,15 +479,23 @@ export class AuthService {
       'FRONTEND_URL',
       'http://localhost:3000',
     );
-    const resetUrl = `${frontendUrl}/ar/reset-password?token=${encodeURIComponent(token)}`;
+    const locale =
+      user.studentProfile?.preferredLanguage?.toLowerCase() === 'en'
+        ? 'en'
+        : 'ar';
+    const resetUrl = `${frontendUrl.replace(/\/$/, '')}/${locale}/reset-password?token=${encodeURIComponent(token)}`;
 
     await this.emailService.sendEmail(
       dto.email,
-      'Password Reset - MRH Academy',
-      `<p>You requested a password reset.</p>
+      'إعادة تعيين كلمة المرور | Password Reset - MRH Academy',
+      `<div dir="rtl"><p>طلبت إعادة تعيين كلمة المرور.</p>
+<p>اضغط <a href="${resetUrl}">هنا</a> لاختيار كلمة مرور جديدة.</p>
+<p>تنتهي صلاحية الرابط خلال 15 دقيقة. تجاهل الرسالة إذا لم تطلب ذلك.</p></div>
+<hr>
+<div dir="ltr"><p>You requested a password reset.</p>
 <p>Click <a href="${resetUrl}">here</a> to reset your password.</p>
 <p>This link expires in 15 minutes.</p>
-<p>If you did not request this, please ignore this email.</p>`,
+<p>If you did not request this, please ignore this email.</p></div>`,
     );
 
     return {
@@ -473,8 +529,8 @@ export class AuthService {
     await this.revokeSessions(user.id);
     await this.emailService.sendEmail(
       user.email,
-      'Your MRH Academy password was changed',
-      '<p>Your password was changed successfully. If you did not make this change, contact support immediately.</p>',
+      'تم تغيير كلمة المرور | Your MRH Academy password was changed',
+      '<p dir="rtl">تم تغيير كلمة مرورك بنجاح. إذا لم تقم بهذا التغيير، فتواصل مع الدعم فورًا.</p><hr><p>Your password was changed successfully. If you did not make this change, contact support immediately.</p>',
     );
 
     return { message: 'Password reset successfully' };

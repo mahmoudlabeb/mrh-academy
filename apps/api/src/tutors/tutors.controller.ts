@@ -39,6 +39,8 @@ export class TutorsController {
     @Query('languages') languages?: string,
     @Query('sort') sort?: 'asc' | 'desc',
     @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     return this.tutorsService.findAllWithFilters({
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
@@ -46,6 +48,8 @@ export class TutorsController {
       languages,
       sort: sort || 'asc',
       search,
+      page: Math.max(1, Number(page) || 1),
+      limit: Math.min(100, Math.max(1, Number(limit) || 24)),
     });
   }
 

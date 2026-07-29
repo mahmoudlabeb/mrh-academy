@@ -16,9 +16,7 @@ test.describe("Student Dashboard", () => {
       "Saved",
       "Vocabulary",
     ]) {
-      await expect(
-        page.getByRole("link", { name, exact: true }),
-      ).toBeVisible();
+      await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
     }
   });
 

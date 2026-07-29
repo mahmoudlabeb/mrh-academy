@@ -80,7 +80,21 @@ export class EmailService implements OnModuleInit {
       this.logger.debug(`[Email skipped] To: ${to} | Subject: ${subject}`);
       return;
     }
-    this.queue.push({ to, subject, text, retries: 0 });
+    const safeText = sanitizeHtml(text, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    const html = safeText
+      .split(/\r?\n\r?\n/)
+      .map((paragraph) => `<p>${paragraph.replace(/\r?\n/g, '<br>')}</p>`)
+      .join('');
+    this.queue.push({
+      to,
+      subject,
+      text,
+      html: this.renderTemplate(subject, html),
+      retries: 0,
+    });
     this.processQueue();
   }
 
@@ -130,20 +144,44 @@ export class EmailService implements OnModuleInit {
   }
 
   private renderTemplate(subject: string, content: string) {
+    const safeSubject = sanitizeHtml(subject, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+    const safeContent = sanitizeHtml(content, {
+      allowedTags: [
+        'div',
+        'p',
+        'a',
+        'hr',
+        'strong',
+        'em',
+        'ul',
+        'ol',
+        'li',
+        'br',
+      ],
+      allowedAttributes: {
+        div: ['dir', 'lang'],
+        p: ['dir', 'lang'],
+        a: ['href'],
+      },
+      allowedSchemes: ['https', 'http'],
+    });
     return `<!doctype html>
-<html lang="en">
+<html lang="ar">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${subject}</title>
+    <title>${safeSubject}</title>
   </head>
   <body style="margin:0;background:#f3f4f6;font-family:Arial,sans-serif;color:#172033">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 12px;background:#f3f4f6">
       <tr><td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#fff;border-radius:16px;overflow:hidden">
           <tr><td style="padding:24px 30px;background:#172033;color:#fff;font-size:22px;font-weight:700">MRH Academy</td></tr>
-          <tr><td style="padding:30px;font-size:16px;line-height:1.65">${content}</td></tr>
-          <tr><td style="padding:20px 30px;background:#f8fafc;color:#667085;font-size:12px;line-height:1.5">This is a transactional message about your MRH Academy account or activity. Please do not share security links or codes.</td></tr>
+          <tr><td style="padding:30px;font-size:16px;line-height:1.65">${safeContent}</td></tr>
+          <tr><td style="padding:20px 30px;background:#f8fafc;color:#667085;font-size:12px;line-height:1.5"><div dir="rtl">هذه رسالة آلية تخص حسابك أو نشاطك في أكاديمية MRH. لا تشارك روابط الأمان أو الرموز.</div><div dir="ltr">This is a transactional message about your MRH Academy account or activity. Do not share security links or codes.</div></td></tr>
         </table>
       </td></tr>
     </table>

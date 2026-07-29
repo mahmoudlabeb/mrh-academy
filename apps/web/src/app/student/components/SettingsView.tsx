@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
+import { formatPaymentMethod } from "@/lib/format";
 import NotificationPreferencesPanel from "@/components/NotificationPreferencesPanel";
 
 type SettingsSection =
@@ -440,7 +441,7 @@ export default function SettingsView() {
                           className="text-sm font-semibold"
                           style={{ color: "var(--text-main)" }}
                         >
-                          {pm.type}
+                          {formatPaymentMethod(lang, pm.type)}
                         </p>
                         {pm.last4 && (
                           <p
@@ -505,7 +506,7 @@ export default function SettingsView() {
                         className="text-xs mt-0.5"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        {record.method}
+                        {formatPaymentMethod(lang, record.method)}
                       </p>
                     </div>
                     <div className="text-right">

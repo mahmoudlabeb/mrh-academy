@@ -91,6 +91,14 @@ export function BlueprintWorkspaceShell({
     );
   }
   if (!allowed) {
+    const roleHome =
+      user?.role === "student"
+        ? `/${lang}/learn`
+        : user?.role === "tutor"
+          ? `/${lang}/teach`
+          : user?.role === "admin" || user?.role === "subadmin"
+            ? `/${lang}/ops`
+            : `/${lang}`;
     return (
       <main className="workspace-gate">
         <h1>{lang === "ar" ? "غير مصرح لك بالدخول" : "Access unavailable"}</h1>
@@ -101,9 +109,19 @@ export function BlueprintWorkspaceShell({
         </p>
         <Link
           className="btn-primary"
-          href={`/${lang}/sign-in?next=${encodeURIComponent(pathname)}`}
+          href={
+            user
+              ? roleHome
+              : `/${lang}/sign-in?next=${encodeURIComponent(pathname)}`
+          }
         >
-          {lang === "ar" ? "تسجيل الدخول" : "Sign in"}
+          {user
+            ? lang === "ar"
+              ? "الانتقال إلى مساحة عملك"
+              : "Go to your workspace"
+            : lang === "ar"
+              ? "تسجيل الدخول"
+              : "Sign in"}
         </Link>
       </main>
     );
@@ -153,7 +171,9 @@ export function BlueprintWorkspaceShell({
             className="workspace-utility"
             type="button"
             onClick={toggleLanguage}
-            aria-label={lang === "ar" ? "Switch to English" : "التبديل إلى العربية"}
+            aria-label={
+              lang === "ar" ? "Switch to English" : "التبديل إلى العربية"
+            }
             title={lang === "ar" ? "English" : "العربية"}
           >
             <span>{lang === "ar" ? "EN" : "ع"}</span>

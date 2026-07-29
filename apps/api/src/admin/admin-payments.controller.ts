@@ -5,9 +5,9 @@ import {
   Param,
   Body,
   UseGuards,
-  Optional,
   BadRequestException,
   Logger,
+  Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -48,9 +48,8 @@ export class AdminPaymentsController {
     private readonly tutorProfileRepository: Repository<TutorProfile>,
     @InjectRepository(Payout)
     private readonly payoutRepository: Repository<Payout>,
-    @Optional()
     @InjectRepository(CourseEnrollment)
-    private readonly enrollmentRepository?: Repository<CourseEnrollment>,
+    private readonly enrollmentRepository: Repository<CourseEnrollment>,
   ) {}
 
   /**
@@ -61,10 +60,10 @@ export class AdminPaymentsController {
   @Get('tutor-earnings')
   async getTutorEarnings() {
     const [enrollments, tutorProfiles] = await Promise.all([
-      this.enrollmentRepository?.find({
+      this.enrollmentRepository.find({
         relations: { course: { tutor: true }, student: true },
         order: { enrolledAt: 'DESC' },
-      }) ?? [],
+      }),
       this.tutorProfileRepository.find(),
     ]);
     const tutorProfilesById = new Map(
@@ -133,8 +132,14 @@ export class AdminPaymentsController {
   }
 
   @Get()
-  async getAllPayments() {
-    const payments = await this.paymentsService.getAllPayments();
+  async getAllPayments(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const payments = await this.paymentsService.getAllPayments(
+      Math.max(1, Number(page) || 1),
+      Math.min(100, Math.max(1, Number(limit) || 50)),
+    );
     return payments.map((p) => ({
       id: p.id,
       userName: p.user ? `${p.user.firstName} ${p.user.lastName}` : 'Unknown',

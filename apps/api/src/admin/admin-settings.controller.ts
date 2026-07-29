@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserRole } from '@mrh/types';
@@ -46,17 +46,6 @@ export class AdminSettingsController {
       }
     }
     this.commissionService.invalidateCache();
-  }
-
-  @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @RequirePermissions('manage_settings')
-  async updateSettings(
-    @Body() dto: { key: string; value: string }[] | Record<string, string>,
-  ) {
-    await this.handleUpdate(dto);
-    return { message: 'Settings updated successfully' };
   }
 
   @Put()

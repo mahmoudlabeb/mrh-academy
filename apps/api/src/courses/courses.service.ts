@@ -61,11 +61,12 @@ export class CoursesService {
     return referralCode === this.getCourseReferralCode(tutorId, courseId);
   }
 
-  private getCourseReferralCode(tutorId: string, courseId: string): string {
+  private getCourseReferralCode(
+    tutorId: string,
+    courseId: string,
+  ): string | null {
     const secret = this.config.get<string>('application.referralSecret');
-    if (!secret) {
-      throw new Error('Referral signing secret is not configured');
-    }
+    if (!secret) return null;
     const signature = createHmac('sha256', secret)
       .update(`${courseId}:${tutorId}`)
       .digest('hex')
@@ -73,11 +74,13 @@ export class CoursesService {
     return `${tutorId}.${signature}`;
   }
 
-  async findAllApproved() {
+  async findAllApproved(page = 1, limit = 24) {
     return this.courseRepository.find({
       where: { status: CourseStatus.APPROVED, isDraft: false },
       relations: { tutor: true },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
   }
 
@@ -210,7 +213,11 @@ export class CoursesService {
       isDraft: true,
       soldBy: 'academy',
     });
-    return this.courseRepository.save(draft);
+    const saved = await this.courseRepository.save(draft);
+    return {
+      ...saved,
+      referralCode: this.getCourseReferralCode(tutorId, saved.id),
+    };
   }
 
   async updateOwnedCourse(
@@ -257,6 +264,13 @@ export class CoursesService {
 
   async submitForReview(tutorId: string, courseId: string) {
     const course = await this.getOwnedCourse(tutorId, courseId);
+    if (
+      !course.isDraft &&
+      course.status === CourseStatus.PENDING &&
+      course.submittedAt
+    ) {
+      throw new BadRequestException('Course is already pending review');
+    }
     const lessons = await this.lessonRepository.find({
       where: { courseId },
       order: { lessonOrder: 'ASC' },
@@ -525,18 +539,6 @@ export class CoursesService {
           soldBy,
         );
 
-      if (tutorShare > 0) {
-        const creditResult = await manager.increment(
-          TutorProfile,
-          { userId: course.tutorId },
-          'balance',
-          tutorShare,
-        );
-        if (!creditResult.affected) {
-          throw new NotFoundException('Tutor profile not found');
-        }
-      }
-
       const enrollment = manager.create(CourseEnrollment, {
         studentId,
         courseId,
@@ -544,6 +546,8 @@ export class CoursesService {
         tutorShare,
         soldBy,
         referralTutorId: hasValidReferral ? course.tutorId : null,
+        tutorShareAvailableAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        tutorShareReleasedAt: null,
       });
       await manager.save(enrollment);
 

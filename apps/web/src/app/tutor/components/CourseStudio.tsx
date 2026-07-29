@@ -114,7 +114,9 @@ function statusCopy(
 export default function CourseStudio() {
   const { lang } = useLanguage();
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
-  const [filter, setFilter] = useState<"all" | "recorded" | "live" | "pending" | "drafts">("all");
+  const [filter, setFilter] = useState<
+    "all" | "recorded" | "live" | "pending" | "drafts"
+  >("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const coursesQuery = useQuery({
@@ -125,7 +127,8 @@ export default function CourseStudio() {
 
   const courses = coursesQuery.data ?? [];
   const visibleCourses = courses.filter((course) => {
-    if (filter === "recorded") return course.courseType !== "live" && !course.isDraft;
+    if (filter === "recorded")
+      return course.courseType !== "live" && !course.isDraft;
     if (filter === "live") return course.courseType === "live";
     if (filter === "pending") return course.status === "pending";
     if (filter === "drafts") return Boolean(course.isDraft);
@@ -134,7 +137,9 @@ export default function CourseStudio() {
   const pendingCount = courses.filter(
     (course) => course.status === "pending",
   ).length;
-  const liveCount = courses.filter((course) => course.courseType === "live").length;
+  const liveCount = courses.filter(
+    (course) => course.courseType === "live",
+  ).length;
   const draftCount = courses.filter((course) => course.isDraft).length;
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
@@ -180,7 +185,11 @@ export default function CourseStudio() {
             <button
               type="button"
               className="course-manager__cohort"
-              onClick={() => window.location.assign(`/${lang}/teach/courses/new/studio?type=live`)}
+              onClick={() =>
+                window.location.assign(
+                  `/${lang}/teach/courses/new/studio?type=live`,
+                )
+              }
               aria-describedby="cohort-capability-note"
             >
               <span aria-hidden="true">◉</span>
@@ -243,11 +252,19 @@ export default function CourseStudio() {
         >
           {t("قيد المراجعة", "Pending review")} ({pendingCount})
         </button>
-        <button type="button" className={filter === "live" ? "active" : undefined} onClick={() => setFilter("live")}>
+        <button
+          type="button"
+          className={filter === "live" ? "active" : undefined}
+          onClick={() => setFilter("live")}
+        >
           {t("مباشرة", "Live")} ({liveCount})
         </button>
         <span>
-          <button type="button" className={filter === "drafts" ? "active" : undefined} onClick={() => setFilter("drafts")}>
+          <button
+            type="button"
+            className={filter === "drafts" ? "active" : undefined}
+            onClick={() => setFilter("drafts")}
+          >
             {t("المسودات", "Drafts")} (—)
           </button>
           <small id="draft-filter-note">
@@ -459,10 +476,10 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
       learningOutcomes: existingCourse.learningOutcomes ?? [],
       requirements: Array.isArray(existingCourse.requirements)
         ? existingCourse.requirements.join(", ")
-        : existingCourse.requirements ?? "",
+        : (existingCourse.requirements ?? ""),
       targetAudience: Array.isArray(existingCourse.targetAudience)
         ? existingCourse.targetAudience.join(", ")
-        : existingCourse.targetAudience ?? "",
+        : (existingCourse.targetAudience ?? ""),
       language: existingCourse.language ?? "Arabic",
       level: existingCourse.level ?? "Beginner",
       capacity: String(existingCourse.capacity ?? 12),
@@ -502,10 +519,16 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
           previewVideoUrl: activeDraft.previewVideoUrl.trim() || undefined,
           learningOutcomes: activeDraft.learningOutcomes,
           requirements: activeDraft.requirements.trim()
-            ? activeDraft.requirements.split(",").map((item) => item.trim()).filter(Boolean)
+            ? activeDraft.requirements
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean)
             : undefined,
           targetAudience: activeDraft.targetAudience.trim()
-            ? activeDraft.targetAudience.split(",").map((item) => item.trim()).filter(Boolean)
+            ? activeDraft.targetAudience
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean)
             : undefined,
           language: activeDraft.language,
           level: activeDraft.level,
@@ -532,7 +555,9 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
     },
   });
 
-  const readonly = Boolean(courseId && existingCourse && !existingCourse.isDraft);
+  const readonly = Boolean(
+    courseId && existingCourse && !existingCourse.isDraft,
+  );
   const steps: Array<{
     id: StudioStep;
     section: string;
@@ -704,7 +729,9 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
             <button
               type="button"
               className="btn-secondary"
-              disabled={!courseId || readonly || saveDraft.isPending || !touched}
+              disabled={
+                !courseId || readonly || saveDraft.isPending || !touched
+              }
               onClick={() => saveDraft.mutate()}
               aria-describedby="save-draft-capability-note"
             >
@@ -717,7 +744,9 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
           <button
             type="submit"
             className="btn-primary"
-            disabled={readonly || createCourse.isPending || submitForReview.isPending}
+            disabled={
+              readonly || createCourse.isPending || submitForReview.isPending
+            }
           >
             {createCourse.isPending
               ? t("يرسل للخادم…", "Sending to server…")
@@ -862,7 +891,9 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
             <LearnersStepV2
               t={t}
               outcomes={activeDraft.learningOutcomes}
-              onChange={(learningOutcomes) => update("learningOutcomes", learningOutcomes)}
+              onChange={(learningOutcomes) =>
+                update("learningOutcomes", learningOutcomes)
+              }
             />
           )}
           {step === "structure" && (
@@ -985,16 +1016,46 @@ function LearnersStepV2({
   const [value, setValue] = useState("");
   return (
     <>
-      <StudioHeading title={t("نتائج التعلم", "Learning outcomes")} description={t("ما الذي سيتعلمه الطالب؟", "Tell students what they will be able to do.")} />
+      <StudioHeading
+        title={t("نتائج التعلم", "Learning outcomes")}
+        description={t(
+          "ما الذي سيتعلمه الطالب؟",
+          "Tell students what they will be able to do.",
+        )}
+      />
       <section className="studio-panel studio-form">
         <ul className="studio-outcome-list">
           {outcomes.map((outcome, index) => (
-            <li key={`${outcome}-${index}`}><span>{outcome}</span><button type="button" onClick={() => onChange(outcomes.filter((_, i) => i !== index))}>×</button></li>
+            <li key={`${outcome}-${index}`}>
+              <span>{outcome}</span>
+              <button
+                type="button"
+                onClick={() => onChange(outcomes.filter((_, i) => i !== index))}
+              >
+                ×
+              </button>
+            </li>
           ))}
         </ul>
         <div className="studio-disabled-row">
-          <input value={value} onChange={(event) => setValue(event.target.value)} placeholder={t("مثال: التحدث بثقة", "e.g. Speak confidently in everyday situations")} />
-          <button type="button" disabled={!value.trim()} onClick={() => { onChange([...outcomes, value.trim()]); setValue(""); }}>+ {t("إضافة نتيجة", "Add outcome")}</button>
+          <input
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder={t(
+              "مثال: التحدث بثقة",
+              "e.g. Speak confidently in everyday situations",
+            )}
+          />
+          <button
+            type="button"
+            disabled={!value.trim()}
+            onClick={() => {
+              onChange([...outcomes, value.trim()]);
+              setValue("");
+            }}
+          >
+            + {t("إضافة نتيجة", "Add outcome")}
+          </button>
         </div>
       </section>
     </>
@@ -1025,10 +1086,22 @@ function StructureStep({
       />
       <section className="studio-panel studio-form">
         <Field label={t("العنوان الفرعي", "Subtitle")}>
-          <input value={draft.subtitle} onChange={(event) => update("subtitle", event.target.value)} disabled={readonly} maxLength={240} />
+          <input
+            value={draft.subtitle}
+            onChange={(event) => update("subtitle", event.target.value)}
+            disabled={readonly}
+            maxLength={240}
+          />
         </Field>
         <Field label={t("فيديو المقدمة", "Introduction video URL")}>
-          <input value={draft.previewVideoUrl} onChange={(event) => update("previewVideoUrl", event.target.value)} disabled={readonly} dir="ltr" type="url" placeholder="https://..." />
+          <input
+            value={draft.previewVideoUrl}
+            onChange={(event) => update("previewVideoUrl", event.target.value)}
+            disabled={readonly}
+            dir="ltr"
+            type="url"
+            placeholder="https://..."
+          />
         </Field>
         <Field
           label={t("عنوان الدورة", "Course title")}
@@ -1068,8 +1141,19 @@ function StructureStep({
           />
         </Field>
         <Field label={t("نوع الدورة", "Course format")}>
-          <select value={draft.courseType} onChange={(event) => update("courseType", event.target.value as CourseDraft["courseType"])} disabled={readonly}>
-            <option value="recorded">{t("دورة مسجلة", "Recorded course")}</option>
+          <select
+            value={draft.courseType}
+            onChange={(event) =>
+              update(
+                "courseType",
+                event.target.value as CourseDraft["courseType"],
+              )
+            }
+            disabled={readonly}
+          >
+            <option value="recorded">
+              {t("دورة مسجلة", "Recorded course")}
+            </option>
             <option value="live">{t("دورة مباشرة", "Live cohort")}</option>
           </select>
         </Field>
@@ -1095,9 +1179,19 @@ function CurriculumStep({
   const [videoUrl, setVideoUrl] = useState("");
   const addLesson = useMutation({
     mutationFn: async () => {
-      const id = typeof window !== "undefined" ? window.location.pathname.match(/courses\/([^/]+)/)?.[1] : undefined;
+      const id =
+        typeof window !== "undefined"
+          ? window.location.pathname.match(/courses\/([^/]+)/)?.[1]
+          : undefined;
       if (!id) throw new Error("Course id is required.");
-      return (await apiClient.post<CourseLesson>(`/courses/${id}/lessons`, { title: title.trim(), durationMinutes: Number(duration), contentType: "video", videoAssetId: videoUrl.trim() || undefined })).data;
+      return (
+        await apiClient.post<CourseLesson>(`/courses/${id}/lessons`, {
+          title: title.trim(),
+          durationMinutes: Number(duration),
+          contentType: "video",
+          videoAssetId: videoUrl.trim() || undefined,
+        })
+      ).data;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["course-lessons"] });
@@ -1157,11 +1251,31 @@ function CurriculumStep({
           </div>
         )}
         <div className="studio-disabled-row">
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("عنوان الدرس", "Lesson title")} />
-          <input value={duration} onChange={(event) => setDuration(event.target.value)} type="number" min="1" placeholder={t("الدقائق", "Minutes")} />
-          <input value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} dir="ltr" placeholder="https://video-url" />
-          <button type="button" className="btn-secondary" disabled={!hasCourse || !title.trim() || addLesson.isPending} onClick={() => addLesson.mutate()}>
-          ＋ {t("إضافة قسم أو درس", "Add section or lesson")}
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={t("عنوان الدرس", "Lesson title")}
+          />
+          <input
+            value={duration}
+            onChange={(event) => setDuration(event.target.value)}
+            type="number"
+            min="1"
+            placeholder={t("الدقائق", "Minutes")}
+          />
+          <input
+            value={videoUrl}
+            onChange={(event) => setVideoUrl(event.target.value)}
+            dir="ltr"
+            placeholder="https://video-url"
+          />
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!hasCourse || !title.trim() || addLesson.isPending}
+            onClick={() => addLesson.mutate()}
+          >
+            ＋ {t("إضافة قسم أو درس", "Add section or lesson")}
           </button>
         </div>
       </section>
@@ -1185,15 +1299,28 @@ function LandingStep({
   t: (ar: string, en: string) => string;
 }) {
   const uploadMedia = useMutation({
-    mutationFn: async ({ kind, file }: { kind: "cover" | "preview"; file: File }) => {
+    mutationFn: async ({
+      kind,
+      file,
+    }: {
+      kind: "cover" | "preview";
+      file: File;
+    }) => {
       if (!courseId) throw new Error("Create a draft first.");
       const body = new FormData();
       body.append("media", file);
-      return (await apiClient.post<Course>(`/courses/${courseId}/media/${kind}`, body, { headers: { "Content-Type": "multipart/form-data" } })).data;
+      return (
+        await apiClient.post<Course>(
+          `/courses/${courseId}/media/${kind}`,
+          body,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        )
+      ).data;
     },
     onSuccess: (course) => {
       if (course.thumbnailUrl) update("thumbnailUrl", course.thumbnailUrl);
-      if (course.previewVideoUrl) update("previewVideoUrl", course.previewVideoUrl);
+      if (course.previewVideoUrl)
+        update("previewVideoUrl", course.previewVideoUrl);
     },
   });
   return (
@@ -1207,16 +1334,26 @@ function LandingStep({
       />
       <section className="studio-panel studio-form">
         <Field label={t("رفع غلاف الدورة", "Upload course cover")}>
-          <input type="file" accept="image/*" disabled={!courseId || readonly || uploadMedia.isPending} onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) uploadMedia.mutate({ kind: "cover", file });
-          }} />
+          <input
+            type="file"
+            accept="image/*"
+            disabled={!courseId || readonly || uploadMedia.isPending}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) uploadMedia.mutate({ kind: "cover", file });
+            }}
+          />
         </Field>
         <Field label={t("رفع فيديو المقدمة", "Upload introduction video")}>
-          <input type="file" accept="video/*" disabled={!courseId || readonly || uploadMedia.isPending} onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) uploadMedia.mutate({ kind: "preview", file });
-          }} />
+          <input
+            type="file"
+            accept="video/*"
+            disabled={!courseId || readonly || uploadMedia.isPending}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) uploadMedia.mutate({ kind: "preview", file });
+            }}
+          />
         </Field>
         <Field
           label={t("عنوان الدورة", "Course title")}

@@ -48,11 +48,16 @@ export class ReminderService {
           this.emailService
             .sendEmail(
               lesson.student.email,
-              'Lesson Reminder — MRH Academy',
-              `<p>Your lesson is starting in 1 hour!</p>
+              'تذكير بالدرس | Lesson Reminder — MRH Academy',
+              `<div dir="rtl"><p>سيبدأ درسك خلال ساعة واحدة.</p>
+<p>المعلّم: ${lesson.tutor?.firstName ?? 'المعلّم'} ${lesson.tutor?.lastName ?? ''}</p>
+<p>الموعد: ${lesson.scheduledTime.toLocaleString('ar-EG')}</p>
+<p>المدة: ${lesson.durationMinutes} دقيقة</p></div>
+<hr>
+<div dir="ltr"><p>Your lesson is starting in 1 hour!</p>
 <p>Tutor: ${lesson.tutor?.firstName ?? 'Tutor'} ${lesson.tutor?.lastName ?? ''}</p>
 <p>Time: ${lesson.scheduledTime.toLocaleString()}</p>
-<p>Duration: ${lesson.durationMinutes} minutes</p>`,
+<p>Duration: ${lesson.durationMinutes} minutes</p></div>`,
             )
             .catch((err) =>
               this.logger.error(
@@ -66,11 +71,16 @@ export class ReminderService {
           this.emailService
             .sendEmail(
               lesson.tutor.email,
-              'Lesson Reminder — MRH Academy',
-              `<p>Your lesson is starting in 1 hour!</p>
+              'تذكير بالدرس | Lesson Reminder — MRH Academy',
+              `<div dir="rtl"><p>سيبدأ درسك خلال ساعة واحدة.</p>
+<p>الطالب: ${lesson.student?.firstName ?? 'الطالب'} ${lesson.student?.lastName ?? ''}</p>
+<p>الموعد: ${lesson.scheduledTime.toLocaleString('ar-EG')}</p>
+<p>المدة: ${lesson.durationMinutes} دقيقة</p></div>
+<hr>
+<div dir="ltr"><p>Your lesson is starting in 1 hour!</p>
 <p>Student: ${lesson.student?.firstName ?? 'Student'} ${lesson.student?.lastName ?? ''}</p>
 <p>Time: ${lesson.scheduledTime.toLocaleString()}</p>
-<p>Duration: ${lesson.durationMinutes} minutes</p>`,
+<p>Duration: ${lesson.durationMinutes} minutes</p></div>`,
             )
             .catch((err) =>
               this.logger.error(
