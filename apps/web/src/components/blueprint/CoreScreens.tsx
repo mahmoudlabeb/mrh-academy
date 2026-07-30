@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { useTheme } from "@/contexts/theme-context";
 import NotificationPreferencesPanel from "@/components/NotificationPreferencesPanel";
+import { TutorBookings } from "@/components/tutor/TutorBookings";
 import { formatCurrency } from "@/lib/format";
 import {
   normalizeCollection,
@@ -91,12 +92,10 @@ async function fetchStudentLessons(): Promise<StudentLesson[]> {
 }
 
 function lessonStatusLabel(lang: "ar" | "en", status: LessonStatus): string {
-  const labels: Record<LessonStatus, { ar: string; en: string }> = {
-    [LessonStatus.PENDING]: { ar: "قيد الانتظار", en: "Pending" },
+  const labels: Partial<Record<LessonStatus, { ar: string; en: string }>> = {
     [LessonStatus.CONFIRMED]: { ar: "مؤكد", en: "Confirmed" },
     [LessonStatus.COMPLETED]: { ar: "مكتمل", en: "Completed" },
     [LessonStatus.CANCELLED]: { ar: "ملغي", en: "Cancelled" },
-    [LessonStatus.REJECTED]: { ar: "مرفوض", en: "Rejected" },
   };
   return labels[status]?.[lang] ?? String(status);
 }
@@ -240,9 +239,7 @@ export function LearnerLessonsScreen() {
   const { lang, t, date } = useCopy();
   const queryClient = useQueryClient();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [filter, setFilter] = useState<"upcoming" | "pending" | "past">(
-    "upcoming",
-  );
+  const [filter, setFilter] = useState<"upcoming" | "past">("upcoming");
   const [cancelLessonId, setCancelLessonId] = useState<string | null>(null);
   const lessonsQuery = useQuery({
     queryKey: ["core-student-lessons"],
@@ -274,11 +271,8 @@ export function LearnerLessonsScreen() {
   const visible = (lessonsQuery.data ?? []).filter((lesson) =>
     filter === "upcoming"
       ? lesson.status === LessonStatus.CONFIRMED
-      : filter === "pending"
-        ? lesson.status === LessonStatus.PENDING
-        : lesson.status === LessonStatus.COMPLETED ||
-          lesson.status === LessonStatus.CANCELLED ||
-          lesson.status === LessonStatus.REJECTED,
+      : lesson.status === LessonStatus.COMPLETED ||
+        lesson.status === LessonStatus.CANCELLED,
   );
   return (
     <main className="blueprint-workspace-page">
@@ -307,12 +301,10 @@ export function LearnerLessonsScreen() {
         role="tablist"
         aria-label={t("تصفية الدروس", "Lesson filters")}
       >
-        {(["upcoming", "pending", "past"] as const).map((key) => (
+        {(["upcoming", "past"] as const).map((key) => (
           <button
             ref={(node) => {
-              tabRefs.current[
-                key === "upcoming" ? 0 : key === "pending" ? 1 : 2
-              ] = node;
+              tabRefs.current[key === "upcoming" ? 0 : 1] = node;
             }}
             role="tab"
             aria-selected={filter === key}
@@ -322,7 +314,7 @@ export function LearnerLessonsScreen() {
             key={key}
             onClick={() => setFilter(key)}
             onKeyDown={(event) => {
-              const keys = ["upcoming", "pending", "past"] as const;
+              const keys = ["upcoming", "past"] as const;
               const current = keys.indexOf(key);
               let next = current;
               if (event.key === "Home") next = 0;
@@ -343,9 +335,7 @@ export function LearnerLessonsScreen() {
           >
             {key === "upcoming"
               ? t("قادمة", "Upcoming")
-              : key === "pending"
-                ? t("قيد الانتظار", "Pending")
-                : t("السجل", "History")}
+              : t("السجل", "History")}
           </button>
         ))}
       </div>
@@ -359,9 +349,7 @@ export function LearnerLessonsScreen() {
         <h2>
           {filter === "upcoming"
             ? t("الجلسات المؤكدة القادمة", "Upcoming confirmed sessions")
-            : filter === "pending"
-              ? t("طلبات بانتظار القرار", "Requests awaiting a decision")
-              : t("سجل الدروس", "Lesson history")}
+            : t("سجل الدروس", "Lesson history")}
         </h2>
         <StateBlock
           loading={lessonsQuery.isLoading}
@@ -410,8 +398,7 @@ export function LearnerLessonsScreen() {
                 >
                   {t("التفاصيل", "Details")}
                 </Link>
-                {(lesson.status === LessonStatus.PENDING ||
-                  lesson.status === LessonStatus.CONFIRMED) && (
+                {lesson.status === LessonStatus.CONFIRMED && (
                   <button
                     className="btn-danger"
                     type="button"
@@ -490,22 +477,12 @@ type TutorLesson = {
 type LessonPage = { data: TutorLesson[] };
 
 export function TutorTodayScreen() {
-  const { lang, t, date } = useCopy();
+  const { lang, t } = useCopy();
   const statsQuery = useQuery({
     queryKey: ["core-tutor-stats"],
     queryFn: async () =>
       (await apiClient.get<TutorStats>("/tutors/me/stats")).data,
   });
-  const lessonsQuery = useQuery({
-    queryKey: ["core-tutor-lessons"],
-    queryFn: async () => (await apiClient.get<LessonPage>("/lessons")).data,
-  });
-  const pending = (lessonsQuery.data?.data ?? []).filter(
-    (lesson) => lesson.status === LessonStatus.PENDING,
-  );
-  const upcoming = (lessonsQuery.data?.data ?? [])
-    .filter((lesson) => lesson.status === LessonStatus.CONFIRMED)
-    .slice(0, 3);
   return (
     <main className="blueprint-workspace-page">
       <section className="blueprint-tutor-hero">
@@ -517,12 +494,10 @@ export function TutorTodayScreen() {
             {t("مساحة التدريس جاهزة", "Your teaching workspace is ready")}
           </h1>
           <p>
-            {pending.length
-              ? t(
-                  `لديك ${pending.length} طلبات تحتاج قراراً.`,
-                  `${pending.length} booking requests need a decision.`,
-                )
-              : t("لا توجد طلبات معلقة.", "No booking requests are waiting.")}
+            {t(
+              "تم تأكيد الدروس المدفوعة تلقائياً.",
+              "Paid lessons are confirmed automatically.",
+            )}
           </p>
         </div>
         <Link className="btn-primary" href={`/${lang}/teach/schedule`}>
@@ -546,38 +521,13 @@ export function TutorTodayScreen() {
         </section>
       </div>
       <section className="blueprint-table-section">
-        <h2>{t("المواعيد القادمة", "Upcoming student appointments")}</h2>
-        <StateBlock
-          loading={lessonsQuery.isLoading}
-          error={lessonsQuery.isError}
-          empty={!upcoming.length}
-          emptyText={t(
-            "لا توجد جلسات مؤكدة قادمة.",
-            "No confirmed sessions are upcoming.",
+        <TutorBookings
+          title={t("حجوزات الطلاب", "Student appointments")}
+          description={t(
+            "كل الحصص المسندة إليك، مع حالة الدفع وأدوات إدارة الموعد.",
+            "Every lesson assigned to you, with payment state and appointment controls.",
           )}
-        >
-          <div className="blueprint-focus-list">
-            {upcoming.map((lesson) => (
-              <article key={lesson.id}>
-                <div>
-                  <strong>
-                    {lesson.student?.firstName} {lesson.student?.lastName}
-                  </strong>
-                  <p>
-                    {date(lesson.scheduledTime)} · {lesson.durationMinutes}{" "}
-                    {t("دقيقة", "min")}
-                  </p>
-                </div>
-                <Link
-                  className="btn-primary"
-                  href={`/${lang}/lesson/${lesson.id}`}
-                >
-                  {t("فتح الدرس", "Open lesson")}
-                </Link>
-              </article>
-            ))}
-          </div>
-        </StateBlock>
+        />
       </section>
     </main>
   );
@@ -735,6 +685,15 @@ export function TutorScheduleScreen() {
             </span>
           ))}
         </div>
+      </section>
+      <section className="blueprint-table-section">
+        <TutorBookings
+          title={t("الحجوزات والمواعيد", "Bookings & appointments")}
+          description={t(
+            "راجع مواعيد الطلاب أو أعد جدولتها أو ألغها من مكان واحد.",
+            "Review, reschedule, or cancel student appointments in one place.",
+          )}
+        />
       </section>
     </main>
   );

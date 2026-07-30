@@ -1,6 +1,10 @@
-import { IsUUID, IsISO8601, IsIn } from 'class-validator';
+import { IsUUID, IsISO8601, IsIn, IsOptional } from 'class-validator';
 
 export class BookLessonDto {
+  @IsOptional()
+  @IsUUID()
+  idempotencyKey?: string;
+
   @IsUUID()
   tutorId: string;
 

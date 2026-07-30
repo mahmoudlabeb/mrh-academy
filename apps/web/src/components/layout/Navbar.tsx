@@ -34,16 +34,16 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
       href: localize("/tutors"),
     },
     {
-      label: isAr ? "مكتبة الدورات" : "Course library",
+      label: isAr ? "الدورات" : "Courses",
       href: localize("/courses"),
     },
     {
-      label: isAr ? "انضم كمدرّس" : "Become a tutor",
-      href: localize("/become-a-tutor"),
+      label: isAr ? "تدريب الشركات" : "Corporate training",
+      href: "/corporate-training",
     },
     {
-      label: isAr ? "موارد المعلّمين" : "Teaching resources",
-      href: localize("/resources"),
+      label: isAr ? "كن مدرّسًا" : "Become a tutor",
+      href: localize("/become-a-tutor"),
     },
   ];
 
@@ -115,11 +115,8 @@ export default function Navbar({ language }: { language?: "ar" | "en" } = {}) {
             isAr ? "الصفحة الرئيسية لأكاديمية MRH" : "MRH Academy home"
           }
         >
-          <span className="academy-crest" aria-hidden="true">
-            M
-          </span>
           <span className="academy-wordmark">
-            <strong>MRH Academy</strong>
+            <strong>Mr.H Academy</strong>
           </span>
         </Link>
 

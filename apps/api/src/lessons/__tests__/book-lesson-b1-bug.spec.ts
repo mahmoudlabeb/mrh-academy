@@ -137,7 +137,7 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
       endTime: new Date(dt.getTime() + 50 * 60000),
       durationMinutes: 50,
       price: 25,
-      status: LessonStatus.PENDING,
+      status: LessonStatus.CONFIRMED,
       meetUrl: 'room-abc',
       createdAt: new Date(),
       platformFee: 0,
@@ -171,6 +171,7 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       create: jest.fn((_cls: any, data: any) => data),
+      decrement: jest.fn(),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.tutorId && data.studentId) {
           return { ...finalLesson, ...data };

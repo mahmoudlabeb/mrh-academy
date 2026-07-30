@@ -20,7 +20,7 @@ type Lesson = {
 
 export default function StudentLessonsPage() {
   const { lang } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"upcoming" | "pending" | "past">(
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past">(
     "upcoming",
   );
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
@@ -34,20 +34,12 @@ export default function StudentLessonsPage() {
   const upcomingLessons = lessons.filter(
     (lesson) => lesson.status === LessonStatus.CONFIRMED,
   );
-  const pendingLessons = lessons.filter(
-    (lesson) => lesson.status === LessonStatus.PENDING,
-  );
   const pastLessons = lessons.filter(
     (lesson) =>
       lesson.status === LessonStatus.COMPLETED ||
       lesson.status === LessonStatus.CANCELLED,
   );
-  const tabLessons =
-    activeTab === "upcoming"
-      ? upcomingLessons
-      : activeTab === "pending"
-        ? pendingLessons
-        : pastLessons;
+  const tabLessons = activeTab === "upcoming" ? upcomingLessons : pastLessons;
 
   if (isLoading) {
     return (
@@ -79,10 +71,6 @@ export default function StudentLessonsPage() {
           {
             key: "upcoming" as const,
             label: `${t("قادمة", "Upcoming")} (${upcomingLessons.length})`,
-          },
-          {
-            key: "pending" as const,
-            label: `${t("بانتظار القبول", "Pending")} (${pendingLessons.length})`,
           },
           {
             key: "past" as const,
@@ -193,11 +181,6 @@ export default function StudentLessonsPage() {
                 </div>
               )}
 
-              {lesson.status === LessonStatus.PENDING && (
-                <StatusBadge color="var(--warning)">
-                  {t("بانتظار القبول", "Awaiting Approval")}
-                </StatusBadge>
-              )}
               {lesson.status === LessonStatus.COMPLETED && (
                 <StatusBadge color="var(--success)">
                   {t("مكتمل", "Completed")}

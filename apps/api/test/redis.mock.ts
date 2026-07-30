@@ -7,6 +7,26 @@ export class RedisServiceMock {
     this.store.set(key, value);
   }
 
+  async setNX(
+    key: string,
+    value: string,
+    _ttlSeconds: number,
+  ): Promise<boolean> {
+    if (this.store.has(key)) return false;
+    this.store.set(key, value);
+    return true;
+  }
+
+  async consumeRateLimit(
+    key: string,
+    limit: number,
+    _windowSeconds: number,
+  ): Promise<boolean> {
+    const count = Number(this.store.get(key) ?? 0) + 1;
+    this.store.set(key, String(count));
+    return count <= limit;
+  }
+
   get(key: string) {
     return this.store.get(key) ?? null;
   }

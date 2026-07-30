@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Keep the first client render identical to SSR. The persisted preference is
   // applied immediately after hydration; the inline layout script prevents a
   // visible flash before then.
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   const applyTheme = useCallback((t: Theme) => {
     const root = document.documentElement;
@@ -59,7 +59,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
-    const initialTheme: Theme = stored === "dark" ? "dark" : "light";
+    const initialTheme: Theme = stored === "light" ? "light" : "dark";
     setThemeState(initialTheme);
     applyTheme(initialTheme);
   }, [applyTheme]);

@@ -31,12 +31,6 @@ const statusConfig: Record<
     bg: "var(--success-soft)",
     color: "var(--success)",
   },
-  pending: {
-    labelAr: "بانتظار الموافقة",
-    labelEn: "Awaiting Approval",
-    bg: "var(--warning-soft)",
-    color: "var(--warning)",
-  },
   completed: {
     labelAr: "مكتمل",
     labelEn: "Completed",
@@ -55,7 +49,7 @@ const CANCELLATION_REFUND_HOURS = 24;
 
 function isCancellable(lesson: Lesson) {
   return (
-    (lesson.status === "confirmed" || lesson.status === "pending") &&
+    lesson.status === "confirmed" &&
     new Date(lesson.date).getTime() > Date.now()
   );
 }

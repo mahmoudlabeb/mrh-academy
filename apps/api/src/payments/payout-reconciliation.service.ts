@@ -23,6 +23,7 @@ export class PayoutReconciliationService {
     const stuckPayouts = await payoutRepo.find({
       where: {
         status: PayoutStatus.PENDING,
+        method: 'stripe_connect',
         createdAt: LessThan(oneHourAgo),
       },
     });
@@ -33,10 +34,22 @@ export class PayoutReconciliationService {
 
     for (const payout of stuckPayouts) {
       await this.dataSource.transaction(async (manager) => {
-        if (payout.stripePayoutId) {
+        const lockedPayout = await manager.findOne(Payout, {
+          where: { id: payout.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (
+          !lockedPayout ||
+          lockedPayout.status !== PayoutStatus.PENDING ||
+          lockedPayout.method !== 'stripe_connect'
+        ) {
+          return;
+        }
+
+        if (lockedPayout.stripePayoutId) {
           await manager.update(
             Payout,
-            { id: payout.id },
+            { id: lockedPayout.id },
             {
               status: PayoutStatus.SUCCESS,
             },
@@ -46,16 +59,17 @@ export class PayoutReconciliationService {
           );
         } else {
           const profile = await manager.findOne(TutorProfile, {
-            where: { userId: payout.tutorId },
+            where: { userId: lockedPayout.tutorId },
             lock: { mode: 'pessimistic_write' },
           });
           if (profile) {
-            profile.balance = Number(profile.balance) + Number(payout.amount);
+            profile.balance =
+              Number(profile.balance) + Number(lockedPayout.amount);
             await manager.save(TutorProfile, profile);
           }
           await manager.update(
             Payout,
-            { id: payout.id },
+            { id: lockedPayout.id },
             {
               status: PayoutStatus.FAILED,
               errorMessage: 'Reconciled: Stripe transfer was never initiated',

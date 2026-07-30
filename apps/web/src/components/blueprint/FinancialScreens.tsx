@@ -207,7 +207,12 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
                 <span>{formatDate(payment.createdAt)}</span>
                 <strong>
                   {payment.amount >= 0 ? "+" : "−"}
-                  {formatCurrency(lang, Math.abs(Number(payment.amount)))}
+                  {formatCurrency(
+                    lang,
+                    Math.abs(Number(payment.amount)),
+                    2,
+                    payment.currency === "EGP" ? "EGP" : "USD",
+                  )}
                 </strong>
                 <span
                   className={`blueprint-status blueprint-status--${payment.status}`}
@@ -219,7 +224,12 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
           </div>
         </DataNotice>
       </section>
-      {addFunds && <AddFundsPanel balance={balance} />}
+      {addFunds && (
+        <AddFundsPanel
+          balance={balance}
+          egpRate={Number(balanceQuery.data?.egpRate) || null}
+        />
+      )}
     </main>
   );
 }
@@ -247,7 +257,13 @@ const PAYMENT_OPTIONS = [
   },
 ] as const;
 
-function AddFundsPanel({ balance }: { balance: number }) {
+function AddFundsPanel({
+  balance,
+  egpRate,
+}: {
+  balance: number;
+  egpRate: number | null;
+}) {
   const { lang, t } = useCopy();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -289,6 +305,16 @@ function AddFundsPanel({ balance }: { balance: number }) {
   }, [methodsQuery.data, methodsQuery.isSuccess]);
   const selected = PAYMENT_OPTIONS.find((option) => option.key === method);
   const amountNumber = Number(amount);
+  const validEgpRate =
+    egpRate !== null && Number.isFinite(egpRate) && egpRate > 0
+      ? egpRate
+      : null;
+  const walletCredit =
+    currency === "EGP"
+      ? validEgpRate
+        ? amountNumber / validEgpRate
+        : 0
+      : amountNumber;
   const submit = useMutation({
     mutationFn: async () => {
       const data = new FormData();
@@ -331,6 +357,7 @@ function AddFundsPanel({ balance }: { balance: number }) {
     methodsQuery.isSuccess &&
     selectedMethodIsEnabled &&
     amountNumber >= 5 &&
+    (currency === "USD" || validEgpRate !== null) &&
     (!selected?.receipt || Boolean(receipt));
   return (
     <RoutedPanel
@@ -351,8 +378,8 @@ function AddFundsPanel({ balance }: { balance: number }) {
             {submit.isPending
               ? t("جارٍ إرسال العملية…", "Submitting transaction…")
               : t(
-                  `تأكيد إيداع ${formatCurrency(lang, amountNumber)}`,
-                  `Confirm deposit of ${formatCurrency(lang, amountNumber)}`,
+                  `تأكيد إيداع ${formatCurrency(lang, amountNumber, 2, currency)}`,
+                  `Confirm deposit of ${formatCurrency(lang, amountNumber, 2, currency)}`,
                 )}
           </button>
         ) : undefined
@@ -426,8 +453,11 @@ function AddFundsPanel({ balance }: { balance: number }) {
               }
             >
               <option>USD</option>
-              <option>EGP</option>
+              <option disabled={validEgpRate === null}>EGP</option>
             </select>
+            {currency === "EGP" && validEgpRate && (
+              <small>1 USD = {validEgpRate} EGP</small>
+            )}
           </label>
           <fieldset>
             <legend>{t("طريقة الدفع", "Payment method")}</legend>
@@ -514,7 +544,7 @@ function AddFundsPanel({ balance }: { balance: number }) {
             <p>
               <span>{t("بعد التحقق", "After verification")}</span>
               <strong>
-                {formatCurrency(lang, balance + Math.max(0, amountNumber))}
+                {formatCurrency(lang, balance + Math.max(0, walletCredit))}
               </strong>
             </p>
             <small>

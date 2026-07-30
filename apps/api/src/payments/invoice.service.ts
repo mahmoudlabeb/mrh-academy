@@ -33,6 +33,7 @@ export class InvoiceService {
     studentName: string;
     tutorName: string;
     amount: number;
+    currency: string;
     method: string;
     status: string;
     createdAt: Date;
@@ -66,7 +67,9 @@ export class InvoiceService {
       doc.text(`Tutor: ${reshapeForPdf(invoiceData.tutorName)}`);
       doc.moveDown();
 
-      doc.text(`Amount: $${invoiceData.amount.toFixed(2)}`);
+      doc.text(
+        `Amount: ${invoiceData.amount.toFixed(2)} ${invoiceData.currency}`,
+      );
       doc.text(`Payment Method: ${invoiceData.method}`);
       doc.text(`Status: ${invoiceData.status}`);
 

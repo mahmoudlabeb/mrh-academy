@@ -44,22 +44,25 @@ export class StripeService implements OnModuleInit {
     userId: string,
     amount: number,
     paymentId: string,
+    currency: 'USD' | 'EGP',
   ) {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    // Convert USD to cents
+    // Both supported currencies use two decimal minor units.
     const amountInCents = Math.round(amount * 100);
+    const providerCurrency = currency.toLowerCase();
+    const currencySymbol = currency === 'EGP' ? 'EGP ' : '$';
 
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
-            currency: this.currency,
+            currency: providerCurrency,
             product_data: {
               name: 'Mr.H Academy Balance',
-              description: `Add $${amount} to your student balance`,
+              description: `Add ${currencySymbol}${amount} to your student balance`,
             },
             unit_amount: amountInCents,
           },
@@ -73,6 +76,7 @@ export class StripeService implements OnModuleInit {
       metadata: {
         userId,
         paymentId,
+        currency,
       },
     });
 

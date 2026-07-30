@@ -23,7 +23,7 @@ export class SubmitPaymentDto {
   @IsOptional()
   @IsString()
   @IsIn(['USD', 'EGP'])
-  currency?: string;
+  currency?: 'USD' | 'EGP';
 
   @IsOptional()
   @IsString()

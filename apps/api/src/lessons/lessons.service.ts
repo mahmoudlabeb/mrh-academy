@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -21,6 +22,8 @@ import { EmailService } from '../integrations/email/email.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
+import { RescheduleLessonDto } from './dto/reschedule-lesson.dto.js';
+import { Notification } from '../messages/entities/notification.entity.js';
 
 @Injectable()
 export class LessonsService {
@@ -39,6 +42,9 @@ export class LessonsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(TutorAvailability)
     private readonly availabilityRepository: Repository<TutorAvailability>,
+    @Optional()
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification> | null,
     private readonly commissionService: CommissionService,
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
@@ -62,17 +68,22 @@ export class LessonsService {
         tutorId: true,
         studentId: true,
         scheduledTime: true,
+        endTime: true,
         durationMinutes: true,
         status: true,
         price: true,
+        roomId: true,
         meetUrl: true,
         googleMeetUrl: true,
         notes: true,
+        createdAt: true,
+        updatedAt: true,
         tutor: {
           id: true,
           firstName: true,
           lastName: true,
           avatarUrl: true,
+          timezone: true,
         },
         student: {
           id: true,
@@ -86,10 +97,28 @@ export class LessonsService {
       take: limit,
     });
 
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return {
+      data: data.map((lesson) => this.presentLesson(lesson)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async bookLesson(studentId: string, dto: BookLessonDto) {
+    const idempotencyKey = dto.idempotencyKey ?? randomUUID();
+    if (dto.idempotencyKey) {
+      const existingLesson = await this.lessonRepository.findOne({
+        where: { idempotencyKey },
+        relations: { tutor: true, student: true },
+      });
+      if (existingLesson) {
+        this.assertMatchingBookingRetry(existingLesson, studentId, dto);
+        return existingLesson;
+      }
+    }
+
     const tutorProfile = await this.tutorProfileRepository.findOne({
       where: { userId: dto.tutorId },
       relations: { user: true },
@@ -126,74 +155,123 @@ export class LessonsService {
       tutorProfile.user?.timezone ?? 'UTC',
     );
 
-    const lesson = await this.dataSource.transaction(async (manager) => {
-      const tutorProfileLocked = await manager.findOne(TutorProfile, {
-        where: { userId: dto.tutorId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!tutorProfileLocked) {
-        throw new NotFoundException('Tutor not found');
-      }
+    let booking: { lesson: Lesson; created: boolean };
+    try {
+      booking = await this.dataSource.transaction(async (manager) => {
+        const studentProfile = await manager.findOne(StudentProfile, {
+          where: { userId: studentId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!studentProfile) {
+          throw new NotFoundException('Student profile not found');
+        }
 
-      const overlapping = await manager
-        .createQueryBuilder(Lesson, 'l')
-        .setLock('pessimistic_read')
-        .where('l.tutorId = :tutorId', { tutorId: dto.tutorId })
-        .andWhere('l.status IN (:...statuses)', {
-          statuses: [LessonStatus.PENDING, LessonStatus.CONFIRMED],
-        })
-        .andWhere('l.scheduledTime < :endTime', { endTime })
-        .andWhere('l.endTime > :scheduledDate', { scheduledDate })
-        .getOne();
+        // Serializing on the student's wallet makes retries safe even when two
+        // requests with the same key arrive at the same time.
+        if (dto.idempotencyKey) {
+          const duplicate = await manager.findOne(Lesson, {
+            where: { idempotencyKey },
+          });
+          if (duplicate) {
+            this.assertMatchingBookingRetry(duplicate, studentId, dto);
+            return { lesson: duplicate, created: false };
+          }
+        }
 
-      if (overlapping) {
-        throw new BadRequestException(
-          'Tutor already has a lesson at this time',
-        );
-      }
+        const tutorProfileLocked = await manager.findOne(TutorProfile, {
+          where: { userId: dto.tutorId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!tutorProfileLocked) {
+          throw new NotFoundException('Tutor not found');
+        }
 
-      const studentProfile = await manager.findOne(StudentProfile, {
-        where: { userId: studentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!studentProfile) {
-        throw new NotFoundException('Student profile not found');
-      }
-      const availableBalance =
-        Number(studentProfile.balance) -
-        Number(studentProfile.heldBalance ?? 0);
-      if (availableBalance < price) {
-        throw new BadRequestException('Student has insufficient balance');
-      }
+        const overlapping = await manager
+          .createQueryBuilder(Lesson, 'l')
+          .setLock('pessimistic_read')
+          .where('l.tutorId = :tutorId', { tutorId: dto.tutorId })
+          .andWhere('l.status = :status', {
+            status: LessonStatus.CONFIRMED,
+          })
+          .andWhere('l.scheduledTime < :endTime', { endTime })
+          .andWhere('l.endTime > :scheduledDate', { scheduledDate })
+          .getOne();
 
-      const roomId = `room-${randomUUID()}`;
+        if (overlapping) {
+          throw new BadRequestException(
+            'Tutor already has a lesson at this time',
+          );
+        }
 
-      const lessonEntity = manager.create(Lesson, {
-        tutorId: dto.tutorId,
-        studentId,
-        scheduledTime: scheduledDate,
-        endTime,
-        durationMinutes: dto.durationMinutes,
-        price,
-        status: LessonStatus.PENDING,
-        roomId,
-        meetUrl: roomId,
-      });
-      const saved = await manager.save(Lesson, lessonEntity);
-      // EntityManager always exposes increment in production. Keeping this
-      // defensive guard also lets lightweight repository doubles used by
-      // maintenance scripts continue to exercise booking logic.
-      if (typeof manager.increment === 'function') {
-        await manager.increment(
+        const availableBalance =
+          Number(studentProfile.balance) -
+          Number(studentProfile.heldBalance ?? 0);
+        if (availableBalance < price) {
+          throw new BadRequestException('Student has insufficient balance');
+        }
+
+        const studentUser = await manager.findOne(User, {
+          where: { id: studentId, isActive: true },
+          lock: { mode: 'pessimistic_read' },
+        });
+        if (!studentUser) {
+          throw new BadRequestException('Student account is no longer active');
+        }
+
+        const roomId = `room-${randomUUID()}`;
+
+        const lessonEntity = manager.create(Lesson, {
+          tutorId: dto.tutorId,
+          studentId,
+          scheduledTime: scheduledDate,
+          endTime,
+          durationMinutes: dto.durationMinutes,
+          price,
+          idempotencyKey,
+          status: LessonStatus.CONFIRMED,
+          platformFee: null,
+          roomId,
+          meetUrl: roomId,
+        });
+        const saved = await manager.save(Lesson, lessonEntity);
+        await manager.decrement(
           StudentProfile,
           { userId: studentId },
-          'heldBalance',
+          'balance',
           price,
         );
-      }
+        await manager.save(
+          Classroom,
+          manager.create(Classroom, { lessonId: saved.id, isActive: true }),
+        );
 
-      return saved;
-    });
+        return { lesson: saved, created: true };
+      });
+    } catch (error) {
+      const errorCode =
+        (error as { code?: string; driverError?: { code?: string } })?.code ??
+        (error as { driverError?: { code?: string } })?.driverError?.code;
+      if (dto.idempotencyKey && errorCode === '23505') {
+        const duplicate = await this.lessonRepository.findOne({
+          where: { idempotencyKey: dto.idempotencyKey },
+          relations: { tutor: true, student: true },
+        });
+        if (duplicate) {
+          this.assertMatchingBookingRetry(duplicate, studentId, dto);
+          return duplicate;
+        }
+      }
+      throw error;
+    }
+
+    if (!booking.created) {
+      return this.lessonRepository.findOne({
+        where: { id: booking.lesson.id },
+        relations: { tutor: true, student: true },
+      });
+    }
+
+    const lesson = booking.lesson;
 
     await this.redisService.del(`lessons:user:${studentId}`);
     await this.redisService.del(`lessons:user:${dto.tutorId}`);
@@ -240,204 +318,20 @@ export class LessonsService {
       }),
     ]);
 
-    if (tutorUser?.email) {
-      this.emailService
-        .sendEmail(
-          tutorUser.email,
-          'طلب درس جديد | New Lesson Request — MRH Academy',
-          `<div dir="rtl"><p>طلب طالب حجز درس معك.</p>
-<p>الطالب: ${savedLesson?.student?.firstName ?? 'الطالب'} ${savedLesson?.student?.lastName ?? ''}</p>
-<p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
-<p>المدة: ${dto.durationMinutes} دقيقة</p>
-<p>السعر: $${price.toFixed(2)}</p>
-<p>يمكنك قبول الطلب أو رفضه من لوحة الدروس.</p></div><hr><div dir="ltr">
-<p>A student has requested a lesson with you.</p>
-<p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
-<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
-<p>Duration: ${dto.durationMinutes} minutes</p>
-<p>Price: $${price.toFixed(2)}</p>
-<p>Approve or reject the request from your lessons dashboard.</p></div>`,
-        )
-        .catch((err) => this.logger.error('Email delivery failed', err));
-    }
-
-    if (studentUser?.email) {
-      this.emailService
-        .sendEmail(
-          studentUser.email,
-          'تم إرسال طلب الدرس | Lesson Request Sent — MRH Academy',
-          `<div dir="rtl"><p>تم إرسال طلبك إلى المعلّم للموافقة.</p>
-<p>المعلّم: ${savedLesson?.tutor?.firstName ?? 'المعلّم'} ${savedLesson?.tutor?.lastName ?? ''}</p>
-<p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
-<p>المدة: ${dto.durationMinutes} دقيقة</p>
-<p>السعر: $${price.toFixed(2)}</p>
-<p>سنخطرك عندما يرد المعلّم.</p></div><hr><div dir="ltr">
-<p>Your request was sent to the tutor for approval.</p>
-<p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
-<p>Scheduled: ${scheduledDate.toLocaleString()}</p>
-<p>Duration: ${dto.durationMinutes} minutes</p>
-<p>Price: $${price.toFixed(2)}</p>
-<p>We will notify you when the tutor responds.</p></div>`,
-        )
-        .catch((err) => this.logger.error('Email delivery failed', err));
-    }
-
-    return savedLesson;
-  }
-
-  async approveLesson(lessonId: string, tutorId: string) {
-    const lesson = await this.lessonRepository.findOne({
-      where: { id: lessonId, tutorId },
-      relations: { tutor: true, student: true },
-    });
-
-    if (!lesson) {
-      throw new NotFoundException('Lesson not found');
-    }
-
-    if (lesson.tutorId !== tutorId) {
-      throw new ForbiddenException('Only the tutor can approve a lesson');
-    }
-
-    if (lesson.status !== LessonStatus.PENDING) {
-      throw new BadRequestException('Lesson is not in pending status');
-    }
-
-    const scheduledDate = lesson.scheduledTime;
-    const endTime =
-      lesson.endTime ||
-      new Date(scheduledDate.getTime() + lesson.durationMinutes * 60000);
-
-    const price = lesson.price;
-
-    await this.dataSource.transaction(async (manager) => {
-      const overlappingLesson = await manager
-        .createQueryBuilder(Lesson, 'lesson')
-        .setLock('pessimistic_read')
-        .where('lesson.tutorId = :tutorId', { tutorId })
-        .andWhere('lesson.id != :lessonId', { lessonId })
-        .andWhere('lesson.status = :status', {
-          status: LessonStatus.CONFIRMED,
-        })
-        .andWhere('lesson.scheduledTime < :endTime', { endTime })
-        .andWhere('lesson.endTime > :scheduledDate', { scheduledDate })
-        .getOne();
-
-      if (overlappingLesson) {
-        throw new BadRequestException(
-          'Tutor already has a lesson at this time',
-        );
-      }
-
-      const studentProfile = await manager.findOne(StudentProfile, {
-        where: { userId: lesson.studentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!studentProfile) {
-        throw new NotFoundException('Student profile not found');
-      }
-
-      if (studentProfile.balance < price) {
-        throw new BadRequestException('Student has insufficient balance');
-      }
-
-      const studentUser = await manager.findOne(User, {
-        where: { id: lesson.studentId, isActive: true },
-        lock: { mode: 'pessimistic_read' },
-      });
-      if (!studentUser) {
-        throw new BadRequestException('Student account is no longer active');
-      }
-
-      const tutorProfile = await manager.findOne(TutorProfile, {
-        where: { userId: lesson.tutorId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!tutorProfile) {
-        throw new NotFoundException('Tutor profile not found');
-      }
-
-      await manager.decrement(
-        StudentProfile,
-        { userId: lesson.studentId },
-        'balance',
-        price,
-      );
-      const heldAmount = Math.min(
-        Number(studentProfile.heldBalance ?? 0),
-        Number(price),
-      );
-      if (heldAmount > 0) {
-        await manager.decrement(
-          StudentProfile,
-          { userId: lesson.studentId },
-          'heldBalance',
-          heldAmount,
-        );
-      }
-
-      await manager.update(
-        Lesson,
-        { id: lessonId },
-        {
-          status: LessonStatus.CONFIRMED,
-          // Financial recognition happens only when the lesson is completed.
-          // Keeping this null also makes cancellations unambiguous: confirmed
-          // means charged, while a non-null fee means legacy earnings may have
-          // already been credited and must be reversed on cancellation.
-          platformFee: null,
-        },
-      );
-
-      const existingClassroom = await manager.findOne(Classroom, {
-        where: { lessonId },
-      });
-      if (existingClassroom) {
-        existingClassroom.isActive = true;
-        await manager.save(Classroom, existingClassroom);
-      } else {
-        await manager.save(
-          Classroom,
-          manager.create(Classroom, { lessonId, isActive: true }),
-        );
-      }
-    });
-
-    await this.redisService.del(`lessons:user:${lesson.studentId}`);
-    await this.redisService.del(`lessons:user:${lesson.tutorId}`);
-
-    const updatedLesson = await this.lessonRepository.findOne({
-      where: { id: lessonId },
-      relations: { tutor: true, student: true },
-    });
-
     let googleMeetUrl: string | null = null;
-    const [tutorUser, studentUser] = await Promise.all([
-      this.userRepository.findOne({
-        where: { id: lesson.tutorId },
-        select: { id: true, email: true },
-      }),
-      this.userRepository.findOne({
-        where: { id: lesson.studentId },
-        select: { id: true, email: true },
-      }),
-    ]);
-
     try {
       const meetLinkResult = await this.calendarService.createLessonMeetLink({
-        summary: `MRH Academy Lesson: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} & ${updatedLesson?.student?.firstName ?? 'Student'}`,
+        summary: `MRH Academy Lesson: ${savedLesson?.tutor?.firstName ?? 'Tutor'} & ${savedLesson?.student?.firstName ?? 'Student'}`,
         description: 'Language lesson booked on MRH Academy.',
         start: scheduledDate,
         end: endTime,
         tutorEmail:
           tutorUser?.email ??
-          `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
+          `tutor-${dto.tutorId}@lessons.mrhacademy.internal`,
         studentEmail:
           studentUser?.email ??
-          `student-${lesson.studentId}@lessons.mrhacademy.internal`,
+          `student-${studentId}@lessons.mrhacademy.internal`,
       });
-
       if (meetLinkResult) {
         googleMeetUrl = meetLinkResult.meetUrl;
         await this.lessonRepository.update(lesson.id, {
@@ -453,23 +347,53 @@ export class LessonsService {
       );
     }
 
+    if (this.notificationRepository) {
+      const notificationRepository = this.notificationRepository;
+      await Promise.all(
+        [
+          {
+            userId: studentId,
+            title: 'Lesson confirmed | تم تأكيد الدرس',
+            body: `Your payment was verified and your lesson is confirmed for ${scheduledDate.toLocaleString()}. | تم التحقق من الدفع وتأكيد درسك.`,
+          },
+          {
+            userId: dto.tutorId,
+            title: 'New confirmed lesson | درس مؤكد جديد',
+            body: `A paid lesson is confirmed for ${scheduledDate.toLocaleString()}. No approval is required. | تم تأكيد درس مدفوع ولا يلزم اتخاذ إجراء.`,
+          },
+        ].map((notification) =>
+          notificationRepository
+            .save(
+              notificationRepository.create({
+                ...notification,
+                type: 'lesson_confirmed',
+                isRead: false,
+              }),
+            )
+            .catch((error) =>
+              this.logger.error('Lesson notification failed', error),
+            ),
+        ),
+      );
+    }
+
     if (tutorUser?.email) {
       this.emailService
         .sendEmail(
           tutorUser.email,
-          'تمت الموافقة على الدرس | Lesson Approved — MRH Academy',
-          `<div dir="rtl"><p>لقد وافقت على الدرس.</p>
-<p>الطالب: ${updatedLesson?.student?.firstName ?? 'الطالب'} ${updatedLesson?.student?.lastName ?? ''}</p>
+          'درس مؤكد جديد | New Confirmed Lesson — MRH Academy',
+          `<div dir="rtl"><p>تم تأكيد درس مدفوع معك، ولا يلزم اتخاذ إجراء.</p>
+<p>الطالب: ${savedLesson?.student?.firstName ?? 'الطالب'} ${savedLesson?.student?.lastName ?? ''}</p>
 <p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
-<p>المدة: ${lesson.durationMinutes} دقيقة</p>
+<p>المدة: ${dto.durationMinutes} دقيقة</p>
 <p>السعر: $${price.toFixed(2)}</p>
 ${googleMeetUrl ? `<p>رابط الاجتماع: <a href="${googleMeetUrl}">انضم من هنا</a></p>` : ''}</div><hr><div dir="ltr">
-<p>You have approved the lesson.</p>
-<p>Student: ${updatedLesson?.student?.firstName ?? 'Student'} ${updatedLesson?.student?.lastName ?? ''}</p>
+<p>A paid lesson has been confirmed with you. No approval is required.</p>
+<p>Student: ${savedLesson?.student?.firstName ?? 'Student'} ${savedLesson?.student?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
-<p>Duration: ${lesson.durationMinutes} minutes</p>
+<p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}</div>`,
+${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}</div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
@@ -478,75 +402,186 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       this.emailService
         .sendEmail(
           studentUser.email,
-          'تمت الموافقة على الدرس | Lesson Approved — MRH Academy',
-          `<div dir="rtl"><p>وافق المعلّم على درسك.</p>
-<p>المعلّم: ${updatedLesson?.tutor?.firstName ?? 'المعلّم'} ${updatedLesson?.tutor?.lastName ?? ''}</p>
+          'تم تأكيد الدرس | Lesson Confirmed — MRH Academy',
+          `<div dir="rtl"><p>تم التحقق من الدفع وتأكيد درسك فوراً.</p>
+<p>المعلّم: ${savedLesson?.tutor?.firstName ?? 'المعلّم'} ${savedLesson?.tutor?.lastName ?? ''}</p>
 <p>الموعد: ${scheduledDate.toLocaleString('ar-EG')}</p>
-<p>المدة: ${lesson.durationMinutes} دقيقة</p>
+<p>المدة: ${dto.durationMinutes} دقيقة</p>
 <p>السعر: $${price.toFixed(2)}</p>
 ${googleMeetUrl ? `<p>رابط الاجتماع: <a href="${googleMeetUrl}">انضم من هنا</a></p>` : ''}</div><hr><div dir="ltr">
-<p>Your lesson has been approved by the tutor.</p>
-<p>Tutor: ${updatedLesson?.tutor?.firstName ?? 'Tutor'} ${updatedLesson?.tutor?.lastName ?? ''}</p>
+<p>Your payment was verified by the server and your lesson is confirmed.</p>
+<p>Tutor: ${savedLesson?.tutor?.firstName ?? 'Tutor'} ${savedLesson?.tutor?.lastName ?? ''}</p>
 <p>Scheduled: ${scheduledDate.toLocaleString()}</p>
-<p>Duration: ${lesson.durationMinutes} minutes</p>
+<p>Duration: ${dto.durationMinutes} minutes</p>
 <p>Price: $${price.toFixed(2)}</p>
-${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}</div>`,
+${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p>` : ''}</div>`,
         )
         .catch((err) => this.logger.error('Email delivery failed', err));
     }
 
-    return updatedLesson;
+    return savedLesson;
   }
 
-  async rejectLesson(lessonId: string, tutorId: string) {
+  async rescheduleLesson(
+    lessonId: string,
+    tutorId: string,
+    dto: RescheduleLessonDto,
+  ) {
     const lesson = await this.lessonRepository.findOne({
-      where: { id: lessonId, tutorId },
+      where: { id: lessonId },
+      relations: { tutor: true, student: true },
     });
-
     if (!lesson) {
       throw new NotFoundException('Lesson not found');
     }
-
     if (lesson.tutorId !== tutorId) {
-      throw new ForbiddenException('Only the tutor can reject a lesson');
+      throw new ForbiddenException(
+        'Only the assigned tutor can reschedule this lesson',
+      );
+    }
+    if (lesson.status !== LessonStatus.CONFIRMED) {
+      throw new BadRequestException(
+        'Only confirmed lessons can be rescheduled',
+      );
     }
 
-    if (lesson.status !== LessonStatus.PENDING) {
-      throw new BadRequestException('Lesson is not in pending status');
+    const scheduledTime = new Date(dto.scheduledTime);
+    if (Number.isNaN(scheduledTime.getTime())) {
+      throw new BadRequestException('Invalid scheduled time format');
+    }
+    if (scheduledTime.getTime() <= Date.now()) {
+      throw new BadRequestException('Scheduled time must be in the future');
     }
 
-    await this.dataSource.transaction(async (manager) => {
+    if (lesson.scheduledTime.getTime() === scheduledTime.getTime()) {
+      return { ...this.presentLesson(lesson), rescheduled: false };
+    }
+
+    const tutorProfile = await this.tutorProfileRepository.findOne({
+      where: { userId: tutorId },
+      relations: { user: true },
+    });
+    if (!tutorProfile) {
+      throw new NotFoundException('Tutor profile not found');
+    }
+
+    const endTime = new Date(
+      scheduledTime.getTime() + lesson.durationMinutes * 60_000,
+    );
+    await this.assertWithinAvailability(
+      tutorId,
+      scheduledTime,
+      lesson.durationMinutes,
+      tutorProfile.user?.timezone ?? lesson.tutor?.timezone ?? 'UTC',
+    );
+
+    const change = await this.dataSource.transaction(async (manager) => {
       const lockedLesson = await manager.findOne(Lesson, {
         where: { id: lessonId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!lockedLesson || lockedLesson.status !== LessonStatus.PENDING) {
-        throw new BadRequestException('Lesson is not in pending status');
+      if (!lockedLesson) {
+        throw new NotFoundException('Lesson not found');
       }
-      const studentProfile = await manager.findOne(StudentProfile, {
-        where: { userId: lockedLesson.studentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      lockedLesson.status = LessonStatus.REJECTED;
-      await manager.save(Lesson, lockedLesson);
-      const heldAmount = Math.min(
-        Number(studentProfile?.heldBalance ?? 0),
-        Number(lockedLesson.price),
-      );
-      if (heldAmount > 0) {
-        await manager.decrement(
-          StudentProfile,
-          { userId: lockedLesson.studentId },
-          'heldBalance',
-          heldAmount,
+      if (lockedLesson.tutorId !== tutorId) {
+        throw new ForbiddenException(
+          'Only the assigned tutor can reschedule this lesson',
         );
       }
+      if (lockedLesson.status !== LessonStatus.CONFIRMED) {
+        throw new BadRequestException(
+          'Only confirmed lessons can be rescheduled',
+        );
+      }
+      if (lockedLesson.scheduledTime.getTime() === scheduledTime.getTime()) {
+        return { changed: false, previousCalendarEventId: null };
+      }
+
+      const overlapping = await manager
+        .createQueryBuilder(Lesson, 'l')
+        .setLock('pessimistic_read')
+        .where('l.tutorId = :tutorId', { tutorId })
+        .andWhere('l.id != :lessonId', { lessonId })
+        .andWhere('l.status = :status', {
+          status: LessonStatus.CONFIRMED,
+        })
+        .andWhere('l.scheduledTime < :endTime', { endTime })
+        .andWhere('l.endTime > :scheduledTime', { scheduledTime })
+        .getOne();
+      if (overlapping) {
+        throw new BadRequestException(
+          'Tutor already has a lesson at this time',
+        );
+      }
+
+      const previousCalendarEventId = lockedLesson.calendarEventId;
+      lockedLesson.scheduledTime = scheduledTime;
+      lockedLesson.endTime = endTime;
+      lockedLesson.calendarEventId = null;
+      lockedLesson.googleMeetUrl = null;
+      await manager.save(Lesson, lockedLesson);
+      return { changed: true, previousCalendarEventId };
     });
 
-    await this.redisService.del(`lessons:user:${lesson.studentId}`);
-    await this.redisService.del(`lessons:user:${lesson.tutorId}`);
+    if (!change.changed) {
+      const current = await this.lessonRepository.findOne({
+        where: { id: lessonId },
+        relations: { tutor: true, student: true },
+      });
+      return {
+        ...this.presentLesson(current ?? lesson),
+        rescheduled: false,
+      };
+    }
 
-    return { message: 'Lesson request rejected' };
+    if (change.previousCalendarEventId) {
+      await this.calendarService.deleteCalendarEvent(
+        change.previousCalendarEventId,
+      );
+    }
+
+    try {
+      const meetLinkResult = await this.calendarService.createLessonMeetLink({
+        summary: `MRH Academy Lesson: ${lesson.tutor?.firstName ?? 'Tutor'} & ${lesson.student?.firstName ?? 'Student'}`,
+        description: 'Language lesson rescheduled on MRH Academy.',
+        start: scheduledTime,
+        end: endTime,
+        tutorEmail:
+          lesson.tutor?.email ??
+          `tutor-${lesson.tutorId}@lessons.mrhacademy.internal`,
+        studentEmail:
+          lesson.student?.email ??
+          `student-${lesson.studentId}@lessons.mrhacademy.internal`,
+      });
+      if (meetLinkResult) {
+        await this.lessonRepository.update(lessonId, {
+          googleMeetUrl: meetLinkResult.meetUrl,
+          calendarEventId: meetLinkResult.calendarEventId ?? null,
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Calendar update unavailable for rescheduled lesson ${lessonId}: ${String(error)}`,
+      );
+    }
+
+    await this.redisService.del(`lessons:user:${lesson.tutorId}`);
+    await this.redisService.del(`lessons:user:${lesson.studentId}`);
+
+    const rescheduled = await this.lessonRepository.findOne({
+      where: { id: lessonId },
+      relations: { tutor: true, student: true },
+    });
+    if (!rescheduled) {
+      lesson.scheduledTime = scheduledTime;
+      lesson.endTime = endTime;
+      lesson.calendarEventId = null;
+      lesson.googleMeetUrl = null;
+    }
+    return {
+      ...this.presentLesson(rescheduled ?? lesson),
+      rescheduled: true,
+    };
   }
 
   async completeLesson(
@@ -711,10 +746,15 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
     if (lesson.studentId !== userId && lesson.tutorId !== userId) {
       throw new ForbiddenException('You are not a participant of this lesson');
     }
-    if (
-      lesson.status !== LessonStatus.CONFIRMED &&
-      lesson.status !== LessonStatus.PENDING
-    ) {
+    if (lesson.status === LessonStatus.CANCELLED) {
+      return {
+        ...this.presentLesson(lesson),
+        refunded: true,
+        refundAmount: Number(lesson.price),
+        duplicate: true,
+      };
+    }
+    if (lesson.status !== LessonStatus.CONFIRMED) {
       throw new BadRequestException('Lesson cannot be cancelled');
     }
 
@@ -736,75 +776,74 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       );
     }
 
-    let refundAmount = 0;
-
-    await this.dataSource.transaction(async (manager) => {
+    const cancellation = await this.dataSource.transaction(async (manager) => {
       const lockedLesson = await manager.findOne(Lesson, {
         where: { id: lessonId },
         lock: { mode: 'pessimistic_write' },
       });
 
-      if (
-        !lockedLesson ||
-        (lockedLesson.status !== LessonStatus.CONFIRMED &&
-          lockedLesson.status !== LessonStatus.PENDING)
-      ) {
+      if (!lockedLesson) {
+        throw new NotFoundException('Lesson not found');
+      }
+      if (lockedLesson.status === LessonStatus.CANCELLED) {
+        return {
+          changed: false,
+          refundAmount: Number(lockedLesson.price),
+        };
+      }
+      if (lockedLesson.status !== LessonStatus.CONFIRMED) {
         throw new BadRequestException('Lesson cannot be cancelled');
       }
 
-      const previousStatus = lockedLesson.status;
       lockedLesson.status = LessonStatus.CANCELLED;
       await manager.save(Lesson, lockedLesson);
 
-      if (previousStatus === LessonStatus.CONFIRMED) {
-        await manager.increment(
-          StudentProfile,
-          { userId: lockedLesson.studentId },
-          'balance',
-          lockedLesson.price,
-        );
-        refundAmount = lockedLesson.price;
+      await manager.increment(
+        StudentProfile,
+        { userId: lockedLesson.studentId },
+        'balance',
+        lockedLesson.price,
+      );
 
-        // Compatibility for lessons confirmed before earnings recognition was
-        // moved to completion: reverse any tutor share already credited.
-        if (
-          lockedLesson.platformFee !== null &&
-          lockedLesson.platformFee !== undefined
-        ) {
-          const tutorShare = Math.max(
-            0,
-            Number(lockedLesson.price) - Number(lockedLesson.platformFee),
-          );
-          if (tutorShare > 0) {
-            await manager.decrement(
-              TutorProfile,
-              { userId: lockedLesson.tutorId },
-              'balance',
-              tutorShare,
-            );
-          }
-        }
-      } else {
-        const studentProfile = await manager.findOne(StudentProfile, {
-          where: { userId: lockedLesson.studentId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        const heldAmount = Math.min(
-          Number(studentProfile?.heldBalance ?? 0),
-          Number(lockedLesson.price),
+      // Compatibility for lessons confirmed before earnings recognition was
+      // moved to completion: reverse any tutor share already credited.
+      if (
+        lockedLesson.platformFee !== null &&
+        lockedLesson.platformFee !== undefined
+      ) {
+        const tutorShare = Math.max(
+          0,
+          Number(lockedLesson.price) - Number(lockedLesson.platformFee),
         );
-        if (heldAmount > 0) {
+        if (tutorShare > 0) {
           await manager.decrement(
-            StudentProfile,
-            { userId: lockedLesson.studentId },
-            'heldBalance',
-            heldAmount,
+            TutorProfile,
+            { userId: lockedLesson.tutorId },
+            'balance',
+            tutorShare,
           );
         }
       }
 
       await manager.update(Classroom, { lessonId }, { isActive: false });
+      return {
+        changed: true,
+        refundAmount: Number(lockedLesson.price),
+      };
     });
+
+    if (!cancellation.changed) {
+      const duplicate = await this.lessonRepository.findOne({
+        where: { id: lessonId },
+        relations: { tutor: true, student: true },
+      });
+      return {
+        ...this.presentLesson(duplicate ?? lesson),
+        refunded: true,
+        refundAmount: cancellation.refundAmount,
+        duplicate: true,
+      };
+    }
 
     await this.redisService.del(`lessons:user:${lesson.tutorId}`);
     await this.redisService.del(`lessons:user:${lesson.studentId}`);
@@ -852,6 +891,7 @@ ${googleMeetUrl ? `<p>📹 Video Meeting: <a href="${googleMeetUrl}">Join here</
       ? `${cancelled.student.firstName} ${cancelled.student.lastName}`
       : 'Student';
     const scheduledLabel = lesson.scheduledTime.toLocaleString();
+    const refundAmount = cancellation.refundAmount;
     const wasRefunded = refundAmount > 0;
     const refundNote = wasRefunded
       ? `<p>A refund of $${refundAmount.toFixed(2)} has been credited to the student balance.</p>`
@@ -900,9 +940,10 @@ ${studentRefundNote}</div>`,
     }
 
     return {
-      ...cancelled,
+      ...this.presentLesson(cancelled ?? lesson),
       refunded: wasRefunded,
       refundAmount,
+      duplicate: false,
     };
   }
 
@@ -1039,6 +1080,72 @@ ${studentRefundNote}</div>`,
       throw new BadRequestException('Classroom is closed');
     }
     return lesson;
+  }
+
+  private presentLesson(lesson: Lesson) {
+    const timezone = lesson.tutor?.timezone ?? 'UTC';
+    return {
+      id: lesson.id,
+      tutorId: lesson.tutorId,
+      studentId: lesson.studentId,
+      scheduledTime: lesson.scheduledTime,
+      endTime:
+        lesson.endTime ??
+        new Date(
+          lesson.scheduledTime.getTime() + lesson.durationMinutes * 60_000,
+        ),
+      durationMinutes: lesson.durationMinutes,
+      price: lesson.price,
+      platformFee: lesson.platformFee,
+      status: lesson.status,
+      sessionStatus: lesson.status,
+      paymentStatus:
+        lesson.status === LessonStatus.CANCELLED
+          ? ('refunded' as const)
+          : ('paid' as const),
+      timezone,
+      roomId: lesson.roomId,
+      meetUrl: lesson.meetUrl,
+      googleMeetUrl: lesson.googleMeetUrl,
+      notes: lesson.notes,
+      createdAt: lesson.createdAt,
+      updatedAt: lesson.updatedAt,
+      tutor: lesson.tutor
+        ? {
+            id: lesson.tutor.id,
+            firstName: lesson.tutor.firstName,
+            lastName: lesson.tutor.lastName,
+            avatarUrl: lesson.tutor.avatarUrl,
+          }
+        : null,
+      student: lesson.student
+        ? {
+            id: lesson.student.id,
+            firstName: lesson.student.firstName,
+            lastName: lesson.student.lastName,
+            avatarUrl: lesson.student.avatarUrl,
+          }
+        : null,
+    };
+  }
+
+  private assertMatchingBookingRetry(
+    lesson: Lesson,
+    studentId: string,
+    dto: BookLessonDto,
+  ): void {
+    const requestedTime = new Date(dto.scheduledTime).getTime();
+    const existingTime = new Date(lesson.scheduledTime).getTime();
+    if (
+      lesson.studentId !== studentId ||
+      lesson.tutorId !== dto.tutorId ||
+      lesson.durationMinutes !== dto.durationMinutes ||
+      requestedTime !== existingTime
+    ) {
+      throw new BadRequestException(
+        'Booking key is already in use for a different booking',
+      );
+    }
   }
 
   private timeToMinutes(time: string): number {

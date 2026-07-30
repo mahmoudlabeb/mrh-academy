@@ -4,6 +4,7 @@ import {
   Get,
   Header,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -16,6 +17,7 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { LessonsService } from './lessons.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
+import { RescheduleLessonDto } from './dto/reschedule-lesson.dto.js';
 import { CalendarService } from '../integrations/google/calendar.service.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
@@ -78,22 +80,14 @@ export class LessonsController {
     return this.lessonsService.cancelLesson(id, user.id);
   }
 
-  @Post(':id/approve')
+  @Patch(':id/reschedule')
   @Roles(UserRole.TUTOR)
-  approveLesson(
+  rescheduleLesson(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RescheduleLessonDto,
   ) {
-    return this.lessonsService.approveLesson(id, user.id);
-  }
-
-  @Post(':id/reject')
-  @Roles(UserRole.TUTOR)
-  rejectLesson(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.lessonsService.rejectLesson(id, user.id);
+    return this.lessonsService.rescheduleLesson(id, user.id, dto);
   }
 
   @Post(':id/complete')

@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
 import Link from "next/link";
@@ -93,10 +93,12 @@ function formatDateToISO(date: Date) {
 export const dynamic = "force-dynamic";
 
 function BookLessonContent() {
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const searchParams = useSearchParams();
   const params = useParams<{ id?: string }>();
   const { lang } = useLanguage();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const tutorId = searchParams.get("tutorId") ?? params.id ?? null;
 
@@ -204,6 +206,7 @@ function BookLessonContent() {
       const tz = `${sign}${pad(Math.floor(tzOffset / 60))}:${pad(tzOffset % 60)}`;
       const scheduledTime = `${formatDateToISO(selectedDate)}T${selectedTime}:00${tz}`;
       const { data } = await apiClient.post("/lessons/book", {
+        idempotencyKey: idempotencyKeyRef.current,
         tutorId,
         scheduledTime,
         durationMinutes: duration,
@@ -211,6 +214,9 @@ function BookLessonContent() {
       return data;
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users-me"] });
+      void queryClient.invalidateQueries({ queryKey: ["student-lessons"] });
+      void queryClient.invalidateQueries({ queryKey: ["tutor-all-lessons"] });
       setBookingSuccess(true);
     },
     onError: (err: Error) => {

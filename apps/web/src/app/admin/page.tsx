@@ -289,11 +289,11 @@ export default function AdminPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col"
+      className="admin-shell min-h-screen flex flex-col"
       style={{ background: "var(--bg-main)" }}
     >
       <header
-        className="w-full shrink-0 flex flex-col"
+        className="admin-sidebar w-full shrink-0 flex flex-col"
         style={{
           background: "var(--ink)",
           borderBottom: "1px solid var(--ink-muted)",
@@ -350,9 +350,9 @@ export default function AdminPage() {
         </nav>
       </header>
 
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="admin-main flex-1 flex flex-col min-h-screen">
         <header
-          className="sticky top-0 z-30"
+          className="admin-topbar sticky top-0 z-30"
           style={{
             background: "var(--ink)",
             borderBottom: "1px solid var(--ink-muted)",

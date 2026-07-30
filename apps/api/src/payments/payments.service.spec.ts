@@ -35,6 +35,7 @@ describe('PaymentsService', () => {
     findOne: jest.fn(async (opts) => ({
       type: opts?.where?.type ?? 'card',
       enabled: true,
+      details: '',
     })),
     find: jest.fn(),
   };
@@ -259,6 +260,7 @@ describe('PaymentsService', () => {
       'user-1',
       30,
       'payment-1',
+      'USD',
     );
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
@@ -384,6 +386,31 @@ describe('PaymentsService', () => {
       'balance',
       30,
     );
+  });
+
+  it('treats repeated verification of an approved payment as an idempotent no-op', async () => {
+    const increment = jest.fn();
+    dataSource.transaction.mockImplementationOnce(async (cb) =>
+      cb({
+        findOne: jest.fn(async () => ({
+          id: 'payment-1',
+          userId: 'user-1',
+          amount: 30,
+          currency: 'USD',
+          method: PaymentMethod.CARD,
+          status: PaymentStatus.APPROVED,
+        })),
+        save: jest.fn(),
+        increment,
+      }),
+    );
+
+    const result = await service.approvePayment('payment-1', 'stripe-webhook');
+
+    expect(result.status).toBe(PaymentStatus.APPROVED);
+    expect(increment).not.toHaveBeenCalled();
+    expect(notificationRepository.save).not.toHaveBeenCalled();
+    expect(emailService.sendEmail).not.toHaveBeenCalled();
   });
 
   it('converts an approved EGP payment to USD before crediting the wallet', async () => {
@@ -575,5 +602,147 @@ describe('PaymentsService', () => {
     });
     expect(manager.delete).not.toHaveBeenCalled();
     expect(manager.count).not.toHaveBeenCalled();
+  });
+
+  it('creates an EGP Stripe checkout in EGP instead of charging the same number of USD', async () => {
+    await service.submitPayment('user-1', {
+      method: PaymentMethod.CARD,
+      amount: 1_500,
+      currency: 'EGP',
+    });
+
+    expect(stripeService.createCheckoutSession).toHaveBeenCalledWith(
+      'user-1',
+      1_500,
+      'payment-1',
+      'EGP',
+    );
+  });
+
+  it('removes a pending record when Stripe checkout creation fails so a retry is safe', async () => {
+    stripeService.createCheckoutSession.mockRejectedValueOnce(
+      new Error('sandbox provider unavailable'),
+    );
+
+    await expect(
+      service.submitPayment('user-1', {
+        method: PaymentMethod.CARD,
+        amount: 30,
+        currency: 'USD',
+      }),
+    ).rejects.toThrow('Card payment is currently unavailable');
+
+    expect(paymentRepository.delete).toHaveBeenCalledWith('payment-1');
+    expect(studentProfileRepository.increment).not.toHaveBeenCalled();
+  });
+
+  it('validates and stores a manual-payment receipt without crediting the wallet', async () => {
+    paymentMethodConfigRepository.findOne.mockResolvedValueOnce({
+      type: PaymentMethod.BANK,
+      enabled: true,
+      details: 'Fictional sandbox bank destination',
+    });
+    objectStorage.upload.mockResolvedValueOnce({
+      secureUrl: 'https://storage.example/test-receipt.png',
+    });
+    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+
+    const result = await service.submitPayment(
+      'user-1',
+      {
+        method: PaymentMethod.BANK,
+        amount: 50,
+        currency: 'USD',
+      },
+      {
+        buffer: png,
+        mimetype: 'image/png',
+      } as Express.Multer.File,
+    );
+
+    expect(objectStorage.upload).toHaveBeenCalledWith(png, {
+      folder: 'mrh-academy/payments',
+      resourceType: 'auto',
+    });
+    expect(result.payment).toEqual(
+      expect.objectContaining({
+        status: PaymentStatus.PENDING,
+        receiptUrl: 'https://storage.example/test-receipt.png',
+      }),
+    );
+    expect(studentProfileRepository.increment).not.toHaveBeenCalled();
+  });
+
+  it('rejects a receipt whose bytes do not match its declared content type', async () => {
+    paymentMethodConfigRepository.findOne.mockResolvedValueOnce({
+      type: PaymentMethod.BANK,
+      enabled: true,
+      details: 'Fictional sandbox bank destination',
+    });
+
+    await expect(
+      service.submitPayment(
+        'user-1',
+        {
+          method: PaymentMethod.BANK,
+          amount: 50,
+          currency: 'USD',
+        },
+        {
+          buffer: Buffer.from('not a png'),
+          mimetype: 'image/png',
+        } as Express.Multer.File,
+      ),
+    ).rejects.toThrow('Receipt content does not match its type');
+
+    expect(objectStorage.upload).not.toHaveBeenCalled();
+    expect(paymentRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('refunds the immutable USD wallet value of an EGP payment', async () => {
+    const decrement = jest.fn();
+    const update = jest.fn();
+    dataSource.transaction.mockImplementationOnce(async (cb) =>
+      cb({
+        findOne: jest.fn(async () => ({
+          id: 'payment-1',
+          userId: 'user-1',
+          amount: 1_500,
+          currency: 'EGP',
+          creditedAmountUsd: 30,
+          refundedAmount: 0,
+          status: PaymentStatus.APPROVED,
+        })),
+        find: jest.fn(async () => []),
+        decrement,
+        update,
+      }),
+    );
+
+    const result = await service.refundStripePayment(
+      'payment-1',
+      1_500,
+      'ch_sandbox_1',
+    );
+
+    expect(decrement).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      30,
+    );
+    expect(update).toHaveBeenCalledWith(
+      Payment,
+      { id: 'payment-1' },
+      expect.objectContaining({
+        refundedAmount: 1_500,
+      }),
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        refundDelta: 1_500,
+        walletRefundDelta: 30,
+      }),
+    );
   });
 });

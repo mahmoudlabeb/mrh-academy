@@ -93,6 +93,13 @@ export class StripeWebhookController {
           await this.recordProcessed(event);
           throw new BadRequestException('Payment amount mismatch');
         }
+        if (
+          session.currency &&
+          session.currency.toUpperCase() !== payment.currency.toUpperCase()
+        ) {
+          await this.recordProcessed(event);
+          throw new BadRequestException('Payment currency mismatch');
+        }
 
         const paymentIntentId =
           typeof session.payment_intent === 'string'

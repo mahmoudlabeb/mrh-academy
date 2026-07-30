@@ -230,12 +230,12 @@ describe('LessonsService', () => {
       });
     });
 
-    it('creates a pending, uncharged lesson awaiting tutor approval', async () => {
+    it('creates a confirmed, charged lesson with an active classroom', async () => {
       const savedLesson = {
         id: 'lesson-1',
         tutorId: 'tutor-1',
         studentId,
-        status: LessonStatus.PENDING,
+        status: LessonStatus.CONFIRMED,
         price: 41.67,
         durationMinutes: 50,
       };
@@ -247,12 +247,65 @@ describe('LessonsService', () => {
 
       const result = await service.bookLesson(studentId, dto);
 
-      expect(result?.status).toBe(LessonStatus.PENDING);
-      expect(transactionManager.create).not.toHaveBeenCalledWith(
+      expect(result?.status).toBe(LessonStatus.CONFIRMED);
+      expect(transactionManager.create).toHaveBeenCalledWith(
         Classroom,
-        expect.anything(),
+        expect.objectContaining({
+          lessonId: 'lesson-1',
+          isActive: true,
+        }),
       );
+      expect(transactionManager.decrement).toHaveBeenCalledWith(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        41.67,
+      );
+    });
+
+    it('returns the original confirmed lesson for a repeated booking key without charging again', async () => {
+      const keyedDto: BookLessonDto = {
+        ...dto,
+        idempotencyKey: '73f46f0a-6a2a-4cb0-90f0-b404f27d09c5',
+      };
+      const existingLesson = {
+        id: 'lesson-1',
+        tutorId: keyedDto.tutorId,
+        studentId,
+        scheduledTime: new Date(keyedDto.scheduledTime),
+        durationMinutes: keyedDto.durationMinutes,
+        status: LessonStatus.CONFIRMED,
+        price: 41.67,
+      };
+      lessonRepository.findOne.mockResolvedValue(existingLesson);
+
+      const result = await service.bookLesson(studentId, keyedDto);
+
+      expect(result).toBe(existingLesson);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
       expect(transactionManager.decrement).not.toHaveBeenCalled();
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('rejects a repeated booking key when the booking details changed', async () => {
+      const keyedDto: BookLessonDto = {
+        ...dto,
+        idempotencyKey: '73f46f0a-6a2a-4cb0-90f0-b404f27d09c5',
+      };
+      lessonRepository.findOne.mockResolvedValue({
+        id: 'lesson-1',
+        tutorId: keyedDto.tutorId,
+        studentId,
+        scheduledTime: new Date(
+          new Date(keyedDto.scheduledTime).getTime() + 60_000,
+        ),
+        durationMinutes: keyedDto.durationMinutes,
+      });
+
+      await expect(service.bookLesson(studentId, keyedDto)).rejects.toThrow(
+        'different booking',
+      );
+      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('throws if tutor not found', async () => {
@@ -309,7 +362,7 @@ describe('LessonsService', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('does not deduct the student balance before tutor approval', async () => {
+    it('deducts the student balance when the lesson is confirmed', async () => {
       const savedLesson = {
         id: 'lesson-1',
         tutorId: 'tutor-1',
@@ -325,7 +378,12 @@ describe('LessonsService', () => {
 
       await service.bookLesson(studentId, dto);
 
-      expect(transactionManager.decrement).not.toHaveBeenCalled();
+      expect(transactionManager.decrement).toHaveBeenCalledWith(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        41.67,
+      );
       expect(studentProfileRepository.decrement).not.toHaveBeenCalled();
     });
 
@@ -334,7 +392,7 @@ describe('LessonsService', () => {
         id: 'lesson-1',
         tutorId: 'tutor-1',
         studentId,
-        status: LessonStatus.PENDING,
+        status: LessonStatus.CONFIRMED,
         price: 41.67,
         tutor: { firstName: 'Tutor', lastName: 'One' },
         student: { firstName: 'Student', lastName: 'One' },
@@ -354,189 +412,125 @@ describe('LessonsService', () => {
     });
   });
 
-  describe('approveLesson', () => {
+  describe('rescheduleLesson', () => {
     const lessonId = 'lesson-1';
     const tutorId = 'tutor-1';
-    const scheduledDate = new Date(futureScheduledTimeIso());
-
-    const pendingLesson = {
+    const originalTime = new Date(futureScheduledTimeIso(2, 10));
+    const newTime = new Date(futureScheduledTimeIso(3, 10));
+    const lesson = {
       id: lessonId,
       tutorId,
       studentId: 'student-1',
+      scheduledTime: originalTime,
+      endTime: new Date(originalTime.getTime() + 50 * 60_000),
+      durationMinutes: 50,
       price: 50,
-      durationMinutes: 60,
-      scheduledTime: scheduledDate,
-      endTime: new Date(scheduledDate.getTime() + 60 * 60000),
-      status: LessonStatus.PENDING,
-      tutor: { id: tutorId, firstName: 'Tutor', lastName: 'One' },
-      student: { id: 'student-1', firstName: 'Student', lastName: 'One' },
+      platformFee: null,
+      status: LessonStatus.CONFIRMED,
+      calendarEventId: 'calendar-old',
+      googleMeetUrl: 'https://meet.google.com/old',
+      roomId: 'room-1',
+      meetUrl: 'room-1',
+      notes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      tutor: {
+        id: tutorId,
+        firstName: 'Tutor',
+        lastName: 'One',
+        email: 'tutor@test.com',
+        timezone: 'Africa/Cairo',
+        avatarUrl: null,
+      },
+      student: {
+        id: 'student-1',
+        firstName: 'Student',
+        lastName: 'One',
+        email: 'student@test.com',
+        avatarUrl: null,
+      },
     };
 
     beforeEach(() => {
-      lessonRepository.findOne.mockResolvedValue(pendingLesson);
-      userRepository.findOne.mockResolvedValue({
-        id: tutorId,
-        email: 'tutor@test.com',
+      tutorProfileRepository.findOne.mockResolvedValue({
+        userId: tutorId,
+        user: { timezone: 'Africa/Cairo' },
       });
+      availabilityRepository.find.mockResolvedValue([
+        {
+          tutorId,
+          dayOfWeek: newTime.getUTCDay(),
+          startTime: '00:00',
+          endTime: '23:59',
+        },
+      ]);
     });
 
-    it('approves lesson, deducts student balance, and creates meet link', async () => {
+    it('lets only the assigned tutor reschedule and replaces the calendar event', async () => {
+      const rescheduled = {
+        ...lesson,
+        scheduledTime: newTime,
+        endTime: new Date(newTime.getTime() + 50 * 60_000),
+        calendarEventId: 'event-1',
+        googleMeetUrl: 'https://meet.google.com/test',
+      };
       lessonRepository.findOne
-        .mockResolvedValueOnce(pendingLesson)
-        .mockResolvedValueOnce({
-          ...pendingLesson,
-          status: LessonStatus.CONFIRMED,
-        });
+        .mockResolvedValueOnce(lesson)
+        .mockResolvedValueOnce(rescheduled);
+      transactionManager.findOne.mockImplementation(async (entity) =>
+        entity === Lesson ? { ...lesson } : null,
+      );
 
-      await service.approveLesson(lessonId, tutorId);
-
-      expect(transactionManager.decrement).toHaveBeenCalledWith(
-        StudentProfile,
-        { userId: 'student-1' },
-        'balance',
-        50,
-      );
-      expect(transactionManager.update).toHaveBeenCalledWith(
-        Lesson,
-        { id: lessonId },
-        expect.objectContaining({
-          status: LessonStatus.CONFIRMED,
-          platformFee: null,
-        }),
-      );
-      expect(transactionManager.increment).not.toHaveBeenCalledWith(
-        TutorProfile,
-        expect.anything(),
-        'balance',
-        expect.anything(),
-      );
-      expect(transactionManager.create).toHaveBeenCalledWith(Classroom, {
-        lessonId,
-        isActive: true,
-      });
-      expect(calendarService.createLessonMeetLink).toHaveBeenCalledWith(
-        expect.objectContaining({
-          start: scheduledDate,
-          end: new Date(scheduledDate.getTime() + 60 * 60000),
-        }),
-      );
-      expect(lessonRepository.update).toHaveBeenCalledWith(
-        lessonId,
-        expect.objectContaining({
-          googleMeetUrl: 'https://meet.google.com/test',
-        }),
-      );
-    });
-
-    it('throws if lesson not found', async () => {
-      lessonRepository.findOne.mockReset();
-      lessonRepository.findOne.mockResolvedValue(null);
-      await expect(service.approveLesson(lessonId, tutorId)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('throws if tutor not owner', async () => {
-      lessonRepository.findOne.mockReset();
-      lessonRepository.findOne.mockResolvedValue({
-        ...pendingLesson,
-        tutorId: 'other-tutor',
-      });
-      await expect(service.approveLesson(lessonId, tutorId)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('throws if lesson not pending', async () => {
-      lessonRepository.findOne.mockReset();
-      lessonRepository.findOne.mockResolvedValue({
-        ...pendingLesson,
-        status: LessonStatus.CONFIRMED,
-      });
-      await expect(service.approveLesson(lessonId, tutorId)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('throws if student has insufficient balance at approval', async () => {
-      transactionManager.findOne.mockImplementation(async (entity) => {
-        if (entity === StudentProfile) {
-          return { userId: 'student-1', balance: 10 };
-        }
-        return null;
+      const result = await service.rescheduleLesson(lessonId, tutorId, {
+        scheduledTime: newTime.toISOString(),
       });
 
-      await expect(service.approveLesson(lessonId, tutorId)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-  });
-
-  describe('rejectLesson', () => {
-    const lessonId = 'lesson-1';
-    const tutorId = 'tutor-1';
-
-    const pendingLesson = {
-      id: lessonId,
-      tutorId,
-      studentId: 'student-1',
-      price: 50,
-      status: LessonStatus.PENDING,
-    };
-
-    it('rejects lesson and preserves a distinct rejected status', async () => {
-      lessonRepository.findOne.mockResolvedValue(pendingLesson);
-      transactionManager.findOne.mockImplementation(async (entity) => {
-        if (entity === Lesson) return pendingLesson;
-        if (entity === StudentProfile) {
-          return { userId: 'student-1', balance: 100, heldBalance: 50 };
-        }
-        return null;
-      });
-
-      const result = await service.rejectLesson(lessonId, tutorId);
-
-      expect(result.message).toContain('rejected');
       expect(transactionManager.save).toHaveBeenCalledWith(
         Lesson,
-        expect.objectContaining({ status: LessonStatus.REJECTED }),
+        expect.objectContaining({
+          scheduledTime: newTime,
+          endTime: new Date(newTime.getTime() + 50 * 60_000),
+          calendarEventId: null,
+          googleMeetUrl: null,
+        }),
       );
-      expect(transactionManager.decrement).toHaveBeenCalledWith(
-        StudentProfile,
-        { userId: 'student-1' },
-        'heldBalance',
-        50,
+      expect(calendarService.deleteCalendarEvent).toHaveBeenCalledWith(
+        'calendar-old',
       );
-      expect(redisService.del).toHaveBeenCalledWith(
-        `lessons:user:${pendingLesson.tutorId}`,
+      expect(result).toEqual(
+        expect.objectContaining({
+          rescheduled: true,
+          timezone: 'Africa/Cairo',
+          paymentStatus: 'paid',
+          sessionStatus: LessonStatus.CONFIRMED,
+        }),
       );
     });
 
-    it('throws if lesson not found', async () => {
-      lessonRepository.findOne.mockResolvedValue(null);
-      await expect(service.rejectLesson(lessonId, tutorId)).rejects.toThrow(
-        NotFoundException,
-      );
+    it('rejects a tutor who is not assigned to the lesson', async () => {
+      lessonRepository.findOne.mockResolvedValue(lesson);
+
+      await expect(
+        service.rescheduleLesson(lessonId, 'other-tutor', {
+          scheduledTime: newTime.toISOString(),
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('throws if tutor not owner', async () => {
+    it('treats a repeated reschedule to the same time as a no-op', async () => {
       lessonRepository.findOne.mockResolvedValue({
-        ...pendingLesson,
-        tutorId: 'other-tutor',
+        ...lesson,
+        scheduledTime: newTime,
       });
-      await expect(service.rejectLesson(lessonId, tutorId)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
 
-    it('throws if lesson not pending', async () => {
-      lessonRepository.findOne.mockResolvedValue({
-        ...pendingLesson,
-        status: LessonStatus.CONFIRMED,
+      const result = await service.rescheduleLesson(lessonId, tutorId, {
+        scheduledTime: newTime.toISOString(),
       });
-      await expect(service.rejectLesson(lessonId, tutorId)).rejects.toThrow(
-        BadRequestException,
-      );
+
+      expect(result.rescheduled).toBe(false);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(calendarService.deleteCalendarEvent).not.toHaveBeenCalled();
     });
   });
 
@@ -614,7 +608,7 @@ describe('LessonsService', () => {
     it('throws if lesson not confirmed', async () => {
       lessonRepository.findOne.mockResolvedValue({
         ...confirmedLesson,
-        status: LessonStatus.PENDING,
+        status: LessonStatus.CANCELLED,
       });
       await expect(
         service.completeLesson(lessonId, tutorId, dto),
@@ -716,32 +710,6 @@ describe('LessonsService', () => {
       expect(transactionManager.increment).not.toHaveBeenCalled();
     });
 
-    it('does not create money when a pending lesson is cancelled', async () => {
-      const pendingLesson = {
-        ...buildConfirmedLesson(),
-        status: LessonStatus.PENDING,
-      };
-      lessonRepository.findOne.mockResolvedValue(pendingLesson);
-      transactionManager.findOne.mockImplementation(async (entity) => {
-        if (entity === Lesson) return pendingLesson;
-        if (entity === StudentProfile) {
-          return { userId: studentId, balance: 100 };
-        }
-        return null;
-      });
-
-      const result = await service.cancelLesson(lessonId, studentId);
-
-      expect(transactionManager.increment).not.toHaveBeenCalledWith(
-        StudentProfile,
-        expect.anything(),
-        'balance',
-        expect.anything(),
-      );
-      expect(result.refunded).toBe(false);
-      expect(result.refundAmount).toBe(0);
-    });
-
     it('throws if not participant', async () => {
       await expect(
         service.cancelLesson(lessonId, 'other-user'),
@@ -756,6 +724,26 @@ describe('LessonsService', () => {
       await expect(service.cancelLesson(lessonId, studentId)).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('returns the original refund for a duplicate cancellation without refunding twice', async () => {
+      lessonRepository.findOne.mockResolvedValue({
+        ...buildConfirmedLesson(),
+        status: LessonStatus.CANCELLED,
+      });
+
+      const result = await service.cancelLesson(lessonId, tutorId);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          duplicate: true,
+          refunded: true,
+          refundAmount: 50,
+          paymentStatus: 'refunded',
+        }),
+      );
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+      expect(transactionManager.increment).not.toHaveBeenCalled();
     });
   });
 
@@ -827,25 +815,68 @@ describe('LessonsService', () => {
   });
 
   describe('findUserLessons', () => {
-    it('returns paginated lessons for a student', async () => {
-      const lessons = [{ id: 'lesson-1' }];
+    it('returns scoped tutor bookings with dashboard payment and timezone fields', async () => {
+      const scheduledTime = new Date('2030-01-05T10:00:00.000Z');
+      const lessons = [
+        {
+          id: 'lesson-1',
+          tutorId: 'tutor-1',
+          studentId: 'student-1',
+          scheduledTime,
+          endTime: new Date('2030-01-05T10:50:00.000Z'),
+          durationMinutes: 50,
+          price: 50,
+          platformFee: null,
+          status: LessonStatus.CONFIRMED,
+          roomId: 'room-1',
+          meetUrl: 'room-1',
+          googleMeetUrl: null,
+          notes: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          tutor: {
+            id: 'tutor-1',
+            firstName: 'Tutor',
+            lastName: 'One',
+            avatarUrl: null,
+            timezone: 'Africa/Cairo',
+          },
+          student: {
+            id: 'student-1',
+            firstName: 'Student',
+            lastName: 'One',
+            avatarUrl: null,
+          },
+        },
+      ];
       lessonRepository.findAndCount.mockResolvedValue([lessons, 1]);
 
-      const result = await service.findUserLessons(
-        'student-1',
-        UserRole.STUDENT,
-      );
+      const result = await service.findUserLessons('tutor-1', UserRole.TUTOR);
 
-      expect(result).toEqual({
-        data: lessons,
-        total: 1,
-        page: 1,
-        limit: 20,
-        totalPages: 1,
-      });
+      expect(result.data).toEqual([
+        expect.objectContaining({
+          id: 'lesson-1',
+          scheduledTime,
+          timezone: 'Africa/Cairo',
+          paymentStatus: 'paid',
+          sessionStatus: LessonStatus.CONFIRMED,
+          student: expect.objectContaining({
+            firstName: 'Student',
+            lastName: 'One',
+          }),
+        }),
+      ]);
+      expect(result).toEqual(
+        expect.objectContaining({
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        }),
+      );
       expect(lessonRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { studentId: 'student-1' },
+          where: { tutorId: 'tutor-1' },
           skip: 0,
           take: 20,
         }),

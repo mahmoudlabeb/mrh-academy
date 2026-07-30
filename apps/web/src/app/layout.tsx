@@ -31,7 +31,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function(){
-                var theme = localStorage.getItem('theme');
+                var theme = localStorage.getItem('theme') === 'light' ? 'light' : 'dark';
                 var lang = ${JSON.stringify(locale)};
                 function applyBodyClasses() {
                   if (!document.body) return;

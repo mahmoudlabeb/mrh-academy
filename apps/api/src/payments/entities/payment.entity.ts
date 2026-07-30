@@ -72,6 +72,19 @@ export class Payment {
   })
   allocatedAmount: number;
 
+  /**
+   * Immutable USD value credited to the wallet for this payment. `amount`
+   * remains in the provider/original currency for receipts and reconciliation.
+   */
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: new ColumnNumericTransformer(),
+  })
+  creditedAmountUsd: number | null;
+
   @Column({
     type: 'decimal',
     precision: 10,

@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم الإدارة - Mr.H Academy</title>
+    <link rel="icon" type="image/png" href="assets/logo.png">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1971c2;
+            --primary-hover: #1864ab;
+            --secondary: #12b886;
+            --dark-sidebar: #1a1b26;
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --text-main: #212529;
+            --text-muted: #868e96;
+            --border-color: #e9ecef;
+            --success: #20c997;
+            --danger: #fa5252;
+            --warning: #fcc419;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background-color: var(--dark-sidebar);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin: 0;
+            background: linear-gradient(45deg, #fff, var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            padding: 24px 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            color: #adb5bd;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+            border-right: 4px solid var(--secondary);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Topbar */
+        .topbar {
+            height: 70px;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background: var(--bg-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            width: 300px;
+        }
+
+        .search-bar input {
+            border: none;
+            background: transparent;
+            outline: none;
+            padding: 0 12px;
+            width: 100%;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .icon-btn {
+            position: relative;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            transition: var(--transition);
+        }
+
+        .icon-btn:hover {
+            color: var(--text-main);
+        }
+
+        .badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.6rem;
+            font-weight: bold;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .admin-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            border-right: 1px solid var(--border-color);
+            padding-right: 20px;
+        }
+
+        .admin-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* Dashboard Body */
+        .dashboard-body {
+            padding: 40px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .stat-info h3 {
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .stat-info .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .stat-info .trend {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            font-weight: bold;
+        }
+
+        .trend.up { color: var(--success); }
+        .trend.down { color: var(--danger); }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .icon-blue { background: rgba(25, 113, 194, 0.1); color: var(--primary); }
+        .icon-pink { background: rgba(18, 184, 134, 0.1); color: var(--secondary); }
+        .icon-green { background: rgba(32, 201, 151, 0.1); color: var(--success); }
+        .icon-yellow { background: rgba(252, 196, 25, 0.1); color: var(--warning); }
+
+        /* Sections */
+        .section-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            padding: 32px;
+            display: none; /* Hidden by default */
+        }
+
+        .section-container.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Table Styles */
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .custom-table th, .custom-table td {
+            padding: 16px;
+            text-align: right;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .custom-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .custom-table tr:hover td {
+            background: rgba(0,0,0,0.01);
+        }
+
+        .badge-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-active { background: rgba(32, 201, 151, 0.1); color: var(--success); }
+        .status-pending { background: rgba(252, 196, 25, 0.1); color: #e67700; }
+        .status-issue { background: rgba(250, 82, 82, 0.1); color: var(--danger); }
+
+        /* Employee Management specific */
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+            background: var(--bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .permission-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .permission-item input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .permission-item span {
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); }
+
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: white;
+            width: 600px;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            .sidebar {
+                position: fixed;
+                right: -280px; /* Hidden offscreen (RTL) */
+                top: 0;
+                bottom: 0;
+                width: 280px;
+                z-index: 1000;
+                transition: right 0.3s ease;
+            }
+            .sidebar.show {
+                right: 0;
+            }
+            .main-content {
+                width: 100%;
+            }
+            .topbar {
+                padding: 0 20px;
+                gap: 12px;
+            }
+            .search-bar {
+                width: 180px;
+            }
+            .dashboard-body {
+                padding: 20px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .custom-table {
+                display: block;
+                overflow-x: auto;
+                width: 100%;
+                white-space: nowrap;
+            }
+            .modal-content {
+                width: calc(100% - 32px);
+                padding: 20px;
+            }
+            #sidebar-toggle {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body style="display: none;">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-graduation-cap" style="font-size: 1.8rem; color: var(--secondary);"></i>
+            <h2>Mr.H Admin</h2>
+        </div>
+        <nav class="nav-menu">
+            <a class="nav-item active" onclick="switchTab('overview', this)">
+                <i class="fa-solid fa-chart-pie"></i> نظرة عامة
+            </a>
+            <a class="nav-item" onclick="switchTab('teachers', this)">
+                <i class="fa-solid fa-chalkboard-user"></i> المدرسين وأدائهم
+            </a>
+            <a class="nav-item" onclick="switchTab('students', this)">
+                <i class="fa-solid fa-users"></i> الطلاب وبياناتهم
+            </a>
+            <a class="nav-item" onclick="switchTab('lessons', this)">
+                <i class="fa-solid fa-calendar-days"></i> الدروس والحصص
+            </a>
+            <a class="nav-item" onclick="switchTab('reports', this)">
+                <i class="fa-solid fa-flag"></i> البلاغات والمشاكل
+            </a>
+            <a class="nav-item" onclick="switchTab('employees', this)">
+                <i class="fa-solid fa-user-shield"></i> الموظفين والصلاحيات
+            </a>
+            <a class="nav-item" onclick="switchTab('courses', this)">
+                <i class="fa-solid fa-book-open"></i> إدارة الكورسات
+            </a>
+            <a class="nav-item" onclick="switchTab('reviews', this)">
+                <i class="fa-solid fa-star"></i> مراجعة التقييمات
+            </a>
+            <a class="nav-item" onclick="switchTab('payments', this)">
+                <i class="fa-solid fa-credit-card"></i> المدفوعات والاشتراكات
+            </a>
+            <a class="nav-item" onclick="switchTab('settings', this)">
+                <i class="fa-solid fa-gear"></i> إعدادات المنصة
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Topbar -->
+        <header class="topbar">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <button id="sidebar-toggle" style="background: transparent; border: none; font-size: 1.5rem; display: none; cursor: pointer; color: var(--text-main);"><i class="fa-solid fa-bars"></i></button>
+                <div class="search-bar">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--text-muted);"></i>
+                    <input type="text" placeholder="ابحث عن مدرس، طالب، كورس...">
+                </div>
+            </div>
+            <div class="topbar-actions">
+                <div class="icon-btn">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="badge">3</span>
+                </div>
+                <div class="admin-profile">
+                    <div class="admin-avatar">م.ش</div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 0.95rem;">المدير العام</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Super Admin</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; color: var(--text-muted);"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Body -->
+        <div class="dashboard-body">
+
+            <!-- OVERVIEW TAB -->
+            <div id="tab-overview" class="section-container active">
+                <div class="page-header">
+                    <h1>مرحباً بك في لوحة القيادة</h1>
+                    <p>إليك ملخص لأداء منصة مستر اتش أكاديمي اليوم</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>إجمالي الأرباح</h3>
+                            <div class="value">$12,450</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +14% هذا الشهر</div>
+                        </div>
+                        <div class="stat-icon icon-blue"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>الطلاب النشطين</h3>
+                            <div class="value">3,240</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +5% هذا الأسبوع</div>
+                        </div>
+                        <div class="stat-icon icon-green"><i class="fa-solid fa-users"></i></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>طلبات المدرسين (قيد المراجعة)</h3>
+                            <div class="value">18</div>
+                            <div class="trend down"><i class="fa-solid fa-circle-exclamation"></i> يتطلب اتخاذ إجراء</div>
+                        </div>
+                        <div class="stat-icon icon-yellow"><i class="fa-solid fa-file-signature"></i></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>بلاغات المشاكل</h3>
+                            <div class="value">4</div>
+                            <div class="trend down"><i class="fa-solid fa-triangle-exclamation"></i> 2 بلاغ لم يتم حله</div>
+                        </div>
+                        <div class="stat-icon icon-pink"><i class="fa-solid fa-bug"></i></div>
+                    </div>
+                </div>
+
+                <div class="section-title">أحدث النشاطات على المنصة</div>
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>الحدث</th>
+                            <th>المستخدم</th>
+                            <th>الوقت</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-activities-tbody">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">جاري تحميل أحدث النشاطات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- EMPLOYEES TAB (ROLE MANAGEMENT) -->
+            <div id="tab-employees" class="section-container">
+                <div class="page-header">
+                    <h1>إدارة الموظفين والصلاحيات</h1>
+                    <p>قم بتعيين موظفين لمساعدتك في إدارة المنصة، وحدد ما يمكنهم رؤيته وفعله.</p>
+                </div>
+
+                <div class="section-title">
+                    فريق العمل الحالي
+                    <button class="btn-primary" onclick="openEmployeeModal()">
+                        <i class="fa-solid fa-plus"></i> إضافة موظف جديد
+                    </button>
+                </div>
+
+                <table class="custom-table" id="employees-table">
+                    <thead>
+                        <tr>
+                            <th>الاسم</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>الدور (المنصب)</th>
+                            <th>الصلاحيات الممنوحة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="5" style="text-align: center;">جاري تحميل الموظفين...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TEACHERS TAB -->
+            <div id="tab-teachers" class="section-container">
+                <div class="page-header">
+                    <h1>المدرسين وأدائهم</h1>
+                    <p>استعراض كافة المدرسين وبياناتهم وساعات التدريس والتقييمات الخاصة بهم.</p>
+                </div>
+                
+                <div class="section-title">طلبات التدريس المعلقة</div>
+                <table class="custom-table" id="pending-teachers-table">
+                    <thead>
+                        <tr>
+                            <th>المدرس (تحميل ملف PDF)</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>المادة</th>
+                            <th>السعر المقترح</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" style="text-align: center;">لا توجد طلبات معلقة حالياً</td></tr>
+                    </tbody>
+                </table>
+                
+                <div class="section-title" style="margin-top: 40px;">المدرسين المعتمدين</div>
+                <table class="custom-table" id="teachers-table">
+                    <thead>
+                        <tr>
+                            <th>المدرس (تحميل ملف PDF)</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>المادة</th>
+                            <th>سعر الحصة (50 د)</th>
+                            <th>الساعات التدريسية</th>
+                            <th>الرصيد الكلي</th>
+                            <th>التقييم</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="8" style="text-align: center;">جاري تحميل بيانات المدرسين...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- STUDENTS TAB -->
+            <div id="tab-students" class="section-container">
+                <div class="page-header">
+                    <h1>الطلاب وبياناتهم</h1>
+                    <p>استعراض كافة الطلاب المسجلين بالمنصة وأرصدة محافظهم ونشاطهم.</p>
+                </div>
+                <div class="section-title">بيانات الطلاب</div>
+                <table class="custom-table" id="students-table">
+                    <thead>
+                        <tr>
+                            <th>الطالب</th>
+                            <th>البريد الإلكتروني</th>
+                            <th>رصيد المحفظة</th>
+                            <th>عدد الحصص المحجوزة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" style="text-align: center;">جاري تحميل بيانات الطلاب...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- LESSONS TAB -->
+            <div id="tab-lessons" class="section-container">
+                <div class="page-header">
+                    <h1>الدروس والحصص</h1>
+                    <p>متابعة كافة الحصص المحجوزة، المكتملة والمجدولة على المنصة.</p>
+                </div>
+                <div class="section-title">قائمة الحصص والدروس</div>
+                <table class="custom-table" id="lessons-table">
+                    <thead>
+                        <tr>
+                            <th>رقم الدرس</th>
+                            <th>المدرس</th>
+                            <th>الطالب</th>
+                            <th>موعد الحصة</th>
+                            <th>المدة والرسوم</th>
+                            <th>القاعة</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="7" style="text-align: center;">جاري تحميل قائمة الدروس...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="tab-reports" class="section-container">
+                <div class="page-header">
+                    <h1>البلاغات والمشاكل</h1>
+                    <p>هنا تظهر كافة البلاغات المرسلة من قبل المدرسين والطلاب في قاعات الدروس.</p>
+                </div>
+                <table class="custom-table" id="reports-table">
+                    <thead>
+                        <tr>
+                            <th>رقم البلاغ</th>
+                            <th>تاريخ الإرسال</th>
+                            <th>المُبلّغ</th>
+                            <th>نوع المشكلة</th>
+                            <th>الوصف</th>
+                            <th>القاعة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="6" style="text-align: center;">جاري تحميل البلاغات...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- COURSES TAB -->
+            <div id="tab-courses" class="section-container">
+                <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div>
+                        <h1>إدارة الكورسات الجماعية</h1>
+                        <p>استعرض الكورسات والمساقات الجماعية المتاحة حالياً على المنصة واحذف الكورسات غير المرغوبة.</p>
+                    </div>
+                    <button class="btn-primary" onclick="openCourseModal()" style="display: flex; align-items: center; gap: 8px; font-weight: 700; background: var(--primary-color); color: white; padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer;"><i class="fa-solid fa-plus"></i> إضافة كورس جديد</button>
+                </div>
+
+                <div class="section-title">الكورسات الحالية</div>
+                
+                <table class="custom-table" id="courses-table">
+                    <thead>
+                        <tr>
+                            <th>اسم الكورس</th>
+                            <th>المدرس</th>
+                            <th>السعر</th>
+                            <th>عدد الطلاب المسجلين</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="5" style="text-align: center;">جاري تحميل الكورسات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- REVIEWS TAB -->
+            <div id="tab-reviews" class="section-container">
+                <div class="page-header">
+                    <h1>مراجعة تقييمات المدرسين</h1>
+                    <p>قم بالاطلاع على التقييمات والآراء الواردة من الطلاب المشتركين ووافق عليها لتظهر على الملف الشخصي للمدرس، أو ارفضها واحذفها.</p>
+                </div>
+
+                <div class="section-title">التقييمات المعلقة (بانتظار الموافقة)</div>
+                
+                <table class="custom-table" id="admin-reviews-table">
+                    <thead>
+                        <tr>
+                            <th>الطالب</th>
+                            <th>المدرس</th>
+                            <th>التقييم</th>
+                            <th>التعليق</th>
+                            <th>تاريخ الإرسال</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" style="text-align: center;">جاري تحميل التقييمات المعلقة...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAYMENTS TAB -->
+            <div id="tab-payments" class="section-container">
+                <div class="page-header">
+                    <h1>سجل المدفوعات والاشتراكات</h1>
+                    <p>قم بالاطلاع على جميع المعاملات المالية، الحوالات البنكية، والتحويلات عبر فودافون كاش وإنستاباي، وقم بمراجعتها وتأكيدها لزيادة رصيد الطلاب تلقائياً.</p>
+                </div>
+
+                <div class="section-title">قائمة المعاملات المالية</div>
+                
+                <table class="custom-table" id="admin-payments-table">
+                    <thead>
+                        <tr>
+                            <th>رقم العملية</th>
+                            <th>الطالب</th>
+                            <th>المبلغ والوسيلة</th>
+                            <th>تفاصيل التحويل / البيانات</th>
+                            <th>إثبات الدفع (الملف المرفق)</th>
+                            <th>تاريخ التحويل</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-payments-tbody">
+                        <tr>
+                            <td colspan="8" style="text-align: center;">جاري تحميل سجل المدفوعات...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div id="tab-settings" class="section-container">
+                <div class="page-header">
+                    <h1>إعدادات المنصة</h1>
+                    <p>قم بتهيئة الإعدادات العامة والخيارات التشغيلية لمنصة مستر اتش أكاديمي.</p>
+                </div>
+
+                <div class="settings-form" style="max-width: 700px; background: var(--bg-color); padding: 32px; border-radius: 12px; border: 1px solid var(--border-color); margin-top: 24px;">
+                    <div class="form-group">
+                        <label for="settings-platform-name">اسم المنصة</label>
+                        <input type="text" id="settings-platform-name" class="form-control" placeholder="مثال: Mr.H Academy">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="settings-contact-email">البريد الإلكتروني للاتصال والدعم</label>
+                        <input type="email" id="settings-contact-email" class="form-control" placeholder="example@mrhacademy.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="settings-lesson-price">سعر الدرس الافتراضي بالساعة ($)</label>
+                        <input type="number" id="settings-lesson-price" class="form-control" min="1" step="0.5">
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 24px;">
+                        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: bold;">
+                            <input type="checkbox" id="settings-maintenance-mode" style="width: 20px; height: 20px; accent-color: var(--primary);">
+                            <span>تفعيل وضع الصيانة (تعطيل تصفح المنصة للعامة مؤقتاً)</span>
+                        </label>
+                    </div>
+                    
+                    <div style="margin-top: 32px;">
+                        <button class="btn-primary" onclick="saveSettings()">
+                            <i class="fa-solid fa-floppy-disk"></i> حفظ التغييرات والإعدادات
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Edit Tutor Modal -->
+    <div class="modal" id="editTutorModal">
+        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+            <h2 style="margin-bottom: 24px; font-weight: 800; border-bottom: 1px solid #e9ecef; padding-bottom: 16px;">
+                تعديل ملف المدرس
+            </h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>الاسم الكامل</label>
+                    <input type="text" id="edit-tutor-name" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>المادة</label>
+                    <select id="edit-tutor-subject" class="form-control">
+                        <option value="Arabic">Arabic</option>
+                        <option value="English">English</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>السعر بالساعة ($)</label>
+                    <input type="number" id="edit-tutor-price" class="form-control" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>الدولة</label>
+                    <input type="text" id="edit-tutor-country" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>السيرة الذاتية (نبذة عن المدرس)</label>
+                <textarea id="edit-tutor-bio" class="form-control" rows="4"></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label>سنوات الخبرة (نص)</label>
+                    <input type="text" id="edit-tutor-experience-years" class="form-control" placeholder="مثال: 5+ years">
+                </div>
+                <div class="form-group">
+                    <label>عدد الطلاب (رقم)</label>
+                    <input type="number" id="edit-tutor-students-count" class="form-control" placeholder="مثال: 50">
+                </div>
+                <div class="form-group">
+                    <label>عدد الدروس (رقم)</label>
+                    <input type="number" id="edit-tutor-lessons-count" class="form-control" placeholder="مثال: 200">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>اللغات المتحدثة (مفصولة بفاصلة)</label>
+                    <input type="text" id="edit-tutor-languages" class="form-control" placeholder="مثال: Arabic, English">
+                </div>
+                <div class="form-group">
+                    <label>التخصصات/الوسوم (مفصولة بفاصلة)</label>
+                    <input type="text" id="edit-tutor-tags" class="form-control" placeholder="مثال: Conversation, Business, Grammar">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>الشهادات (Certifications - صيغة JSON)</label>
+                <textarea id="edit-tutor-certificates" class="form-control" rows="3" style="font-family: monospace; font-size: 0.9rem;" placeholder='مثال: [{"from": "2022", "to": "2026", "name": "Teaching specialisation Certificate", "subject": "120-hr course with Tutor & Videos"}]'></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>التعليم والشهادات الأكاديمية (Education - صيغة JSON)</label>
+                <textarea id="edit-tutor-education" class="form-control" rows="3" style="font-family: monospace; font-size: 0.9rem;" placeholder='مثال: [{"from": "2018", "to": "2022", "degree": "Bachelor", "degree_type": "University", "major": "Arabic Literature", "university": "Cairo University"}]'></textarea>
+            </div>
+
+            <input type="hidden" id="edit-tutor-id">
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px;">
+                <button class="btn-primary" style="background: white; color: var(--text-main); border: 1px solid var(--border-color);" onclick="closeEditTutorModal()">إلغاء</button>
+                <button class="btn-primary" onclick="submitTutorEdit()">حفظ التعديلات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Employee Modal -->
+    <div class="modal" id="employeeModal">
+        <div class="modal-content">
+            <h2 id="employeeModalTitle" style="margin-bottom: 24px; font-weight: 800; border-bottom: 1px solid #e9ecef; padding-bottom: 16px;">
+                إضافة موظف وتحديد صلاحياته
+            </h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label>الاسم الكامل</label>
+                    <input type="text" id="emp-name" class="form-control" placeholder="اسم الموظف">
+                </div>
+                <div class="form-group">
+                    <label>البريد الإلكتروني</label>
+                    <input type="email" id="emp-email" class="form-control" placeholder="employee@mrhacademy.com">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>المنصب الوظيفي (المسمى)</label>
+                <select id="emp-role" class="form-control">
+                    <option>دعم فني (Support)</option>
+                    <option>مدقق حسابات (Moderator)</option>
+                    <option>محاسب مالي (Accountant)</option>
+                    <option>مدير مساعد (Sub-Admin)</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-top: 32px;">
+                <label style="font-size: 1.1rem; color: var(--primary);"><i class="fa-solid fa-shield-halved"></i> تحديد الصلاحيات بدقة:</label>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">اختر ما يمكن لهذا الموظف رؤيته والتعديل عليه في لوحة التحكم.</p>
+                <div class="permissions-grid">
+                    <label class="permission-item">
+                        <input type="checkbox" value="قبول/رفض طلبات المدرسين"> <span>قبول/رفض طلبات المدرسين</span>
+                    </label>
+                    <label class="permission-item">
+                        <input type="checkbox" value="حذف/تعديل الكورسات المسجلة"> <span>حذف/تعديل الكورسات المسجلة</span>
+                    </label>
+                    <label class="permission-item">
+                        <input type="checkbox" value="الاطلاع على الأرباح والمالية"> <span>الاطلاع على الأرباح والمالية</span>
+                    </label>
+                    <label class="permission-item">
+                        <input type="checkbox" value="الوصول لبلاغات قاعات الدروس"> <span>الوصول لبلاغات قاعات الدروس</span>
+                    </label>
+                    <label class="permission-item">
+                        <input type="checkbox" value="مراسلة الطلاب والمدرسين"> <span>مراسلة الطلاب والمدرسين</span>
+                    </label>
+                    <label class="permission-item">
+                        <input type="checkbox" value="إدارة الكوبونات والخصومات"> <span>إدارة الكوبونات والخصومات</span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px;">
+                <button class="btn-primary" style="background: white; color: var(--text-main); border: 1px solid var(--border-color);" onclick="closeAddEmployeeModal()">إلغاء</button>
+                <button class="btn-primary" onclick="submitEmployee()">حفظ ومنح الصلاحيات</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Course Modal -->
+    <div class="modal" id="courseModal">
+        <div class="modal-content">
+            <h2 id="courseModalTitle" style="margin-bottom: 24px; font-weight: 800; border-bottom: 1px solid #e9ecef; padding-bottom: 16px;">
+                إضافة كورس جماعي جديد
+            </h2>
+            
+            <div class="form-group">
+                <label>اسم الكورس / العنوان</label>
+                <input type="text" id="course-title" class="form-control" placeholder="مثال: محادثة اللغة الإنجليزية للمبتدئين">
+            </div>
+
+            <div class="form-group">
+                <label>اسم المدرس</label>
+                <input type="text" id="course-tutor" class="form-control" placeholder="مثال: Sarah">
+            </div>
+
+            <div class="form-group">
+                <label>سعر الكورس ($)</label>
+                <input type="number" id="course-price" class="form-control" placeholder="150" min="0">
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px;">
+                <button class="btn-primary" style="background: white; color: var(--text-main); border: 1px solid var(--border-color);" onclick="closeCourseModal()">إلغاء</button>
+                <button class="btn-primary" onclick="submitCourse()">إضافة الكورس</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Details Modal (Lessons, Calendar, Tutors view mirroring student) -->
+    <div class="modal" id="studentDetailsAdminModal">
+        <div class="modal-content" style="width: 1000px; max-width: 95vw; max-height: 90vh; overflow-y: auto; direction: rtl; --primary-color: #12b886; --primary-hover: #0ca678;">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e9ecef; padding-bottom: 16px; margin-bottom: 24px;">
+                <div>
+                    <h2 id="admin-student-modal-title" style="margin: 0; font-weight: 800; font-size: 1.5rem; color: #111;">تفاصيل النشاط والدروس للطالب</h2>
+                    <p id="admin-student-modal-subtitle" style="margin: 4px 0 0 0; color: #666; font-size: 0.9rem;">عرض الحصص، جدول التقويم والمدرسين للطالب المحدد</p>
+                </div>
+                <button onclick="closeStudentDetailsModal()" style="background: none; border: none; font-size: 2rem; cursor: pointer; color: #aaa; line-height: 1;" onmouseover="this.style.color='#111'" onmouseout="this.style.color='#aaa'">&times;</button>
+            </div>
+
+            <!-- Student Balance Row -->
+            <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-weight: bold;">
+                <span id="admin-student-balance-text">رصيد محفظة الطالب: -</span>
+                <span id="admin-student-email-text" style="color: #666; font-size: 0.9rem; font-weight: normal;">-</span>
+            </div>
+
+            <!-- Empty state (No tutor/lessons chosen) -->
+            <div id="admin-student-empty-state" style="display: none; text-align: center; padding: 60px 20px; border: 1.5px solid #111; border-radius: 16px; box-shadow: 4px 4px 0 #111; background: white; margin-bottom: 24px;">
+                <i class="fa-solid fa-person-chalkboard" style="font-size: 4rem; color: #dee2e6; margin-bottom: 20px;"></i>
+                <h2 style="font-weight: 800; font-size: 1.6rem; margin-bottom: 12px; color: #111;">لم يقم باختيار مدرس بعد / No tutor chosen yet</h2>
+                <p style="color: #555; font-size: 1rem;">الطالب لم يحجز أو يشترك مع أي مدرس حتى الآن.</p>
+            </div>
+
+            <!-- Main Tabs Content container (Shown if tutor chosen) -->
+            <div id="admin-student-modal-main-tabs" style="display: none;">
+                <!-- Sub-Tabs Navigation (matching the student design but for admin) -->
+                <div style="display: flex; border-bottom: 1.5px solid #111; margin-bottom: 24px; background: white; font-weight: 700; font-size: 1.05rem; direction: ltr; justify-content: flex-start;">
+                    <span id="admin-subtab-btn-lessons" class="active" style="padding: 12px 24px; cursor: pointer; border-bottom: 3px solid var(--primary-color); display: flex; align-items: center; gap: 8px; color: var(--primary-color);" onclick="switchAdminLessonsSubTab('lessons')">
+                        <i class="fa-regular fa-clock"></i> Lessons / الدروس
+                    </span>
+                    <span id="admin-subtab-btn-calendar" style="padding: 12px 24px; cursor: pointer; border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 8px; color: #555;" onclick="switchAdminLessonsSubTab('calendar')">
+                        <i class="fa-regular fa-calendar"></i> Calendar / التقويم
+                    </span>
+                    <span id="admin-subtab-btn-tutors" style="padding: 12px 24px; cursor: pointer; border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 8px; color: #555;" onclick="switchAdminLessonsSubTab('tutors')">
+                        <i class="fa-solid fa-graduation-cap"></i> Tutors / المدرسين
+                    </span>
+                </div>
+
+                <!-- 1. Lessons View -->
+                <div id="admin-student-subtab-view-lessons" style="display: block;">
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Upcoming lessons -->
+                        <div>
+                            <h3 style="font-weight: 800; font-size: 1.2rem; color: #111; margin-bottom: 12px; text-align: right;">Upcoming lessons / الحصص القادمة</h3>
+                            <div id="admin-student-upcoming-container" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Past lessons -->
+                        <div>
+                            <h3 style="font-weight: 800; font-size: 1.2rem; color: #111; margin-bottom: 12px; text-align: right;">Past lessons / الدروس السابقة</h3>
+                            <div id="admin-student-past-container" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- Rendered dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Calendar View -->
+                <div id="admin-student-subtab-view-calendar" style="display: none;">
+                    <!-- Calendar Toolbar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 12px 16px; border: 1.5px solid #111; border-radius: 12px; box-shadow: 2px 2px 0 #111; flex-wrap: wrap; gap: 12px; direction: ltr;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button onclick="setAdminCalendarToToday()" style="background: white; border: 1.5px solid #111; border-radius: 6px; padding: 6px 12px; font-weight: 700; cursor: pointer;">Today</button>
+                            <div style="display: flex; border: 1.5px solid #111; border-radius: 6px; overflow: hidden; background: white;">
+                                <button onclick="navigateAdminWeek(-1)" style="padding: 6px 12px; border: none; background: white; cursor: pointer; border-right: 1.5px solid #111;"><i class="fa-solid fa-chevron-left"></i></button>
+                                <button onclick="navigateAdminWeek(1)" style="padding: 6px 12px; border: none; background: white; cursor: pointer;"><i class="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                            <span id="admin-calendar-week-range-label" style="font-weight: 800; font-size: 1.1rem; color: #111;">-</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 16px; font-size: 0.85rem; font-weight: 700;">
+                            <span style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-circle" style="color: var(--primary-color);"></i> Confirmed</span>
+                            <span style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-circle" style="color: #339af0;"></i> Weekly</span>
+                            <span style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-circle" style="color: #ff922b;"></i> Single</span>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Weekly Grid -->
+                    <div style="border: 1.5px solid #111; border-radius: 12px; overflow: hidden; background: white; box-shadow: 2px 2px 0 #111; direction: ltr;">
+                        <!-- Weekdays row -->
+                        <div id="admin-calendar-grid-header" style="display: grid; grid-template-columns: 80px repeat(7, 1fr); border-bottom: 1.5px solid #111; background: #fafafa; text-align: center; font-weight: 800; font-size: 0.9rem; padding: 12px 0;">
+                            <div>GMT</div>
+                            <div>Mon</div>
+                            <div>Tue</div>
+                            <div>Wed</div>
+                            <div>Thu</div>
+                            <div>Fri</div>
+                            <div>Sat</div>
+                            <div>Sun</div>
+                        </div>
+                        
+                        <!-- Time scroll container -->
+                        <div id="admin-calendar-grid-body" style="height: 400px; overflow-y: auto; position: relative;">
+                            <!-- Generated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Tutors View -->
+                <div id="admin-student-subtab-view-tutors" style="display: none;">
+                    <div id="admin-student-tutors-list-container" style="display: flex; flex-direction: column; gap: 16px; text-align: right;">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="display: flex; justify-content: flex-end; margin-top: 32px; border-top: 1px solid #e9ecef; padding-top: 16px;">
+                <button class="btn-primary" onclick="closeStudentDetailsModal()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEditingEmployeeId = null;
+        let loadedEmployees = [];
+        let loadedTutors = [];
+
+        // Check authentication on startup
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/me');
+                if (!res.ok) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                const data = await res.json();
+                if (!data.logged_in || data.user.role !== 'admin') {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                // Auth verified, update admin name in UI
+                document.querySelector('.admin-profile div div').textContent = data.user.name;
+                document.querySelector('.admin-avatar').textContent = data.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                
+                // Show body content
+                document.body.style.display = 'flex';
+                
+                // Load initial dashboard data
+                loadOverviewStats();
+                loadRecentActivities();
+                loadReports();
+            } catch (err) {
+                console.error("Auth check failed:", err);
+                window.location.href = 'login.html';
+            }
+        }
+
+        function switchTab(tabId, element) {
+            // Update Active Nav Link
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+
+            // Show corresponding section
+            document.querySelectorAll('.section-container').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            // Load data for the active tab
+            if (tabId === 'overview') {
+                loadOverviewStats();
+                loadRecentActivities();
+            } else if (tabId === 'teachers') {
+                loadTeachers();
+            } else if (tabId === 'students') {
+                loadStudents();
+            } else if (tabId === 'lessons') {
+                loadLessons();
+            } else if (tabId === 'reports') {
+                loadReports();
+            } else if (tabId === 'employees') {
+                loadEmployees();
+            } else if (tabId === 'settings') {
+                loadSettings();
+            } else if (tabId === 'courses') {
+                loadCourses();
+            } else if (tabId === 'reviews') {
+                loadPendingReviews();
+            } else if (tabId === 'payments') {
+                loadAdminPayments();
+            }
+        }
+
+        function openEmployeeModal(emp = null) {
+            currentEditingEmployeeId = emp ? emp.id : null;
+            
+            const titleEl = document.getElementById('employeeModalTitle');
+            const nameEl = document.getElementById('emp-name');
+            const emailEl = document.getElementById('emp-email');
+            const roleEl = document.getElementById('emp-role');
+            const checkboxes = document.querySelectorAll('#employeeModal input[type="checkbox"]');
+            
+            // Reset modal inputs
+            nameEl.value = '';
+            emailEl.value = '';
+            roleEl.value = 'دعم فني (Support)';
+            checkboxes.forEach(cb => cb.checked = false);
+            
+            if (emp) {
+                titleEl.textContent = 'تعديل بيانات الموظف والصلاحيات';
+                nameEl.value = emp.name;
+                emailEl.value = emp.email;
+                roleEl.value = emp.role;
+                
+                // Parse permissions
+                const perms = emp.permissions ? emp.permissions.split(',') : [];
+                checkboxes.forEach(cb => {
+                    if (perms.includes(cb.value)) {
+                        cb.checked = true;
+                    }
+                });
+            } else {
+                titleEl.textContent = 'إضافة موظف وتحديد صلاحياته';
+            }
+            
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function openEmployeeModalById(empId) {
+            const emp = loadedEmployees.find(e => e.id === empId);
+            if (emp) {
+                openEmployeeModal(emp);
+            }
+        }
+
+        function closeAddEmployeeModal() {
+            document.getElementById('employeeModal').classList.remove('active');
+        }
+
+        async function submitEmployee() {
+            const name = document.getElementById('emp-name').value.trim();
+            const email = document.getElementById('emp-email').value.trim();
+            const role = document.getElementById('emp-role').value;
+            
+            if (!name || !email) {
+                alert('يرجى ملء الاسم الكامل والبريد الإلكتروني.');
+                return;
+            }
+            
+            const checkedBoxes = document.querySelectorAll('#employeeModal input[type="checkbox"]:checked');
+            const permsArray = [];
+            checkedBoxes.forEach(cb => permsArray.push(cb.value));
+            const permissions = permsArray.join(',');
+            
+            const payload = { name, email, role, permissions };
+            
+            try {
+                let res;
+                if (currentEditingEmployeeId) {
+                    res = await fetch(`/api/admin/employees/${currentEditingEmployeeId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    res = await fetch('/api/admin/employees', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+                
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم حفظ الموظف بنجاح');
+                    closeAddEmployeeModal();
+                    loadEmployees();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء حفظ الموظف');
+                }
+            } catch (err) {
+                console.error("Error submitting employee:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        async function deleteEmployee(empId) {
+            if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الموظف وسحب صلاحياته؟')) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/employees/${empId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم حذف الموظف بنجاح');
+                    loadEmployees();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء حذف الموظف');
+                }
+            } catch (err) {
+                console.error("Error deleting employee:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        async function loadEmployees() {
+            try {
+                const res = await fetch('/api/admin/employees');
+                const data = await res.json();
+                if (data.success) {
+                    loadedEmployees = data.employees;
+                    const tbody = document.querySelector('#employees-table tbody');
+                    if (tbody) {
+                        tbody.innerHTML = '';
+                        
+                        // Always render the Super Admin first
+                        const superAdminTr = document.createElement('tr');
+                        superAdminTr.innerHTML = `
+                            <td style="font-weight: bold;">أنت (المدير العام)</td>
+                            <td>admin@mrhacademy.com</td>
+                            <td>Super Admin</td>
+                            <td>جميع الصلاحيات المطلقة</td>
+                            <td>-</td>
+                        `;
+                        tbody.appendChild(superAdminTr);
+                        
+                        data.employees.forEach(emp => {
+                            const tr = document.createElement('tr');
+                            const permsDisplay = emp.permissions ? emp.permissions.replace(/,/g, '، ') : 'بدون صلاحيات';
+                            
+                            tr.innerHTML = `
+                                <td>${emp.name}</td>
+                                <td>${emp.email}</td>
+                                <td>${emp.role}</td>
+                                <td style="font-size: 0.9rem; color: var(--text-muted);">${permsDisplay}</td>
+                                <td>
+                                    <i class="fa-solid fa-pen-to-square" style="color: var(--primary); cursor: pointer; margin-left: 12px;" onclick="openEmployeeModalById(${emp.id})"></i>
+                                    <i class="fa-solid fa-trash" style="color: var(--danger); cursor: pointer;" onclick="deleteEmployee(${emp.id})"></i>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading employees:", err);
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/admin/settings');
+                const data = await res.json();
+                if (data.success && data.settings) {
+                    const settings = data.settings;
+                    
+                    const platformNameEl = document.getElementById('settings-platform-name');
+                    const contactEmailEl = document.getElementById('settings-contact-email');
+                    const lessonPriceEl = document.getElementById('settings-lesson-price');
+                    const maintenanceModeEl = document.getElementById('settings-maintenance-mode');
+                    
+                    if (platformNameEl) platformNameEl.value = settings.platform_name || '';
+                    if (contactEmailEl) contactEmailEl.value = settings.contact_email || '';
+                    if (lessonPriceEl) lessonPriceEl.value = settings.default_lesson_price || '';
+                    if (maintenanceModeEl) {
+                        maintenanceModeEl.checked = settings.maintenance_mode === 'true';
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading settings:", err);
+            }
+        }
+
+        async function saveSettings() {
+            const platform_name = document.getElementById('settings-platform-name').value.trim();
+            const contact_email = document.getElementById('settings-contact-email').value.trim();
+            const default_lesson_price = document.getElementById('settings-lesson-price').value.trim();
+            const maintenance_mode = document.getElementById('settings-maintenance-mode').checked ? 'true' : 'false';
+            
+            if (!platform_name || !contact_email || !default_lesson_price) {
+                alert('يرجى تعبئة كافة الحقول المطلوبة للإعدادات.');
+                return;
+            }
+            
+            const payload = {
+                platform_name,
+                contact_email,
+                default_lesson_price,
+                maintenance_mode
+            };
+            
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم حفظ الإعدادات بنجاح');
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء حفظ الإعدادات');
+                }
+            } catch (err) {
+                console.error("Error saving settings:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        async function loadCourses() {
+            try {
+                const res = await fetch('/api/admin/courses');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.querySelector('#courses-table tbody');
+                    if (tbody) {
+                        tbody.innerHTML = '';
+                        if (data.courses.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">لا توجد كورسات جماعية حالياً</td></tr>';
+                            return;
+                        }
+                        data.courses.forEach(c => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td><strong>${c.title}</strong></td>
+                                <td>${c.tutor_name}</td>
+                                <td>$${c.price}</td>
+                                <td>${c.students_count} طالب</td>
+                                <td>
+                                    <i class="fa-solid fa-trash" style="color: var(--danger); cursor: pointer;" onclick="deleteCourse(${c.id})"></i>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading courses:", err);
+            }
+        }
+
+        async function deleteCourse(courseId) {
+            if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الكورس من المنصة؟')) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/courses/${courseId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم حذف الكورس بنجاح');
+                    loadCourses();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء حذف الكورس');
+                }
+            } catch (err) {
+                console.error("Error deleting course:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        function openCourseModal() {
+            document.getElementById('course-title').value = '';
+            document.getElementById('course-tutor').value = '';
+            document.getElementById('course-price').value = '';
+            document.getElementById('courseModal').classList.add('active');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('courseModal').classList.remove('active');
+        }
+
+        async function submitCourse() {
+            const title = document.getElementById('course-title').value.trim();
+            const tutor_name = document.getElementById('course-tutor').value.trim();
+            const price = document.getElementById('course-price').value.trim();
+            
+            if (!title || !tutor_name || !price) {
+                alert('يرجى ملء جميع الحقول المطلوبة: الكورس، اسم المدرس، والسعر.');
+                return;
+            }
+            
+            const payload = { title, tutor_name, price: parseFloat(price) };
+            
+            try {
+                const res = await fetch('/api/admin/courses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم إضافة الكورس بنجاح');
+                    closeCourseModal();
+                    loadCourses();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء إضافة الكورس');
+                }
+            } catch (err) {
+                console.error("Error submitting course:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        async function loadPendingReviews() {
+            try {
+                const res = await fetch('/api/admin/reviews');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.querySelector('#admin-reviews-table tbody');
+                    if (tbody) {
+                        tbody.innerHTML = '';
+                        if (data.reviews.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">لا توجد تقييمات معلقة حالياً بانتظار الموافقة.</td></tr>';
+                            return;
+                        }
+                        data.reviews.forEach(r => {
+                            const date = new Date(r.created_at).toLocaleDateString('ar-EG', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td><strong>${r.student_name}</strong><br><small style="color: #777;">${r.student_email}</small></td>
+                                <td><strong>${r.tutor_name}</strong></td>
+                                <td style="color: #fcc419; font-size: 1.25rem;">${stars}</td>
+                                <td>${r.comment || '<span style="color: #bbb; font-style: italic;">لا يوجد تعليق</span>'}</td>
+                                <td>${date}</td>
+                                <td>
+                                    <button class="btn-primary" style="background: var(--primary-color); color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 4px; border: none; cursor: pointer; margin-left: 8px;" onclick="approveReview(${r.id})">قبول</button>
+                                    <button class="btn-primary" style="background: var(--danger); color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 4px; border: none; cursor: pointer;" onclick="deleteReview(${r.id})">حذف</button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading pending reviews:", err);
+            }
+        }
+
+        async function approveReview(reviewId) {
+            if (!confirm('هل أنت متأكد من رغبتك في قبول هذا التقييم وعرضه في الملف الشخصي للمدرس؟')) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/reviews/${reviewId}/approve`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم قبول التقييم بنجاح');
+                    loadPendingReviews();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء قبول التقييم');
+                }
+            } catch (err) {
+                console.error("Error approving review:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        async function deleteReview(reviewId) {
+            if (!confirm('هل أنت متأكد من رغبتك في حذف أو رفض هذا التقييم؟')) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/reviews/${reviewId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم حذف التقييم بنجاح');
+                    loadPendingReviews();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء حذف التقييم');
+                }
+            } catch (err) {
+                console.error("Error deleting review:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        async function loadOverviewStats() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                const data = await res.json();
+                if (data.success) {
+                    document.querySelector('.stats-grid .stat-card:nth-child(1) .value').textContent = `$${data.total_earnings.toFixed(2)}`;
+                    document.querySelector('.stats-grid .stat-card:nth-child(2) .value').textContent = data.total_students;
+                    document.querySelector('.stats-grid .stat-card:nth-child(3) .value').textContent = data.total_tutors;
+                    document.querySelector('.stats-grid .stat-card:nth-child(4) .value').textContent = data.total_issues;
+                }
+            } catch (err) {
+                console.error("Error loading stats:", err);
+            }
+        }
+
+        async function loadRecentActivities() {
+            try {
+                const lessonsRes = await fetch('/api/admin/lessons');
+                const lessonsData = await lessonsRes.json();
+                
+                const reportsRes = await fetch('/api/reports');
+                const reportsData = await reportsRes.json();
+                
+                const activities = [];
+                
+                if (lessonsData.success) {
+                    // Get up to 3 recent lessons
+                    lessonsData.lessons.slice(0, 3).forEach(l => {
+                        activities.push({
+                            desc: `حجز درس جديد مع المدرس ${l.tutor_name}`,
+                            user: l.student_name,
+                            time: l.scheduled_time,
+                            status: l.status === 'completed' ? 'مكتمل' : 'مجدول',
+                            statusClass: l.status === 'completed' ? 'status-active' : 'status-pending'
+                        });
+                    });
+                }
+                
+                if (reportsData.success) {
+                    // Get up to 3 recent reports
+                    reportsData.reports.slice(0, 3).forEach(r => {
+                        activities.push({
+                            desc: `بلاغ عن مشكلة: ${r.issue_type}`,
+                            user: r.user_name,
+                            time: new Date(r.created_at + 'Z').toLocaleDateString(),
+                            status: 'تحتاج تدخل',
+                            statusClass: 'status-issue'
+                        });
+                    });
+                }
+                
+                const tbody = document.getElementById('recent-activities-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    if (activities.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">لا توجد نشاطات حديثة</td></tr>';
+                        return;
+                    }
+                    activities.slice(0, 5).forEach(act => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${act.desc}</td>
+                            <td>${act.user}</td>
+                            <td style="direction: ltr; text-align: right;">${act.time}</td>
+                            <td><span class="badge-status ${act.statusClass}">${act.status}</span></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading recent activities:", err);
+            }
+        }
+
+        async function approveTutor(id) {
+            if (!confirm("هل أنت متأكد من قبول هذا المدرس وتفعيل حسابه؟")) return;
+            try {
+                const res = await fetch(`/api/admin/tutors/${id}/approve`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    loadTeachers();
+                } else {
+                    alert("خطأ: " + data.error);
+                }
+            } catch (err) {
+                console.error("Error approving tutor:", err);
+                alert("فشل في قبول المدرس.");
+            }
+        }
+
+        async function loadTeachers() {
+            try {
+                const res = await fetch('/api/admin/tutors');
+                const data = await res.json();
+                if (data.success) {
+                    loadedTutors = data.tutors;
+                    const tbodyApproved = document.querySelector('#teachers-table tbody');
+                    const tbodyPending = document.querySelector('#pending-teachers-table tbody');
+                    
+                    tbodyApproved.innerHTML = '';
+                    tbodyPending.innerHTML = '';
+                    
+                    const approvedTutors = data.tutors.filter(t => t.approved === 1);
+                    const pendingTutors = data.tutors.filter(t => t.approved === 0);
+                    
+                    if (pendingTutors.length === 0) {
+                        tbodyPending.innerHTML = '<tr><td colspan="5" style="text-align: center;">لا توجد طلبات معلقة حالياً</td></tr>';
+                    } else {
+                        pendingTutors.forEach(t => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td><a href="/api/admin/tutors/${t.id}/pdf" style="color: var(--primary-color); font-weight: bold; text-decoration: underline;"><i class="fa-solid fa-file-pdf"></i> ${t.name}</a></td>
+                                <td>${t.email}</td>
+                                <td>${t.subject || 'لم يحدد'}</td>
+                                <td>$${t.price || 15.0}</td>
+                                <td>
+                                    <button class="btn-primary" onclick="approveTutor(${t.id})" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 4px;"><i class="fa-solid fa-check"></i> موافقة</button>
+                                </td>
+                            `;
+                            tbodyPending.appendChild(tr);
+                        });
+                    }
+                    
+                    if (approvedTutors.length === 0) {
+                        tbodyApproved.innerHTML = '<tr><td colspan="8" style="text-align: center;">لا يوجد مدرسين معتمدين حالياً</td></tr>';
+                    } else {
+                        approvedTutors.forEach(t => {
+                            const tr = document.createElement('tr');
+                            const ratingStr = t.avg_rating > 0 ? `${t.avg_rating.toFixed(1)} ★ (${t.review_count} مراجعة)` : 'لا يوجد تقييمات';
+                            tr.innerHTML = `
+                                <td><a href="/api/admin/tutors/${t.id}/pdf" style="color: var(--primary-color); font-weight: bold; text-decoration: underline;"><i class="fa-solid fa-file-pdf"></i> ${t.name}</a></td>
+                                <td>${t.email}</td>
+                                <td>${t.subject || 'لم يحدد'}</td>
+                                <td>$${t.price || 15.0}</td>
+                                <td>${t.total_hours_taught || 0} ساعة</td>
+                                <td>$${t.balance.toFixed(2)}</td>
+                                <td style="color: var(--warning); font-weight: bold;">${ratingStr}</td>
+                                <td>
+                                    <i class="fa-solid fa-pen-to-square" style="color: var(--primary); cursor: pointer; margin-left: 12px;" onclick="openEditTutorModalById(${t.id})" title="تعديل"></i>
+                                    <button class="btn-primary" onclick="impersonate(${t.id}, 'tutor')" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; background: var(--secondary); border: none; color: white; cursor: pointer; font-weight: bold;">
+                                        <i class="fa-solid fa-right-to-bracket"></i> دخول
+                                    </button>
+                                </td>
+                            `;
+                            tbodyApproved.appendChild(tr);
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error loading teachers:", err);
+            }
+        }
+
+        async function loadStudents() {
+            try {
+                const res = await fetch('/api/admin/students');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.querySelector('#students-table tbody');
+                    tbody.innerHTML = '';
+                    if (data.students.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">لا يوجد طلاب مسجلين حالياً</td></tr>';
+                        return;
+                    }
+                    data.students.forEach(s => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><strong>${s.name}</strong></td>
+                            <td>${s.email}</td>
+                            <td>$${s.balance.toFixed(2)}</td>
+                            <td>${s.lesson_count} درس</td>
+                            <td>
+                                <button onclick="viewStudentDetails(${s.id}, '${s.name.replace(/'/g, "\\'")}')" style="background: var(--primary); color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; cursor: pointer; transition: background 0.2s; margin-left: 8px;" onmouseover="this.style.background='var(--primary-hover)'" onmouseout="this.style.background='var(--primary)'">
+                                    <i class="fa-regular fa-calendar-check"></i> عرض البيانات
+                                </button>
+                                <button onclick="impersonate(${s.id}, 'student')" style="background: var(--secondary); color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0ca678'" onmouseout="this.style.background='var(--secondary)'">
+                                    <i class="fa-solid fa-right-to-bracket"></i> دخول
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading students:", err);
+            }
+        }
+
+        async function loadLessons() {
+            try {
+                const res = await fetch('/api/admin/lessons');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.querySelector('#lessons-table tbody');
+                    tbody.innerHTML = '';
+                    if (data.lessons.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">لا توجد دروس حالياً</td></tr>';
+                        return;
+                    }
+                    data.lessons.forEach(l => {
+                        const tr = document.createElement('tr');
+                        let statusClass = 'status-pending';
+                        let statusText = 'مجدول';
+                        if (l.status === 'completed') {
+                            statusClass = 'status-active';
+                            statusText = 'مكتمل';
+                        } else if (l.status === 'cancelled') {
+                            statusClass = 'status-issue';
+                            statusText = 'ملغي';
+                        }
+                        
+                        tr.innerHTML = `
+                            <td>#${l.id}</td>
+                            <td><strong>${l.tutor_name || 'غير معروف'}</strong></td>
+                            <td><strong>${l.student_name || 'غير معروف'}</strong></td>
+                            <td style="direction: ltr; text-align: right;">${l.scheduled_time}</td>
+                            <td>${l.duration_hours} ساعة / $${l.price}</td>
+                            <td><code>${l.room_id || '-'}</code></td>
+                            <td><span class="badge-status ${statusClass}">${statusText}</span></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Error loading lessons:", err);
+            }
+        }
+
+        async function loadReports() {
+            try {
+                const res = await fetch('/api/reports');
+                const data = await res.json();
+                if (data.success) {
+                    const tbody = document.querySelector('#reports-table tbody');
+                    tbody.innerHTML = '';
+                    if (data.reports.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">لا توجد بلاغات حالياً</td></tr>';
+                        return;
+                    }
+                    data.reports.forEach(report => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>#${report.id}</td>
+                            <td style="direction: ltr; text-align: right;">${new Date(report.created_at + 'Z').toLocaleString()}</td>
+                            <td>
+                                <strong style="color: var(--primary);">${report.user_name}</strong><br>
+                                <span style="font-size: 0.8rem; color: #868e96;">${report.user_role} - ${report.user_email}</span>
+                            </td>
+                            <td><span class="badge-status status-issue">${report.issue_type}</span></td>
+                            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${report.description || 'بدون تفاصيل'}</td>
+                            <td>${report.room_id || '-'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Error fetching reports", err);
+            }
+        }
+
+        function openEditTutorModalById(tutorId) {
+            const tutor = loadedTutors.find(t => t.id === tutorId);
+            if (!tutor) return;
+            
+            document.getElementById('edit-tutor-id').value = tutor.id;
+            document.getElementById('edit-tutor-name').value = tutor.name || '';
+            document.getElementById('edit-tutor-subject').value = tutor.subject || 'Arabic';
+            document.getElementById('edit-tutor-price').value = tutor.price || 15.0;
+            document.getElementById('edit-tutor-country').value = tutor.country || '';
+            document.getElementById('edit-tutor-bio').value = tutor.bio || '';
+            document.getElementById('edit-tutor-experience-years').value = tutor.experience_years || '5+ years';
+            document.getElementById('edit-tutor-students-count').value = tutor.students_count !== null && tutor.students_count !== undefined ? tutor.students_count : 50;
+            document.getElementById('edit-tutor-lessons-count').value = tutor.lessons_count !== null && tutor.lessons_count !== undefined ? tutor.lessons_count : 200;
+            document.getElementById('edit-tutor-languages').value = tutor.languages || '';
+            document.getElementById('edit-tutor-tags').value = tutor.tags || '';
+            document.getElementById('edit-tutor-certificates').value = tutor.certificates || '';
+            document.getElementById('edit-tutor-education').value = tutor.education || '';
+            
+            document.getElementById('editTutorModal').classList.add('active');
+        }
+        
+        function closeEditTutorModal() {
+            document.getElementById('editTutorModal').classList.remove('active');
+        }
+        
+        async function submitTutorEdit() {
+            const tutorId = document.getElementById('edit-tutor-id').value;
+            const name = document.getElementById('edit-tutor-name').value.trim();
+            const subject = document.getElementById('edit-tutor-subject').value;
+            const price = parseFloat(document.getElementById('edit-tutor-price').value);
+            const country = document.getElementById('edit-tutor-country').value.trim();
+            const bio = document.getElementById('edit-tutor-bio').value.trim();
+            const experience_years = document.getElementById('edit-tutor-experience-years').value.trim();
+            const students_count = parseInt(document.getElementById('edit-tutor-students-count').value);
+            const lessons_count = parseInt(document.getElementById('edit-tutor-lessons-count').value);
+            const languages = document.getElementById('edit-tutor-languages').value.trim();
+            const tags = document.getElementById('edit-tutor-tags').value.trim();
+            const certificates = document.getElementById('edit-tutor-certificates').value.trim();
+            const education = document.getElementById('edit-tutor-education').value.trim();
+            
+            if (!name || !subject || isNaN(price)) {
+                alert('يرجى ملء الاسم والمادة والسعر.');
+                return;
+            }
+            
+            const payload = {
+                name,
+                subject,
+                price,
+                country,
+                bio,
+                experience_years,
+                students_count,
+                lessons_count,
+                languages,
+                certificates,
+                education,
+                tags
+            };
+            
+            try {
+                const res = await fetch(`/api/admin/tutors/${tutorId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message || 'تم حفظ التعديلات بنجاح');
+                    closeEditTutorModal();
+                    loadTeachers();
+                } else {
+                    alert(data.error || 'حدث خطأ أثناء حفظ التعديلات');
+                }
+            } catch (err) {
+                console.error("Error updating tutor:", err);
+                alert('حدث خطأ بالاتصال بالخادم.');
+            }
+        }
+
+        // --- STUDENT DETAILS ADMIN MODAL FUNCTIONS ---
+        let adminCalendarBaseDate = new Date();
+        let adminStudentLessons = [];
+        let adminStudentTutors = [];
+        let currentStudentIdForModal = null;
+        let adminLessonsSubTab = 'lessons';
+
+        window.viewStudentDetails = async function(studentId, studentName) {
+            currentStudentIdForModal = studentId;
+            adminLessonsSubTab = 'lessons'; // default sub-tab
+            document.getElementById('admin-student-modal-title').textContent = `بيانات التعلم للطالب: ${studentName}`;
+            
+            // Show loading or reset elements
+            document.getElementById('admin-student-balance-text').textContent = 'رصيد محفظة الطالب: جاري التحميل...';
+            document.getElementById('admin-student-email-text').textContent = '-';
+            document.getElementById('admin-student-empty-state').style.display = 'none';
+            document.getElementById('admin-student-modal-main-tabs').style.display = 'none';
+            
+            // Switch tab styles to default 'lessons'
+            switchAdminLessonsSubTab('lessons');
+            
+            // Open modal
+            document.getElementById('studentDetailsAdminModal').classList.add('active');
+            
+            // Fetch data
+            try {
+                const res = await fetch(`/api/admin/students/${studentId}/lessons`);
+                const data = await res.json();
+                if (data.success) {
+                    const student = data.student;
+                    adminStudentLessons = data.lessons;
+                    adminStudentTutors = data.tutors;
+                    
+                    document.getElementById('admin-student-balance-text').textContent = `رصيد محفظة الطالب: $${student.balance.toFixed(2)}`;
+                    document.getElementById('admin-student-email-text').textContent = student.email;
+                    
+                    if (adminStudentTutors.length === 0) {
+                        document.getElementById('admin-student-empty-state').style.display = 'block';
+                        document.getElementById('admin-student-modal-main-tabs').style.display = 'none';
+                    } else {
+                        document.getElementById('admin-student-empty-state').style.display = 'none';
+                        document.getElementById('admin-student-modal-main-tabs').style.display = 'block';
+                        
+                        renderAdminLessonsView();
+                        renderAdminTutorsView();
+                        renderAdminCalendarView();
+                    }
+                } else {
+                    alert('خطأ في جلب بيانات الطالب: ' + (data.error || 'خطأ غير معروف'));
+                    closeStudentDetailsModal();
+                }
+            } catch (err) {
+                console.error("Error fetching student details:", err);
+                alert('فشل الاتصال بالخادم لجلب تفاصيل الطالب.');
+                closeStudentDetailsModal();
+            }
+        }
+
+        window.closeStudentDetailsModal = function() {
+            document.getElementById('studentDetailsAdminModal').classList.remove('active');
+        }
+
+        window.switchAdminLessonsSubTab = function(tabName) {
+            adminLessonsSubTab = tabName;
+            
+            // Switch tabs styling
+            ['lessons', 'calendar', 'tutors'].forEach(t => {
+                const btn = document.getElementById(`admin-subtab-btn-${t}`);
+                const view = document.getElementById(`admin-student-subtab-view-${t}`);
+                if (btn && view) {
+                    btn.style.color = t === tabName ? 'var(--primary-color)' : '#555';
+                    btn.style.borderBottom = t === tabName ? '3px solid var(--primary-color)' : '3px solid transparent';
+                    view.style.display = t === tabName ? 'block' : 'none';
+                }
+            });
+            
+            if (tabName === 'calendar') {
+                renderAdminCalendarView();
+            }
+        }
+
+        function renderAdminLessonsView() {
+            const upcomingContainer = document.getElementById('admin-student-upcoming-container');
+            const pastContainer = document.getElementById('admin-student-past-container');
+            
+            upcomingContainer.innerHTML = '';
+            pastContainer.innerHTML = '';
+            
+            const now = new Date();
+            let upcomingCount = 0;
+            let pastCount = 0;
+
+            adminStudentLessons.forEach(l => {
+                const lessonTime = new Date(l.scheduled_time.replace(' ', 'T'));
+                const isUpcoming = lessonTime >= now && l.status === 'scheduled';
+                
+                const dateOptions = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                const formattedTime = lessonTime.toLocaleDateString('en-US', dateOptions);
+                const tutorAvatar = l.tutor_avatar || 'assets/default_avatar.png';
+
+                const card = document.createElement('div');
+                card.style.background = 'white';
+                card.style.border = '1.5px solid #111';
+                card.style.borderRadius = '12px';
+                card.style.padding = '16px';
+                card.style.display = 'flex';
+                card.style.justifyContent = 'space-between';
+                card.style.alignItems = 'center';
+                card.style.boxShadow = '2px 2px 0 #111';
+                card.style.flexWrap = 'wrap';
+                card.style.gap = '12px';
+                
+                let detailsHtml = `
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <img src="${tutorAvatar}" style="width: 50px; height: 50px; border-radius: 8px; border: 1.5px solid #111; object-fit: cover;">
+                        <div style="text-align: right;">
+                            <div style="font-weight: 800; font-size: 1rem; color: #111; margin-bottom: 4px;">${formattedTime}</div>
+                            <div style="font-size: 0.85rem; color: #555; font-weight: 600;">
+                                ${l.status === 'scheduled' ? 'Scheduled / مجدول' : 'Completed / مكتمل'} &bull; ${l.tutor_name}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (isUpcoming) {
+                    upcomingCount++;
+                    card.innerHTML = detailsHtml + `
+                        <div>
+                            <span style="font-size: 0.85rem; background: #e3fafc; color: #0b7285; padding: 6px 12px; border-radius: 6px; border: 1px solid #99e9f2; font-weight: bold;">مجدول / Room: ${l.room_id}</span>
+                        </div>
+                    `;
+                    upcomingContainer.appendChild(card);
+                } else {
+                    pastCount++;
+                    card.innerHTML = detailsHtml + `
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-weight: bold; font-size: 0.85rem; color: #0ca678;"><i class="fa-solid fa-circle-check"></i> مكتمل ودُفع له</span>
+                        </div>
+                    `;
+                    pastContainer.appendChild(card);
+                }
+            });
+
+            if (upcomingCount === 0) {
+                upcomingContainer.innerHTML = `
+                    <div style="font-weight: 700; color: #555; text-align: center; padding: 16px;">لا توجد حصص قادمة / No upcoming lessons</div>
+                `;
+            }
+            if (pastCount === 0) {
+                pastContainer.innerHTML = '<div style="color: #777; text-align: center; padding: 16px;">لا توجد دروس سابقة / No past lessons</div>';
+            }
+        }
+
+        function renderAdminTutorsView() {
+            const container = document.getElementById('admin-student-tutors-list-container');
+            container.innerHTML = '';
+            
+            adminStudentTutors.forEach(t => {
+                const row = document.createElement('div');
+                row.style.background = 'white';
+                row.style.border = '1.5px solid #111';
+                row.style.borderRadius = '12px';
+                row.style.padding = '16px';
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.justifyContent = 'space-between';
+                row.style.boxShadow = '2px 2px 0 #111';
+                row.style.flexWrap = 'wrap';
+                row.style.gap = '16px';
+                
+                const avatar = t.avatar || 'assets/default_avatar.png';
+                row.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <img src="${avatar}" style="width: 50px; height: 50px; border-radius: 8px; border: 1.5px solid #111; object-fit: cover;">
+                        <div style="text-align: right;">
+                            <h4 style="margin: 0 0 4px 0; font-weight: 800; font-size: 1rem; color: #111;">${t.name}</h4>
+                            <div style="font-size: 0.8rem; color: #777; font-weight: 600;">دروس لغة عربية / ${t.subject || 'Arabic Lessons'}</div>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-weight: 800; font-size: 0.95rem; color: #111;">مشترك / Subscribed</div>
+                        <div style="font-size: 0.8rem; color: #555;">$${(t.price || 15).toFixed(2)} للحصة</div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        window.setAdminCalendarToToday = function() {
+            adminCalendarBaseDate = new Date();
+            renderAdminCalendarView();
+        }
+
+        window.navigateAdminWeek = function(offset) {
+            adminCalendarBaseDate.setDate(adminCalendarBaseDate.getDate() + offset * 7);
+            renderAdminCalendarView();
+        }
+
+        function renderAdminCalendarView() {
+            const label = document.getElementById('admin-calendar-week-range-label');
+            const gridBody = document.getElementById('admin-calendar-grid-body');
+            if (!gridBody) return;
+            
+            // Calculate start of current week (Monday)
+            const dayOfBase = adminCalendarBaseDate.getDay();
+            const distanceToMon = dayOfBase === 0 ? -6 : 1 - dayOfBase; // distance to Monday
+            const monday = new Date(adminCalendarBaseDate);
+            monday.setDate(monday.getDate() + distanceToMon);
+            
+            const sunday = new Date(monday);
+            sunday.setDate(sunday.getDate() + 6);
+            
+            const monStr = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const sunStr = sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            label.textContent = `${monStr} – ${sunStr}`;
+
+            // Generate header column names with dates
+            const daysNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            const headerCols = document.getElementById('admin-calendar-grid-header').children;
+            for (let i = 1; i <= 7; i++) {
+                const dayDate = new Date(monday);
+                dayDate.setDate(monday.getDate() + (i - 1));
+                const dateStr = dayDate.getDate();
+                headerCols[i].innerHTML = `<div style="font-weight: 800;">${daysNames[i-1]}</div><div style="font-size: 0.8rem; color: #777;">${dateStr}</div>`;
+            }
+
+            // Draw grid time lines and cells
+            gridBody.innerHTML = '';
+            const hours = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"];
+            
+            hours.forEach(hour => {
+                const row = document.createElement('div');
+                row.style.display = 'grid';
+                row.style.gridTemplateColumns = '80px repeat(7, 1fr)';
+                row.style.borderBottom = '1px solid #eee';
+                row.style.minHeight = '50px';
+                
+                // Time label
+                const timeCol = document.createElement('div');
+                timeCol.style.padding = '8px 0';
+                timeCol.style.textAlign = 'center';
+                timeCol.style.fontWeight = '700';
+                timeCol.style.color = '#777';
+                timeCol.style.fontSize = '0.8rem';
+                timeCol.style.borderRight = '1px solid #eee';
+                timeCol.textContent = hour;
+                row.appendChild(timeCol);
+                
+                // Days columns
+                for (let d = 0; d < 7; d++) {
+                    const cell = document.createElement('div');
+                    cell.style.borderRight = d < 6 ? '1px solid #eee' : 'none';
+                    cell.style.padding = '2px';
+                    cell.style.position = 'relative';
+                    
+                    // Check if student has a lesson on this date and hour
+                    const cellDate = new Date(monday);
+                    cellDate.setDate(monday.getDate() + d);
+                    const cellDateStr = cellDate.toISOString().split('T')[0];
+                    
+                    const cellLessons = adminStudentLessons.filter(l => {
+                        const lDate = l.scheduled_time.split(' ')[0];
+                        const lTime = l.scheduled_time.split(' ')[1].substring(0, 5); // HH:MM
+                        // Match hour prefix
+                        return lDate === cellDateStr && lTime.startsWith(hour.substring(0, 3));
+                    });
+                    
+                    cellLessons.forEach(l => {
+                        const eventEl = document.createElement('div');
+                        eventEl.style.background = '#e6fcf5';
+                        eventEl.style.border = '1px solid var(--primary-hover)';
+                        eventEl.style.borderRadius = '4px';
+                        eventEl.style.padding = '4px';
+                        eventEl.style.fontSize = '0.7rem';
+                        eventEl.style.fontWeight = '700';
+                        eventEl.style.color = '#0ca678';
+                        eventEl.style.boxShadow = '1px 1px 0 #111';
+                        eventEl.innerHTML = `
+                            <div style="font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${l.tutor_name}</div>
+                            <div style="font-size: 0.65rem; color: #555;">${l.scheduled_time.split(' ')[1].substring(0, 5)}</div>
+                        `;
+                        cell.appendChild(eventEl);
+                    });
+                    
+                    row.appendChild(cell);
+                }
+                gridBody.appendChild(row);
+            });
+        }
+
+        async function loadAdminPayments() {
+            const tbody = document.getElementById('admin-payments-tbody');
+            if (!tbody) return;
+            
+            try {
+                const res = await fetch('/api/admin/payments');
+                const data = await res.json();
+                
+                if (data.payments) {
+                    tbody.innerHTML = '';
+                    if (data.payments.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #888; padding: 24px;">لا توجد أي معاملات مالية مسجلة بعد.</td></tr>`;
+                        return;
+                    }
+
+                    data.payments.forEach(p => {
+                        const tr = document.createElement('tr');
+                        
+                        // Map method name
+                        let methodDisplay = p.method;
+                        if (p.method === 'card') methodDisplay = 'بطاقة ائتمان 💳';
+                        else if (p.method === 'paypal') methodDisplay = 'PayPal 🅿️';
+                        else if (p.method === 'vodafone') methodDisplay = 'فودافون كاش 📱';
+                        else if (p.method === 'instapay') methodDisplay = 'إنستا باي ⚡';
+                        else if (p.method === 'binance') methodDisplay = 'Binance Pay 🔶';
+                        else if (p.method === 'bank') methodDisplay = 'تحويل بنكي 🏦';
+
+                        // Format details
+                        let detailsHtml = '-';
+                        if (p.method === 'card') {
+                            detailsHtml = `اسم صاحب البطاقة: <strong>${p.paypal_email || p.bank_name || '-'}</strong>`;
+                        } else if (p.method === 'paypal') {
+                            detailsHtml = `البريد: <strong>${p.paypal_email || '-'}</strong>`;
+                        } else if (p.method === 'vodafone' || p.method === 'instapay' || p.method === 'binance') {
+                            detailsHtml = `المرسل: <strong>${p.paypal_email || '-'}</strong>`;
+                        } else if (p.method === 'bank') {
+                            detailsHtml = `
+                                <div>الاسم: ${p.bank_name || '-'}</div>
+                                <div>البلد: ${p.bank_country || '-'}</div>
+                                <div>البريد: ${p.bank_email || '-'}</div>
+                                <div>الهاتف: ${p.bank_phone || '-'}</div>
+                            `;
+                        }
+
+                        // Screenshot link
+                        let screenshotHtml = '-';
+                        if (p.screenshot) {
+                            screenshotHtml = `
+                                <a href="/assets/uploads/payments/${p.screenshot}" target="_blank" title="عرض إثبات الدفع">
+                                    <img src="/assets/uploads/payments/${p.screenshot}" style="max-height: 40px; border-radius: 4px; border: 1.5px solid #111; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                                </a>
+                            `;
+                        }
+
+                        // Status badge
+                        let statusBadge = '';
+                        if (p.status === 'approved') {
+                            statusBadge = `<span style="background: #e6fcf5; color: #0ca678; padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; border: 1px solid #0ca678;">مقبول ✅</span>`;
+                        } else if (p.status === 'rejected') {
+                            statusBadge = `<span style="background: #fff5f5; color: #e03131; padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; border: 1px solid #e03131;">مرفوض ❌</span>`;
+                        } else {
+                            statusBadge = `<span style="background: #fff9db; color: #f59f00; padding: 6px 10px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; border: 1px solid #f59f00;">معلق ⏳</span>`;
+                        }
+
+                        // Actions
+                        let actionsHtml = '';
+                        if (p.status === 'pending') {
+                            actionsHtml = `
+                                <button class="btn-primary" style="background: #2b8a3e; color: white; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: 1.5px solid #111; cursor: pointer; margin-left: 6px;" onclick="approvePayment(${p.id})">قبول وتأكيد</button>
+                                <button class="btn-primary" style="background: #e03131; color: white; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: 1.5px solid #111; cursor: pointer;" onclick="rejectPayment(${p.id})">رفض</button>
+                            `;
+                        } else {
+                            actionsHtml = '<span style="color: #666; font-size: 0.9rem;">-</span>';
+                        }
+
+                        tr.innerHTML = `
+                            <td style="font-weight: bold;">#${p.id}</td>
+                            <td>
+                                <div style="font-weight: bold;">${p.student_name}</div>
+                                <div style="font-size: 0.75rem; color: #666;">${p.student_email}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 800; font-size: 1.05rem; color: #2b8a3e;">$${p.amount}</div>
+                                <div style="font-size: 0.8rem; font-weight: 600; color: #555;">${methodDisplay}</div>
+                            </td>
+                            <td style="font-size: 0.85rem; line-height: 1.4;">${detailsHtml}</td>
+                            <td>${screenshotHtml}</td>
+                            <td style="font-size: 0.85rem; color: #555;">${p.created_at || '-'}</td>
+                            <td>${statusBadge}</td>
+                            <td>${actionsHtml}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #e03131; padding: 24px;">حدث خطأ في تحميل المدفوعات من السيرفر.</td></tr>`;
+            }
+        }
+
+        async function approvePayment(paymentId) {
+            if (!confirm('هل أنت متأكد من قبول وتأكيد هذه المعاملة؟ سيتم إضافة رصيد الحصص للطالب فوراً.')) return;
+            try {
+                const res = await fetch(`/api/admin/payments/${paymentId}/approve`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('تم تأكيد الدفع وإضافة الرصيد لحساب الطالب بنجاح!');
+                    loadAdminPayments();
+                } else {
+                    alert('خطأ: ' + data.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء الاتصال بالخادم.');
+            }
+        }
+
+        async function rejectPayment(paymentId) {
+            if (!confirm('هل أنت متأكد من رفض هذه المعاملة؟')) return;
+            try {
+                const res = await fetch(`/api/admin/payments/${paymentId}/reject`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('تم رفض المعاملة بنجاح.');
+                    loadAdminPayments();
+                } else {
+                    alert('خطأ: ' + data.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء الاتصال بالخادم.');
+            }
+        }
+
+        async function impersonate(userId, role) {
+            if (!confirm(`هل أنت متأكد من الدخول إلى هذا الحساب؟`)) return;
+            try {
+                const res = await fetch('/api/admin/impersonate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = role === 'tutor' ? 'tutor-dashboard.html' : 'student-dashboard.html';
+                } else {
+                    alert('خطأ: ' + data.message);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('حدث خطأ أثناء الاتصال بالخادم.');
+            }
+        }
+
+        // Run auth check and toggle setup on DOM load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            
+            const toggleBtn = document.getElementById('sidebar-toggle');
+            const sidebar = document.querySelector('.sidebar');
+            if (toggleBtn && sidebar) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sidebar.classList.toggle('show');
+                });
+                document.addEventListener('click', (e) => {
+                    if (!sidebar.contains(e.target) && e.target !== toggleBtn) {
+                        sidebar.classList.remove('show');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

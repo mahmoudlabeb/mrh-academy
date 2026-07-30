@@ -2,8 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "courses.spec.ts",
-  grep: /requires a verified account before course checkout/,
+  testMatch: ["courses.spec.ts", "payment-smoke.spec.ts"],
+  grep: /requires a verified account before course checkout|sandbox payment/,
   workers: 1,
   retries: 0,
   reporter: [["list"]],

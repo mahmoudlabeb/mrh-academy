@@ -10,6 +10,7 @@ import {
 import { hash } from 'argon2';
 import request from 'supertest';
 import cookieParser from 'cookie-parser';
+import { randomUUID } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { StudentProfile } from '../src/students/entities/student-profile.entity.js';
@@ -41,13 +42,6 @@ function futureDayIso(daysAhead = 1): string {
   const date = new Date();
   date.setDate(date.getDate() + daysAhead);
   date.setHours(0, 0, 0, 0);
-  return date.toISOString();
-}
-
-function futureScheduledTimeIso(daysAhead = 1, hourUtc = 10): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + daysAhead);
-  date.setUTCHours(hourUtc, 0, 0, 0);
   return date.toISOString();
 }
 
@@ -146,6 +140,7 @@ describe('Payments & Booking Flow (e2e)', () => {
         passwordHash,
         role: UserRole.TUTOR,
         isVerified: true,
+        timezone: 'UTC',
       }),
     );
 
@@ -200,7 +195,7 @@ describe('Payments & Booking Flow (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('does not allow anonymous course checkout to create an account', async () => {
@@ -253,52 +248,50 @@ describe('Payments & Booking Flow (e2e)', () => {
     expect(student?.balance).toBe(1800);
   });
 
-  it('Student can book a lesson as a pending request without balance deduction', async () => {
+  it('Student booking is confirmed and charged atomically after server balance verification', async () => {
     const scheduledDay = futureDayIso();
+    const idempotencyKey = randomUUID();
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/lessons/book')
       .set('Authorization', `Bearer ${studentToken}`)
       .send({
+        idempotencyKey,
         tutorId: tutorUser.id,
         scheduledTime: scheduledDay,
         durationMinutes: 50,
       });
     if (res.status !== 201) console.error(res.body);
     expect(res.status).toBe(201);
-    expect(res.body.status).toBe('pending');
+    expect(res.body.status).toBe('confirmed');
 
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBe(1800);
-  });
+    expect(student?.balance).toBeCloseTo(1758.33, 2);
 
-  it('Tutor approves lesson, balance is deducted, and tutor can complete it', async () => {
-    const resLessons = await request(app.getHttpServer())
-      .get('/api/v1/lessons')
-      .set('Authorization', `Bearer ${tutorToken}`)
-      .expect(200);
+    const retry = await request(app.getHttpServer())
+      .post('/api/v1/lessons/book')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        idempotencyKey,
+        tutorId: tutorUser.id,
+        scheduledTime: scheduledDay,
+        durationMinutes: 50,
+      })
+      .expect(201);
+    expect(retry.body.id).toBe(res.body.id);
 
-    expect(resLessons.body.data.length).toBeGreaterThan(0);
-    const lessonId = resLessons.body.data[0].id;
-    const scheduledTime = futureScheduledTimeIso();
-
-    const approveRes = await request(app.getHttpServer())
-      .post(`/api/v1/lessons/${lessonId}/approve`)
-      .set('Authorization', `Bearer ${tutorToken}`)
-      .send({ scheduledTime });
-    if (approveRes.status !== 201) console.error(approveRes.body);
-    expect(approveRes.status).toBe(201);
-    expect(approveRes.body.status).toBe('confirmed');
-
-    const studentAfterApproval = await studentProfileRepository.findOne({
+    const studentAfterRetry = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(studentAfterApproval?.balance).toBeCloseTo(1758.33, 2);
+    expect(studentAfterRetry?.balance).toBeCloseTo(1758.33, 2);
+
+    const lessonId = res.body.id;
 
     await lessonRepository.update(lessonId, {
       scheduledTime: new Date(Date.now() - 3600000),
+      endTime: new Date(Date.now() - 60000),
     });
 
     await request(app.getHttpServer())

@@ -17,6 +17,7 @@ import { ReminderService } from './reminder.service.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { RedisModule } from '../redis/redis.module.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
+import { Notification } from '../messages/entities/notification.entity.js';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { StorageModule } from '../integrations/storage/storage.module.js';
       Classroom,
       User,
       TutorAvailability,
+      Notification,
     ]),
   ],
   controllers: [LessonsController, LessonBooksController],

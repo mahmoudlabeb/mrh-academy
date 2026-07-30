@@ -121,6 +121,7 @@ export class PaymentsController {
         : user.id,
       tutorName: 'Tutor',
       amount: payment.amount,
+      currency: payment.currency,
       method: payment.method,
       status: payment.status,
       createdAt: payment.createdAt,

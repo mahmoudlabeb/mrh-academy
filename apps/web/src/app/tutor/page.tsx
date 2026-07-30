@@ -272,39 +272,12 @@ function TutorPageContent() {
     enabled: isApprovedTutor && activeSection === "dashboard",
   });
 
-  const pendingLessons = useMemo(
-    () =>
-      (allLessonsQuery.data ?? []).filter(
-        (lesson) => lesson.status === "pending",
-      ),
-    [allLessonsQuery.data],
-  );
   const recentLessons = useMemo(
     () =>
       (allLessonsQuery.data ?? [])
-        .filter((lesson) => lesson.status !== "pending")
         .slice(0, 5),
     [allLessonsQuery.data],
   );
-
-  const approveLessonMutation = useMutation({
-    mutationFn: async ({ id }: { id: string }) => {
-      await apiClient.post(`/lessons/${id}/approve`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tutor-all-lessons"] });
-      queryClient.invalidateQueries({ queryKey: ["tutor-active-lessons"] });
-    },
-  });
-
-  const rejectLessonMutation = useMutation({
-    mutationFn: async (lessonId: string) => {
-      await apiClient.post(`/lessons/${lessonId}/reject`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tutor-all-lessons"] });
-    },
-  });
 
   const activeLessonsQuery = useQuery({
     queryKey: ["tutor-active-lessons"],
@@ -424,28 +397,12 @@ function TutorPageContent() {
           <div className="space-y-8">
             <FocusDecisionStrip
               eyebrow={t("الآن", "Now")}
-              title={
-                pendingLessons.length
-                  ? t("طلبات تحتاج إلى قرار", "Requests need a decision")
-                  : t("مساحة التدريس جاهزة", "Your teaching workspace is ready")
-              }
-              description={
-                pendingLessons.length
-                  ? t(
-                      "هذه الحجوزات مؤكدة تلقائياً عند اختيار الطالب موعداً متاحاً.",
-                      "Bookings are confirmed automatically when students choose an available slot.",
-                    )
-                  : t(
-                      "لا توجد طلبات معلقة. راجع جدولك أو جهّز فصلك التالي.",
-                      "No requests are pending. Review your schedule or prepare your next classroom.",
-                    )
-              }
+              title={t("مساحة التدريس جاهزة", "Your teaching workspace is ready")}
+              description={t(
+                "تتأكد الحجوزات تلقائياً بعد التحقق من الدفع.",
+                "Bookings are confirmed automatically after server-side payment verification.",
+              )}
               facts={[
-                {
-                  label: t("حجوزات قيد المراجعة", "Legacy pending"),
-                  value: pendingLessons.length,
-                  tone: pendingLessons.length ? "attention" : "neutral",
-                },
                 {
                   label: t("طلاب", "Students"),
                   value: stats?.studentCount ?? 0,
@@ -784,95 +741,6 @@ function TutorPageContent() {
                 </p>
               )}
             </div>
-
-            {pendingLessons.length > 0 && (
-              <div className="card-dark p-6">
-                <h3
-                  className="text-lg font-bold mb-4"
-                  style={{ color: "var(--text-main)" }}
-                >
-                  {t("طلبات دروس جديدة", "New Lesson Requests")}
-                </h3>
-                <div className="space-y-3">
-                  {pendingLessons.map((lesson) => {
-                    return (
-                      <div
-                        key={lesson.id}
-                        className="p-4 rounded-xl"
-                        style={{
-                          background: "var(--bg-main)",
-                          border: "1px solid var(--border-color)",
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                              style={{
-                                background:
-                                  "color-mix(in srgb, var(--signal) 12%, transparent)",
-                                color: "var(--primary-color)",
-                              }}
-                            >
-                              {lesson.student?.firstName?.[0] ?? "S"}
-                            </div>
-                            <div>
-                              <p
-                                className="text-sm font-semibold"
-                                style={{ color: "var(--text-main)" }}
-                              >
-                                {lesson.student
-                                  ? `${lesson.student.firstName ?? ""} ${lesson.student.lastName ?? ""}`.trim()
-                                  : t("طالب", "Student")}
-                              </p>
-                              <p
-                                className="text-xs"
-                                style={{ color: "var(--text-muted)" }}
-                              >
-                                {new Date(
-                                  lesson.scheduledTime,
-                                ).toLocaleDateString()}{" "}
-                                &middot; {lesson.durationMinutes}{" "}
-                                {t("دقيقة", "min")} &middot; $
-                                {lesson.price.toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex items-center gap-3">
-                          <div className="flex items-center gap-2 shrink-0 mt-5">
-                            <button
-                              onClick={() =>
-                                rejectLessonMutation.mutate(lesson.id)
-                              }
-                              disabled={rejectLessonMutation.isPending}
-                              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all"
-                              style={{
-                                background: "var(--danger-soft)",
-                                color: "var(--danger)",
-                                border:
-                                  "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
-                              }}
-                            >
-                              {t("رفض", "Decline")}
-                            </button>
-                            <button
-                              onClick={() => {
-                                approveLessonMutation.mutate({ id: lesson.id });
-                              }}
-                              disabled={approveLessonMutation.isPending}
-                              className="btn-primary px-4 py-1.5 text-xs"
-                            >
-                              {t("موافقة", "Approve")}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {coursesQuery.data && coursesQuery.data.length > 0 && (
               <div className="card-dark p-6">

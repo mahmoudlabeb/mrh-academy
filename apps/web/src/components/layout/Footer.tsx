@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
-import { DirectionalArrow } from "@/components/shared/DirectionalArrow";
 
 export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
   const { lang } = useLanguage();
@@ -10,39 +9,50 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
   const isAr = activeLanguage === "ar";
   const base = `/${activeLanguage}`;
   const localize = (path: string) => `${base}${path}`;
+
   const groups = [
     {
-      title: isAr ? "الأكاديمية" : "Academy",
+      title: isAr ? "تعلّم" : "Learn",
       links: [
-        { label: isAr ? "الدورات" : "Courses", href: localize("/courses") },
         {
-          label: isAr ? "ابحث عن معلّم" : "Find a tutor",
-          href: localize("/tutors"),
+          label: isAr ? "مدرّسو الإنجليزية" : "English tutors",
+          href: `${localize("/tutors")}?language=English`,
         },
         {
-          label: isAr ? "انضم كمدرّس" : "Become a tutor",
+          label: isAr ? "مدرّسو العربية" : "Arabic tutors",
+          href: `${localize("/tutors")}?language=Arabic`,
+        },
+        { label: isAr ? "الدورات" : "Courses", href: localize("/courses") },
+      ],
+    },
+    {
+      title: isAr ? "للطلاب" : "For students",
+      links: [
+        { label: isAr ? "كيف تعمل المنصة" : "How it works", href: base },
+        {
+          label: isAr ? "الأسئلة الشائعة" : "FAQs",
+          href: "/faq",
+        },
+        {
+          label: isAr ? "مركز المساعدة" : "Help center",
+          href: localize("/help"),
+        },
+      ],
+    },
+    {
+      title: isAr ? "عن أكاديمية Mr.H" : "About Mr.H Academy",
+      links: [
+        {
+          label: isAr ? "كن مدرّسًا" : "Become a tutor",
           href: localize("/become-a-tutor"),
         },
         {
           label: isAr ? "موارد المعلّمين" : "Teaching resources",
           href: localize("/resources"),
         },
-      ],
-    },
-    {
-      title: isAr ? "المساعدة" : "Support",
-      links: [
         {
-          label: isAr ? "مركز المساعدة" : "Help center",
-          href: localize("/help"),
-        },
-        {
-          label: isAr ? "سياسة الخصوصية" : "Privacy policy",
-          href: localize("/privacy"),
-        },
-        {
-          label: isAr ? "شروط الاستخدام" : "Terms of use",
-          href: localize("/terms"),
+          label: isAr ? "تدريب الشركات" : "Corporate training",
+          href: "/corporate-training",
         },
       ],
     },
@@ -54,33 +64,34 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
       lang={activeLanguage}
       dir={isAr ? "rtl" : "ltr"}
     >
-      <div className="academy-footer-rule" aria-hidden="true">
-        <span>MRH ACADEMY</span>
-        <i />
-      </div>
       <div className="academy-footer-inner">
         <div className="academy-footer-brand">
           <Link href={base} className="academy-brand">
-            <span
-              className="academy-crest academy-crest-light"
-              aria-hidden="true"
-            >
-              <b>M</b>
-            </span>
             <span className="academy-wordmark">
-              <strong>MRH Academy</strong>
+              <strong>Mr.H Academy</strong>
             </span>
           </Link>
           <p>
             {isAr
-              ? "تعلّم اللغات مع معلّمين معتمدين داخل تجربة آمنة ومتكاملة."
-              : "Personal language learning with approved tutors in a secure, complete experience."}
+              ? "منصتك لتعلّم اللغات عبر الإنترنت مع مدرّسين محترفين من مختلف أنحاء العالم."
+              : "Your complete platform for learning languages online with professional tutors from around the world."}
           </p>
-          <Link href={localize("/tutors")} className="academy-footer-cta">
-            {isAr ? "اكتشف معلّمك" : "Discover your tutor"}{" "}
-            <DirectionalArrow diagonal />
-          </Link>
+          <div className="academy-socials" aria-label="Social media">
+            <a href="https://facebook.com" aria-label="Facebook">
+              f
+            </a>
+            <a href="https://x.com" aria-label="X">
+              x
+            </a>
+            <a href="https://instagram.com" aria-label="Instagram">
+              ◎
+            </a>
+            <a href="https://youtube.com" aria-label="YouTube">
+              ▶
+            </a>
+          </div>
         </div>
+
         {groups.map((group) => (
           <nav
             key={group.title}
@@ -89,26 +100,27 @@ export default function Footer({ language }: { language?: "ar" | "en" } = {}) {
           >
             <h2>{group.title}</h2>
             {group.links.map((link) => (
-              <Link key={link.href} href={link.href}>
+              <Link key={`${link.href}-${link.label}`} href={link.href}>
                 {link.label}
               </Link>
             ))}
           </nav>
         ))}
-        <div className="academy-footer-note">
-          <p>{isAr ? "تعلّم بثقة" : "Learn with confidence"}</p>
-          <strong>
-            {isAr ? "كل جلسة تبدأ بهدف." : "Every lesson begins with a goal."}
-          </strong>
-          <span>{isAr ? "القاهرة • العالم" : "Cairo • Worldwide"}</span>
-        </div>
       </div>
+
       <div className="academy-footer-bottom">
         <p>
-          © {new Date().getFullYear()} MRH Academy.{" "}
+          © {new Date().getFullYear()} Mr.H Academy.{" "}
           {isAr ? "جميع الحقوق محفوظة." : "All rights reserved."}
         </p>
-        <p>{isAr ? "تعلّم يصنع أثرًا" : "Learning that moves you forward"}</p>
+        <div>
+          <Link href={localize("/privacy")}>
+            {isAr ? "سياسة الخصوصية" : "Privacy policy"}
+          </Link>
+          <Link href={localize("/terms")}>
+            {isAr ? "شروط الخدمة" : "Terms of service"}
+          </Link>
+        </div>
       </div>
     </footer>
   );

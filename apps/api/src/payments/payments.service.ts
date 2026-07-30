@@ -231,6 +231,7 @@ export class PaymentsService {
         stripeCheckoutSessionId: input.stripeSessionId,
         stripePaymentIntentId: input.stripePaymentIntentId ?? null,
         allocatedAmount: Number(course.price),
+        creditedAmountUsd: Number(course.price),
       });
       await manager.update(User, payment.userId, { isVerified: true });
       return { enrollment, created: true, payment };
@@ -386,6 +387,7 @@ export class PaymentsService {
           userId,
           dto.amount,
           savedPayment.id,
+          dto.currency ?? 'USD',
         );
         checkoutUrl = session.url;
       } catch (stripeError) {
@@ -433,6 +435,8 @@ export class PaymentsService {
           ? payment.amount / (await this.commissionService.getEgpRate())
           : payment.amount;
       const balanceToAdd = Math.round(amountInUsd * 100) / 100;
+      payment.creditedAmountUsd = balanceToAdd;
+      await manager.save(Payment, payment);
       await manager.increment(
         StudentProfile,
         { userId: payment.userId },
@@ -486,6 +490,9 @@ export class PaymentsService {
           throw new NotFoundException('Payment not found');
         }
 
+        if (payment.status === PaymentStatus.APPROVED) {
+          return { payment, balanceToAdd: 0 };
+        }
         if (payment.status !== PaymentStatus.PENDING) {
           throw new BadRequestException('Payment is already processed');
         }
@@ -504,6 +511,8 @@ export class PaymentsService {
             ? payment.amount / (await this.commissionService.getEgpRate())
             : payment.amount;
         const balanceToAdd = Math.round(amountInUsd * 100) / 100;
+        payment.creditedAmountUsd = balanceToAdd;
+        await manager.save(Payment, payment);
         await manager.increment(
           StudentProfile,
           { userId: payment.userId },
@@ -514,7 +523,9 @@ export class PaymentsService {
         return { payment, balanceToAdd };
       })
       .then(async ({ payment, balanceToAdd }) => {
-        await this.notifyPaymentApproved(payment, balanceToAdd);
+        if (balanceToAdd > 0) {
+          await this.notifyPaymentApproved(payment, balanceToAdd);
+        }
         return payment;
       });
   }
@@ -603,15 +614,46 @@ export class PaymentsService {
         Math.round((refundTotal - Number(payment.refundedAmount ?? 0)) * 100) /
         100;
       if (refundDelta <= 0) {
-        return { payment, refundDelta: 0, revokedCourses: 0 };
+        return {
+          payment,
+          refundDelta: 0,
+          walletRefundDelta: 0,
+          revokedCourses: 0,
+        };
       }
+      const creditedAmountUsd =
+        payment.creditedAmountUsd ??
+        (payment.currency === 'EGP'
+          ? Number(payment.amount) /
+            (await this.commissionService.getEgpRate())
+          : Number(payment.amount));
+      const refundedWalletTotal =
+        Number(payment.amount) > 0
+          ? Math.round(
+              (refundTotal / Number(payment.amount)) *
+                Number(creditedAmountUsd) *
+                100,
+            ) / 100
+          : 0;
+      const previousRefundedWalletTotal =
+        Number(payment.amount) > 0
+          ? Math.round(
+              (Number(payment.refundedAmount ?? 0) / Number(payment.amount)) *
+                Number(creditedAmountUsd) *
+                100,
+            ) / 100
+          : 0;
+      const walletRefundDelta =
+        Math.round(
+          (refundedWalletTotal - previousRefundedWalletTotal) * 100,
+        ) / 100;
 
       const allocations = await manager.find(CourseFundingAllocation, {
         where: { paymentId },
         order: { createdAt: 'ASC' },
         lock: { mode: 'pessimistic_write' },
       });
-      let amountStillToRelease = refundDelta;
+      let amountStillToRelease = walletRefundDelta;
       let revokedCourses = 0;
 
       for (const allocation of allocations) {
@@ -696,7 +738,7 @@ export class PaymentsService {
         StudentProfile,
         { userId: payment.userId },
         'balance',
-        refundDelta,
+        walletRefundDelta,
       );
       await manager.update(
         Payment,
@@ -708,7 +750,7 @@ export class PaymentsService {
         },
       );
 
-      return { payment, refundDelta, revokedCourses };
+      return { payment, refundDelta, walletRefundDelta, revokedCourses };
     });
 
     if (result.refundDelta > 0) {
@@ -717,7 +759,7 @@ export class PaymentsService {
           userId: result.payment.userId,
           type: 'payment_refunded',
           title: 'Payment refunded',
-          body: `$${result.refundDelta.toFixed(2)} was refunded. Access to ${result.revokedCourses} affected course(s) was revoked.`,
+          body: `${result.payment.currency} ${result.refundDelta.toFixed(2)} was refunded (${result.walletRefundDelta.toFixed(2)} USD wallet value). Access to ${result.revokedCourses} affected course(s) was revoked.`,
         }),
       );
     }

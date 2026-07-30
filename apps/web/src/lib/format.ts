@@ -46,10 +46,11 @@ export function formatCurrency(
   locale: SupportedLocale,
   value: number,
   maximumFractionDigits = 2,
+  currency = "USD",
 ) {
   return new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: maximumFractionDigits,
     maximumFractionDigits,
   }).format(Number(value));

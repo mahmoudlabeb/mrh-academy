@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Inject } from '@nestjs/common';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { LessonStatus, UserRole } from '@mrh/types';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
@@ -318,29 +318,18 @@ export class UsersService {
 
       const lessons = await manager.find(Lesson, {
         where: [
-          {
-            studentId: userId,
-            status: In([LessonStatus.PENDING, LessonStatus.CONFIRMED]),
-          },
-          {
-            tutorId: userId,
-            status: In([LessonStatus.PENDING, LessonStatus.CONFIRMED]),
-          },
+          { studentId: userId, status: LessonStatus.CONFIRMED },
+          { tutorId: userId, status: LessonStatus.CONFIRMED },
         ],
       });
 
       for (const lesson of lessons) {
-        // Pending lessons have not been charged yet. Only confirmed lessons
-        // may be refunded during account deletion.
-        if (lesson.status === LessonStatus.CONFIRMED) {
-          await manager.increment(
-            StudentProfile,
-            { userId: lesson.studentId },
-            'balance',
-            lesson.price,
-          );
-        }
-
+        await manager.increment(
+          StudentProfile,
+          { userId: lesson.studentId },
+          'balance',
+          lesson.price,
+        );
         lesson.status = LessonStatus.CANCELLED;
         await manager.save(Lesson, lesson);
       }

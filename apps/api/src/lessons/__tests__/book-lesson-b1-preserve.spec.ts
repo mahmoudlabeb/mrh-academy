@@ -163,7 +163,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       endTime: new Date(dt.getTime() + 50 * 60000),
       durationMinutes: 50,
       price: 25,
-      status: LessonStatus.PENDING,
+      status: LessonStatus.CONFIRMED,
       meetUrl: 'room-abc',
       tutor: { id: 'tutor-1', firstName: 'T', lastName: 'T', email: 't@t.com' },
       student: {
@@ -186,6 +186,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       create: jest.fn((_e: any, d: any) => d),
+      decrement: jest.fn(),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.tutorId && data.studentId)
           return { ...savedLesson, ...data };
@@ -204,7 +205,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     expect(result!.scheduledTime.getUTCMinutes()).not.toBe(0);
   });
 
-  it('should defer Classroom creation until tutor approval', async () => {
+  it('should create the Classroom when the paid lesson is confirmed', async () => {
     tutorRepo.findOne.mockResolvedValue({
       userId: 'tutor-1',
       status: CourseStatus.APPROVED,
@@ -229,7 +230,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       endTime: new Date(dt.getTime() + 50 * 60000),
       durationMinutes: 50,
       price: 25,
-      status: LessonStatus.PENDING,
+      status: LessonStatus.CONFIRMED,
       meetUrl: 'room-abc',
       tutor: { id: 'tutor-1', firstName: 'T', lastName: 'T', email: 't@t.com' },
       student: {
@@ -253,6 +254,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder2),
       create: jest.fn((_e: any, d: any) => d),
+      decrement: jest.fn(),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.lessonId) {
           classroomSave();
@@ -272,7 +274,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     userRepo.findOne.mockResolvedValue(null);
 
     await service.bookLesson('student-1', validDto);
-    expect(classroomSave).not.toHaveBeenCalled();
+    expect(classroomSave).toHaveBeenCalledTimes(1);
   });
 
   it('should call Redis invalidation after booking', async () => {
@@ -300,7 +302,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       endTime: new Date(dt.getTime() + 50 * 60000),
       durationMinutes: 50,
       price: 25,
-      status: LessonStatus.PENDING,
+      status: LessonStatus.CONFIRMED,
       meetUrl: 'room-abc',
       tutor: { id: 'tutor-1', firstName: 'T', lastName: 'T', email: 't@t.com' },
       student: {
@@ -323,6 +325,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder3),
       create: jest.fn((_e: any, d: any) => d),
+      decrement: jest.fn(),
       save: jest.fn(async (_target: any, data: any) => {
         if (data && data.tutorId && data.studentId)
           return { ...savedLesson, ...data };

@@ -1,4 +1,4 @@
-import { formatPaymentMethod, formatWeekday } from "./format";
+import { formatCurrency, formatPaymentMethod, formatWeekday } from "./format";
 
 describe("formatPaymentMethod", () => {
   it.each([
@@ -21,6 +21,13 @@ describe("formatPaymentMethod", () => {
     expect(formatPaymentMethod("ar", "future-wallet")).toBe("future wallet");
     expect(formatPaymentMethod("en", null)).toBe("—");
     expect(formatPaymentMethod("ar", "  ")).toBe("—");
+  });
+});
+
+describe("formatCurrency", () => {
+  it("preserves the original EGP currency on payment records", () => {
+    expect(formatCurrency("en", 1500, 2, "EGP")).toContain("EGP");
+    expect(formatCurrency("en", 1500, 2, "EGP")).toContain("1,500.00");
   });
 });
 
