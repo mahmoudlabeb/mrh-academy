@@ -35,7 +35,7 @@ function legacyDestination(
     [/^\/student$/, () => localized("/learn")],
     [/^\/student\/lessons$/, () => localized("/learn/lessons")],
     [/^\/student\/wallet$/, () => localized("/learn/wallet")],
-    [/^\/student\/discover$/, () => localized("/tutors")],
+    [/^\/student\/discover$/, () => localized("/learn/tutors")],
     [/^\/tutor$/, () => localized("/teach")],
     [/^\/tutor\/availability$/, () => localized("/teach/availability")],
     [/^\/tutor\/earnings$/, () => localized("/teach/earnings")],
@@ -87,17 +87,10 @@ export function middleware(request: NextRequest) {
       (prefix) =>
         localized.route === prefix || localized.route.startsWith(`${prefix}/`),
     );
-    const isAuth =
-      localized.route === "/sign-in" || localized.route === "/sign-up";
     if (!token && isProtected) {
       const loginUrl = new URL(`/${localized.locale}/sign-in`, request.url);
       loginUrl.searchParams.set("redirect", `${pathname}${search}`);
       return NextResponse.redirect(loginUrl);
-    }
-    if (token && isAuth) {
-      return NextResponse.redirect(
-        new URL(`/${localized.locale}/learn`, request.url),
-      );
     }
   }
 

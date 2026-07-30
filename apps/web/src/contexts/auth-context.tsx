@@ -38,20 +38,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const PUBLIC_AUTH_ROUTES = new Set([
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/reset-password",
-  "/verify-email",
-]);
-
-function canonicalAuthPath(pathname: string) {
-  const stripped = pathname.replace(/^\/(?:en|ar)(?=\/|$)/, "") || "/";
-  if (stripped === "/sign-in") return "/login";
-  if (stripped === "/sign-up") return "/register";
-  return stripped;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -71,10 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (PUBLIC_AUTH_ROUTES.has(canonicalAuthPath(pathname))) {
-      setIsLoading(false);
-      return;
-    }
     if (sessionChecked.current) return;
     sessionChecked.current = true;
     setIsLoading(true);

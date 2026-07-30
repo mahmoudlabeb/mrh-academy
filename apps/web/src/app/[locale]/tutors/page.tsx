@@ -1,5 +1,10 @@
 import { TutorCatalogScreen } from "@/components/blueprint/MarketplaceScreens";
+import { AuthenticatedGuestRoute } from "@/components/shared/AuthenticatedGuestRoute";
 
 export default function Page() {
-  return <TutorCatalogScreen />;
+  return (
+    <AuthenticatedGuestRoute>
+      <TutorCatalogScreen />
+    </AuthenticatedGuestRoute>
+  );
 }

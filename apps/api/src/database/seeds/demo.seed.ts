@@ -17,6 +17,7 @@ import { Employee } from '../../admin/entities/employee.entity.js';
 import { Course } from '../../courses/entities/course.entity.js';
 import { Lesson } from '../../lessons/entities/lesson.entity.js';
 import { Payment } from '../../payments/entities/payment.entity.js';
+import { seedComprehensiveDemoFixtures } from './comprehensive-demo.seed.js';
 
 const supportSubAdminPermissions = [
   'manage_tutors',
@@ -305,6 +306,50 @@ async function seedDemoData() {
         }
       });
     }
+
+    const demoAdmin = await AppDataSource.getRepository(User).findOne({
+      where: { email: 'admin.one@mrh-academy.example' },
+    });
+    const approvedCourse = await AppDataSource.getRepository(Course).findOne({
+      where: {
+        tutorId: demoTutor?.id,
+        title: 'Arabic Conversation Foundations',
+      },
+    });
+    const completedLesson = await AppDataSource.getRepository(Lesson).findOne({
+      where: {
+        tutorId: demoTutor?.id,
+        studentId: demoStudent?.id,
+        status: LessonStatus.COMPLETED,
+      },
+      order: { createdAt: 'ASC' },
+    });
+    const walletPayment = await AppDataSource.getRepository(Payment).findOne({
+      where: {
+        userId: demoStudent?.id,
+        adminNote: 'Demo wallet funding',
+      },
+    });
+    if (
+      !demoTutor ||
+      !demoStudent ||
+      !demoAdmin ||
+      !approvedCourse ||
+      !completedLesson ||
+      !walletPayment
+    ) {
+      throw new Error('Core demo fixtures are incomplete');
+    }
+    await AppDataSource.transaction((manager) =>
+      seedComprehensiveDemoFixtures(manager, {
+        studentId: demoStudent.id,
+        tutorId: demoTutor.id,
+        adminId: demoAdmin.id,
+        approvedCourseId: approvedCourse.id,
+        completedLessonId: completedLesson.id,
+        walletPaymentId: walletPayment.id,
+      }),
+    );
   } finally {
     await AppDataSource.destroy();
   }

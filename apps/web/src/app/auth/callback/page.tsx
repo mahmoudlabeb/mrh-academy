@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
 import Link from "next/link";
+import { workspaceHomeForRole } from "@/lib/workspace-routing";
 
 function AuthCallbackContent() {
   const { lang } = useLanguage();
@@ -16,14 +17,7 @@ function AuthCallbackContent() {
     apiClient
       .get("/users/me")
       .then(({ data }) => {
-        const role = data.role as string;
-        if (role === "tutor") {
-          router.push(`/${lang}/teach`);
-        } else if (role === "admin" || role === "subadmin") {
-          router.push(`/${lang}/ops`);
-        } else {
-          router.push(`/${lang}/learn`);
-        }
+        router.replace(workspaceHomeForRole(lang, data.role as string));
       })
       .catch(() => {
         setHasError(true);

@@ -1,5 +1,10 @@
 import { SignUpScreen } from "@/components/blueprint/AuthScreens";
+import { AuthenticatedGuestRoute } from "@/components/shared/AuthenticatedGuestRoute";
 
 export default function LocaleSignUpPage() {
-  return <SignUpScreen />;
+  return (
+    <AuthenticatedGuestRoute>
+      <SignUpScreen />
+    </AuthenticatedGuestRoute>
+  );
 }

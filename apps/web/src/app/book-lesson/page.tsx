@@ -332,7 +332,7 @@ function BookLessonContent() {
               "Please select a tutor first from the tutors page.",
             )}
           </p>
-          <Link href="/student/discover" className="btn-primary">
+          <Link href={`/${lang}/learn/tutors`} className="btn-primary">
             {t("تصفح المعلمين", "Browse Tutors")}
           </Link>
         </div>
@@ -402,10 +402,10 @@ function BookLessonContent() {
             )}
           </p>
           <div className="flex gap-3 justify-center">
-            <Link href="/student?tab=lessons" className="btn-primary">
+            <Link href={`/${lang}/learn/lessons`} className="btn-primary">
               {t("عرض دروسي", "My Lessons")}
             </Link>
-            <Link href="/student/discover" className="btn-secondary">
+            <Link href={`/${lang}/learn/tutors`} className="btn-secondary">
               {t("العودة للمعلمين", "Back to Tutors")}
             </Link>
           </div>
@@ -451,7 +451,7 @@ function BookLessonContent() {
               "Could not find this tutor. They may not be available.",
             )}
           </p>
-          <Link href="/student/discover" className="btn-primary">
+          <Link href={`/${lang}/learn/tutors`} className="btn-primary">
             {t("العودة للمعلمين", "Back to Tutors")}
           </Link>
         </div>
@@ -464,7 +464,7 @@ function BookLessonContent() {
       <header className="dashboard-header">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link
-            href="/student/discover"
+            href={`/${lang}/learn/tutors`}
             className="link inline-flex items-center gap-1 text-sm"
           >
             <svg

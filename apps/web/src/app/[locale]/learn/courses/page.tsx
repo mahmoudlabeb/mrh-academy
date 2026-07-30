@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
 import { WorkspaceSection } from "@/components/shared/WorkspaceSection";
+import { CourseCatalogScreen } from "@/components/blueprint/MarketplaceScreens";
 
 type Enrollment = {
   id: string;
@@ -56,7 +57,7 @@ export default function LearnerCoursesRoute() {
       ) : !enrollments.data?.length ? (
         <section className="focus-empty">
           <h2>{t("لا توجد دورات مسجّلة بعد", "No enrolled courses yet")}</h2>
-          <Link className="btn-primary" href={`/${lang}/courses`}>
+          <Link className="btn-primary" href={`/${lang}/learn/courses#catalog`}>
             {t("تصفّح دليل الدورات", "Browse Course Catalog")}
           </Link>
         </section>
@@ -101,6 +102,7 @@ export default function LearnerCoursesRoute() {
           ))}
         </div>
       )}
+      <CourseCatalogScreen embedded workspace />
     </WorkspaceSection>
   );
 }

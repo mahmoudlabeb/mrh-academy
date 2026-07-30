@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { CloseIcon } from "@/components/icons/Icons";
+import { useLanguage } from "@/contexts/language-context";
 
 export function RoutedPanel({
   title,
@@ -18,6 +19,7 @@ export function RoutedPanel({
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLElement>(null);
+  const { lang } = useLanguage();
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -86,7 +88,7 @@ export function RoutedPanel({
             type="button"
             className="panel-close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={lang === "ar" ? "إغلاق" : "Close"}
           >
             <CloseIcon className="h-5 w-5" />
           </button>

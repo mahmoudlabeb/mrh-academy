@@ -13,7 +13,7 @@ export class AutoConfirmPaidLessons1784505619000 implements MigrationInterface {
       FROM (
         SELECT "student_id", COALESCE(SUM("price"), 0) AS total
         FROM "lessons"
-        WHERE "status" IN ('pending', 'rejected')
+        WHERE "status"::text IN ('pending', 'rejected')
         GROUP BY "student_id"
       ) pending
       WHERE profile."user_id" = pending."student_id"
@@ -21,7 +21,7 @@ export class AutoConfirmPaidLessons1784505619000 implements MigrationInterface {
     await queryRunner.query(`
       UPDATE "lessons"
       SET "status" = 'cancelled'
-      WHERE "status" IN ('pending', 'rejected')
+      WHERE "status"::text IN ('pending', 'rejected')
     `);
 
     await queryRunner.query(`

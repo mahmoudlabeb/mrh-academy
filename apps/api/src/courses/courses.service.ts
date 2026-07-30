@@ -721,11 +721,10 @@ export class CoursesService {
         for (const deposit of deposits) {
           if (amountToAllocate <= 0) break;
           const creditedAmountUsd =
-            deposit.creditedAmountUsd ??
-            (deposit.currency === 'EGP'
+            deposit.currency === 'EGP'
               ? Number(deposit.amount) /
                 (await this.commissionService.getEgpRate())
-              : Number(deposit.amount));
+              : Number(deposit.amount);
           const refundedAmountUsd =
             Number(deposit.amount) > 0
               ? (Number(deposit.refundedAmount ?? 0) / Number(deposit.amount)) *

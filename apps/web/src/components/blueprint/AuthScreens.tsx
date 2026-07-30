@@ -7,6 +7,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { apiClient } from "@/lib/api-client";
+import {
+  authenticatedGuestDestination,
+  workspaceHomeForRole,
+} from "@/lib/workspace-routing";
 
 function useCopy() {
   const { lang } = useLanguage();
@@ -81,13 +85,11 @@ export function SignInScreen() {
         !requested.includes("\\")
           ? requested
           : null;
-      const home =
-        user.role === "tutor"
-          ? `/${lang}/teach`
-          : user.role === "admin" || user.role === "subadmin"
-            ? `/${lang}/ops`
-            : `/${lang}/learn`;
-      router.replace(safe ?? home);
+      const home = workspaceHomeForRole(lang, user.role);
+      const destination = safe
+        ? (authenticatedGuestDestination(safe, user.role) ?? safe)
+        : home;
+      router.replace(destination);
     },
   });
 

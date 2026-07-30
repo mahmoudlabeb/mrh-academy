@@ -61,8 +61,10 @@ test.describe("Authentication Flow", () => {
 
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page).toHaveURL(/\/en\/sign-in/);
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page).toHaveURL(/\/en\/sign-in$/);
+    await expect(page.locator(".blueprint-error")).toHaveText(
+      "Invalid email or password",
+    );
   });
 
   test("should verify an email from a localized link", async ({ page }) => {

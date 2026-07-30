@@ -143,7 +143,7 @@ export default function CourseDetailPage() {
       queryClient.invalidateQueries({
         queryKey: ["course-lessons", params.id],
       });
-      router.push("/student?tab=lessons");
+      router.push(`/${lang}/learn/courses/${params.id}`);
     },
   });
 

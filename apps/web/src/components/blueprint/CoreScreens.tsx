@@ -221,10 +221,10 @@ export function LearnerTodayScreen() {
         </StateBlock>
       </section>
       <div className="blueprint-quick-grid">
-        <Link href={`/${lang}/tutors`}>
+        <Link href={`/${lang}/learn/tutors`}>
           {t("اعثر على معلم", "Find a tutor")}
         </Link>
-        <Link href={`/${lang}/courses`}>
+        <Link href={`/${lang}/learn/courses#catalog`}>
           {t("تصفح الدورات", "Browse courses")}
         </Link>
         <Link href={`/${lang}/learn/wallet/add`}>

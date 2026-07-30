@@ -243,6 +243,12 @@
   padding-block: 132px 80px;
 }
 
+.blueprint-public__main.blueprint-workspace-marketplace {
+  width: min(100%, 1160px);
+  min-height: 0;
+  padding-block: 0;
+}
+
 .blueprint-history {
   display: flex;
   gap: 8px;
@@ -266,6 +272,7 @@
 }
 
 .blueprint-page-head h1,
+.blueprint-workspace-catalog .blueprint-page-head h2,
 .blueprint-profile-head h1,
 .blueprint-course-detail h1,
 .blueprint-workspace-head h1 {
@@ -277,6 +284,7 @@
 }
 
 [dir="rtl"] .blueprint-page-head h1,
+[dir="rtl"] .blueprint-workspace-catalog .blueprint-page-head h2,
 [dir="rtl"] .blueprint-profile-head h1,
 [dir="rtl"] .blueprint-course-detail h1,
 [dir="rtl"] .blueprint-workspace-head h1 {
@@ -298,6 +306,22 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.blueprint-workspace-catalog {
+  margin-block-start: 48px;
+  padding-block-start: 32px;
+  border-block-start: 1px solid var(--border);
+  scroll-margin-block-start: 112px;
+}
+
+.blueprint-workspace-catalog:focus {
+  outline: none;
+}
+
+.blueprint-workspace-catalog:focus-visible {
+  outline: 3px solid var(--signal);
+  outline-offset: 6px;
 }
 
 .blueprint-filter-bar {

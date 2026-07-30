@@ -7,6 +7,7 @@
 import { AppDataSource } from './data-source.js';
 
 const EXPECTED_TABLES = [
+  'admin_audit_logs',
   'users',
   'employees',
   'settings',

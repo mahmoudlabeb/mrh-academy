@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { RoutedPanel } from "@/components/shared/RoutedPanel";
@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { formatCurrency, formatWeekday } from "@/lib/format";
 import { SecureVideoPlayer } from "@/components/shared/SecureVideoPlayer";
+import { DirectionalArrow } from "@/components/shared/DirectionalArrow";
 
 type Tutor = {
   userId: string;
@@ -84,6 +85,32 @@ function PublicFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
+function MarketplaceFrame({
+  children,
+  workspace,
+}: {
+  children: React.ReactNode;
+  workspace: boolean;
+}) {
+  if (workspace) {
+    return (
+      <main className="blueprint-public__main blueprint-workspace-marketplace">
+        {children}
+      </main>
+    );
+  }
+
+  return <PublicFrame>{children}</PublicFrame>;
+}
+
+function tutorMarketplaceBase(lang: "ar" | "en", workspace: boolean) {
+  return workspace ? `/${lang}/learn/tutors` : `/${lang}/tutors`;
+}
+
+function courseMarketplaceBase(lang: "ar" | "en", workspace: boolean) {
+  return workspace ? `/${lang}/learn/courses/catalog` : `/${lang}/courses`;
+}
+
 function BackForward() {
   const { lang, t } = useCopy();
   return (
@@ -141,13 +168,28 @@ function EmptyState({
   );
 }
 
-export function TutorCatalogScreen() {
+export function TutorCatalogScreen({
+  workspace = false,
+}: {
+  workspace?: boolean;
+}) {
   const { lang, t } = useCopy();
-  const [search, setSearch] = useState("");
-  const [language, setLanguage] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [sort, setSort] = useState("rating");
+  const tutorBase = tutorMarketplaceBase(lang, workspace);
+  const searchParams = useSearchParams();
+  const requestedSort = searchParams.get("sort");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [language, setLanguage] = useState(
+    () => searchParams.get("language") ?? "",
+  );
+  const [minPrice, setMinPrice] = useState(
+    () => searchParams.get("minPrice") ?? "",
+  );
+  const [maxPrice, setMaxPrice] = useState(
+    () => searchParams.get("maxPrice") ?? "",
+  );
+  const [sort, setSort] = useState(
+    requestedSort === "price" ? "price" : "rating",
+  );
   const deferredSearch = useDeferredValue(search);
   const tutorsQuery = useQuery({
     queryKey: ["blueprint-tutors"],
@@ -180,7 +222,7 @@ export function TutorCatalogScreen() {
   ).sort();
 
   return (
-    <PublicFrame>
+    <MarketplaceFrame workspace={workspace}>
       <section className="blueprint-page-head">
         <BackForward />
         <p className="blueprint-kicker">
@@ -221,6 +263,7 @@ export function TutorCatalogScreen() {
           value={minPrice}
           onChange={(event) => setMinPrice(event.target.value)}
           placeholder={t("أقل سعر", "Min $/hr")}
+          aria-label={t("الحد الأدنى للسعر في الساعة", "Minimum hourly price")}
         />
         <input
           type="number"
@@ -228,6 +271,7 @@ export function TutorCatalogScreen() {
           value={maxPrice}
           onChange={(event) => setMaxPrice(event.target.value)}
           placeholder={t("أعلى سعر", "Max $/hr")}
+          aria-label={t("الحد الأقصى للسعر في الساعة", "Maximum hourly price")}
         />
         <select
           value={sort}
@@ -312,13 +356,13 @@ export function TutorCatalogScreen() {
                 </strong>
                 <Link
                   className="btn-secondary"
-                  href={`/${lang}/tutors/${tutor.userId}`}
+                  href={`${tutorBase}/${tutor.userId}`}
                 >
                   {t("الملف", "Profile")}
                 </Link>
                 <Link
                   className="btn-primary"
-                  href={`/${lang}/tutors/${tutor.userId}/book`}
+                  href={`${tutorBase}/${tutor.userId}/book`}
                 >
                   {t("احجز", "Book")}
                 </Link>
@@ -327,18 +371,21 @@ export function TutorCatalogScreen() {
           ))}
         </div>
       )}
-    </PublicFrame>
+    </MarketplaceFrame>
   );
 }
 
 function TutorProfileBody({
   tutorId,
   panel = false,
+  workspace = false,
 }: {
   tutorId: string;
   panel?: boolean;
+  workspace?: boolean;
 }) {
   const { lang, t } = useCopy();
+  const tutorBase = tutorMarketplaceBase(lang, workspace);
   const { user } = useAuth();
   const tutorQuery = useQuery({
     queryKey: ["blueprint-tutor", tutorId],
@@ -486,10 +533,7 @@ function TutorProfileBody({
             {formatCurrency(lang, tutor.hourlyRate, 0)}{" "}
             <small>{t("/ في الساعة", "/ hour")}</small>
           </strong>
-          <Link
-            className="btn-primary"
-            href={`/${lang}/tutors/${tutorId}/book`}
-          >
+          <Link className="btn-primary" href={`${tutorBase}/${tutorId}/book`}>
             {t("احجز درساً", "Book a lesson")}
           </Link>
           {(user?.role === "student" || user?.role === "tutor") && (
@@ -512,19 +556,30 @@ function TutorProfileBody({
         <BookingPanel
           tutor={tutor}
           availability={availabilityQuery.data ?? []}
+          tutorBase={tutorBase}
         />
       )}
     </>
   );
 }
 
-export function TutorProfileScreen({ booking = false }: { booking?: boolean }) {
+export function TutorProfileScreen({
+  booking = false,
+  workspace = false,
+}: {
+  booking?: boolean;
+  workspace?: boolean;
+}) {
   const params = useParams<{ id: string }>();
   return (
-    <PublicFrame>
+    <MarketplaceFrame workspace={workspace}>
       <BackForward />
-      <TutorProfileBody tutorId={params.id} panel={booking} />
-    </PublicFrame>
+      <TutorProfileBody
+        tutorId={params.id}
+        panel={booking}
+        workspace={workspace}
+      />
+    </MarketplaceFrame>
   );
 }
 
@@ -538,9 +593,11 @@ function toIsoDate(date: Date) {
 function BookingPanel({
   tutor,
   availability,
+  tutorBase,
 }: {
   tutor: Tutor;
   availability: Availability[];
+  tutorBase: string;
 }) {
   const idempotencyKeyRef = useRef(crypto.randomUUID());
   const { lang, t } = useCopy();
@@ -612,7 +669,7 @@ function BookingPanel({
       setConfirmed(true);
     },
   });
-  const close = () => router.push(`/${lang}/tutors/${tutor.userId}`);
+  const close = () => router.push(`${tutorBase}/${tutor.userId}`);
 
   return (
     <RoutedPanel
@@ -685,7 +742,7 @@ function BookingPanel({
           </p>
           <Link
             className="btn-primary"
-            href={`/${lang}/sign-in?next=${encodeURIComponent(`/${lang}/tutors/${tutor.userId}/book`)}`}
+            href={`/${lang}/sign-in?next=${encodeURIComponent(`${tutorBase}/${tutor.userId}/book`)}`}
           >
             {t("تسجيل الدخول", "Sign in")}
           </Link>
@@ -835,20 +892,62 @@ function BookingPanel({
   );
 }
 
-export function CourseCatalogScreen() {
+export function CourseCatalogScreen({
+  workspace = false,
+  embedded = false,
+}: {
+  workspace?: boolean;
+  embedded?: boolean;
+}) {
   const { lang, t } = useCopy();
+  const courseBase = courseMarketplaceBase(lang, workspace);
+  const catalogRef = useRef<HTMLElement>(null);
   const coursesQuery = useQuery({
     queryKey: ["blueprint-courses"],
     queryFn: async () => (await apiClient.get<Course[]>("/courses")).data,
   });
-  return (
-    <PublicFrame>
+
+  useEffect(() => {
+    if (!embedded) return;
+    let frame: number | undefined;
+    const focusCatalog = () => {
+      if (window.location.hash !== "#catalog") return;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        catalogRef.current?.focus({ preventScroll: true });
+        catalogRef.current?.scrollIntoView({
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches
+            ? "auto"
+            : "smooth",
+          block: "start",
+        });
+      });
+    };
+    focusCatalog();
+    window.addEventListener("hashchange", focusCatalog);
+    window.addEventListener("popstate", focusCatalog);
+    return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", focusCatalog);
+      window.removeEventListener("popstate", focusCatalog);
+    };
+  }, [embedded]);
+
+  const content = (
+    <>
       <section className="blueprint-page-head">
-        <BackForward />
+        {!embedded && <BackForward />}
         <p className="blueprint-kicker">
           {t("تعلم ذاتي موثق", "Approved self-paced learning")}
         </p>
-        <h1>{t("دليل الدورات المعتمدة", "Approved Courses Catalog")}</h1>
+        {embedded ? (
+          <h2 id="course-catalog-title">
+            {t("دليل الدورات المعتمدة", "Approved Courses Catalog")}
+          </h2>
+        ) : (
+          <h1>{t("دليل الدورات المعتمدة", "Approved Courses Catalog")}</h1>
+        )}
         <p>
           {t(
             "دورات فيديو أنشأها خبراء لغة معتمدون.",
@@ -899,27 +998,46 @@ export function CourseCatalogScreen() {
                 <strong>{formatCurrency(lang, course.price)}</strong>
                 <Link
                   className="btn-primary"
-                  href={`/${lang}/courses/${course.id}`}
+                  href={`${courseBase}/${course.id}`}
                 >
-                  {t("استعرض الدورة", "Inspect course")} →
+                  {t("استعرض الدورة", "Inspect course")} <DirectionalArrow />
                 </Link>
               </div>
             </article>
           ))}
         </div>
       )}
-    </PublicFrame>
+    </>
   );
+
+  if (embedded) {
+    return (
+      <section
+        ref={catalogRef}
+        className="blueprint-workspace-catalog"
+        id="catalog"
+        aria-labelledby="course-catalog-title"
+        tabIndex={-1}
+      >
+        {content}
+      </section>
+    );
+  }
+
+  return <MarketplaceFrame workspace={workspace}>{content}</MarketplaceFrame>;
 }
 
 function CourseDetailBody({
   courseId,
   enrollmentPanel = false,
+  workspace = false,
 }: {
   courseId: string;
   enrollmentPanel?: boolean;
+  workspace?: boolean;
 }) {
   const { lang, t } = useCopy();
+  const courseBase = courseMarketplaceBase(lang, workspace);
   const { user } = useAuth();
   const courseQuery = useQuery({
     queryKey: ["blueprint-course", courseId],
@@ -1058,7 +1176,7 @@ function CourseDetailBody({
           ) : (
             <Link
               className="btn-primary"
-              href={`/${lang}/courses/${course.id}/enroll`}
+              href={`${courseBase}/${course.id}/enroll`}
             >
               {t("التسجيل في الدورة", "Enroll in course")}
             </Link>
@@ -1072,7 +1190,11 @@ function CourseDetailBody({
         </aside>
       </div>
       {enrollmentPanel && (
-        <EnrollmentPanel course={course} enrolled={Boolean(enrolled)} />
+        <EnrollmentPanel
+          course={course}
+          enrolled={Boolean(enrolled)}
+          courseBase={courseBase}
+        />
       )}
     </>
   );
@@ -1080,24 +1202,32 @@ function CourseDetailBody({
 
 export function CourseDetailScreen({
   enrollment = false,
+  workspace = false,
 }: {
   enrollment?: boolean;
+  workspace?: boolean;
 }) {
   const params = useParams<{ id: string }>();
   return (
-    <PublicFrame>
+    <MarketplaceFrame workspace={workspace}>
       <BackForward />
-      <CourseDetailBody courseId={params.id} enrollmentPanel={enrollment} />
-    </PublicFrame>
+      <CourseDetailBody
+        courseId={params.id}
+        enrollmentPanel={enrollment}
+        workspace={workspace}
+      />
+    </MarketplaceFrame>
   );
 }
 
 function EnrollmentPanel({
   course,
   enrolled,
+  courseBase,
 }: {
   course: Course;
   enrolled: boolean;
+  courseBase: string;
 }) {
   const { lang, t } = useCopy();
   const { user } = useAuth();
@@ -1128,7 +1258,7 @@ function EnrollmentPanel({
     <RoutedPanel
       title={t("التسجيل في الدورة", "Enroll in course")}
       subtitle={course.title}
-      onClose={() => router.push(`/${lang}/courses/${course.id}`)}
+      onClose={() => router.push(`${courseBase}/${course.id}`)}
       footer={
         !complete && user?.role === "student" ? (
           <button
@@ -1180,13 +1310,13 @@ function EnrollmentPanel({
           </p>
           <Link
             className="btn-primary"
-            href={`/${lang}/sign-in?redirect=${encodeURIComponent(`/${lang}/courses/${course.id}/enroll`)}`}
+            href={`/${lang}/sign-in?redirect=${encodeURIComponent(`${courseBase}/${course.id}/enroll`)}`}
           >
             {t("تسجيل الدخول", "Sign in")}
           </Link>
           <Link
             className="btn-secondary"
-            href={`/${lang}/sign-up?redirect=${encodeURIComponent(`/${lang}/courses/${course.id}/enroll`)}`}
+            href={`/${lang}/sign-up?redirect=${encodeURIComponent(`${courseBase}/${course.id}/enroll`)}`}
           >
             {t("إنشاء حساب طالب", "Create a student account")}
           </Link>
