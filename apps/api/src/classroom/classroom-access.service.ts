@@ -13,9 +13,10 @@ import { Repository } from 'typeorm';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { Classroom } from './entities/classroom.entity.js';
 
-export const CLASSROOM_JOIN_EARLY_MINUTES = 15;
-export const CLASSROOM_JOIN_LATE_GRACE_MINUTES = 15;
+const CLASSROOM_JOIN_EARLY_MINUTES = 15;
+const CLASSROOM_JOIN_LATE_GRACE_MINUTES = 15;
 
+/** @public */
 export interface ClassroomAccessDecision {
   state: ClassroomAccessState;
   canJoin: boolean;

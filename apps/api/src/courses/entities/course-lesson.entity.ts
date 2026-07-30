@@ -11,7 +11,7 @@ import {
 import { Course } from './course.entity.js';
 import { CourseSection } from './course-section.entity.js';
 
-export type CourseDownloadableFile = {
+type CourseDownloadableFile = {
   id: string;
   name: string;
   url: string;
@@ -20,7 +20,7 @@ export type CourseDownloadableFile = {
   mimeType: string;
 };
 
-export type CourseExternalLink = {
+type CourseExternalLink = {
   title: string;
   url: string;
 };

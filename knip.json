@@ -27,6 +27,7 @@
     "@nestjs/throttler!",
     "@nestjs/typeorm!",
     "@next/eslint-plugin-next",
+    "@mrh/types!",
     "@types/multer",
     "arabic-reshaper!",
     "axios!",
