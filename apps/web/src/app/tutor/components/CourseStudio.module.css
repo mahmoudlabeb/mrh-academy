@@ -78,7 +78,7 @@
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
 }
 
@@ -227,12 +227,16 @@
   backdrop-filter: blur(8px);
 }
 
-.statusBadge[data-status="published"] {
+.statusBadge[data-status="active"] {
   background: color-mix(in srgb, var(--success) 88%, transparent);
 }
 
 .statusBadge[data-status="rejected"] {
   background: color-mix(in srgb, var(--danger) 88%, transparent);
+}
+
+.statusBadge[data-status="pending_review"] {
+  background: color-mix(in srgb, var(--warning) 88%, #33260b);
 }
 
 .courseBody {
@@ -256,6 +260,14 @@
   white-space: nowrap;
 }
 
+.productType {
+  display: block;
+  margin-top: 6px;
+  color: var(--signal-strong);
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
 .courseBody p {
   min-height: 44px;
   margin-top: 7px;
@@ -266,6 +278,26 @@
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.reviewFeedback {
+  padding: 12px 14px;
+  border-inline-start: 3px solid var(--danger);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+
+.reviewFeedback strong {
+  display: block;
+  color: var(--danger);
+  font-size: 0.7rem;
+}
+
+.reviewFeedback p {
+  min-height: 0;
+  margin-top: 4px;
+  color: var(--ink);
+  -webkit-line-clamp: 3;
 }
 
 .courseMeta {
@@ -1442,7 +1474,8 @@
 }
 
 .readonlyNotice,
-.errorNotice {
+.errorNotice,
+.rejectionNotice {
   margin-bottom: 20px;
   padding: 14px 16px;
   display: grid;
@@ -1461,18 +1494,31 @@
   color: var(--danger);
 }
 
+.rejectionNotice {
+  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+  color: var(--danger);
+}
+
 .readonlyNotice p,
 .errorNotice p,
+.rejectionNotice p,
 .readonlyNotice strong,
-.errorNotice strong {
+.errorNotice strong,
+.rejectionNotice strong {
   margin: 0;
 }
 
 .readonlyNotice p,
-.errorNotice p {
+.errorNotice p,
+.rejectionNotice p {
   margin-top: 3px;
   color: var(--ink-muted);
   font-size: 0.7rem;
+}
+
+.rejectionNotice :global(.btn-secondary) {
+  margin-top: 12px;
 }
 
 .reviewHero {
@@ -2087,11 +2133,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .metrics > div:nth-child(2) {
+  .metrics > div:nth-child(even) {
     border-inline-end: 0;
   }
 
-  .metrics > div:nth-child(-n + 2) {
+  .metrics > div:nth-child(-n + 4) {
     border-bottom: 1px solid var(--border);
   }
 

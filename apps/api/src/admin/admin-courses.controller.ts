@@ -9,47 +9,51 @@ import {
   UseGuards,
   NotFoundException,
   BadRequestException,
+  Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserRole, CourseStatus } from '@mrh/types';
+import { CourseLifecycleStatus, UserRole } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator.js';
 import { Course } from '../courses/entities/course.entity.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { CourseReviewService } from './course-review.service.js';
+import { ApproveCourseSubmissionDto } from './dto/approve-course-submission.dto.js';
+import { RejectCourseSubmissionDto } from './dto/reject-course-submission.dto.js';
 
 @Controller('admin/courses')
 export class AdminCoursesController {
   constructor(
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
+    private readonly courseReviewService: CourseReviewService,
   ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
   @RequirePermissions('manage_courses')
-  async getAllCourses() {
-    const courses = await this.courseRepository.find({
-      relations: { tutor: true },
-      order: { createdAt: 'DESC' },
-    });
-    return courses.map((c) => ({
-      id: c.id,
-      title: c.title,
-      description: c.description,
-      price: c.price,
-      thumbnailUrl: c.thumbnailUrl,
-      tutorName: c.tutor
-        ? `${c.tutor.firstName} ${c.tutor.lastName}`
-        : 'Unknown',
-      isApproved: c.status === CourseStatus.APPROVED,
-      status: c.status,
-      createdAt: c.createdAt,
-      videoQualityApprovedAt: c.videoQualityApprovedAt,
-    }));
+  async getAllCourses(@Query('status') status?: string) {
+    if (
+      status &&
+      !Object.values(CourseLifecycleStatus).includes(
+        status as CourseLifecycleStatus,
+      )
+    ) {
+      throw new BadRequestException('Invalid course lifecycle status');
+    }
+    return this.courseReviewService.list(status as CourseLifecycleStatus);
+  }
+
+  @Get(':id/review')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUBADMIN)
+  @RequirePermissions('manage_courses')
+  getCourseReview(@Param('id') id: string) {
+    return this.courseReviewService.getDetails(id);
   }
 
   @Post()
@@ -71,7 +75,8 @@ export class AdminCoursesController {
       description: dto.description,
       price: dto.price,
       thumbnailUrl: dto.thumbnailUrl,
-      status: CourseStatus.PENDING,
+      status: CourseLifecycleStatus.DRAFT,
+      isDraft: true,
     });
     return this.courseRepository.save(course);
   }
@@ -109,23 +114,24 @@ export class AdminCoursesController {
   @Post(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @RequirePermissions('manage_courses')
   async approveCourse(
     @Param('id') id: string,
     @CurrentUser() admin: { id: string },
-    @Body() body: { videoQualityApproved?: boolean },
+    @Body() dto: ApproveCourseSubmissionDto,
   ) {
-    const course = await this.courseRepository.findOne({ where: { id } });
-    if (!course) throw new NotFoundException('Course not found');
-    if (body.videoQualityApproved !== true) {
-      throw new BadRequestException(
-        'Video quality must be reviewed before approving the course',
-      );
-    }
-    await this.courseRepository.update(id, {
-      status: CourseStatus.APPROVED,
-      videoQualityApprovedAt: new Date(),
-      videoQualityApprovedBy: admin.id,
-    });
-    return { message: 'Course approved successfully' };
+    return this.courseReviewService.approve(id, admin.id, dto);
+  }
+
+  @Post(':id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions('manage_courses')
+  rejectCourse(
+    @Param('id') id: string,
+    @CurrentUser() admin: { id: string },
+    @Body() dto: RejectCourseSubmissionDto,
+  ) {
+    return this.courseReviewService.reject(id, admin.id, dto.reason);
   }
 }

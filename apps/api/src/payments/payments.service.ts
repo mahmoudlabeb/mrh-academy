@@ -42,7 +42,7 @@ import { CourseRefundReversal } from './entities/course-refund-reversal.entity.j
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
 import { Course } from '../courses/entities/course.entity.js';
 import { CreateCourseCheckoutDto } from './dto/create-course-checkout.dto.js';
-import { CourseStatus, UserRole } from '@mrh/types';
+import { CourseLifecycleStatus, UserRole } from '@mrh/types';
 import { PayPalService } from './paypal/paypal.service.js';
 import { createHmac } from 'node:crypto';
 import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
@@ -63,6 +63,12 @@ const RECEIPT_MIME_TYPES = new Set([
   'image/webp',
   'application/pdf',
 ]);
+
+const MANUAL_PAYOUT_OPTIONS = [
+  { method: 'bank_transfer', detailType: 'account_details' },
+  { method: 'vodafone_cash', detailType: 'account_details' },
+  { method: 'instapay', detailType: 'account_details' },
+] as const;
 
 @Injectable()
 export class PaymentsService {
@@ -102,7 +108,11 @@ export class PaymentsService {
       throw new BadRequestException('Stripe payments are not configured');
     }
     const course = await this.courseRepository.findOne({
-      where: { id: dto.courseId, status: CourseStatus.APPROVED },
+      where: {
+        id: dto.courseId,
+        status: CourseLifecycleStatus.ACTIVE,
+        isDraft: false,
+      },
     });
     if (!course) throw new NotFoundException('Course not found');
 
@@ -246,7 +256,11 @@ export class PaymentsService {
       }
 
       const course = await manager.findOne(Course, {
-        where: { id: input.courseId, status: CourseStatus.APPROVED },
+        where: {
+          id: input.courseId,
+          status: CourseLifecycleStatus.ACTIVE,
+          isDraft: false,
+        },
         lock: { mode: 'pessimistic_read' },
       });
       if (!course) throw new NotFoundException('Course not found');
@@ -1507,6 +1521,15 @@ export class PaymentsService {
       );
       throw new BadRequestException('PayPal payout could not be initiated');
     }
+  }
+
+  getTutorPayoutOptions() {
+    return [
+      ...(this.payPalService.isWebhookConfigured()
+        ? [{ method: 'paypal', detailType: 'email' as const }]
+        : []),
+      ...MANUAL_PAYOUT_OPTIONS,
+    ];
   }
 
   async requestPlatformPayout(adminId: string, dto: RequestPlatformPayoutDto) {

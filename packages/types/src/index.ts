@@ -62,6 +62,14 @@ export enum CourseStatus {
   REJECTED = "rejected",
 }
 
+export enum CourseLifecycleStatus {
+  DRAFT = "draft",
+  PENDING_REVIEW = "pending_review",
+  ACTIVE = "active",
+  REJECTED = "rejected",
+  ARCHIVED = "archived",
+}
+
 export enum ReviewStatus {
   PENDING = "pending",
   APPROVED = "approved",
@@ -245,7 +253,13 @@ export const CourseSchema = z.object({
   price: z.number(),
   bunnyVideoId: z.string().nullable(),
   soldBy: z.string().default("academy"),
-  status: z.nativeEnum(CourseStatus).default(CourseStatus.PENDING),
+  status: z
+    .nativeEnum(CourseLifecycleStatus)
+    .default(CourseLifecycleStatus.DRAFT),
+  reviewedBy: z.string().uuid().nullable().optional(),
+  reviewedAt: z.coerce.date().nullable().optional(),
+  reviewDecision: z.enum(["approved", "rejected"]).nullable().optional(),
+  reviewNote: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

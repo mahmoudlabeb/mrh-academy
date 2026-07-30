@@ -8,7 +8,12 @@ import { useLanguage } from "@/contexts/language-context";
 import { CourseStudioEditor } from "./CourseStudioEditor";
 import styles from "./CourseStudio.module.css";
 
-type CourseStatus = "pending" | "approved" | "rejected";
+type ProductStatus =
+  | "draft"
+  | "pending_review"
+  | "active"
+  | "rejected"
+  | "archived";
 
 type Course = {
   id: string;
@@ -17,18 +22,21 @@ type Course = {
   description: string;
   thumbnailUrl: string | null;
   price: number;
-  status: CourseStatus;
+  status: ProductStatus;
+  courseType?: "recorded" | "live";
   updatedAt?: string;
-  isDraft?: boolean;
   submittedAt?: string | null;
+  reviewNote?: string | null;
 };
 
-type Filter = "all" | "drafts" | "review" | "published";
+type Filter = "all" | "drafts" | "review" | "active" | "rejected";
 
 function statusLabel(course: Course, t: (ar: string, en: string) => string) {
-  if (course.isDraft) return t("مسودة", "Draft");
-  if (course.status === "approved") return t("منشورة", "Published");
-  if (course.status === "rejected") return t("تحتاج تعديلات", "Changes needed");
+  if (course.status === "draft") return t("مسودة", "Draft");
+  if (course.status === "active") return t("نشط", "Active");
+  if (course.status === "rejected")
+    return t("يحتاج تعديلات", "Changes needed");
+  if (course.status === "archived") return t("مؤرشف", "Archived");
   return t("قيد المراجعة", "In review");
 }
 
@@ -66,21 +74,18 @@ export default function CourseStudio() {
   });
   const courses = coursesQuery.data ?? [];
   const counts = {
-    drafts: courses.filter((course) => course.isDraft).length,
-    review: courses.filter(
-      (course) => !course.isDraft && course.status === "pending",
-    ).length,
-    published: courses.filter(
-      (course) => !course.isDraft && course.status === "approved",
-    ).length,
+    drafts: courses.filter((course) => course.status === "draft").length,
+    review: courses.filter((course) => course.status === "pending_review")
+      .length,
+    active: courses.filter((course) => course.status === "active").length,
+    rejected: courses.filter((course) => course.status === "rejected").length,
   };
   const visibleCourses = courses.filter((course) => {
-    if (filter === "drafts") return course.isDraft;
-    if (filter === "review")
-      return !course.isDraft && course.status === "pending";
-    if (filter === "published")
-      return !course.isDraft && course.status === "approved";
-    return true;
+    if (filter === "drafts") return course.status === "draft";
+    if (filter === "review") return course.status === "pending_review";
+    if (filter === "active") return course.status === "active";
+    if (filter === "rejected") return course.status === "rejected";
+    return course.status !== "archived";
   });
 
   return (
@@ -91,12 +96,12 @@ export default function CourseStudio() {
             {t("استوديو المدرّس", "Instructor studio")}
           </span>
           <h1 id="course-manager-title">
-            {t("دوراتك التعليمية", "Your courses")}
+            {t("منتجاتك التعليمية", "Your learning products")}
           </h1>
           <p>
             {t(
-              "أنشئ دورات احترافية، وتابع كل مسودة من مكان واحد.",
-              "Create content, track publishing readiness, and manage the student experience in one place.",
+              "أنشئ الدورات المسجلة والعروض المباشرة، وتابعها بوضوح من المسودة حتى الاعتماد والنشر.",
+              "Create recorded courses and live offerings, then track each one clearly from draft to approval and publication.",
             )}
           </p>
         </div>
@@ -105,31 +110,36 @@ export default function CourseStudio() {
           className="btn-primary"
         >
           <Icon name="plus" />
-          {t("دورة جديدة", "New course")}
+          {t("منتج تعليمي جديد", "New learning product")}
         </Link>
       </header>
 
       <div
         className={styles.metrics}
-        aria-label={t("ملخص الدورات", "Course summary")}
+        aria-label={t("ملخص المنتجات", "Product summary")}
       >
-        <Metric label={t("كل الدورات", "All courses")} value={courses.length} />
+        <Metric label={t("كل المنتجات", "All products")} value={courses.length} />
         <Metric label={t("المسودات", "Drafts")} value={counts.drafts} />
         <Metric label={t("قيد المراجعة", "In review")} value={counts.review} />
-        <Metric label={t("المنشورة", "Published")} value={counts.published} />
+        <Metric label={t("النشطة", "Active")} value={counts.active} />
+        <Metric
+          label={t("تحتاج تعديلات", "Rejected")}
+          value={counts.rejected}
+        />
       </div>
 
       <div
         className={styles.filters}
         role="group"
-        aria-label={t("تصفية الدورات", "Filter courses")}
+        aria-label={t("تصفية المنتجات", "Filter products")}
       >
         {(
           [
             ["all", t("الكل", "All"), courses.length],
             ["drafts", t("المسودات", "Drafts"), counts.drafts],
             ["review", t("قيد المراجعة", "In review"), counts.review],
-            ["published", t("المنشورة", "Published"), counts.published],
+            ["active", t("النشطة", "Active"), counts.active],
+            ["rejected", t("تحتاج تعديلات", "Rejected"), counts.rejected],
           ] as const
         ).map(([id, label, count]) => (
           <button
@@ -147,7 +157,7 @@ export default function CourseStudio() {
       {coursesQuery.isLoading ? (
         <div
           className={styles.courseGrid}
-          aria-label={t("جارٍ تحميل الدورات", "Loading courses")}
+          aria-label={t("جاري تحميل المنتجات", "Loading products")}
         >
           {[0, 1, 2].map((item) => (
             <div key={item} className={`${styles.courseSkeleton} skeleton`} />
@@ -156,7 +166,7 @@ export default function CourseStudio() {
       ) : coursesQuery.isError ? (
         <div className={styles.emptyState} role="alert">
           <strong>
-            {t("تعذّر تحميل الدورات", "Courses could not be loaded")}
+            {t("تعذّر تحميل المنتجات", "Products could not be loaded")}
           </strong>
           <p>
             {t(
@@ -179,16 +189,13 @@ export default function CourseStudio() {
           </span>
           <strong>
             {filter === "all"
-              ? t("أنشئ دورتك الأولى", "Create your first course")
-              : t(
-                  "لا توجد دورات ضمن هذا التصنيف",
-                  "No courses match this filter",
-                )}
+              ? t("أنشئ منتجك التعليمي الأول", "Create your first learning product")
+              : t("لا توجد منتجات ضمن هذا التصنيف", "No products match this filter")}
           </strong>
           <p>
             {t(
-              "ابدأ بمسودة جديدة وابنِ تجربة تعلم متكاملة واحترافية.",
-              "The studio guides you step by step until your course is ready for review.",
+              "يرشدك الاستوديو خطوة بخطوة حتى يصبح المنتج جاهزاً لمراجعة الأكاديمية.",
+              "The studio guides you step by step until the product is ready for academy review.",
             )}
           </p>
           {filter === "all" && (
@@ -197,7 +204,7 @@ export default function CourseStudio() {
               className="btn-primary"
             >
               <Icon name="plus" />
-              {t("إنشاء دورة", "Create course")}
+              {t("إنشاء منتج", "Create product")}
             </Link>
           )}
         </div>
@@ -217,13 +224,7 @@ export default function CourseStudio() {
                 )}
                 <span
                   className={styles.statusBadge}
-                  data-status={
-                    course.isDraft
-                      ? "draft"
-                      : course.status === "approved"
-                        ? "published"
-                        : course.status
-                  }
+                  data-status={course.status}
                 >
                   {statusLabel(course, t)}
                 </span>
@@ -231,17 +232,30 @@ export default function CourseStudio() {
               <div className={styles.courseBody}>
                 <div>
                   <h2>
-                    {course.title || t("دورة بلا عنوان", "Untitled course")}
+                    {course.title || t("منتج بلا عنوان", "Untitled product")}
                   </h2>
+                  <span className={styles.productType}>
+                    {course.courseType === "live"
+                      ? t("عرض مباشر قابل للحجز", "Live bookable offering")
+                      : t("دورة مسجلة", "Recorded course")}
+                  </span>
                   <p>
                     {course.subtitle ||
                       course.description ||
                       t(
-                        "أكمل تفاصيل الدورة داخل الاستوديو.",
-                        "Complete the course details in the studio.",
+                        "أكمل تفاصيل المنتج داخل الاستوديو.",
+                        "Complete the product details in the studio.",
                       )}
                   </p>
                 </div>
+                {course.status === "rejected" && course.reviewNote && (
+                  <div className={styles.reviewFeedback} role="note">
+                    <strong>
+                      {t("ملاحظات فريق المراجعة", "Review feedback")}
+                    </strong>
+                    <p>{course.reviewNote}</p>
+                  </div>
+                )}
                 <div className={styles.courseMeta}>
                   <span>
                     {course.updatedAt
@@ -258,9 +272,11 @@ export default function CourseStudio() {
                   className="btn-secondary"
                 >
                   <Icon name="edit" />
-                  {course.isDraft
+                  {course.status === "draft"
                     ? t("متابعة التحرير", "Continue editing")
-                    : t("عرض التفاصيل", "View details")}
+                    : course.status === "rejected"
+                      ? t("مراجعة الملاحظات والتعديل", "Review feedback and revise")
+                      : t("عرض التفاصيل", "View details")}
                 </Link>
               </div>
             </article>

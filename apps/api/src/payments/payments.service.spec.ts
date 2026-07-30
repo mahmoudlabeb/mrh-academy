@@ -210,6 +210,35 @@ describe('PaymentsService', () => {
     });
   });
 
+  it('puts PayPal first when verified payout webhooks are configured', () => {
+    payPalService.isWebhookConfigured.mockReturnValueOnce(true);
+
+    expect(service.getTutorPayoutOptions()).toEqual([
+      { method: 'paypal', detailType: 'email' },
+      { method: 'bank_transfer', detailType: 'account_details' },
+      { method: 'vodafone_cash', detailType: 'account_details' },
+      { method: 'instapay', detailType: 'account_details' },
+    ]);
+  });
+
+  it('does not expose disabled or unrelated payout providers', () => {
+    payPalService.isWebhookConfigured.mockReturnValueOnce(false);
+
+    const options = service.getTutorPayoutOptions();
+
+    expect(options).toEqual([
+      { method: 'bank_transfer', detailType: 'account_details' },
+      { method: 'vodafone_cash', detailType: 'account_details' },
+      { method: 'instapay', detailType: 'account_details' },
+    ]);
+    expect(options).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: 'paypal' }),
+        expect.objectContaining({ method: 'stripe_connect' }),
+      ]),
+    );
+  });
+
   it('checks for an existing pending payout inside the locked transaction', async () => {
     jest
       .spyOn(service, 'releaseMatureCourseEarnings')

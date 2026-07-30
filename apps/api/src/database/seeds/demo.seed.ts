@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { argon2id, hash } from 'argon2';
 import {
+  CourseLifecycleStatus,
   CourseStatus,
   LessonStatus,
   PaymentMethod,
@@ -227,7 +228,9 @@ async function seedDemoData() {
                 'A practical beginner course focused on everyday Arabic conversation.',
               price: 49,
               soldBy: 'academy',
-              status: CourseStatus.APPROVED,
+              status: CourseLifecycleStatus.ACTIVE,
+              isDraft: false,
+              submittedAt: new Date(),
               videoQualityApprovedAt: new Date(),
             }),
             manager.create(Course, {
@@ -237,7 +240,9 @@ async function seedDemoData() {
                 'Workplace terminology, meetings, presentations, and professional writing.',
               price: 65,
               soldBy: 'tutor',
-              status: CourseStatus.PENDING,
+              status: CourseLifecycleStatus.PENDING_REVIEW,
+              isDraft: false,
+              submittedAt: new Date(),
             }),
           ]);
         }

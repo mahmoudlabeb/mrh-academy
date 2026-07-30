@@ -1,7 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UserRole, CourseStatus, LessonStatus } from '@mrh/types';
+import {
+  CourseLifecycleStatus,
+  UserRole,
+  CourseStatus,
+  LessonStatus,
+} from '@mrh/types';
 import { hash } from 'argon2';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -278,7 +283,11 @@ describe('Courses (e2e)', () => {
     const courseId = (createRes.body as { id: string }).id;
 
     const course = await courseRepository.findOneByOrFail({ id: courseId });
-    expect(course.status).toBe(CourseStatus.PENDING);
+    expect(course.status).toBe(CourseLifecycleStatus.DRAFT);
+    course.status = CourseLifecycleStatus.PENDING_REVIEW;
+    course.isDraft = false;
+    course.submittedAt = new Date();
+    await courseRepository.save(course);
 
     const admin = await createUser(userRepository, {
       email: adminEmail,
@@ -303,7 +312,7 @@ describe('Courses (e2e)', () => {
     const approvedCourse = await courseRepository.findOneByOrFail({
       id: courseId,
     });
-    expect(approvedCourse.status).toBe(CourseStatus.APPROVED);
+    expect(approvedCourse.status).toBe(CourseLifecycleStatus.ACTIVE);
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/register')

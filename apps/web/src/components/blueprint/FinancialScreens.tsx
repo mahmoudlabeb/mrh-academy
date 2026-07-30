@@ -28,8 +28,6 @@ type PaymentMethodConfig = {
 };
 type TutorProfile = {
   balance: number;
-  stripeAccountId?: string;
-  stripeOnboardingComplete?: boolean;
 };
 type Transaction = {
   id: string;
@@ -46,6 +44,10 @@ type Payout = {
   accountDetails: string;
   status: string;
   createdAt: string;
+};
+type PayoutOption = {
+  method: string;
+  detailType: "email" | "account_details";
 };
 
 function useCopy() {
@@ -639,12 +641,6 @@ function AddFundsPanel({
 
 export function EarningsScreen({ payout = false }: { payout?: boolean }) {
   const { lang, t, formatDate } = useCopy();
-  const connectMutation = useMutation({
-    mutationFn: async () =>
-      (await apiClient.post<{ url: string }>("/stripe/connect/onboarding"))
-        .data,
-    onSuccess: ({ url }) => window.location.assign(url),
-  });
   const profileQuery = useQuery({
     queryKey: ["blueprint-tutor-financial-profile"],
     queryFn: async () =>
@@ -660,6 +656,18 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
     queryFn: async () => (await apiClient.get<Payout[]>("/payouts/my")).data,
   });
   const balance = Number(profileQuery.data?.balance ?? 0);
+  const pendingWithdrawals =
+    payoutsQuery.data
+      ?.filter((item) => ["pending", "processing"].includes(item.status))
+      .reduce((total, item) => total + Number(item.amount), 0) ?? 0;
+  const totalEarnings =
+    transactionsQuery.data
+      ?.filter(
+        (item) =>
+          ["lesson_earning", "course_earning"].includes(item.type) &&
+          Number(item.amount) > 0,
+      )
+      .reduce((total, item) => total + Number(item.amount), 0) ?? 0;
   return (
     <main className="blueprint-workspace-page">
       <header className="blueprint-workspace-head">
@@ -679,46 +687,44 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
           ＄ {t("طلب سحب", "Request payout")}
         </Link>
       </header>
-      <div className="blueprint-stat-grid">
-        <section>
+      <div className="blueprint-stat-grid blueprint-stat-grid--financial">
+        <section className="blueprint-financial-lead">
           <small>{t("متاح للسحب", "Available for payout")}</small>
-          <strong>{formatCurrency(lang, balance)}</strong>
+          <strong>
+            {profileQuery.isLoading ? "—" : formatCurrency(lang, balance)}
+          </strong>
+          <span className="blueprint-stat-caption">
+            {t("جاهز لطلب السحب", "Ready to request")}
+          </span>
         </section>
         <section>
-          <small>{t("حساب Stripe", "Stripe Connect")}</small>
-          <strong
-            className={
-              profileQuery.data?.stripeOnboardingComplete ? "success" : ""
-            }
-          >
-            {profileQuery.data?.stripeOnboardingComplete
-              ? t("نشط", "Active")
-              : t("غير مكتمل", "Not connected")}
+          <small>{t("سحوبات قيد التنفيذ", "Pending withdrawals")}</small>
+          <strong>
+            {payoutsQuery.isLoading
+              ? "—"
+              : formatCurrency(lang, pendingWithdrawals)}
           </strong>
-          {!profileQuery.data?.stripeOnboardingComplete && (
-            <button
-              className="btn-secondary"
-              type="button"
-              disabled={connectMutation.isPending}
-              onClick={() => connectMutation.mutate()}
-            >
-              {connectMutation.isPending
-                ? t("جارٍ فتح Stripe…", "Opening Stripe…")
-                : t("ربط حساب Stripe", "Connect Stripe")}
-            </button>
-          )}
-          {connectMutation.isError && (
-            <small className="blueprint-error" role="alert">
-              {t(
-                "تعذّر بدء ربط Stripe. حاول مرة أخرى.",
-                "Stripe connection could not be started. Try again.",
-              )}
-            </small>
-          )}
+          <span className="blueprint-stat-caption">
+            {t("بانتظار اكتمال المعالجة", "Awaiting processing")}
+          </span>
+        </section>
+        <section>
+          <small>{t("إجمالي الأرباح", "Total earnings")}</small>
+          <strong>
+            {transactionsQuery.isLoading
+              ? "—"
+              : formatCurrency(lang, totalEarnings)}
+          </strong>
+          <span className="blueprint-stat-caption">
+            {t("من الدروس والدورات", "Across lessons and courses")}
+          </span>
         </section>
         <section>
           <small>{t("طلبات السحب", "Payout requests")}</small>
           <strong>{payoutsQuery.data?.length ?? "—"}</strong>
+          <span className="blueprint-stat-caption">
+            {t("إجمالي الطلبات", "All payout requests")}
+          </span>
         </section>
       </div>
       <section className="blueprint-table-section">
@@ -728,25 +734,32 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
           error={transactionsQuery.isError}
           empty={!transactionsQuery.data?.length}
         >
-          <div className="blueprint-data-table">
-            {transactionsQuery.data?.map((transaction) => (
-              <div
-                className="blueprint-data-row blueprint-data-row--compact"
-                key={`${transaction.type}-${transaction.id}`}
-              >
-                <strong>{transaction.description}</strong>
-                <span>{formatDate(transaction.createdAt)}</span>
-                <strong>
-                  {transaction.amount >= 0 ? "+" : "−"}
-                  {formatCurrency(lang, Math.abs(Number(transaction.amount)))}
-                </strong>
-                <span
-                  className={`blueprint-status blueprint-status--${transaction.status}`}
+          <div
+            className="blueprint-data-scroll"
+            role="region"
+            aria-label={t("جدول سجل الأرباح", "Earnings history table")}
+            tabIndex={0}
+          >
+            <div className="blueprint-data-table blueprint-data-table--earnings">
+              {transactionsQuery.data?.map((transaction) => (
+                <div
+                  className="blueprint-data-row blueprint-data-row--earnings"
+                  key={`${transaction.type}-${transaction.id}`}
                 >
-                  {paymentStatusLabel(transaction.status, lang)}
-                </span>
-              </div>
-            ))}
+                  <strong>{transaction.description}</strong>
+                  <span>{formatDate(transaction.createdAt)}</span>
+                  <strong>
+                    {transaction.amount >= 0 ? "+" : "−"}
+                    {formatCurrency(lang, Math.abs(Number(transaction.amount)))}
+                  </strong>
+                  <span
+                    className={`blueprint-status blueprint-status--${transaction.status}`}
+                  >
+                    {paymentStatusLabel(transaction.status, lang)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </DataNotice>
       </section>
@@ -757,64 +770,88 @@ export function EarningsScreen({ payout = false }: { payout?: boolean }) {
           error={payoutsQuery.isError}
           empty={!payoutsQuery.data?.length}
         >
-          <div className="blueprint-data-table">
-            {payoutsQuery.data?.map((item) => (
-              <div
-                className="blueprint-data-row blueprint-data-row--compact"
-                key={item.id}
-              >
-                <strong>{item.method}</strong>
-                <span>{item.accountDetails}</span>
-                <span>{formatDate(item.createdAt)}</span>
-                <strong>{formatCurrency(lang, Number(item.amount))}</strong>
-                <span
-                  className={`blueprint-status blueprint-status--${item.status}`}
+          <div
+            className="blueprint-data-scroll"
+            role="region"
+            aria-label={t("جدول سجل السحب", "Payout transfer history table")}
+            tabIndex={0}
+          >
+            <div className="blueprint-data-table blueprint-data-table--payout">
+              {payoutsQuery.data?.map((item) => (
+                <div
+                  className="blueprint-data-row blueprint-data-row--payout"
+                  key={item.id}
                 >
-                  {paymentStatusLabel(item.status, lang)}
-                </span>
-              </div>
-            ))}
+                  <strong>{paymentMethodLabel(item.method, lang)}</strong>
+                  <span
+                    className="blueprint-payout-account"
+                    title={item.accountDetails}
+                    dir="auto"
+                  >
+                    {item.accountDetails}
+                  </span>
+                  <span>{formatDate(item.createdAt)}</span>
+                  <strong>{formatCurrency(lang, Number(item.amount))}</strong>
+                  <span
+                    className={`blueprint-status blueprint-status--${item.status}`}
+                  >
+                    {paymentStatusLabel(item.status, lang)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </DataNotice>
       </section>
-      {payout && (
-        <PayoutPanel
-          balance={balance}
-          stripeReady={Boolean(profileQuery.data?.stripeOnboardingComplete)}
-        />
-      )}
+      {payout && <PayoutPanel balance={balance} />}
     </main>
   );
 }
 
 const PAYOUT_METHODS = [
-  { key: "bank_transfer", ar: "تحويل بنكي", en: "Bank transfer" },
   { key: "paypal", ar: "PayPal", en: "PayPal" },
+  { key: "bank_transfer", ar: "تحويل بنكي", en: "Bank transfer" },
   { key: "vodafone_cash", ar: "فودافون كاش", en: "Vodafone Cash" },
   { key: "instapay", ar: "إنستاباي", en: "Instapay" },
 ] as const;
 
-function PayoutPanel({
-  balance,
-  stripeReady,
-}: {
-  balance: number;
-  stripeReady: boolean;
-}) {
+function PayoutPanel({ balance }: { balance: number }) {
   const { lang, t } = useCopy();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState(balance ? String(balance) : "");
-  const [method, setMethod] =
-    useState<(typeof PAYOUT_METHODS)[number]["key"]>("bank_transfer");
+  const [method, setMethod] = useState<string | null>(null);
   const [details, setDetails] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [validationVisible, setValidationVisible] = useState(false);
   const idempotencyKeyRef = useRef(crypto.randomUUID());
+  const optionsQuery = useQuery({
+    queryKey: ["blueprint-tutor-payout-options"],
+    queryFn: async () =>
+      (await apiClient.get<PayoutOption[]>("/payouts/options")).data,
+    retry: false,
+  });
+  const visibleMethods = PAYOUT_METHODS.filter((option) =>
+    optionsQuery.data?.some((item) => item.method === option.key),
+  );
+  useEffect(() => {
+    if (!optionsQuery.isSuccess) return;
+    const paypal = optionsQuery.data.find((item) => item.method === "paypal");
+    const firstEnabled = paypal ?? optionsQuery.data[0];
+    setMethod((current) =>
+      current && optionsQuery.data.some((item) => item.method === current)
+        ? current
+        : (firstEnabled?.method ?? null),
+    );
+  }, [optionsQuery.data, optionsQuery.isSuccess]);
+  useEffect(() => {
+    setAmount((current) => current || (balance ? String(balance) : ""));
+  }, [balance]);
   const amountNumber = Number(amount);
   const submit = useMutation({
-    mutationFn: async () =>
-      (
+    mutationFn: async () => {
+      if (!method) throw new Error("No payout method is available");
+      return (
         await apiClient.post("/payouts", {
           amount: amountNumber,
           method,
@@ -823,7 +860,8 @@ function PayoutPanel({
             ? { paypalEmail: details.trim() }
             : { accountDetails: details.trim() }),
         })
-      ).data,
+      ).data;
+    },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -839,13 +877,19 @@ function PayoutPanel({
       setSubmitted(true);
     },
   });
+  const validPayPalEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.trim());
+  const detailsInvalid =
+    method === "paypal" ? !validPayPalEmail : details.trim().length <= 3;
   const canSubmit =
-    amountNumber >= 10 && amountNumber <= balance && details.trim().length > 3;
+    optionsQuery.isSuccess &&
+    method !== null &&
+    amountNumber >= 10 &&
+    amountNumber <= balance &&
+    !detailsInvalid;
   const amountInvalid =
     !Number.isFinite(amountNumber) ||
     amountNumber < 10 ||
     amountNumber > balance;
-  const detailsInvalid = details.trim().length <= 3;
   return (
     <RoutedPanel
       title={t("طلب سحب", "Request payout")}
@@ -946,57 +990,112 @@ function PayoutPanel({
           )}
           <fieldset>
             <legend>{t("طريقة الاستلام", "Receiving method")}</legend>
-            <div className="blueprint-choice-row">
-              {PAYOUT_METHODS.map((option) => (
+            {optionsQuery.isLoading ? (
+              <div
+                className="skeleton h-12 rounded"
+                aria-label={t("جارٍ تحميل طرق السحب", "Loading payout methods")}
+              />
+            ) : optionsQuery.isError ? (
+              <div className="blueprint-inline-notice" role="alert">
+                <strong>
+                  {t(
+                    "تعذر تحميل طرق السحب",
+                    "Payout methods could not be loaded",
+                  )}
+                </strong>
+                <span>
+                  {t(
+                    "تحقق من اتصالك ثم أعد المحاولة. لم يتم تغيير أي بيانات.",
+                    "Check your connection and try again. No financial data was changed.",
+                  )}
+                </span>
                 <button
+                  className="btn-secondary blueprint-inline-notice__action"
                   type="button"
-                  key={option.key}
-                  aria-pressed={method === option.key}
-                  onClick={() => setMethod(option.key)}
+                  disabled={optionsQuery.isFetching}
+                  onClick={() => void optionsQuery.refetch()}
                 >
-                  {lang === "ar" ? option.ar : option.en}
+                  {optionsQuery.isFetching
+                    ? t("جارٍ إعادة المحاولة…", "Retrying…")
+                    : t("إعادة المحاولة", "Retry")}
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : visibleMethods.length > 0 ? (
+              <div className="blueprint-choice-row">
+                {visibleMethods.map((option) => (
+                  <button
+                    type="button"
+                    key={option.key}
+                    aria-pressed={method === option.key}
+                    onClick={() => {
+                      setMethod(option.key);
+                      setDetails("");
+                      setValidationVisible(false);
+                    }}
+                  >
+                    {lang === "ar" ? option.ar : option.en}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div
+                className="blueprint-inline-notice"
+                role="status"
+                aria-live="polite"
+              >
+                <strong>
+                  {t(
+                    "إعدادات السحب غير متاحة حالياً",
+                    "Payout setup is not available right now",
+                  )}
+                </strong>
+                <span>
+                  {t(
+                    "تواصل مع الدعم لتفعيل طريقة سحب آمنة لحسابك.",
+                    "Contact support to enable a secure payout method for your account.",
+                  )}
+                </span>
+              </div>
+            )}
           </fieldset>
-          <label>
-            {method === "paypal"
-              ? t("بريد PayPal", "PayPal email")
-              : t("تفاصيل الحساب", "Account details")}
-            <input
-              type={method === "paypal" ? "email" : "text"}
-              value={details}
-              aria-invalid={validationVisible && detailsInvalid}
-              aria-describedby={
-                validationVisible && detailsInvalid
-                  ? "payout-details-error"
-                  : undefined
-              }
-              onChange={(event) => setDetails(event.target.value)}
-              placeholder={
-                method === "bank_transfer"
-                  ? "IBAN / account number"
-                  : t("البريد أو رقم الهاتف", "Email or phone number")
-              }
-            />
-          </label>
-          {validationVisible && detailsInvalid && (
+          {method && (
+            <label>
+              {method === "paypal"
+                ? t("بريد PayPal", "PayPal email")
+                : t("تفاصيل الحساب", "Account details")}
+              <input
+                type={method === "paypal" ? "email" : "text"}
+                value={details}
+                aria-invalid={validationVisible && detailsInvalid}
+                aria-describedby={
+                  validationVisible && detailsInvalid
+                    ? "payout-details-error"
+                    : undefined
+                }
+                onChange={(event) => setDetails(event.target.value)}
+                placeholder={
+                  method === "bank_transfer"
+                    ? "IBAN / account number"
+                    : method === "paypal"
+                      ? "name@example.com"
+                      : t("البريد أو رقم الهاتف", "Email or phone number")
+                }
+              />
+            </label>
+          )}
+          {validationVisible && method && detailsInvalid && (
             <p
               id="payout-details-error"
-              className="blueprint-error"
+              className="blueprint-inline-notice"
               role="alert"
             >
               {t(
-                "أدخل تفاصيل حساب صالحة من أربعة أحرف على الأقل.",
-                "Enter valid account details with at least four characters.",
-              )}
-            </p>
-          )}
-          {!stripeReady && (
-            <p className="blueprint-note">
-              {t(
-                "Stripe Connect غير مكتمل. طرق السحب اليدوية تخضع لمراجعة الإدارة.",
-                "Stripe Connect is incomplete. Manual payout methods remain subject to administrator review.",
+                method === "paypal"
+                  ? "أضف بريد PayPal صالحاً لإكمال إعداد السحب."
+                  : "أضف تفاصيل حساب صالحة لإكمال إعداد السحب.",
+                method === "paypal"
+                  ? "Add a valid PayPal email to complete your payout setup."
+                  : "Add valid account details to complete your payout setup.",
               )}
             </p>
           )}

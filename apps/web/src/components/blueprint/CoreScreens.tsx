@@ -14,6 +14,7 @@ import { useTheme } from "@/contexts/theme-context";
 import NotificationPreferencesPanel from "@/components/NotificationPreferencesPanel";
 import { TutorBookings } from "@/components/tutor/TutorBookings";
 import { formatCurrency } from "@/lib/format";
+import { ProductReviewQueue } from "@/components/blueprint/ProductReviewQueue";
 import {
   normalizeCollection,
   type CollectionResponse,
@@ -775,6 +776,8 @@ export function OperationsQueueScreen() {
   const fullAdmin = user?.role === "admin";
   const canTutors = fullAdmin || permissions.has("manage_tutors");
   const canStudents = fullAdmin || permissions.has("manage_students");
+  const canCourses = fullAdmin || permissions.has("manage_courses");
+  const [pendingProductCount, setPendingProductCount] = useState(0);
   const stats = useQuery({
     queryKey: ["core-ops-stats"],
     queryFn: async () =>
@@ -796,6 +799,22 @@ export function OperationsQueueScreen() {
     ? Number(stats.data?.pendingApplications ?? 0)
     : Number(pendingTutors.data?.length ?? 0);
   const queue = [
+    ...(canCourses && pendingProductCount
+      ? [
+          {
+            key: "products",
+            title: t(
+              "منتجات تعليمية بانتظار الاعتماد",
+              "Learning products awaiting approval",
+            ),
+            detail: t(
+              `${pendingProductCount} بانتظار قرار النشر`,
+              `${pendingProductCount} awaiting a publishing decision`,
+            ),
+            href: `/${lang}/ops#product-reviews`,
+          },
+        ]
+      : []),
     ...(canTutors && pendingTutorCount
       ? [
           {
@@ -895,6 +914,12 @@ export function OperationsQueueScreen() {
           </div>
         </StateBlock>
       </section>
+      <div id="product-reviews">
+        <ProductReviewQueue
+          enabled={Boolean(user && canCourses)}
+          onCountChange={setPendingProductCount}
+        />
+      </div>
       <nav className="blueprint-quick-grid">
         {canTutors && (
           <Link href={`/${lang}/ops/people#tutors`}>

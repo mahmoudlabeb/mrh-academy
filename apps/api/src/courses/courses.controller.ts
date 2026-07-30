@@ -156,6 +156,16 @@ export class CoursesController {
     return this.coursesService.submitForReview(user.id, id);
   }
 
+  @Post(':id/revise')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  reviseRejectedCourse(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.coursesService.reviseRejectedCourse(user.id, id);
+  }
+
   @Post(':id/media/:kind')
   @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
   @Roles(UserRole.TUTOR)

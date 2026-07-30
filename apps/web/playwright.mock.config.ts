@@ -9,6 +9,8 @@ export default defineConfig({
     "classroom-flow.mock.spec.ts",
     "paid-learning-flow.mock.spec.ts",
     "course-studio.mock.spec.ts",
+    "product-approval.mock.spec.ts",
+    "tutor-payouts.mock.spec.ts",
     "secure-videos.spec.ts",
   ],
   workers: 1,

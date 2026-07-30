@@ -20,8 +20,8 @@ type DraftCourse = {
   capacity: number | null;
   cohortStartAt: string | null;
   cohortEndAt: string | null;
-  isDraft: boolean;
-  status: "pending" | "approved" | "rejected";
+  status: "draft" | "pending_review" | "active" | "rejected" | "archived";
+  reviewNote?: string | null;
   updatedAt: string;
 };
 
@@ -63,8 +63,7 @@ async function mockTutorStudio(page: Page) {
     capacity: null,
     cohortStartAt: null,
     cohortEndAt: null,
-    isDraft: true,
-    status: "pending",
+    status: "draft",
     updatedAt: new Date().toISOString(),
   };
   let draftCreated = false;
@@ -243,7 +242,7 @@ async function mockTutorStudio(page: Page) {
       if (!completeChecks().ready)
         return json(route, { message: "Course is not ready for review" }, 400);
       submitted = true;
-      course = { ...course, isDraft: false, status: "pending" };
+      course = { ...course, status: "pending_review" };
       return json(route, {
         ...course,
         message: "Course submitted for academy review",

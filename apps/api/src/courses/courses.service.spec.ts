@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { CourseStatus } from '@mrh/types';
+import { CourseLifecycleStatus, CourseStatus } from '@mrh/types';
 import { CoursesService } from './courses.service.js';
 
 describe('CoursesService course creation approval', () => {
@@ -59,7 +59,7 @@ describe('CoursesService course creation approval', () => {
       id: 'course-id',
       tutorId: 'approved-tutor',
       title: 'Approved course',
-      status: CourseStatus.PENDING,
+      status: CourseLifecycleStatus.DRAFT,
     });
 
     const result = await service.create('approved-tutor', {
@@ -201,7 +201,7 @@ describe('CoursesService secure overview videos', () => {
   it('returns expiring playback only for an approved public course', async () => {
     courseRepository.findOne.mockResolvedValue({
       id: 'course-1',
-      status: CourseStatus.APPROVED,
+      status: CourseLifecycleStatus.ACTIVE,
       isDraft: false,
       overviewVideoId: 'video-1',
     });
@@ -226,7 +226,7 @@ describe('CoursesService secure overview videos', () => {
     expect(courseRepository.findOne).toHaveBeenCalledWith({
       where: {
         id: 'course-1',
-        status: CourseStatus.APPROVED,
+        status: CourseLifecycleStatus.ACTIVE,
         isDraft: false,
       },
     });
@@ -235,7 +235,7 @@ describe('CoursesService secure overview videos', () => {
   it('publishes curriculum metadata without exposing protected material URLs', async () => {
     courseRepository.findOne.mockResolvedValue({
       id: 'course-1',
-      status: CourseStatus.APPROVED,
+      status: CourseLifecycleStatus.ACTIVE,
       isDraft: false,
     });
     lessonRepository.find.mockResolvedValue([
@@ -312,6 +312,10 @@ describe('CoursesService professional authoring workflow', () => {
     getVideoStatus: jest.fn(),
     generateEmbedUrl: jest.fn(),
   };
+  const notificationRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
   const service = new CoursesService(
     courseRepository as never,
     {} as never,
@@ -325,6 +329,7 @@ describe('CoursesService professional authoring workflow', () => {
     { get: jest.fn().mockReturnValue('studio-secret') } as never,
     storage as never,
     bunnyService as never,
+    notificationRepository as never,
   );
   const completeCourse = {
     id: 'course-1',
@@ -349,7 +354,7 @@ describe('CoursesService professional authoring workflow', () => {
     cohortStartAt: null,
     cohortEndAt: null,
     isDraft: true,
-    status: CourseStatus.PENDING,
+    status: CourseLifecycleStatus.DRAFT,
     submittedAt: null,
   };
 
@@ -502,10 +507,36 @@ describe('CoursesService professional authoring workflow', () => {
     expect(courseRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         isDraft: false,
-        status: CourseStatus.PENDING,
+        status: CourseLifecycleStatus.PENDING_REVIEW,
         submittedAt: expect.any(Date),
       }),
     );
     expect(submitted.message).toBe('Course submitted for academy review');
+    expect(notificationRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'tutor-1',
+        type: 'course_submission_received',
+      }),
+    );
+  });
+
+  it('returns a rejected course to draft before editing and resubmission', async () => {
+    courseRepository.findOne.mockResolvedValue({
+      ...completeCourse,
+      isDraft: false,
+      status: CourseLifecycleStatus.REJECTED,
+      submittedAt: new Date(),
+      reviewNote: 'Clarify the learning outcomes',
+    });
+
+    await expect(
+      service.reviseRejectedCourse('tutor-1', 'course-1'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        status: CourseLifecycleStatus.DRAFT,
+        isDraft: true,
+        submittedAt: null,
+      }),
+    );
   });
 });

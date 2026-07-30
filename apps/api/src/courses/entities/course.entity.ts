@@ -8,7 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { CourseStatus } from '@mrh/types';
+import { CourseLifecycleStatus } from '@mrh/types';
 import { ColumnNumericTransformer } from '../../common/transformers/numeric.transformer.js';
 import { User } from '../../users/entities/user.entity.js';
 
@@ -98,8 +98,24 @@ export class Course {
   @Column({ type: 'varchar', default: 'academy' })
   soldBy: string;
 
-  @Column({ type: 'enum', enum: CourseStatus, default: CourseStatus.PENDING })
-  status: CourseStatus;
+  @Column({
+    type: 'enum',
+    enum: CourseLifecycleStatus,
+    default: CourseLifecycleStatus.DRAFT,
+  })
+  status: CourseLifecycleStatus;
+
+  @Column({ type: 'uuid', nullable: true })
+  reviewedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  reviewedAt: Date | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  reviewDecision: 'approved' | 'rejected' | null;
+
+  @Column({ type: 'text', nullable: true })
+  reviewNote: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   videoQualityApprovedAt: Date | null;

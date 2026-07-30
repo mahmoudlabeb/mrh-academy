@@ -15,7 +15,12 @@ import {
 } from "./course-studio-validation";
 import styles from "./CourseStudio.module.css";
 
-type CourseStatus = "pending" | "approved" | "rejected";
+type ProductStatus =
+  | "draft"
+  | "pending_review"
+  | "active"
+  | "rejected"
+  | "archived";
 type StudioStep =
   "basics" | "audience" | "curriculum" | "media" | "pricing" | "review";
 
@@ -39,10 +44,12 @@ type Course = {
   capacity: number | null;
   cohortStartAt: string | null;
   cohortEndAt: string | null;
-  isDraft: boolean;
-  status: CourseStatus;
+  status: ProductStatus;
   updatedAt?: string;
   submittedAt?: string | null;
+  reviewedAt?: string | null;
+  reviewDecision?: "approved" | "rejected" | null;
+  reviewNote?: string | null;
   referralCode?: string | null;
 };
 
@@ -447,7 +454,18 @@ function ExistingCourseStudio({ courseId }: { courseId: string }) {
     },
   });
 
-  const readonly = studioQuery.data ? !studioQuery.data.course.isDraft : false;
+  const reviseCourse = useMutation({
+    mutationFn: async () =>
+      (await apiClient.post<Course>(`/courses/${courseId}/revise`)).data,
+    onSuccess: async () => {
+      initializedRef.current = null;
+      await refreshStudio();
+    },
+  });
+
+  const readonly = studioQuery.data
+    ? studioQuery.data.course.status !== "draft"
+    : false;
   const lessons = studioQuery.data?.lessons ?? [];
   const completeLessonCount = lessons.filter(lessonIsComplete).length;
   const hasPromoVideo =
@@ -684,7 +702,7 @@ function ExistingCourseStudio({ courseId }: { courseId: string }) {
             </strong>
             <span>
               {readonly
-                ? course.status === "approved"
+                ? course.status === "active"
                   ? t("منشورة", "Published")
                   : course.status === "rejected"
                     ? t("تحتاج تعديلات", "Changes needed")
@@ -702,6 +720,20 @@ function ExistingCourseStudio({ courseId }: { courseId: string }) {
           {saveLabel}
         </div>
         <div className={styles.studioActions}>
+          {course.status === "rejected" && (
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={reviseCourse.isPending}
+              onClick={() => reviseCourse.mutate()}
+              data-testid="revise-course"
+            >
+              <StudioIcon name="edit" />
+              {reviseCourse.isPending
+                ? t("جاري فتح المسودة…", "Opening draft…")
+                : t("تعديل وإعادة الإرسال", "Revise and resubmit")}
+            </button>
+          )}
           <button type="button" className="btn-ghost" onClick={openPreview}>
             <StudioIcon name="preview" />
             {t("معاينة", "Preview")}
@@ -799,6 +831,34 @@ function ExistingCourseStudio({ courseId }: { courseId: string }) {
         </aside>
 
         <main className={styles.editor}>
+          {course.status === "rejected" && (
+            <div className={styles.rejectionNotice} role="alert">
+              <StudioIcon name="edit" />
+              <div>
+                <strong>
+                  {t(
+                    "راجع ملاحظات فريق الأكاديمية",
+                    "Review the academy team’s feedback",
+                  )}
+                </strong>
+                <p>
+                  {course.reviewNote ||
+                    t(
+                      "يحتاج هذا المنتج إلى تعديلات قبل إعادة إرساله للمراجعة.",
+                      "This product needs changes before it can be submitted again.",
+                    )}
+                </p>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={reviseCourse.isPending}
+                  onClick={() => reviseCourse.mutate()}
+                >
+                  {t("فتح المنتج للتعديل", "Open for revision")}
+                </button>
+              </div>
+            </div>
+          )}
           {readonly && (
             <div className={styles.readonlyNotice}>
               <StudioIcon name="lock" />
@@ -807,7 +867,7 @@ function ExistingCourseStudio({ courseId }: { courseId: string }) {
                   {t("الدورة في وضع القراءة فقط", "Course is read-only")}
                 </strong>
                 <p>
-                  {course.status === "approved"
+                  {course.status === "active"
                     ? t(
                         "هذه الدورة منشورة حاليًا.",
                         "This course is currently published.",
@@ -818,6 +878,19 @@ function ExistingCourseStudio({ courseId }: { courseId: string }) {
                       )}
                 </p>
               </div>
+            </div>
+          )}
+          {reviseCourse.isError && (
+            <div className={styles.errorNotice} role="alert">
+              <strong>
+                {t("تعذّر فتح المنتج للتعديل", "Could not open the product for revision")}
+              </strong>
+              <p>
+                {apiError(
+                  reviseCourse.error,
+                  t("حاول مرة أخرى.", "Please try again."),
+                )}
+              </p>
             </div>
           )}
           {saveDraft.isError && (
@@ -2543,7 +2616,7 @@ function ReviewStep({
         <div>
           <strong>
             {readonly
-              ? course.status === "approved"
+              ? course.status === "active"
                 ? t("الدورة منشورة", "Course is published")
                 : t("الدورة قيد المراجعة", "Course is under review")
               : ready

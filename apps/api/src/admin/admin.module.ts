@@ -34,6 +34,11 @@ import { PaymentMethodConfig } from '../payments/entities/payment-method-config.
 import { Report } from '../reports/entities/report.entity.js';
 import { Payout } from '../payments/entities/payout.entity.js';
 import { AdminAuditLog } from './entities/admin-audit-log.entity.js';
+import { CourseSection } from '../courses/entities/course-section.entity.js';
+import { CourseLesson } from '../courses/entities/course-lesson.entity.js';
+import { Notification } from '../messages/entities/notification.entity.js';
+import { BunnyService } from '../integrations/video/bunny.service.js';
+import { CourseReviewService } from './course-review.service.js';
 
 @Module({
   imports: [
@@ -50,8 +55,11 @@ import { AdminAuditLog } from './entities/admin-audit-log.entity.js';
       SubAdminProfile,
       Setting,
       Course,
+      CourseSection,
+      CourseLesson,
       CourseEnrollment,
       AdminAuditLog,
+      Notification,
       Review,
       Payment,
       PaymentMethodConfig,
@@ -60,7 +68,12 @@ import { AdminAuditLog } from './entities/admin-audit-log.entity.js';
       CourseEnrollment,
     ]),
   ],
-  providers: [AdminEmployeesService, EmailService],
+  providers: [
+    AdminEmployeesService,
+    CourseReviewService,
+    BunnyService,
+    EmailService,
+  ],
   controllers: [
     AdminTutorsController,
     AdminStatsController,

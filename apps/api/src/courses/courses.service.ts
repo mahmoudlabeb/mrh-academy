@@ -5,11 +5,17 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { createHmac, randomUUID } from 'node:crypto';
-import { CourseStatus, PaymentStatus, UserRole } from '@mrh/types';
+import {
+  CourseLifecycleStatus,
+  CourseStatus,
+  PaymentStatus,
+  UserRole,
+} from '@mrh/types';
 import { Course } from './entities/course.entity.js';
 import { CourseEnrollment } from './entities/course-enrollment.entity.js';
 import { CourseLesson } from './entities/course-lesson.entity.js';
@@ -57,6 +63,9 @@ export class CoursesService {
     private readonly config: ConfigService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
     private readonly bunnyService: BunnyService,
+    @Optional()
+    @InjectRepository(Notification)
+    private readonly notificationRepository?: Repository<Notification>,
   ) {}
 
   private isValidCourseReferral(
@@ -89,7 +98,7 @@ export class CoursesService {
 
   async findAllApproved(page = 1, limit = 24) {
     return this.courseRepository.find({
-      where: { status: CourseStatus.APPROVED, isDraft: false },
+      where: { status: CourseLifecycleStatus.ACTIVE, isDraft: false },
       relations: { tutor: true },
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
@@ -110,7 +119,7 @@ export class CoursesService {
       (viewerId && course.tutorId === viewerId);
 
     if (
-      (course.status !== CourseStatus.APPROVED || course.isDraft) &&
+      (course.status !== CourseLifecycleStatus.ACTIVE || course.isDraft) &&
       !canBypass
     ) {
       throw new NotFoundException('Course not found');
@@ -181,7 +190,7 @@ export class CoursesService {
     const course = await this.courseRepository.findOne({
       where: {
         id: courseId,
-        status: CourseStatus.APPROVED,
+        status: CourseLifecycleStatus.ACTIVE,
         isDraft: false,
       },
       select: { id: true },
@@ -244,9 +253,9 @@ export class CoursesService {
       description: dto.description,
       price: dto.price,
       thumbnailUrl: dto.thumbnailUrl,
-      status: CourseStatus.PENDING,
-      isDraft: false,
-      submittedAt: new Date(),
+      status: CourseLifecycleStatus.DRAFT,
+      isDraft: true,
+      submittedAt: null,
     });
     const savedCourse = await this.courseRepository.save(course);
     return {
@@ -263,7 +272,7 @@ export class CoursesService {
       description: '',
       price: 0,
       courseType,
-      status: CourseStatus.PENDING,
+      status: CourseLifecycleStatus.DRAFT,
       isDraft: true,
       soldBy: 'academy',
       language: 'Arabic',
@@ -299,9 +308,12 @@ export class CoursesService {
     },
   ) {
     const course = await this.getOwnedCourse(tutorId, courseId);
-    if (!course.isDraft && course.status === CourseStatus.APPROVED) {
+    if (
+      course.status !== CourseLifecycleStatus.DRAFT ||
+      !course.isDraft
+    ) {
       throw new BadRequestException(
-        'Approved courses must be returned to draft before structural changes',
+        'Only draft courses can be edited',
       );
     }
     Object.assign(course, {
@@ -325,11 +337,10 @@ export class CoursesService {
   async submitForReview(tutorId: string, courseId: string) {
     const course = await this.getOwnedCourse(tutorId, courseId);
     if (
-      !course.isDraft &&
-      course.status === CourseStatus.PENDING &&
-      course.submittedAt
+      course.status !== CourseLifecycleStatus.DRAFT ||
+      !course.isDraft
     ) {
-      throw new BadRequestException('Course is already pending review');
+      throw new BadRequestException('Only draft courses can be submitted');
     }
     const readiness = await this.buildReadiness(course);
     if (!readiness.ready) {
@@ -341,12 +352,39 @@ export class CoursesService {
       );
     }
     course.isDraft = false;
-    course.status = CourseStatus.PENDING;
+    course.status = CourseLifecycleStatus.PENDING_REVIEW;
     course.submittedAt = new Date();
+    course.reviewedBy = null;
+    course.reviewedAt = null;
+    course.reviewDecision = null;
+    course.reviewNote = null;
     const saved = await this.courseRepository.save(course);
+    await this.notifyTutor(
+      tutorId,
+      'course_submission_received',
+      'Submission received',
+      `${course.title} was submitted for academy review.`,
+    );
     return {
       ...saved,
       message: 'Course submitted for academy review',
+    };
+  }
+
+  async reviseRejectedCourse(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (course.status !== CourseLifecycleStatus.REJECTED) {
+      throw new BadRequestException(
+        'Only rejected courses can be returned to draft',
+      );
+    }
+    course.status = CourseLifecycleStatus.DRAFT;
+    course.isDraft = true;
+    course.submittedAt = null;
+    const saved = await this.courseRepository.save(course);
+    return {
+      ...saved,
+      message: 'Course returned to draft for revision',
     };
   }
 
@@ -1095,7 +1133,7 @@ export class CoursesService {
     const course = await this.courseRepository.findOne({
       where: {
         id: courseId,
-        status: CourseStatus.APPROVED,
+        status: CourseLifecycleStatus.ACTIVE,
         isDraft: false,
       },
     });
@@ -1123,6 +1161,25 @@ export class CoursesService {
     return course;
   }
 
+  private async notifyTutor(
+    userId: string,
+    type: string,
+    title: string,
+    body: string,
+  ) {
+    if (!this.notificationRepository) return;
+    try {
+      await this.notificationRepository.save(
+        this.notificationRepository.create({ userId, type, title, body }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create ${type} notification for tutor ${userId}`,
+        error,
+      );
+    }
+  }
+
   async enroll(
     studentId: string,
     courseId: string,
@@ -1133,7 +1190,11 @@ export class CoursesService {
     },
   ) {
     const course = await this.courseRepository.findOne({
-      where: { id: courseId, status: CourseStatus.APPROVED },
+      where: {
+        id: courseId,
+        status: CourseLifecycleStatus.ACTIVE,
+        isDraft: false,
+      },
     });
     if (!course)
       throw new NotFoundException('Course not found or not yet approved');

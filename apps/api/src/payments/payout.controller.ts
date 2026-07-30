@@ -41,6 +41,12 @@ export class PayoutController {
     return this.paymentsService.requestPayout(user.id, dto);
   }
 
+  @Get('options')
+  @Roles(UserRole.TUTOR)
+  getPayoutOptions() {
+    return this.paymentsService.getTutorPayoutOptions();
+  }
+
   @Get('my')
   @Roles(UserRole.TUTOR)
   getMyPayouts(
