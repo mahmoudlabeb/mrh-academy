@@ -39,6 +39,12 @@ export class Course {
   @Column({ type: 'text', nullable: true })
   previewVideoUrl: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  overviewVideoId: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  overviewCaptionLanguages: string[] | null;
+
   @Column({ type: 'simple-array', nullable: true })
   learningOutcomes: string[] | null;
 

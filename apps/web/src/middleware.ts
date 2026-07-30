@@ -124,7 +124,7 @@ export function middleware(request: NextRequest) {
       "img-src 'self' data: blob: https://res.cloudinary.com https://lh3.googleusercontent.com",
       `connect-src 'self' ${apiOrigin} ${websocketOrigin}`,
       "media-src 'self' https://video.bunnycdn.com https://iframe.mediadelivery.net",
-      "frame-src 'self' https://iframe.mediadelivery.net https://hooks.stripe.com",
+      "frame-src 'self' https://iframe.mediadelivery.net https://player.mediadelivery.net https://hooks.stripe.com",
       "worker-src 'self' blob:",
     ].join("; ");
     requestHeaders.set("x-nonce", nonce);

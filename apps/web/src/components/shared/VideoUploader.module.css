@@ -1,0 +1,363 @@
+.studio {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  border-block-end: 1px solid var(--border);
+}
+
+.topline h3 {
+  margin: 3px 0 4px;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.topline p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.eyebrow {
+  color: var(--signal-strong);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.secureBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  color: var(--success);
+  background: var(--success-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.secureBadge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.preview {
+  position: relative;
+  margin: 18px 20px 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--focus-surface);
+}
+
+.localVideo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #03100d;
+}
+
+.localLabel {
+  position: absolute;
+  inset-block-end: 10px;
+  inset-inline-start: 10px;
+  margin: 0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--focus-ink);
+  background: color-mix(in srgb, var(--focus-surface) 84%, transparent);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.statusRow,
+.fileRow,
+.captionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.statusRow {
+  min-height: 25px;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+}
+
+.statusRow strong {
+  color: var(--ink);
+}
+
+.statusMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.statusMark::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 14%, transparent);
+}
+
+.progress {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--canvas-sunken);
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--signal);
+  transition: width 160ms ease-out;
+}
+
+.fileRow {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--canvas-sunken);
+}
+
+.fileName {
+  min-width: 0;
+}
+
+.fileName strong,
+.fileName small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileName strong {
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.fileName small {
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.button,
+.primaryButton,
+.dangerButton,
+.linkButton {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-sm);
+  padding-inline: 14px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.button {
+  border: 1px solid var(--border-strong);
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.primaryButton {
+  border: 1px solid var(--signal-strong);
+  color: var(--focus-surface);
+  background: var(--signal);
+}
+
+.dangerButton {
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.linkButton {
+  min-height: 34px;
+  border: 0;
+  color: var(--signal-strong);
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.button:disabled,
+.primaryButton:disabled,
+.dangerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.nativeInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.help {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.69rem;
+  line-height: 1.6;
+}
+
+.error,
+.success,
+.confirmation {
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.error {
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.success {
+  border: 1px solid color-mix(in srgb, var(--success) 30%, var(--border));
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.confirmation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
+  color: var(--ink);
+  background: var(--danger-soft);
+}
+
+.confirmation p {
+  margin: 0;
+}
+
+.captions {
+  display: grid;
+  gap: 11px;
+  padding-block-start: 15px;
+  border-block-start: 1px solid var(--border);
+}
+
+.captions h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.captionForm {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.55fr) minmax(0, 1.45fr) auto;
+  gap: 9px;
+}
+
+.captionForm select {
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding-inline: 10px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.captionItem {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--canvas-sunken);
+  color: var(--ink);
+  font-size: 0.74rem;
+}
+
+@media (max-width: 620px) {
+  .topline {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .secureBadge {
+    align-self: flex-start;
+  }
+
+  .preview {
+    margin: 14px 14px 0;
+  }
+
+  .body {
+    padding: 16px 14px 18px;
+  }
+
+  .actions,
+  .confirmation {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actions > *,
+  .confirmation button {
+    width: 100%;
+  }
+
+  .captionForm {
+    grid-template-columns: 1fr;
+  }
+
+  .captionForm > * {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress span {
+    transition: none;
+  }
+}

@@ -43,7 +43,7 @@ describe('BunnyService', () => {
     expect(signedUrl.pathname).toContain('/video-1/playlist.m3u8');
     expect(signedUrl.pathname).toContain('bcdn_token=HS256-');
     expect(signedUrl.pathname).toContain('&expires=1785327000&');
-    expect(embedUrl.hostname).toBe('iframe.mediadelivery.net');
+    expect(embedUrl.hostname).toBe('player.mediadelivery.net');
     expect(embedUrl.pathname).toBe('/embed/library-1/video-1');
     expect(embedUrl.searchParams.get('token')).toMatch(/^[a-f0-9]{64}$/);
     expect(embed.expiresAt).toBe(1785327000);
@@ -73,5 +73,95 @@ describe('BunnyService', () => {
         signal: expect.any(AbortSignal),
       }),
     );
+  });
+
+  it('creates and uploads a video before returning a processing asset', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn(async () => ({ guid: 'video-2' })),
+      } as unknown as Response)
+      .mockResolvedValueOnce({ ok: true } as Response);
+
+    await expect(
+      createService().uploadVideo(Buffer.from('video'), 'Tutor introduction'),
+    ).resolves.toEqual({
+      videoId: 'video-2',
+      status: 'processing',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://video.bunnycdn.com/library/library-1/videos',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://video.bunnycdn.com/library/library-1/videos/video-2',
+      expect.objectContaining({ method: 'PUT' }),
+    );
+  });
+
+  it('cleans up a created asset when binary upload fails', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn(async () => ({ guid: 'video-3' })),
+      } as unknown as Response)
+      .mockResolvedValueOnce({ ok: false } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response);
+
+    await expect(
+      createService().uploadVideo(Buffer.from('video'), 'Course overview'),
+    ).rejects.toThrow('Could not finish the secure video upload');
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://video.bunnycdn.com/library/library-1/videos/video-3',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('uploads and deletes WebVTT captions through authenticated API calls', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue({ ok: true } as Response);
+    const service = createService();
+
+    await service.addCaption('video-1', 'ar', 'العربية', Buffer.from('WEBVTT'));
+    await service.deleteCaption('video-1', 'ar');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://video.bunnycdn.com/library/library-1/videos/video-1/captions/ar',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(Buffer.from('WEBVTT').toString('base64')),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://video.bunnycdn.com/library/library-1/videos/video-1/captions/ar',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('maps Bunny processing and caption metadata for the UI', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: jest.fn(async () => ({
+        guid: 'video-1',
+        status: 4,
+        length: 91,
+        captions: [{ srclang: 'en', label: 'English' }],
+      })),
+    } as unknown as Response);
+
+    await expect(createService().getVideoStatus('video-1')).resolves.toEqual({
+      status: 'ready',
+      durationSeconds: 91,
+      captions: [{ language: 'en', label: 'English' }],
+    });
   });
 });

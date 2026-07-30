@@ -28,6 +28,10 @@ import { UpdateCourseDto } from './dto/update-course.dto.js';
 import { UpsertCourseLessonDto } from './dto/upsert-course-lesson.dto.js';
 import { BunnyService } from '../integrations/video/bunny.service.js';
 import { UploadRateGuard } from '../common/guards/upload-rate.guard.js';
+import {
+  MAX_CAPTION_BYTES,
+  MAX_SECURE_VIDEO_BYTES,
+} from '../integrations/video/video-upload.validation.js';
 
 type AuthenticatedUser = { id: string; role: UserRole };
 
@@ -74,6 +78,12 @@ export class CoursesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.coursesService.findOne(id);
+  }
+
+  @Public()
+  @Get(':id/overview/playback')
+  getPublicOverview(@Param('id') id: string) {
+    return this.coursesService.getPublicCourseOverview(id);
   }
 
   @Get(':id/lessons')
@@ -126,7 +136,7 @@ export class CoursesController {
   @Roles(UserRole.TUTOR)
   @UseInterceptors(
     FileInterceptor('media', {
-      limits: { fileSize: 50 * 1024 * 1024 },
+      limits: { fileSize: MAX_SECURE_VIDEO_BYTES },
     }),
   )
   uploadMedia(
@@ -140,6 +150,65 @@ export class CoursesController {
       throw new BadRequestException('Media kind must be cover or preview');
     }
     return this.coursesService.uploadOwnedCourseMedia(user.id, id, kind, file);
+  }
+
+  @Get(':id/media/preview/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  getOverviewStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.coursesService.getOwnedCourseOverview(user.id, id);
+  }
+
+  @Delete(':id/media/preview')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  deleteOverview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.coursesService.deleteOwnedCourseOverview(user.id, id);
+  }
+
+  @Post(':id/media/preview/captions')
+  @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
+  @Roles(UserRole.TUTOR)
+  @UseInterceptors(
+    FileInterceptor('captions', {
+      limits: { fileSize: MAX_CAPTION_BYTES },
+    }),
+  )
+  uploadOverviewCaptions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body('language') language: string | undefined,
+    @Body('label') label: string | undefined,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.coursesService.uploadOwnedCourseOverviewCaption(
+      user.id,
+      id,
+      file,
+      language,
+      label,
+    );
+  }
+
+  @Delete(':id/media/preview/captions/:language')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  deleteOverviewCaptions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('language') language: string,
+  ) {
+    return this.coursesService.deleteOwnedCourseOverviewCaption(
+      user.id,
+      id,
+      language,
+    );
   }
 
   @Post(':id/lessons')

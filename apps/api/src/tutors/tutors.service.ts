@@ -24,6 +24,11 @@ import {
 } from '../integrations/storage/object-storage.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { BunnyService } from '../integrations/video/bunny.service.js';
+import {
+  validateCaptionUpload,
+  validateVideoUpload,
+} from '../integrations/video/video-upload.validation.js';
 
 @Injectable()
 export class TutorsService {
@@ -47,6 +52,7 @@ export class TutorsService {
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+    private readonly bunnyService: BunnyService,
   ) {}
 
   async findAllWithFilters(filters: {
@@ -337,24 +343,155 @@ export class TutorsService {
     return saved;
   }
 
-  async uploadProfileVideo(
-    userId: string,
-    file?: Express.Multer.File,
-  ): Promise<TutorProfile> {
-    if (!file) throw new BadRequestException('A video file is required');
-    if (!file.mimetype.startsWith('video/')) {
-      throw new BadRequestException('Profile video must be a video file');
-    }
+  async uploadProfileVideo(userId: string, file?: Express.Multer.File) {
+    validateVideoUpload(file);
     const tutor = await this.tutorProfileRepository.findOne({
       where: { userId },
     });
     if (!tutor) throw new NotFoundException('Tutor profile not found');
-    const upload = await this.storage.upload(file.buffer, {
-      folder: 'mrh-academy/tutor-profile-videos',
-      resourceType: 'video',
+    const previousVideoId = tutor.introVideoId;
+    const uploaded = await this.bunnyService.uploadVideo(
+      file.buffer,
+      `Tutor introduction ${userId}`,
+    );
+    tutor.introVideoId = uploaded.videoId;
+    tutor.introCaptionLanguages = null;
+    tutor.videoUrl = null;
+    try {
+      await this.tutorProfileRepository.save(tutor);
+    } catch (error) {
+      await this.bunnyService
+        .deleteVideo(uploaded.videoId)
+        .catch(() => undefined);
+      throw error;
+    }
+    await this.redisService.delPattern('tutors:*');
+    if (previousVideoId) {
+      await this.bunnyService.deleteVideo(previousVideoId).catch((error) => {
+        this.logger.warn(
+          `Could not remove replaced tutor video ${previousVideoId}: ${
+            error instanceof Error ? error.message : 'unknown error'
+          }`,
+        );
+      });
+    }
+    return {
+      videoId: uploaded.videoId,
+      status: uploaded.status,
+      captions: [],
+    };
+  }
+
+  async deleteProfileVideo(userId: string) {
+    const tutor = await this.tutorProfileRepository.findOne({
+      where: { userId },
     });
-    tutor.videoUrl = upload.secureUrl;
-    return this.tutorProfileRepository.save(tutor);
+    if (!tutor) throw new NotFoundException('Tutor profile not found');
+    if (!tutor.introVideoId) return { deleted: false };
+    const videoId = tutor.introVideoId;
+    const captionLanguages = tutor.introCaptionLanguages;
+    const legacyUrl = tutor.videoUrl;
+    tutor.introVideoId = null;
+    tutor.introCaptionLanguages = null;
+    tutor.videoUrl = null;
+    await this.tutorProfileRepository.save(tutor);
+    try {
+      await this.bunnyService.deleteVideo(videoId);
+    } catch (error) {
+      tutor.introVideoId = videoId;
+      tutor.introCaptionLanguages = captionLanguages;
+      tutor.videoUrl = legacyUrl;
+      await this.tutorProfileRepository.save(tutor);
+      throw error;
+    }
+    await this.redisService.delPattern('tutors:*');
+    return { deleted: true };
+  }
+
+  async uploadProfileVideoCaption(
+    userId: string,
+    file: Express.Multer.File | undefined,
+    languageValue: string | undefined,
+    labelValue: string | undefined,
+  ) {
+    const { language, label } = validateCaptionUpload(
+      file,
+      languageValue,
+      labelValue,
+    );
+    const tutor = await this.tutorProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!tutor?.introVideoId) {
+      throw new NotFoundException('Upload an introduction video first');
+    }
+    await this.bunnyService.addCaption(
+      tutor.introVideoId,
+      language,
+      label,
+      file!.buffer,
+    );
+    tutor.introCaptionLanguages = Array.from(
+      new Set([...(tutor.introCaptionLanguages ?? []), language]),
+    );
+    await this.tutorProfileRepository.save(tutor);
+    await this.redisService.delPattern('tutors:*');
+    return { language, label };
+  }
+
+  async deleteProfileVideoCaption(userId: string, language: string) {
+    const tutor = await this.tutorProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!tutor?.introVideoId) {
+      throw new NotFoundException('Introduction video not found');
+    }
+    if (!(tutor.introCaptionLanguages ?? []).includes(language)) {
+      throw new NotFoundException('Caption track not found');
+    }
+    await this.bunnyService.deleteCaption(tutor.introVideoId, language);
+    tutor.introCaptionLanguages = (tutor.introCaptionLanguages ?? []).filter(
+      (item) => item !== language,
+    );
+    await this.tutorProfileRepository.save(tutor);
+    await this.redisService.delPattern('tutors:*');
+    return { deleted: true, language };
+  }
+
+  private async buildProfileVideoPlayback(tutor: TutorProfile) {
+    if (!tutor.introVideoId) return { status: 'missing' as const };
+    const details = await this.bunnyService.getVideoStatus(tutor.introVideoId);
+    if (details.status !== 'ready') {
+      return {
+        status: details.status,
+        durationSeconds: details.durationSeconds,
+        captions: details.captions,
+      };
+    }
+    const playback = this.bunnyService.generateEmbedUrl(tutor.introVideoId);
+    return {
+      status: details.status,
+      embedUrl: playback.url,
+      expiresAt: playback.expiresAt,
+      durationSeconds: details.durationSeconds,
+      captions: details.captions,
+    };
+  }
+
+  async getMyProfileVideo(userId: string) {
+    const tutor = await this.tutorProfileRepository.findOne({
+      where: { userId },
+    });
+    if (!tutor) throw new NotFoundException('Tutor profile not found');
+    return this.buildProfileVideoPlayback(tutor);
+  }
+
+  async getPublicProfileVideo(userId: string) {
+    const tutor = await this.tutorProfileRepository.findOne({
+      where: { userId, status: CourseStatus.APPROVED },
+    });
+    if (!tutor) throw new NotFoundException('Tutor profile not found');
+    return this.buildProfileVideoPlayback(tutor);
   }
 
   async getTutorStats(userId: string): Promise<{

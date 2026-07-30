@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
+import { VideoUploader } from "@/components/shared/VideoUploader";
 
 type CourseStatus = "pending" | "approved" | "rejected";
 
@@ -20,7 +21,6 @@ type Course = {
   updatedAt?: string;
   courseType?: "recorded" | "live";
   subtitle?: string | null;
-  previewVideoUrl?: string | null;
   learningOutcomes?: string[];
   requirements?: string | null;
   targetAudience?: string | null;
@@ -46,7 +46,6 @@ type CourseDraft = {
   thumbnailUrl: string;
   courseType: "recorded" | "live";
   subtitle: string;
-  previewVideoUrl: string;
   learningOutcomes: string[];
   requirements: string;
   targetAudience: string;
@@ -72,7 +71,6 @@ const EMPTY_DRAFT: CourseDraft = {
   thumbnailUrl: "",
   courseType: "recorded",
   subtitle: "",
-  previewVideoUrl: "",
   learningOutcomes: [],
   requirements: "",
   targetAudience: "",
@@ -472,7 +470,6 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
       thumbnailUrl: existingCourse.thumbnailUrl ?? "",
       courseType: existingCourse.courseType ?? "recorded",
       subtitle: existingCourse.subtitle ?? "",
-      previewVideoUrl: existingCourse.previewVideoUrl ?? "",
       learningOutcomes: existingCourse.learningOutcomes ?? [],
       requirements: Array.isArray(existingCourse.requirements)
         ? existingCourse.requirements.join(", ")
@@ -516,7 +513,6 @@ export function CourseStudioEditor({ courseId }: { courseId?: string }) {
           thumbnailUrl: activeDraft.thumbnailUrl.trim() || undefined,
           courseType: activeDraft.courseType,
           subtitle: activeDraft.subtitle.trim() || undefined,
-          previewVideoUrl: activeDraft.previewVideoUrl.trim() || undefined,
           learningOutcomes: activeDraft.learningOutcomes,
           requirements: activeDraft.requirements.trim()
             ? activeDraft.requirements
@@ -1093,16 +1089,6 @@ function StructureStep({
             maxLength={240}
           />
         </Field>
-        <Field label={t("فيديو المقدمة", "Introduction video URL")}>
-          <input
-            value={draft.previewVideoUrl}
-            onChange={(event) => update("previewVideoUrl", event.target.value)}
-            disabled={readonly}
-            dir="ltr"
-            type="url"
-            placeholder="https://..."
-          />
-        </Field>
         <Field
           label={t("عنوان الدورة", "Course title")}
           error={errors.title}
@@ -1298,6 +1284,7 @@ function LandingStep({
   courseId?: string;
   t: (ar: string, en: string) => string;
 }) {
+  const queryClient = useQueryClient();
   const uploadMedia = useMutation({
     mutationFn: async ({
       kind,
@@ -1319,8 +1306,6 @@ function LandingStep({
     },
     onSuccess: (course) => {
       if (course.thumbnailUrl) update("thumbnailUrl", course.thumbnailUrl);
-      if (course.previewVideoUrl)
-        update("previewVideoUrl", course.previewVideoUrl);
     },
   });
   return (
@@ -1344,17 +1329,43 @@ function LandingStep({
             }}
           />
         </Field>
-        <Field label={t("رفع فيديو المقدمة", "Upload introduction video")}>
-          <input
-            type="file"
-            accept="video/*"
-            disabled={!courseId || readonly || uploadMedia.isPending}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) uploadMedia.mutate({ kind: "preview", file });
-            }}
+        {courseId ? (
+          <VideoUploader
+            title={t("فيديو نظرة عامة على الدورة", "Course overview video")}
+            description={t(
+              "اشرح ما سيكتسبه الطلاب ولماذا صُممت هذه الدورة لهم.",
+              "Explain what students will gain and why this course was designed for them.",
+            )}
+            uploadEndpoint={`/courses/${courseId}/media/preview`}
+            statusEndpoint={`/courses/${courseId}/media/preview/status`}
+            deleteEndpoint={`/courses/${courseId}/media/preview`}
+            captionsEndpoint={`/courses/${courseId}/media/preview/captions`}
+            captionDeleteEndpoint={(language) =>
+              `/courses/${courseId}/media/preview/captions/${encodeURIComponent(language)}`
+            }
+            uploadField="media"
+            readonly={readonly}
+            onChange={() =>
+              queryClient.invalidateQueries({ queryKey: ["my-courses"] })
+            }
+            testId="course-video-uploader"
           />
-        </Field>
+        ) : (
+          <div className="studio-notice">
+            <strong>
+              {t(
+                "أنشئ مسودة أولاً لرفع الفيديو",
+                "Create a draft before uploading video",
+              )}
+            </strong>
+            <p>
+              {t(
+                "بعد إنشاء المسودة ستتمكن من رفع فيديو آمن وإضافة الترجمة.",
+                "Once the draft exists, you can upload a secure video and add captions.",
+              )}
+            </p>
+          </div>
+        )}
         <Field
           label={t("عنوان الدورة", "Course title")}
           error={errors.title}

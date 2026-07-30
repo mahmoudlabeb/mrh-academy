@@ -3,11 +3,9 @@ import {
   IsOptional,
   IsArray,
   IsNumber,
-  IsEnum,
   Min,
   Max,
 } from 'class-validator';
-import { CourseStatus } from '@mrh/types';
 
 export class UpdateTutorDto {
   @IsString()
@@ -25,14 +23,6 @@ export class UpdateTutorDto {
   @IsNumber()
   @IsOptional()
   hourlyRate?: number;
-
-  @IsString()
-  @IsOptional()
-  videoUrl?: string;
-
-  @IsEnum(CourseStatus)
-  @IsOptional()
-  status?: CourseStatus;
 
   @IsString()
   @IsOptional()

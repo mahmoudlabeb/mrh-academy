@@ -57,8 +57,14 @@ export class TutorProfile {
   @Column({ type: 'varchar', nullable: true })
   rejectionReason: string | null;
 
-  @Column({ nullable: true })
-  videoUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  videoUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  introVideoId: string | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  introCaptionLanguages: string[] | null;
 
   @Column({ nullable: true })
   documentUrl: string;

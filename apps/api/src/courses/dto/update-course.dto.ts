@@ -38,10 +38,6 @@ export class UpdateCourseDto {
   thumbnailUrl?: string;
 
   @IsOptional()
-  @IsUrl({ require_tld: false })
-  previewVideoUrl?: string;
-
-  @IsOptional()
   @IsIn(['recorded', 'live'])
   courseType?: 'recorded' | 'live';
 

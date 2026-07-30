@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Post,
   Body,
   UseGuards,
@@ -21,6 +22,10 @@ import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { UserRole } from '@mrh/types';
+import {
+  MAX_CAPTION_BYTES,
+  MAX_SECURE_VIDEO_BYTES,
+} from '../integrations/video/video-upload.validation.js';
 
 @Controller('tutors')
 export class TutorsController {
@@ -78,6 +83,12 @@ export class TutorsController {
     return this.tutorsService.findPublicProfile(id);
   }
 
+  @Public()
+  @Get(':id/video/playback')
+  getPublicProfileVideo(@Param('id') id: string) {
+    return this.tutorsService.getPublicProfileVideo(id);
+  }
+
   // --- TUTOR SELF-SERVICE ---
 
   @Get('me/profile')
@@ -98,15 +109,64 @@ export class TutorsController {
   }
 
   @Post('me/profile/video')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
+  @Roles(UserRole.TUTOR)
   @UseInterceptors(
-    FileInterceptor('video', { limits: { fileSize: 100 * 1024 * 1024 } }),
+    FileInterceptor('video', {
+      limits: { fileSize: MAX_SECURE_VIDEO_BYTES },
+    }),
   )
   uploadProfileVideo(
     @CurrentUser() user: { id: string },
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.tutorsService.uploadProfileVideo(user.id, file);
+  }
+
+  @Get('me/profile/video/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  getMyProfileVideo(@CurrentUser() user: { id: string }) {
+    return this.tutorsService.getMyProfileVideo(user.id);
+  }
+
+  @Delete('me/profile/video')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  deleteProfileVideo(@CurrentUser() user: { id: string }) {
+    return this.tutorsService.deleteProfileVideo(user.id);
+  }
+
+  @Post('me/profile/video/captions')
+  @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
+  @Roles(UserRole.TUTOR)
+  @UseInterceptors(
+    FileInterceptor('captions', {
+      limits: { fileSize: MAX_CAPTION_BYTES },
+    }),
+  )
+  uploadProfileVideoCaptions(
+    @CurrentUser() user: { id: string },
+    @Body('language') language: string | undefined,
+    @Body('label') label: string | undefined,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.tutorsService.uploadProfileVideoCaption(
+      user.id,
+      file,
+      language,
+      label,
+    );
+  }
+
+  @Delete('me/profile/video/captions/:language')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  deleteProfileVideoCaptions(
+    @CurrentUser() user: { id: string },
+    @Param('language') language: string,
+  ) {
+    return this.tutorsService.deleteProfileVideoCaption(user.id, language);
   }
 
   @Get('me/stats')

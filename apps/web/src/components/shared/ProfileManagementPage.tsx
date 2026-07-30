@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { apiClient } from "@/lib/api-client";
 import { AvatarUploader } from "./AvatarUploader";
+import { VideoUploader } from "./VideoUploader";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/language-context";
 import styles from "./ProfileManagementPage.module.css";
@@ -437,6 +438,24 @@ export function ProfileManagementPage({ title }: ProfileManagementPageProps) {
                 </div>
               </form>
             </section>
+
+            {isTutor && (
+              <VideoUploader
+                title={tr("فيديو التعريف بالمدرّس", "Tutor introduction video")}
+                description={tr(
+                  "عرّف الطلاب بأسلوبك وخبرتك وما يمكنهم توقعه من الدروس.",
+                  "Help students understand your teaching style, experience, and what to expect.",
+                )}
+                uploadEndpoint="/tutors/me/profile/video"
+                statusEndpoint="/tutors/me/profile/video/status"
+                deleteEndpoint="/tutors/me/profile/video"
+                captionsEndpoint="/tutors/me/profile/video/captions"
+                captionDeleteEndpoint={(language) =>
+                  `/tutors/me/profile/video/captions/${encodeURIComponent(language)}`
+                }
+                testId="tutor-video-uploader"
+              />
+            )}
 
             <section className={styles.surfaceCard}>
               <div className={styles.sectionHeading}>

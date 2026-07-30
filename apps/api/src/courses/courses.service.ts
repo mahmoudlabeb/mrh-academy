@@ -1,6 +1,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -24,9 +25,16 @@ import {
   OBJECT_STORAGE,
   type ObjectStorage,
 } from '../integrations/storage/object-storage.js';
+import { BunnyService } from '../integrations/video/bunny.service.js';
+import {
+  validateCaptionUpload,
+  validateVideoUpload,
+} from '../integrations/video/video-upload.validation.js';
 
 @Injectable()
 export class CoursesService {
+  private readonly logger = new Logger(CoursesService.name);
+
   constructor(
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
@@ -44,6 +52,7 @@ export class CoursesService {
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+    private readonly bunnyService: BunnyService,
   ) {}
 
   private isValidCourseReferral(
@@ -229,7 +238,6 @@ export class CoursesService {
       description?: string;
       price?: number;
       thumbnailUrl?: string;
-      previewVideoUrl?: string;
       courseType?: 'recorded' | 'live';
       learningOutcomes?: string[];
       requirements?: string[];
@@ -279,7 +287,9 @@ export class CoursesService {
     if (!course.title.trim()) missing.push('course title');
     if (!course.description.trim()) missing.push('course description');
     if (!course.thumbnailUrl) missing.push('course cover');
-    if (!course.previewVideoUrl) missing.push('introduction video');
+    if (!course.overviewVideoId && !course.previewVideoUrl) {
+      missing.push('introduction video');
+    }
     if (course.price < 0) missing.push('valid price');
     if (!course.learningOutcomes?.length) missing.push('learning outcomes');
     if (course.courseType === 'recorded' && lessons.length === 0) {
@@ -411,9 +421,42 @@ export class CoursesService {
     }
     if (!file) throw new BadRequestException('Media file is required');
     const isCover = kind === 'cover';
-    const allowed = isCover
-      ? ['image/jpeg', 'image/png', 'image/webp']
-      : ['video/mp4', 'video/webm', 'video/quicktime'];
+    if (!isCover) {
+      validateVideoUpload(file);
+      const previousVideoId = course.overviewVideoId;
+      const uploaded = await this.bunnyService.uploadVideo(
+        file.buffer,
+        `Course overview ${courseId}`,
+      );
+      course.overviewVideoId = uploaded.videoId;
+      course.overviewCaptionLanguages = null;
+      course.previewVideoUrl = null;
+      try {
+        await this.courseRepository.save(course);
+      } catch (error) {
+        await this.bunnyService
+          .deleteVideo(uploaded.videoId)
+          .catch(() => undefined);
+        throw error;
+      }
+      if (previousVideoId) {
+        await this.bunnyService.deleteVideo(previousVideoId).catch((error) => {
+          this.logger.warn(
+            `Could not remove replaced course overview ${previousVideoId}: ${
+              error instanceof Error ? error.message : 'unknown error'
+            }`,
+          );
+        });
+      }
+      return {
+        kind,
+        courseId,
+        videoId: uploaded.videoId,
+        status: uploaded.status,
+        captions: [],
+      };
+    }
+    const allowed = isCover ? ['image/jpeg', 'image/png', 'image/webp'] : [];
     if (!allowed.includes(file.mimetype)) {
       throw new BadRequestException(
         isCover
@@ -421,26 +464,140 @@ export class CoursesService {
           : 'Introduction video must be MP4, WebM, or MOV',
       );
     }
-    const maximum = isCover ? 5 * 1024 * 1024 : 50 * 1024 * 1024;
+    const maximum = 5 * 1024 * 1024;
     if (file.size > maximum) {
-      throw new BadRequestException(
-        isCover
-          ? 'Course cover must be 5MB or smaller'
-          : 'Introduction video must be 50MB or smaller',
-      );
+      throw new BadRequestException('Course cover must be 5MB or smaller');
     }
     const uploaded = await this.storage.upload(file.buffer, {
       folder: `mrh-academy/courses/${courseId}`,
-      resourceType: isCover ? 'image' : 'auto',
+      resourceType: 'image',
     });
-    if (isCover) course.thumbnailUrl = uploaded.secureUrl;
-    else course.previewVideoUrl = uploaded.secureUrl;
+    course.thumbnailUrl = uploaded.secureUrl;
     await this.courseRepository.save(course);
     return {
       kind,
       url: uploaded.secureUrl,
       courseId,
     };
+  }
+
+  async deleteOwnedCourseOverview(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException('Media can only be changed on a draft');
+    }
+    if (!course.overviewVideoId) return { deleted: false };
+    const videoId = course.overviewVideoId;
+    const captionLanguages = course.overviewCaptionLanguages;
+    const legacyUrl = course.previewVideoUrl;
+    course.overviewVideoId = null;
+    course.overviewCaptionLanguages = null;
+    course.previewVideoUrl = null;
+    await this.courseRepository.save(course);
+    try {
+      await this.bunnyService.deleteVideo(videoId);
+    } catch (error) {
+      course.overviewVideoId = videoId;
+      course.overviewCaptionLanguages = captionLanguages;
+      course.previewVideoUrl = legacyUrl;
+      await this.courseRepository.save(course);
+      throw error;
+    }
+    return { deleted: true };
+  }
+
+  async uploadOwnedCourseOverviewCaption(
+    tutorId: string,
+    courseId: string,
+    file: Express.Multer.File | undefined,
+    languageValue: string | undefined,
+    labelValue: string | undefined,
+  ) {
+    const { language, label } = validateCaptionUpload(
+      file,
+      languageValue,
+      labelValue,
+    );
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException('Media can only be changed on a draft');
+    }
+    if (!course.overviewVideoId) {
+      throw new NotFoundException('Upload a course overview video first');
+    }
+    await this.bunnyService.addCaption(
+      course.overviewVideoId,
+      language,
+      label,
+      file!.buffer,
+    );
+    course.overviewCaptionLanguages = Array.from(
+      new Set([...(course.overviewCaptionLanguages ?? []), language]),
+    );
+    await this.courseRepository.save(course);
+    return { language, label };
+  }
+
+  async deleteOwnedCourseOverviewCaption(
+    tutorId: string,
+    courseId: string,
+    language: string,
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException('Media can only be changed on a draft');
+    }
+    if (
+      !course.overviewVideoId ||
+      !(course.overviewCaptionLanguages ?? []).includes(language)
+    ) {
+      throw new NotFoundException('Caption track not found');
+    }
+    await this.bunnyService.deleteCaption(course.overviewVideoId, language);
+    course.overviewCaptionLanguages = (
+      course.overviewCaptionLanguages ?? []
+    ).filter((item) => item !== language);
+    await this.courseRepository.save(course);
+    return { deleted: true, language };
+  }
+
+  private async buildCourseOverviewPlayback(course: Course) {
+    if (!course.overviewVideoId) return { status: 'missing' as const };
+    const details = await this.bunnyService.getVideoStatus(
+      course.overviewVideoId,
+    );
+    if (details.status !== 'ready') {
+      return {
+        status: details.status,
+        durationSeconds: details.durationSeconds,
+        captions: details.captions,
+      };
+    }
+    const playback = this.bunnyService.generateEmbedUrl(course.overviewVideoId);
+    return {
+      status: details.status,
+      embedUrl: playback.url,
+      expiresAt: playback.expiresAt,
+      durationSeconds: details.durationSeconds,
+      captions: details.captions,
+    };
+  }
+
+  async getOwnedCourseOverview(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    return this.buildCourseOverviewPlayback(course);
+  }
+
+  async getPublicCourseOverview(courseId: string) {
+    const course = await this.courseRepository.findOne({
+      where: {
+        id: courseId,
+        status: CourseStatus.APPROVED,
+        isDraft: false,
+      },
+    });
+    if (!course) throw new NotFoundException('Course not found');
+    return this.buildCourseOverviewPlayback(course);
   }
 
   private async assertApprovedTutor(tutorId: string) {
@@ -563,10 +720,21 @@ export class CoursesService {
         });
         for (const deposit of deposits) {
           if (amountToAllocate <= 0) break;
+          const creditedAmountUsd =
+            deposit.creditedAmountUsd ??
+            (deposit.currency === 'EGP'
+              ? Number(deposit.amount) /
+                (await this.commissionService.getEgpRate())
+              : Number(deposit.amount));
+          const refundedAmountUsd =
+            Number(deposit.amount) > 0
+              ? (Number(deposit.refundedAmount ?? 0) / Number(deposit.amount)) *
+                creditedAmountUsd
+              : 0;
           const available = Math.max(
             0,
-            Number(deposit.amount) -
-              Number(deposit.refundedAmount ?? 0) -
+            creditedAmountUsd -
+              refundedAmountUsd -
               Number(deposit.allocatedAmount ?? 0),
           );
           if (available <= 0) continue;

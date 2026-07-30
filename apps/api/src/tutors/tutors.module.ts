@@ -13,6 +13,7 @@ import { Report } from '../reports/entities/report.entity.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { BunnyService } from '../integrations/video/bunny.service.js';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.j
     AvailabilityModule,
     StorageModule,
   ],
-  providers: [TutorsService, EmailService],
+  providers: [TutorsService, EmailService, BunnyService],
   controllers: [TutorsController, TutorDashboardController],
   exports: [TutorsService],
 })

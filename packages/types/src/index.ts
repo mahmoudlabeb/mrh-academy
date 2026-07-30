@@ -1,54 +1,57 @@
 export enum UserRole {
-  STUDENT = 'student',
-  TUTOR = 'tutor',
-  ADMIN = 'admin',
-  SUBADMIN = 'subadmin',
-  SYSTEM = 'system',
+  STUDENT = "student",
+  TUTOR = "tutor",
+  ADMIN = "admin",
+  SUBADMIN = "subadmin",
+  SYSTEM = "system",
 }
 
 export enum LessonStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REJECTED = 'rejected',
+  CONFIRMED = "confirmed",
+  COMPLETED = "completed",
+  CANCELLED = "cancelled",
+}
+
+export enum LessonPaymentStatus {
+  PAID = "paid",
+  REFUNDED = "refunded",
 }
 
 export enum PaymentStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
 }
 
 export enum PaymentMethod {
-  CARD = 'card',
-  PAYPAL = 'paypal',
-  VODAFONE = 'vodafone',
-  INSTAPAY = 'instapay',
-  BINANCE = 'binance',
-  BANK = 'bank',
+  CARD = "card",
+  PAYPAL = "paypal",
+  VODAFONE = "vodafone",
+  INSTAPAY = "instapay",
+  BINANCE = "binance",
+  BANK = "bank",
 }
 
 export enum PayoutStatus {
-  PENDING = 'pending',
-  SUCCESS = 'success',
-  FAILED = 'failed',
+  PENDING = "pending",
+  SUCCESS = "success",
+  FAILED = "failed",
 }
 
 export enum CourseStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
 }
 
 export enum ReviewStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
 }
 
 // Interfaces will be mapped here to ensure types are shared exactly between NestJS and Next.js
-import { z } from 'zod';
+import { z } from "zod";
 
 // ─── User ────────────────────────────────────────────────────────────────────
 export const UserSchema = z.object({
@@ -58,7 +61,7 @@ export const UserSchema = z.object({
   firstName: z.string(),
   lastName: z.string(),
   phone: z.string().nullable(),
-  timezone: z.string().default('Africa/Cairo'),
+  timezone: z.string().default("Africa/Cairo"),
   googleId: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   isVerified: z.boolean().default(false),
@@ -81,6 +84,8 @@ export const TutorProfileSchema = z.object({
   status: z.nativeEnum(CourseStatus).default(CourseStatus.PENDING),
   rejectionReason: z.string().nullable(),
   videoUrl: z.string().nullable(),
+  introVideoId: z.string().nullable(),
+  introCaptionLanguages: z.array(z.string()).nullable(),
   documentUrl: z.string().nullable(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
@@ -120,7 +125,10 @@ export const LessonSchema = z.object({
   durationMinutes: z.union([z.literal(25), z.literal(50)]),
   price: z.number(),
   platformFee: z.number().nullable(),
-  status: z.nativeEnum(LessonStatus).default(LessonStatus.PENDING),
+  status: z.nativeEnum(LessonStatus).default(LessonStatus.CONFIRMED),
+  sessionStatus: z.nativeEnum(LessonStatus),
+  paymentStatus: z.nativeEnum(LessonPaymentStatus),
+  timezone: z.string(),
   meetUrl: z.string().nullable(),
   googleMeetUrl: z.string().nullable(),
   notes: z.string().nullable(),
@@ -158,7 +166,7 @@ export const PaymentSchema = z.object({
   userId: z.string().uuid(),
   amount: z.number(),
   method: z.nativeEnum(PaymentMethod),
-  currency: z.string().default('USD'),
+  currency: z.string().default("USD"),
   status: z.nativeEnum(PaymentStatus).default(PaymentStatus.PENDING),
   receiptUrl: z.string().nullable(),
   adminNote: z.string().nullable(),
@@ -201,14 +209,40 @@ export const CourseSchema = z.object({
   title: z.string(),
   description: z.string(),
   thumbnailUrl: z.string().nullable(),
+  previewVideoUrl: z.string().nullable(),
+  overviewVideoId: z.string().nullable(),
+  overviewCaptionLanguages: z.array(z.string()).nullable(),
   price: z.number(),
   bunnyVideoId: z.string().nullable(),
-  soldBy: z.string().default('academy'),
+  soldBy: z.string().default("academy"),
   status: z.nativeEnum(CourseStatus).default(CourseStatus.PENDING),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
 export type Course = z.infer<typeof CourseSchema>;
+
+export const VideoPlaybackSchema = z.object({
+  status: z.enum([
+    "missing",
+    "created",
+    "uploaded",
+    "processing",
+    "ready",
+    "failed",
+  ]),
+  embedUrl: z.string().url().optional(),
+  expiresAt: z.number().int().optional(),
+  durationSeconds: z.number().nullable().optional(),
+  captions: z
+    .array(
+      z.object({
+        language: z.string(),
+        label: z.string(),
+      }),
+    )
+    .optional(),
+});
+export type VideoPlayback = z.infer<typeof VideoPlaybackSchema>;
 
 // ─── CourseLesson ────────────────────────────────────────────────────────────
 export const CourseLessonSchema = z.object({
@@ -245,7 +279,9 @@ export const CourseLessonCompletionSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
-export type CourseLessonCompletion = z.infer<typeof CourseLessonCompletionSchema>;
+export type CourseLessonCompletion = z.infer<
+  typeof CourseLessonCompletionSchema
+>;
 
 // ─── Review ──────────────────────────────────────────────────────────────────
 export const ReviewSchema = z.object({
@@ -272,7 +308,9 @@ export const TeacherTrainingArticleSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
-export type TeacherTrainingArticle = z.infer<typeof TeacherTrainingArticleSchema>;
+export type TeacherTrainingArticle = z.infer<
+  typeof TeacherTrainingArticleSchema
+>;
 
 // ─── Employee ────────────────────────────────────────────────────────────────
 export const EmployeeSchema = z.object({

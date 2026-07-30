@@ -54,23 +54,27 @@ export class Lesson {
   })
   platformFee: number | null;
 
-  @Column({ type: 'enum', enum: LessonStatus, default: LessonStatus.PENDING })
+  @Index('IDX_lessons_idempotency_key', { unique: true })
+  @Column({ type: 'varchar', nullable: true })
+  idempotencyKey: string | null;
+
+  @Column({ type: 'enum', enum: LessonStatus, default: LessonStatus.CONFIRMED })
   status: LessonStatus;
 
-  @Column({ nullable: true })
-  roomId: string;
+  @Column({ type: 'varchar', nullable: true })
+  roomId: string | null;
 
-  @Column({ nullable: true })
-  meetUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  meetUrl: string | null;
 
-  @Column({ nullable: true })
-  googleMeetUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  googleMeetUrl: string | null;
 
-  @Column({ nullable: true })
-  calendarEventId: string;
+  @Column({ type: 'varchar', nullable: true })
+  calendarEventId: string | null;
 
-  @Column({ nullable: true })
-  notes: string;
+  @Column({ type: 'varchar', nullable: true })
+  notes: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

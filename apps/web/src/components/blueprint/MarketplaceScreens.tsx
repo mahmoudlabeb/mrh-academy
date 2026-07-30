@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
@@ -12,6 +12,7 @@ import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { formatCurrency, formatWeekday } from "@/lib/format";
+import { SecureVideoPlayer } from "@/components/shared/SecureVideoPlayer";
 
 type Tutor = {
   userId: string;
@@ -21,7 +22,6 @@ type Tutor = {
   hourlyRate: number;
   averageRating?: number;
   reviewCount?: number;
-  videoUrl?: string;
   user: { firstName: string; lastName: string; avatarUrl?: string };
 };
 
@@ -46,7 +46,6 @@ type Course = {
   description: string;
   price: number;
   thumbnailUrl?: string;
-  previewVideoUrl?: string | null;
   courseType?: "recorded" | "live";
   learningOutcomes?: string[] | null;
   requirements?: string[] | null;
@@ -410,16 +409,18 @@ function TutorProfileBody({
         <div className="blueprint-profile-stack">
           <section className="blueprint-media">
             <p>{t("مقدمة فيديو", "Video introduction")}</p>
-            {tutor.videoUrl ? (
-              <video controls preload="none" src={tutor.videoUrl} />
-            ) : (
-              <div className="blueprint-media-empty">
-                {t(
-                  "لم يرفع المعلم مقدمة فيديو.",
-                  "No video introduction has been uploaded.",
-                )}
-              </div>
-            )}
+            <SecureVideoPlayer
+              playbackEndpoint={`/tutors/${tutorId}/video/playback`}
+              title={t(
+                `فيديو تعريفي للمدرّس ${tutor.user.firstName} ${tutor.user.lastName}`,
+                `${tutor.user.firstName} ${tutor.user.lastName} tutor introduction`,
+              )}
+              missingMessage={t(
+                "لم يرفع المدرّس مقدمة فيديو.",
+                "No video introduction has been uploaded.",
+              )}
+              testId="public-tutor-video"
+            />
           </section>
           <section className="blueprint-surface">
             <h2>{t("نبذة عني", "About me")}</h2>
@@ -541,6 +542,7 @@ function BookingPanel({
   tutor: Tutor;
   availability: Availability[];
 }) {
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const { lang, t } = useCopy();
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -589,6 +591,7 @@ function BookingPanel({
       const local = new Date(`${date}T${time}:00`);
       return (
         await apiClient.post("/lessons/book", {
+          idempotencyKey: idempotencyKeyRef.current,
           tutorId: tutor.userId,
           scheduledTime: local.toISOString(),
           durationMinutes: duration,
@@ -656,8 +659,8 @@ function BookingPanel({
           <h3>{t("استلم الخادم طلب الحجز", "Lesson booked successfully")}</h3>
           <p>
             {t(
-              "راجع حالة الدرس من صفحة دروسك. لا نعرض تأكيداً نهائياً قبل حالة الخادم.",
-              "Your request is awaiting tutor approval. Your wallet will be charged only if the tutor accepts.",
+              "تم التحقق من الدفع وتأكيد درسك فوراً. يمكنك الآن مراجعته في صفحة دروسك.",
+              "Your payment was verified and the lesson is confirmed. You can now review it in My Lessons.",
             )}
           </p>
           <Link className="btn-primary" href={`/${lang}/learn/lessons`}>
@@ -978,17 +981,28 @@ function CourseDetailBody({
           </p>
           <section className="blueprint-surface">
             <h2>{t("نظرة عامة", "Course overview")}</h2>
-            {course.previewVideoUrl && (
-              <div className="blueprint-course-preview">
-                <div>
-                  <p className="blueprint-kicker">
-                    {t("مقدمة المعلّم", "Instructor introduction")}
-                  </p>
-                  <h2>{t("استمع إلى مقدمة الدورة", "Preview the course")}</h2>
-                </div>
-                <video controls preload="none" src={course.previewVideoUrl} />
+            <div className="blueprint-course-preview">
+              <div>
+                <p className="blueprint-kicker">
+                  {t("مقدمة المعلّم", "Instructor introduction")}
+                </p>
+                <h2>
+                  {t("شاهد ما ستكتسبه من الدورة", "See what you will gain")}
+                </h2>
               </div>
-            )}
+              <SecureVideoPlayer
+                playbackEndpoint={`/courses/${courseId}/overview/playback`}
+                title={t(
+                  `نظرة عامة على دورة ${course.title}`,
+                  `${course.title} course overview`,
+                )}
+                missingMessage={t(
+                  "لا يتوفر فيديو تعريفي لهذه الدورة.",
+                  "No overview video is available for this course.",
+                )}
+                testId="public-course-video"
+              />
+            </div>
             <p>{course.description}</p>
             {course.learningOutcomes?.length ? (
               <ul className="blueprint-outcome-list">
