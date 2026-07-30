@@ -46,6 +46,7 @@ describe('StripeService payment requests', () => {
           currency: 'EGP',
         },
       }),
+      { idempotencyKey: 'mrh-wallet-payment-1' },
     );
   });
 
@@ -70,6 +71,7 @@ describe('StripeService payment requests', () => {
           }),
         ],
       }),
+      { idempotencyKey: 'mrh-wallet-payment-1' },
     );
   });
 });

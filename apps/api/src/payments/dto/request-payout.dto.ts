@@ -1,6 +1,18 @@
-import { IsNumber, Min, IsString, IsIn, MaxLength } from 'class-validator';
+import {
+  IsNumber,
+  Min,
+  IsString,
+  IsIn,
+  MaxLength,
+  IsUUID,
+  IsEmail,
+  ValidateIf,
+} from 'class-validator';
 
 export class RequestPayoutDto {
+  @IsUUID()
+  idempotencyKey?: string;
+
   @IsNumber()
   @Min(10)
   amount: number;
@@ -11,5 +23,10 @@ export class RequestPayoutDto {
 
   @IsString()
   @MaxLength(500)
-  accountDetails: string;
+  @ValidateIf((dto: RequestPayoutDto) => dto.method !== 'paypal')
+  accountDetails?: string;
+
+  @ValidateIf((dto: RequestPayoutDto) => dto.method === 'paypal')
+  @IsEmail()
+  paypalEmail?: string;
 }

@@ -31,6 +31,9 @@ pnpm.cmd --filter @mrh/api build
 # Database integration suite — only with a disposable PostgreSQL database
 $env:DATABASE_URL = 'postgresql://user:password@localhost:5432/mrh_payments_e2e'
 pnpm.cmd --filter @mrh/api test:payments:e2e
+
+# Stateful browser journey (PayPal, multi-hour booking, classroom, course)
+pnpm.cmd --filter @mrh/web exec playwright test e2e/paid-learning-flow.mock.spec.ts --config=playwright.mock.config.ts
 ```
 
 Convenience commands are also available as `test:payments:smoke`,
@@ -40,14 +43,13 @@ Convenience commands are also available as `test:payments:smoke`,
 
 | Layer | Result | Evidence |
 | --- | --- | --- |
-| Payment/lesson/course/payout unit and service smoke | PASS | 15 suites, 103 tests |
-| Focused payment suite | PASS | 10 suites, 64 tests |
-| Web payment formatting regression | PASS | 1 suite, 12 tests |
-| Production web build | PASS | 132 routes generated |
-| Route-isolated browser payment smoke | PASS | 3 tests: guest checkout protection, EGP card handoff, manual receipt |
+| API unit and service regression suite | PASS | 38 suites, 225 tests |
+| Web unit regression suite | PASS | 3 suites, 30 tests |
+| Production API and web builds | PASS | Nest build and 129-page Next static generation completed |
+| Route-isolated browser suite | PASS | 32 desktop/mobile tests, including the stateful paid-learning journey and classroom denial states |
 | API type check | PASS | `tsc --noEmit` |
 | Web type check | PASS | `tsc --noEmit` |
-| Database-backed API integration | NOT RUN | No safe disposable database credentials; configured database was rejected because it was not test/e2e named |
+| Database-backed API integration | NOT RUN | Configured database is `neondb`, not a disposable test/e2e database; local PostgreSQL is available but no local test credentials are configured |
 
 ## Flow coverage matrix
 
@@ -55,17 +57,35 @@ Convenience commands are also available as `test:payments:smoke`,
 | --- | --- |
 | Live-lesson payment | Atomic balance verification, idempotent booking retry, completion, tutor earnings, commission thresholds, and cancellation/refund service regressions |
 | Course purchase | Verified-student direct checkout, price validation, referral commission split, FIFO wallet funding, enrollment idempotency, and guest/anonymous checkout denial |
-| Wallet/add funds | Card remains pending until webhook confirmation; PayPal remains pending until verified capture; USD and EGP wallet crediting; no balance mutation on submission |
+| Wallet/add funds | Card remains pending until webhook confirmation; PayPal remains pending until verified capture/webhook; USD and EGP wallet crediting; refresh/retry resumes the same provider request without balance mutation on submission |
 | Guest checkout | Current policy is covered explicitly: anonymous course checkout is rejected and the UI requires a verified student account; abandoned placeholder cleanup remains covered for legacy rows |
 | Commissions and tutor earnings | Lesson fee tiers, course tutor/academy rates, decimal rounding, earning release, and separate tutor-course aggregation |
-| Payouts | Locked reservation, duplicate-pending prevention, approval/rejection, failed Stripe rollback, successful Stripe transfer, and crash reconciliation |
+| Payouts | Locked reservation, idempotency keys, tutor PayPal payout creation, admin commission PayPal payout ledger, verified payout webhooks, failed-delivery balance restoration, Stripe rollback/transfer, and crash reconciliation |
 | Manual payments | Enabled-method/destination checks, required receipt, MIME/signature validation, fictional storage upload, pending state, admin approval/rejection |
 | Receipts and invoices | Receipt rendering/link state, PDF smoke generation, original currency, ownership authorization |
 | Refunds and cancellations | Cumulative Stripe refund idempotency, course access revocation, commission reversal, wallet reversal, and lesson cancellation refund state |
 | Failures and retries | Stripe session creation cleanup, PayPal verification failure, safe retry records, failed payout rollback, malformed/unsigned webhook rejection |
-| Duplicate webhooks and idempotency | Processed event IDs, duplicate acknowledgement, row locks, approved-payment no-op, PayPal capture no-op, booking idempotency key |
+| Duplicate webhooks and idempotency | Transactional processed-event ledger, duplicate acknowledgement, row locks, approved-payment no-op, PayPal capture no-op, required API idempotency keys, and resumable provider setup |
 | Authorization | Student-only checkout/top-up/history, invoice ownership, tutor-only payout, admin payment permissions, anonymous checkout denial |
 | Currency handling | Provider currency match, minor-unit rounding, immutable USD wallet value, EGP preview conversion, original-currency history/invoice display, refund conversion |
+
+## PayPal sandbox configuration
+
+Set these values in `apps/api/.env` and configure the webhook URL as
+`https://<api-host>/api/v1/webhooks/paypal`:
+
+```dotenv
+PAYPAL_CLIENT_ID=<sandbox REST app client id>
+PAYPAL_CLIENT_SECRET=<sandbox REST app secret>
+PAYPAL_WEBHOOK_ID=<sandbox webhook id>
+PAYPAL_BASE_URL=https://api-m.sandbox.paypal.com
+```
+
+Subscribe the webhook to checkout order/capture events, capture refund and
+reversal events, customer dispute events, and all
+`PAYMENT.PAYOUTS-ITEM.*` state changes. Wallet and purchase tests mock these
+provider calls; a real sandbox smoke test still requires PayPal sandbox buyer,
+merchant, and payout receiver accounts.
 
 ## Defects found and fixed
 

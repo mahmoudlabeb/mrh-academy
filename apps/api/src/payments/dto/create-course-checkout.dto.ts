@@ -9,6 +9,9 @@ import {
 
 export class CreateCourseCheckoutDto {
   @IsUUID()
+  idempotencyKey: string;
+
+  @IsUUID()
   courseId: string;
 
   @IsOptional()

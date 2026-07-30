@@ -18,12 +18,14 @@ import { PaymentsModule } from '../payments/payments.module.js';
 import { RedisModule } from '../redis/redis.module.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
 import { Notification } from '../messages/entities/notification.entity.js';
+import { ClassroomModule } from '../classroom/classroom.module.js';
 
 @Module({
   imports: [
     PaymentsModule,
     RedisModule,
     StorageModule,
+    ClassroomModule,
     TypeOrmModule.forFeature([
       Lesson,
       LessonBook,

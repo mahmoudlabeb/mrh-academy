@@ -38,42 +38,40 @@ export default function LessonsTab() {
             border: "1px solid var(--border-color)",
           }}
         >
-          {["all", "completed", "cancelled", "confirmed", "pending"].map(
-            (s) => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
-                  statusFilter === s ? "text-white shadow-sm" : ""
-                }`}
-                style={
-                  statusFilter === s
-                    ? { background: "var(--signal)", color: "var(--ink)" }
-                    : { color: "var(--text-muted)" }
-                }
-              >
-                {s === "all"
+          {["all", "completed", "cancelled", "confirmed"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                statusFilter === s ? "text-white shadow-sm" : ""
+              }`}
+              style={
+                statusFilter === s
+                  ? { background: "var(--signal)", color: "var(--ink)" }
+                  : { color: "var(--text-muted)" }
+              }
+            >
+              {s === "all"
+                ? lang === "ar"
+                  ? "الكل"
+                  : "All"
+                : s === "completed"
                   ? lang === "ar"
-                    ? "الكل"
-                    : "All"
-                  : s === "completed"
+                    ? "مكتملة"
+                    : "Completed"
+                  : s === "cancelled"
                     ? lang === "ar"
-                      ? "مكتملة"
-                      : "Completed"
-                    : s === "cancelled"
+                      ? "ملغية"
+                      : "Cancelled"
+                    : s === "confirmed"
                       ? lang === "ar"
-                        ? "ملغية"
-                        : "Cancelled"
-                      : s === "confirmed"
-                        ? lang === "ar"
-                          ? "مؤكدة"
-                          : "Confirmed"
-                        : lang === "ar"
-                          ? "معلقة"
-                          : "Pending"}
-              </button>
-            ),
-          )}
+                        ? "مؤكدة"
+                        : "Confirmed"
+                      : lang === "ar"
+                        ? "معلقة"
+                        : "Pending"}
+            </button>
+          ))}
         </div>
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
           {lessonsQuery.data?.length ?? 0} {lang === "ar" ? "درس" : "lessons"}

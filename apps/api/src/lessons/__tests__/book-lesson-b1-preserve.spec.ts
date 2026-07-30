@@ -14,6 +14,7 @@ import { EmailService } from '../../integrations/email/email.service';
 import { RedisService } from '../../redis/redis.service';
 import { CourseStatus, LessonStatus } from '@mrh/types';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { ClassroomAccessService } from '../../classroom/classroom-access.service';
 
 describe('B1 Preservation — Non-Datetime Booking Logic', () => {
   let service: LessonsService;
@@ -82,6 +83,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LessonsService,
+        ClassroomAccessService,
         { provide: getRepositoryToken(Lesson), useValue: lessonRepo },
         { provide: getRepositoryToken(TutorProfile), useValue: tutorRepo },
         { provide: getRepositoryToken(StudentProfile), useFactory: mockRepo },
@@ -185,6 +187,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      find: jest.fn().mockResolvedValue([]),
       create: jest.fn((_e: any, d: any) => d),
       decrement: jest.fn(),
       save: jest.fn(async (_target: any, data: any) => {
@@ -252,6 +255,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       findOne: jest
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
+      find: jest.fn().mockResolvedValue([]),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder2),
       create: jest.fn((_e: any, d: any) => d),
       decrement: jest.fn(),
@@ -323,6 +327,7 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
       findOne: jest
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
+      find: jest.fn().mockResolvedValue([]),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder3),
       create: jest.fn((_e: any, d: any) => d),
       decrement: jest.fn(),

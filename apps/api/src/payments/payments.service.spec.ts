@@ -20,6 +20,8 @@ import { Course } from '../courses/entities/course.entity';
 import { UserRole, CourseStatus } from '@mrh/types';
 import { PayPalService } from './paypal/paypal.service';
 import { Lesson } from '../lessons/entities/lesson.entity';
+import { ProcessedWebhookEvent } from './entities/processed-webhook-event.entity';
+import { PlatformPayout } from './entities/platform-payout.entity';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -100,11 +102,21 @@ describe('PaymentsService', () => {
   };
   const payPalService = {
     isConfigured: jest.fn(() => true),
+    isWebhookConfigured: jest.fn(() => true),
     createOrder: jest.fn(async () => ({
       orderId: 'PAYPAL-ORDER-1',
       approvalUrl: 'https://www.sandbox.paypal.com/checkoutnow?token=1',
     })),
     captureOrder: jest.fn(async () => 'PAYPAL-CAPTURE-1'),
+    getApprovalUrl: jest.fn(
+      async () =>
+        'https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-ORDER-1',
+    ),
+    createPayout: jest.fn(async () => ({
+      batchId: 'PAYPAL-BATCH-1',
+      itemId: 'PAYPAL-ITEM-1',
+      status: 'PENDING',
+    })),
   };
   const emailService = { sendEmail: jest.fn(async () => undefined) };
   const commissionService = {
@@ -235,10 +247,53 @@ describe('PaymentsService', () => {
         lock: { mode: 'pessimistic_write' },
       }),
     );
-    expect(manager.findOne).toHaveBeenNthCalledWith(2, Payout, {
-      where: { tutorId: 'tutor-1', status: PayoutStatus.PENDING },
-    });
+    expect(manager.findOne).toHaveBeenNthCalledWith(
+      2,
+      Payout,
+      expect.objectContaining({
+        where: expect.objectContaining({ tutorId: 'tutor-1' }),
+      }),
+    );
     expect(manager.decrement).not.toHaveBeenCalled();
+  });
+
+  it('resumes a reserved PayPal payout with the same provider request key', async () => {
+    jest
+      .spyOn(service, 'releaseMatureCourseEarnings')
+      .mockResolvedValueOnce(undefined);
+    const reserved = {
+      id: 'payout-reserved',
+      tutorId: 'tutor-1',
+      amount: 80,
+      method: 'paypal',
+      accountDetails: 'tutor@example.test',
+      idempotencyKey: '3e676469-d593-4bd8-94d6-c7bc30dfeaa1',
+      status: PayoutStatus.PENDING,
+    } as Payout;
+    payoutRepository.findOne.mockResolvedValueOnce(reserved);
+    const decrement = jest.fn();
+    const manager = {
+      findOne: jest.fn(async () => reserved),
+      save: jest.fn(async (_entity, value) => value),
+      decrement,
+    };
+    dataSource.transaction.mockImplementationOnce(async (callback) =>
+      callback(manager),
+    );
+
+    const result = await service.requestPayout('tutor-1', {
+      amount: 80,
+      method: 'paypal',
+      paypalEmail: 'tutor@example.test',
+      idempotencyKey: '3e676469-d593-4bd8-94d6-c7bc30dfeaa1',
+    });
+
+    expect(payPalService.createPayout).toHaveBeenCalledWith(
+      reserved,
+      'tutor@example.test',
+    );
+    expect(result.status).toBe(PayoutStatus.PROCESSING);
+    expect(decrement).not.toHaveBeenCalled();
   });
 
   it('keeps card payments pending until Stripe confirms them', async () => {
@@ -268,6 +323,7 @@ describe('PaymentsService', () => {
   it('creates a direct Stripe course checkout for a verified student', async () => {
     const result = await service.createCourseCheckout('user-1', {
       courseId: '5e784b46-ae4c-4a9b-9ca5-3d78f19ef4a9',
+      idempotencyKey: '8c0cf478-f1ed-47e9-8104-d7bfb9334c54',
     });
 
     expect(stripeService.createCourseCheckoutSession).toHaveBeenCalledWith(
@@ -276,10 +332,12 @@ describe('PaymentsService', () => {
         paymentId: 'payment-1',
         amount: 100,
         email: 'student@example.com',
+        idempotencyKey: '8c0cf478-f1ed-47e9-8104-d7bfb9334c54',
       }),
     );
     expect(paymentRepository.update).toHaveBeenCalledWith('payment-1', {
       stripeCheckoutSessionId: 'cs_course',
+      providerStatus: 'OPEN',
     });
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/course');
   });
@@ -297,6 +355,7 @@ describe('PaymentsService', () => {
     await expect(
       service.createCourseCheckout('user-1', {
         courseId: '5e784b46-ae4c-4a9b-9ca5-3d78f19ef4a9',
+        idempotencyKey: '9a1f1d22-17ed-4ebf-8678-35cad64abc9a',
       }),
     ).rejects.toThrow('Verify and activate your student account');
     expect(stripeService.createCourseCheckoutSession).not.toHaveBeenCalled();
@@ -321,6 +380,64 @@ describe('PaymentsService', () => {
     expect(result.payment.status).toBe(PaymentStatus.PENDING);
     expect(result.payment.paypalOrderId).toBe('PAYPAL-ORDER-1');
     expect(result.checkoutUrl).toContain('sandbox.paypal.com');
+  });
+
+  it('returns the same PayPal checkout for a repeated wallet idempotency key', async () => {
+    paymentRepository.findOne.mockResolvedValueOnce({
+      id: 'payment-1',
+      userId: 'user-1',
+      amount: 30,
+      currency: 'USD',
+      method: PaymentMethod.PAYPAL,
+      status: PaymentStatus.PENDING,
+      idempotencyKey: '9d6680af-72c4-4c2a-a7d4-b542e12ccae3',
+      paypalOrderId: 'PAYPAL-ORDER-1',
+    });
+
+    await expect(
+      service.submitPayment('user-1', {
+        amount: 30,
+        currency: 'USD',
+        method: PaymentMethod.PAYPAL,
+        idempotencyKey: '9d6680af-72c4-4c2a-a7d4-b542e12ccae3',
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        payment: expect.objectContaining({ id: 'payment-1' }),
+        checkoutUrl: expect.stringContaining('sandbox.paypal.com'),
+      }),
+    );
+
+    expect(paymentRepository.save).not.toHaveBeenCalled();
+    expect(payPalService.createOrder).not.toHaveBeenCalled();
+  });
+
+  it('resumes a pending card checkout without creating another payment row', async () => {
+    paymentRepository.findOne.mockResolvedValueOnce({
+      id: 'payment-card-1',
+      userId: 'user-1',
+      amount: 30,
+      currency: 'USD',
+      method: PaymentMethod.CARD,
+      status: PaymentStatus.PENDING,
+      idempotencyKey: 'f39ee14f-b34d-4a70-b0df-da9d1e01da06',
+    });
+
+    const result = await service.submitPayment('user-1', {
+      method: PaymentMethod.CARD,
+      amount: 30,
+      currency: 'USD',
+      idempotencyKey: 'f39ee14f-b34d-4a70-b0df-da9d1e01da06',
+    });
+
+    expect(paymentRepository.create).not.toHaveBeenCalled();
+    expect(stripeService.createCheckoutSession).toHaveBeenCalledWith(
+      'user-1',
+      30,
+      'payment-card-1',
+      'USD',
+    );
+    expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
 
   it('credits PayPal only after server-side capture verification', async () => {
@@ -359,6 +476,169 @@ describe('PaymentsService', () => {
       30,
     );
     expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  it('credits a verified PayPal capture webhook exactly once', async () => {
+    let processed = false;
+    const payment = {
+      id: 'payment-1',
+      userId: 'user-1',
+      amount: 30,
+      currency: 'USD',
+      method: PaymentMethod.PAYPAL,
+      status: PaymentStatus.PENDING,
+      refundedAmount: 0,
+    } as Payment;
+    const increment = jest.fn();
+    const manager = {
+      findOne: jest.fn(async (entity) => {
+        if (entity === ProcessedWebhookEvent)
+          return processed ? { eventId: 'WH-CAPTURE-1' } : null;
+        if (entity === Payment) return payment;
+        return null;
+      }),
+      create: jest.fn((_entity, value) => value),
+      save: jest.fn(async (entity, value) => {
+        if (entity === ProcessedWebhookEvent) processed = true;
+        if (entity === Payment) Object.assign(payment, value);
+        return value;
+      }),
+      increment,
+    };
+    dataSource.transaction.mockImplementation(async (callback) =>
+      callback(manager),
+    );
+    const event = {
+      id: 'WH-CAPTURE-1',
+      event_type: 'PAYMENT.CAPTURE.COMPLETED',
+      resource: {
+        id: 'CAPTURE-1',
+        amount: { currency_code: 'USD', value: '30.00' },
+        supplementary_data: { related_ids: { order_id: 'ORDER-1' } },
+      },
+    };
+
+    await expect(service.processPayPalWebhookEvent(event)).resolves.toEqual({
+      received: true,
+      duplicate: false,
+    });
+    await expect(service.processPayPalWebhookEvent(event)).resolves.toEqual({
+      received: true,
+      duplicate: true,
+    });
+
+    expect(increment).toHaveBeenCalledTimes(1);
+    expect(increment).toHaveBeenCalledWith(
+      StudentProfile,
+      { userId: 'user-1' },
+      'balance',
+      30,
+    );
+    expect(payment.status).toBe(PaymentStatus.APPROVED);
+    expect(payment.paypalCaptureId).toBe('CAPTURE-1');
+  });
+
+  it('restores a failed PayPal payout exactly once after a verified webhook', async () => {
+    let processed = false;
+    const payout = {
+      id: 'payout-1',
+      tutorId: 'tutor-1',
+      amount: 80,
+      method: 'paypal',
+      status: PayoutStatus.PROCESSING,
+      paypalItemId: 'ITEM-1',
+      balanceRestoredAt: null,
+    } as Payout;
+    const increment = jest.fn();
+    const manager = {
+      findOne: jest.fn(async (entity) => {
+        if (entity === ProcessedWebhookEvent)
+          return processed ? { eventId: 'WH-PAYOUT-1' } : null;
+        if (entity === Payout) return payout;
+        return null;
+      }),
+      create: jest.fn((_entity, value) => value),
+      save: jest.fn(async (entity, value) => {
+        if (entity === ProcessedWebhookEvent) processed = true;
+        if (entity === Payout) Object.assign(payout, value);
+        return value;
+      }),
+      increment,
+    };
+    dataSource.transaction.mockImplementation(async (callback) =>
+      callback(manager),
+    );
+    const event = {
+      id: 'WH-PAYOUT-1',
+      event_type: 'PAYMENT.PAYOUTS-ITEM.FAILED',
+      resource: {
+        payout_item_id: 'ITEM-1',
+        transaction_status: 'FAILED',
+        payout_item: { sender_item_id: 'payout-1' },
+      },
+    };
+
+    await service.processPayPalWebhookEvent(event);
+    await service.processPayPalWebhookEvent(event);
+
+    expect(increment).toHaveBeenCalledTimes(1);
+    expect(increment).toHaveBeenCalledWith(
+      TutorProfile,
+      { userId: 'tutor-1' },
+      'balance',
+      80,
+    );
+    expect(payout.status).toBe(PayoutStatus.FAILED);
+    expect(payout.balanceRestoredAt).toBeInstanceOf(Date);
+  });
+
+  it('finalizes an admin commission payout from a verified PayPal webhook', async () => {
+    let processed = false;
+    const platformPayout = {
+      id: 'platform-payout-1',
+      requestedBy: 'admin-1',
+      amount: 125,
+      status: PayoutStatus.PROCESSING,
+      paypalItemId: 'PLATFORM-ITEM-1',
+      providerStatus: 'PENDING',
+    } as PlatformPayout;
+    const increment = jest.fn();
+    const manager = {
+      findOne: jest.fn(async (entity) => {
+        if (entity === ProcessedWebhookEvent)
+          return processed ? { eventId: 'WH-PLATFORM-PAYOUT-1' } : null;
+        if (entity === Payout) return null;
+        if (entity === PlatformPayout) return platformPayout;
+        return null;
+      }),
+      create: jest.fn((_entity, value) => value),
+      save: jest.fn(async (entity, value) => {
+        if (entity === ProcessedWebhookEvent) processed = true;
+        if (entity === PlatformPayout) Object.assign(platformPayout, value);
+        return value;
+      }),
+      increment,
+    };
+    dataSource.transaction.mockImplementation(async (callback) =>
+      callback(manager),
+    );
+    const event = {
+      id: 'WH-PLATFORM-PAYOUT-1',
+      event_type: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED',
+      resource: {
+        payout_item_id: 'PLATFORM-ITEM-1',
+        transaction_status: 'SUCCESS',
+        payout_item: { sender_item_id: 'platform-payout-1' },
+      },
+    };
+
+    await service.processPayPalWebhookEvent(event);
+    await service.processPayPalWebhookEvent(event);
+
+    expect(platformPayout.status).toBe(PayoutStatus.SUCCESS);
+    expect(platformPayout.processedAt).toBeInstanceOf(Date);
+    expect(increment).not.toHaveBeenCalled();
+    expect(notificationRepository.save).toHaveBeenCalledTimes(1);
   });
 
   it('credits an approved USD payment to the student wallet one-for-one', async () => {
@@ -619,7 +899,7 @@ describe('PaymentsService', () => {
     );
   });
 
-  it('removes a pending record when Stripe checkout creation fails so a retry is safe', async () => {
+  it('keeps a recoverable pending record when Stripe checkout initiation fails', async () => {
     stripeService.createCheckoutSession.mockRejectedValueOnce(
       new Error('sandbox provider unavailable'),
     );
@@ -632,7 +912,14 @@ describe('PaymentsService', () => {
       }),
     ).rejects.toThrow('Card payment is currently unavailable');
 
-    expect(paymentRepository.delete).toHaveBeenCalledWith('payment-1');
+    expect(paymentRepository.delete).not.toHaveBeenCalled();
+    expect(paymentRepository.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'payment-1',
+        status: PaymentStatus.PENDING,
+        providerStatus: 'INITIATION_FAILED',
+      }),
+    );
     expect(studentProfileRepository.increment).not.toHaveBeenCalled();
   });
 

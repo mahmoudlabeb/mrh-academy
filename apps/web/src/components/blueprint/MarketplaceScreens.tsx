@@ -62,9 +62,13 @@ type Course = {
 type CourseLesson = {
   id: string;
   title: string;
+  description?: string | null;
+  contentType?: "video" | "article" | "resource";
   durationMinutes: number;
   lessonOrder: number;
   isCompleted?: boolean;
+  downloadableFiles?: Array<{ id: string; name: string; url: string }>;
+  externalLinks?: Array<{ title: string; url: string }>;
 };
 
 function useCopy() {
@@ -459,7 +463,7 @@ function TutorProfileBody({
             <SecureVideoPlayer
               playbackEndpoint={`/tutors/${tutorId}/video/playback`}
               title={t(
-                `فيديو تعريفي للمدرّس ${tutor.user.firstName} ${tutor.user.lastName}`,
+                `مقدمة المدرّس ${tutor.user.firstName} ${tutor.user.lastName}`,
                 `${tutor.user.firstName} ${tutor.user.lastName} tutor introduction`,
               )}
               missingMessage={t(
@@ -606,7 +610,7 @@ function BookingPanel({
   const queryClient = useQueryClient();
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
-  const [duration, setDuration] = useState<25 | 50>(25);
+  const [duration, setDuration] = useState<60 | 120 | 180 | 240>(60);
   const [confirmed, setConfirmed] = useState(false);
   const balanceQuery = useQuery({
     queryKey: ["blueprint-student-balance"],
@@ -623,7 +627,14 @@ function BookingPanel({
     dayGuidance.some((slot) => {
       const start = slot.startTime.slice(0, 5);
       const end = slot.endTime.slice(0, 5);
-      return time >= start && time < end;
+      const toMinutes = (value: string) => {
+        const [hours, minutes] = value.split(":").map(Number);
+        return hours * 60 + minutes;
+      };
+      return (
+        toMinutes(time) >= toMinutes(start) &&
+        toMinutes(time) + duration <= toMinutes(end)
+      );
     });
   const todayKey = toIsoDate(new Date());
   const requestedDateTime =
@@ -678,7 +689,7 @@ function BookingPanel({
         `Book with ${tutor.user.firstName}`,
       )}
       subtitle={t(
-        "الأوقات حسب منطقتك الزمنية",
+        "المواعيد حسب منطقتك الزمنية",
         `Times shown in ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
       )}
       onClose={close}
@@ -700,7 +711,7 @@ function BookingPanel({
             {booking.isPending
               ? t("جارٍ إرسال الطلب…", "Submitting request…")
               : t(
-                  `إرسال طلب الموعد (${formatCurrency(lang, total)})`,
+                  `احجز هذا الدرس (${formatCurrency(lang, total)})`,
                   `Book lesson (${formatCurrency(lang, total)})`,
                 )}
           </button>
@@ -832,14 +843,15 @@ function BookingPanel({
           <fieldset>
             <legend>{t("المدة", "Duration")}</legend>
             <div className="blueprint-choice-row blueprint-choice-row--wide">
-              {[25, 50].map((value) => (
+              {[60, 120, 180, 240].map((value) => (
                 <button
                   type="button"
                   key={value}
                   aria-pressed={duration === value}
-                  onClick={() => setDuration(value as 25 | 50)}
+                  onClick={() => setDuration(value as 60 | 120 | 180 | 240)}
                 >
-                  {value} {t("دقيقة", "minutes")}
+                  {value / 60}{" "}
+                  {value === 60 ? t("ساعة", "hour") : t("ساعات", "hours")}
                 </button>
               ))}
             </div>
@@ -1064,6 +1076,16 @@ function CourseDetailBody({
         .data,
     enabled: Boolean(enrolled),
   });
+  const curriculumQuery = useQuery({
+    queryKey: ["blueprint-course-curriculum", courseId],
+    queryFn: async () =>
+      (await apiClient.get<CourseLesson[]>(`/courses/${courseId}/curriculum`))
+        .data,
+  });
+  const visibleCurriculum = enrolled ? lessonsQuery.data : curriculumQuery.data;
+  const curriculumLoading = enrolled
+    ? lessonsQuery.isLoading
+    : curriculumQuery.isLoading;
   const course = courseQuery.data;
   if (courseQuery.isLoading) return <LoadingCards />;
   if (!course)
@@ -1134,15 +1156,15 @@ function CourseDetailBody({
             <h2>
               {t(
                 "المنهج",
-                `Curriculum${lessonsQuery.data ? ` (${lessonsQuery.data.length} lessons)` : ""}`,
+                `Curriculum${visibleCurriculum ? ` (${visibleCurriculum.length} lessons)` : ""}`,
               )}
             </h2>
-            {enrolled ? (
-              lessonsQuery.isLoading ? (
-                <div className="skeleton h-24 rounded" />
-              ) : (
-                lessonsQuery.data?.map((lesson) => (
-                  <div className="blueprint-curriculum-row" key={lesson.id}>
+            {curriculumLoading ? (
+              <div className="skeleton h-24 rounded" />
+            ) : (
+              visibleCurriculum?.map((lesson) => (
+                <div className="blueprint-curriculum-entry" key={lesson.id}>
+                  <div className="blueprint-curriculum-row">
                     <span>▷</span>
                     <strong>
                       {String(lesson.lessonOrder).padStart(2, "0")}.{" "}
@@ -1150,15 +1172,43 @@ function CourseDetailBody({
                     </strong>
                     <small>
                       {lesson.durationMinutes} {t("دقيقة", "min")}
+                      {lesson.contentType ? ` · ${lesson.contentType}` : ""}
                     </small>
                   </div>
-                ))
-              )
-            ) : (
+                  {enrolled &&
+                    (Boolean(lesson.downloadableFiles?.length) ||
+                      Boolean(lesson.externalLinks?.length)) && (
+                      <div className="blueprint-curriculum-resources">
+                        {lesson.downloadableFiles?.map((file) => (
+                          <a
+                            key={file.id}
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {t("تنزيل", "Download")} {file.name}
+                          </a>
+                        ))}
+                        {lesson.externalLinks?.map((link) => (
+                          <a
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {link.title || t("رابط خارجي", "External link")}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                </div>
+              ))
+            )}
+            {!curriculumLoading && !visibleCurriculum?.length && (
               <p className="blueprint-muted">
                 {t(
-                  "يظهر المنهج الكامل بعد التسجيل.",
-                  "The full lesson list is available after enrollment.",
+                  "سيُنشر المنهج قريبًا.",
+                  "The curriculum will be published soon.",
                 )}
               </p>
             )}
@@ -1234,6 +1284,7 @@ function EnrollmentPanel({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [complete, setComplete] = useState(enrolled);
+  const enrollmentKeyRef = useRef(crypto.randomUUID());
   const balanceQuery = useQuery({
     queryKey: ["blueprint-student-balance"],
     queryFn: async () =>
@@ -1242,7 +1293,11 @@ function EnrollmentPanel({
   });
   const enrollment = useMutation({
     mutationFn: async () =>
-      (await apiClient.post(`/courses/${course.id}/enroll`)).data,
+      (
+        await apiClient.post(`/courses/${course.id}/enroll`, {
+          idempotencyKey: enrollmentKeyRef.current,
+        })
+      ).data,
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["my-enrollments"] }),

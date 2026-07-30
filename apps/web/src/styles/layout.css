@@ -866,12 +866,12 @@ html[data-theme="light"]
   position: sticky;
   inset-block-start: 0;
   z-index: 900;
-  min-height: 72px;
-  padding: 10px max(20px, calc((100vw - 1400px) / 2));
+  min-height: 68px;
+  padding: 6px max(20px, calc((100vw - 1400px) / 2));
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: clamp(18px, 3vw, 46px);
+  gap: clamp(12px, 2vw, 32px);
   border-block-end: 1px solid var(--border);
   background: color-mix(in srgb, var(--canvas) 88%, transparent);
   backdrop-filter: blur(18px) saturate(130%);
@@ -924,8 +924,8 @@ html[data-theme="light"]
 }
 
 .workspace-header nav a {
-  min-height: 38px;
-  padding-inline: 14px;
+  min-height: 36px;
+  padding-inline: 12px;
   display: inline-flex;
   align-items: center;
   border-radius: 999px;

@@ -100,6 +100,12 @@ export class Payment {
   @Column({ nullable: true, type: 'varchar' })
   rejectionReason: string | null;
 
+  @Column({ nullable: true, type: 'varchar' })
+  providerStatus: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  disputedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

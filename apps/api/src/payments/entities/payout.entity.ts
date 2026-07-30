@@ -39,8 +39,29 @@ export class Payout {
   @Column({ type: 'text', nullable: true })
   adminNote: string | null;
 
+  @Index({ unique: true })
+  @Column({ type: 'uuid', nullable: true })
+  idempotencyKey: string | null;
+
   @Column({ nullable: true })
   stripePayoutId?: string;
+
+  @Index({ unique: true })
+  @Column({ nullable: true, type: 'varchar' })
+  paypalBatchId: string | null;
+
+  @Index({ unique: true })
+  @Column({ nullable: true, type: 'varchar' })
+  paypalItemId: string | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  providerStatus: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  processedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  balanceRestoredAt: Date | null;
 
   @Column({ nullable: true })
   errorMessage?: string;

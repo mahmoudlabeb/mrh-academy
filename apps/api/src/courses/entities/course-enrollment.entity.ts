@@ -27,6 +27,10 @@ export class CourseEnrollment {
   @Column()
   courseId: string;
 
+  @Index({ unique: true })
+  @Column({ type: 'uuid', nullable: true })
+  idempotencyKey: string | null;
+
   @Column({
     type: 'decimal',
     precision: 10,

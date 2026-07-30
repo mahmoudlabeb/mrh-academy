@@ -12,8 +12,7 @@ import sanitizeHtml from 'sanitize-html';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserRole, LessonStatus } from '@mrh/types';
-import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { ClassroomAccessState, UserRole } from '@mrh/types';
 import { Classroom } from './entities/classroom.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { RedisService } from '../redis/redis.service.js';
@@ -24,6 +23,7 @@ import {
 import { websocketCors } from '../config/websocket.config.js';
 import { getSocketAccessToken } from '../auth/socket-token.js';
 import { getJwtVerifyOptions } from '../auth/jwt-profile.js';
+import { ClassroomAccessService } from './classroom-access.service.js';
 
 interface ConnectedClient {
   socketId: string;
@@ -93,12 +93,11 @@ export class ClassroomGateway
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
-    @InjectRepository(Lesson)
-    private readonly lessonRepository: Repository<Lesson>,
     @InjectRepository(Classroom)
     private readonly classroomRepository: Repository<Classroom>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly classroomAccessService: ClassroomAccessService,
   ) {}
 
   async handleConnection(socket: Socket) {
@@ -198,33 +197,20 @@ export class ClassroomGateway
   @SubscribeMessage('join_lesson')
   async handleJoinLesson(socket: Socket, payload: { lessonId: string }) {
     const { lessonId } = payload;
-
-    const lesson = await this.lessonRepository.findOne({
-      where: { id: lessonId },
-      select: { id: true, studentId: true, tutorId: true, status: true },
-    });
-    if (!lesson) {
-      socket.emit('error_message', 'Lesson not found');
-      return;
-    }
-    if (lesson.status !== LessonStatus.CONFIRMED) {
-      socket.emit('error_message', 'This lesson is no longer available');
-      return;
-    }
-    const classroom = await this.classroomRepository.findOne({
-      where: { lessonId },
-      select: ['whiteboardSnapshot', 'isActive'],
-    });
-    if (classroom && !classroom.isActive) {
-      socket.emit('error_message', 'Classroom is closed');
-      return;
-    }
-    if (
-      lesson.studentId !== this.socketData(socket).userId &&
-      lesson.tutorId !== this.socketData(socket).userId &&
-      this.socketData(socket).role !== 'admin'
-    ) {
-      socket.emit('error_message', 'You are not a participant of this lesson');
+    try {
+      const { access } = await this.classroomAccessService.findByLessonId(
+        lessonId,
+        this.socketData(socket).userId,
+      );
+      if (!access.canJoin || access.state !== ClassroomAccessState.ALLOWED) {
+        socket.emit('classroom_access_denied', access);
+        socket.emit('error_message', access.reason);
+        return;
+      }
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Classroom access denied';
+      socket.emit('error_message', reason);
       return;
     }
 

@@ -9,13 +9,20 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Inject } from '@nestjs/common';
 import {
   DataSource,
+  EntityManager,
+  In,
   LessThan,
   QueryFailedError,
   Repository,
   type DeepPartial,
 } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { LessonStatus, PaymentMethod, PaymentStatus } from '@mrh/types';
+import {
+  LessonPaymentStatus,
+  LessonStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from '@mrh/types';
 import { Payment } from './entities/payment.entity.js';
 import { Payout } from './entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
@@ -25,6 +32,7 @@ import { User } from '../users/entities/user.entity.js';
 import { PaymentMethodConfig } from './entities/payment-method-config.entity.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
 import { RequestPayoutDto } from './dto/request-payout.dto.js';
+import { RequestPlatformPayoutDto } from './dto/request-platform-payout.dto.js';
 import { StripeService } from './stripe/stripe.service.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CommissionService } from './commission.service.js';
@@ -39,6 +47,11 @@ import { PayPalService } from './paypal/paypal.service.js';
 import { createHmac } from 'node:crypto';
 import { CourseLessonCompletion } from '../courses/entities/course-lesson-completion.entity.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { ProcessedWebhookEvent } from './entities/processed-webhook-event.entity.js';
+import { LessonFundingAllocation } from './entities/lesson-funding-allocation.entity.js';
+import { PlatformPayout } from './entities/platform-payout.entity.js';
+import type { PayPalWebhookEvent } from './paypal/paypal-webhook.controller.js';
+import { Classroom } from '../classroom/entities/classroom.entity.js';
 import {
   OBJECT_STORAGE,
   type ObjectStorage,
@@ -116,16 +129,58 @@ export class PaymentsService {
     if (enrolled)
       throw new BadRequestException('Already enrolled in this course');
 
-    const payment = await this.paymentRepository.save(
-      this.paymentRepository.create({
-        userId: user.id,
-        amount: Number(course.price),
-        method: PaymentMethod.CARD,
-        currency: 'USD',
-        status: PaymentStatus.PENDING,
-        adminNote: `Direct course checkout: ${course.id}`,
-      }),
-    );
+    const existingPayment = await this.paymentRepository.findOne({
+      where: { idempotencyKey: dto.idempotencyKey },
+    });
+    if (
+      existingPayment &&
+      (existingPayment.userId !== user.id ||
+        Number(existingPayment.amount) !== Number(course.price) ||
+        existingPayment.adminNote !== `Direct course checkout: ${course.id}`)
+    ) {
+      throw new BadRequestException(
+        'Checkout key is already in use for another purchase',
+      );
+    }
+    if (existingPayment && existingPayment.status !== PaymentStatus.PENDING) {
+      throw new BadRequestException('Course checkout is already processed');
+    }
+
+    let payment = existingPayment;
+    if (!payment) {
+      try {
+        payment = await this.paymentRepository.save(
+          this.paymentRepository.create({
+            userId: user.id,
+            amount: Number(course.price),
+            method: PaymentMethod.CARD,
+            currency: 'USD',
+            status: PaymentStatus.PENDING,
+            adminNote: `Direct course checkout: ${course.id}`,
+            idempotencyKey: dto.idempotencyKey,
+          }),
+        );
+      } catch (error) {
+        const code =
+          (error as { code?: string; driverError?: { code?: string } }).code ??
+          (error as { driverError?: { code?: string } }).driverError?.code;
+        if (code === '23505') {
+          payment = await this.paymentRepository.findOne({
+            where: { idempotencyKey: dto.idempotencyKey },
+          });
+        }
+        if (!payment) throw error;
+      }
+    }
+    if (
+      payment.userId !== user.id ||
+      Number(payment.amount) !== Number(course.price) ||
+      payment.adminNote !== `Direct course checkout: ${course.id}`
+    ) {
+      throw new BadRequestException(
+        'Checkout key is already in use for another purchase',
+      );
+    }
 
     try {
       const session = await this.stripeService.createCourseCheckoutSession({
@@ -136,13 +191,17 @@ export class PaymentsService {
         amount: Number(course.price),
         email: user.email,
         referralCode: dto.referralCode,
+        idempotencyKey: dto.idempotencyKey,
       });
       await this.paymentRepository.update(payment.id, {
         stripeCheckoutSessionId: session.id,
+        providerStatus: 'OPEN',
       });
       return { checkoutUrl: session.url };
     } catch (error) {
-      await this.paymentRepository.delete(payment.id);
+      await this.paymentRepository.update(payment.id, {
+        providerStatus: 'INITIATION_FAILED',
+      });
       this.logger.error('Direct course checkout creation failed', error);
       throw new BadRequestException('Card checkout is currently unavailable');
     }
@@ -238,6 +297,25 @@ export class PaymentsService {
     });
 
     if (result.created) {
+      const purchasedCourse = await this.courseRepository.findOne({
+        where: { id: result.enrollment.courseId },
+      });
+      if (purchasedCourse) {
+        await this.notificationRepository.save([
+          this.notificationRepository.create({
+            userId: result.payment.userId,
+            type: 'course_enrolled',
+            title: 'Course purchase confirmed',
+            body: `${purchasedCourse.title} is now available in your course library.`,
+          }),
+          this.notificationRepository.create({
+            userId: purchasedCourse.tutorId,
+            type: 'course_sold',
+            title: 'New course enrollment',
+            body: `A student purchased ${purchasedCourse.title}.`,
+          }),
+        ]);
+      }
       const user = await this.userRepository.findOne({
         where: { id: result.payment.userId },
       });
@@ -272,6 +350,58 @@ export class PaymentsService {
       throw new BadRequestException('Receipt content does not match its type');
   }
 
+  private assertMatchingPaymentRetry(
+    payment: Payment,
+    userId: string,
+    dto: SubmitPaymentDto,
+  ) {
+    if (
+      payment.userId !== userId ||
+      payment.method !== dto.method ||
+      payment.currency !== (dto.currency ?? 'USD') ||
+      Number(payment.amount) !== Number(dto.amount)
+    ) {
+      throw new BadRequestException(
+        'Payment key is already in use for a different transaction',
+      );
+    }
+  }
+
+  private async existingPaymentResponse(
+    payment: Payment,
+    userId: string,
+    dto: SubmitPaymentDto,
+  ) {
+    this.assertMatchingPaymentRetry(payment, userId, dto);
+    if (payment.status !== PaymentStatus.PENDING) {
+      return { payment, checkoutUrl: undefined };
+    }
+    if (payment.method === PaymentMethod.PAYPAL) {
+      let checkoutUrl = await this.payPalService.getApprovalUrl(payment);
+      if (!checkoutUrl) {
+        const order = await this.payPalService.createOrder(payment);
+        payment.paypalOrderId = order.orderId;
+        payment.providerStatus = 'CREATED';
+        await this.paymentRepository.save(payment);
+        checkoutUrl = order.approvalUrl;
+      }
+      return { payment, checkoutUrl };
+    }
+    if (payment.method === PaymentMethod.CARD) {
+      const session = await this.stripeService.createCheckoutSession(
+        userId,
+        Number(payment.amount),
+        payment.id,
+        payment.currency === 'EGP' ? 'EGP' : 'USD',
+      );
+      payment.stripeCheckoutSessionId = session.id;
+      payment.providerStatus = 'OPEN';
+      await this.paymentRepository.save(payment);
+      return { payment, checkoutUrl: session.url ?? undefined };
+    }
+    return { payment, checkoutUrl: undefined };
+  }
+
   async submitPayment(
     userId: string,
     dto: SubmitPaymentDto,
@@ -287,9 +417,7 @@ export class PaymentsService {
         where: { idempotencyKey: dto.idempotencyKey },
       });
       if (existing) {
-        throw new BadRequestException(
-          'This payment has already been submitted',
-        );
+        return this.existingPaymentResponse(existing, userId, dto);
       }
     }
 
@@ -358,9 +486,14 @@ export class PaymentsService {
         error instanceof QueryFailedError &&
         (error as QueryFailedError & { code?: string }).code === '23505'
       ) {
-        throw new BadRequestException(
-          'This payment has already been submitted',
-        );
+        const existing = dto.idempotencyKey
+          ? await this.paymentRepository.findOne({
+              where: { idempotencyKey: dto.idempotencyKey },
+            })
+          : null;
+        if (existing) {
+          return this.existingPaymentResponse(existing, userId, dto);
+        }
       }
       throw error;
     }
@@ -369,10 +502,12 @@ export class PaymentsService {
       try {
         const order = await this.payPalService.createOrder(savedPayment);
         savedPayment.paypalOrderId = order.orderId;
+        savedPayment.providerStatus = 'CREATED';
         await this.paymentRepository.save(savedPayment);
         return { payment: savedPayment, checkoutUrl: order.approvalUrl };
       } catch (error) {
-        await this.paymentRepository.delete(savedPayment.id);
+        savedPayment.providerStatus = 'INITIATION_FAILED';
+        await this.paymentRepository.save(savedPayment);
         this.logger.error('PayPal order creation failed', error);
         throw new BadRequestException(
           'PayPal payment is currently unavailable. Please use another payment method.',
@@ -390,9 +525,12 @@ export class PaymentsService {
           dto.currency ?? 'USD',
         );
         checkoutUrl = session.url;
+        savedPayment.stripeCheckoutSessionId = session.id;
+        savedPayment.providerStatus = 'OPEN';
+        await this.paymentRepository.save(savedPayment);
       } catch (stripeError) {
-        // Roll back the saved payment record and surface a clean error
-        await this.paymentRepository.delete(savedPayment.id);
+        savedPayment.providerStatus = 'INITIATION_FAILED';
+        await this.paymentRepository.save(savedPayment);
         this.logger.error(
           'Stripe checkout session creation failed',
           stripeError,
@@ -426,6 +564,7 @@ export class PaymentsService {
       const captureId = await this.payPalService.captureOrder(payment);
       payment.paypalCaptureId = captureId;
       payment.status = PaymentStatus.APPROVED;
+      payment.providerStatus = 'COMPLETED';
       payment.adminNote = `Approved by paypal:${captureId}`;
       payment.rejectionReason = null;
       await manager.save(Payment, payment);
@@ -449,6 +588,364 @@ export class PaymentsService {
       await this.notifyPaymentApproved(result.payment, result.balanceToAdd);
     }
     return result.payment;
+  }
+
+  async processPayPalWebhookEvent(event: PayPalWebhookEvent) {
+    try {
+      const result = await this.dataSource.transaction(async (manager) => {
+        const existing = await manager.findOne(ProcessedWebhookEvent, {
+          where: { eventId: event.id! },
+        });
+        if (existing) return { duplicate: true, eventType: event.event_type! };
+
+        await manager.save(
+          ProcessedWebhookEvent,
+          manager.create(ProcessedWebhookEvent, {
+            eventId: event.id!,
+            eventType: `paypal:${event.event_type!}`,
+          }),
+        );
+
+        const resource = event.resource!;
+        const eventType = event.event_type!;
+        if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
+          const captureId = this.payPalString(resource, 'id');
+          const orderId = this.payPalNestedString(resource, [
+            'supplementary_data',
+            'related_ids',
+            'order_id',
+          ]);
+          if (!captureId && !orderId) {
+            throw new BadRequestException(
+              'PayPal capture event has no provider reference',
+            );
+          }
+          const payment = await manager.findOne(Payment, {
+            where: [
+              ...(captureId ? [{ paypalCaptureId: captureId }] : []),
+              ...(orderId ? [{ paypalOrderId: orderId }] : []),
+            ],
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!payment) throw new NotFoundException('PayPal payment not found');
+          this.assertPayPalResourceAmount(payment, resource);
+          if (payment.status === PaymentStatus.PENDING) {
+            const balanceToAdd = await this.walletValueInUsd(payment);
+            payment.paypalCaptureId = captureId;
+            payment.status = PaymentStatus.APPROVED;
+            payment.providerStatus = 'COMPLETED';
+            payment.creditedAmountUsd = balanceToAdd;
+            payment.adminNote = `Approved by paypal-webhook:${event.id}`;
+            await manager.save(Payment, payment);
+            await manager.increment(
+              StudentProfile,
+              { userId: payment.userId },
+              'balance',
+              balanceToAdd,
+            );
+            return {
+              duplicate: false,
+              eventType,
+              approved: { payment, balanceToAdd },
+            };
+          }
+          return { duplicate: false, eventType };
+        }
+
+        if (
+          eventType === 'PAYMENT.CAPTURE.DENIED' ||
+          eventType === 'CHECKOUT.ORDER.CANCELLED'
+        ) {
+          const captureId = this.payPalString(resource, 'id');
+          const orderId =
+            this.payPalNestedString(resource, [
+              'supplementary_data',
+              'related_ids',
+              'order_id',
+            ]) ?? captureId;
+          const payment = orderId
+            ? await manager.findOne(Payment, {
+                where: [
+                  { paypalOrderId: orderId },
+                  { paypalCaptureId: captureId ?? orderId },
+                ],
+                lock: { mode: 'pessimistic_write' },
+              })
+            : null;
+          if (payment?.status === PaymentStatus.PENDING) {
+            payment.status =
+              eventType === 'CHECKOUT.ORDER.CANCELLED'
+                ? PaymentStatus.CANCELLED
+                : PaymentStatus.FAILED;
+            payment.providerStatus = eventType;
+            payment.rejectionReason = 'PayPal did not complete the payment';
+            await manager.save(Payment, payment);
+          }
+          return { duplicate: false, eventType };
+        }
+
+        if (
+          eventType === 'PAYMENT.CAPTURE.REFUNDED' ||
+          eventType === 'PAYMENT.CAPTURE.REVERSED'
+        ) {
+          const captureId = this.payPalNestedString(resource, [
+            'supplementary_data',
+            'related_ids',
+            'capture_id',
+          ]);
+          const payment = captureId
+            ? await manager.findOne(Payment, {
+                where: { paypalCaptureId: captureId },
+                lock: { mode: 'pessimistic_write' },
+              })
+            : null;
+          if (!payment) throw new NotFoundException('PayPal payment not found');
+          const refundDelta = this.payPalAmount(resource);
+          const refund = await this.applyProviderRefund(
+            manager,
+            payment,
+            Number(payment.refundedAmount ?? 0) + refundDelta,
+            `PayPal ${eventType.toLowerCase()}`,
+            event.id,
+          );
+          return { duplicate: false, eventType, refund };
+        }
+
+        if (eventType.startsWith('CUSTOMER.DISPUTE.')) {
+          const transactions = Array.isArray(resource.disputed_transactions)
+            ? resource.disputed_transactions
+            : [];
+          const captureId = transactions
+            .map((transaction) =>
+              this.payPalString(
+                transaction as Record<string, unknown>,
+                'seller_transaction_id',
+              ),
+            )
+            .find(Boolean);
+          const payment = captureId
+            ? await manager.findOne(Payment, {
+                where: { paypalCaptureId: captureId },
+                lock: { mode: 'pessimistic_write' },
+              })
+            : null;
+          if (payment) {
+            const outcome = this.payPalNestedString(resource, [
+              'dispute_outcome',
+              'outcome_code',
+            ]);
+            const restored =
+              eventType === 'CUSTOMER.DISPUTE.RESOLVED' &&
+              ['RESOLVED_SELLER_FAVOUR', 'CANCELED_BY_BUYER'].includes(
+                outcome ?? '',
+              );
+            payment.status = restored
+              ? Number(payment.refundedAmount ?? 0) > 0
+                ? PaymentStatus.PARTIALLY_REFUNDED
+                : PaymentStatus.APPROVED
+              : PaymentStatus.DISPUTED;
+            payment.disputedAt = restored ? null : new Date();
+            payment.providerStatus = eventType;
+            payment.adminNote = `PayPal dispute event ${event.id}`;
+            await manager.save(Payment, payment);
+          }
+          return { duplicate: false, eventType };
+        }
+
+        if (eventType.startsWith('PAYMENT.PAYOUTS-ITEM.')) {
+          const itemId = this.payPalString(resource, 'payout_item_id');
+          const senderItemId = this.payPalNestedString(resource, [
+            'payout_item',
+            'sender_item_id',
+          ]);
+          if (!itemId && !senderItemId) {
+            throw new BadRequestException(
+              'PayPal payout event has no provider reference',
+            );
+          }
+          const payout = await manager.findOne(Payout, {
+            where: [
+              ...(itemId ? [{ paypalItemId: itemId }] : []),
+              ...(senderItemId ? [{ id: senderItemId }] : []),
+            ],
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!payout) {
+            const platformPayout = await manager.findOne(PlatformPayout, {
+              where: [
+                ...(itemId ? [{ paypalItemId: itemId }] : []),
+                ...(senderItemId ? [{ id: senderItemId }] : []),
+              ],
+              lock: { mode: 'pessimistic_write' },
+            });
+            if (!platformPayout) {
+              throw new NotFoundException('PayPal payout not found');
+            }
+            platformPayout.paypalItemId = itemId ?? platformPayout.paypalItemId;
+            platformPayout.providerStatus =
+              this.payPalString(resource, 'transaction_status') ?? eventType;
+            const succeeded = eventType === 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED';
+            const failed = [
+              'PAYMENT.PAYOUTS-ITEM.BLOCKED',
+              'PAYMENT.PAYOUTS-ITEM.CANCELED',
+              'PAYMENT.PAYOUTS-ITEM.DENIED',
+              'PAYMENT.PAYOUTS-ITEM.FAILED',
+              'PAYMENT.PAYOUTS-ITEM.REFUNDED',
+              'PAYMENT.PAYOUTS-ITEM.RETURNED',
+            ].includes(eventType);
+            if (succeeded) {
+              platformPayout.status = PayoutStatus.SUCCESS;
+              platformPayout.processedAt = new Date();
+            } else if (failed) {
+              platformPayout.status =
+                eventType === 'PAYMENT.PAYOUTS-ITEM.REFUNDED'
+                  ? PayoutStatus.REFUNDED
+                  : eventType === 'PAYMENT.PAYOUTS-ITEM.CANCELED'
+                    ? PayoutStatus.CANCELLED
+                    : PayoutStatus.FAILED;
+              platformPayout.processedAt = new Date();
+            }
+            await manager.save(PlatformPayout, platformPayout);
+            return {
+              duplicate: false,
+              eventType,
+              platformPayout:
+                succeeded || failed
+                  ? { value: platformPayout, approved: succeeded }
+                  : undefined,
+            };
+          }
+          payout.paypalItemId = itemId ?? payout.paypalItemId;
+          payout.providerStatus =
+            this.payPalString(resource, 'transaction_status') ?? eventType;
+          const succeeded = eventType === 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED';
+          const failed = [
+            'PAYMENT.PAYOUTS-ITEM.BLOCKED',
+            'PAYMENT.PAYOUTS-ITEM.CANCELED',
+            'PAYMENT.PAYOUTS-ITEM.DENIED',
+            'PAYMENT.PAYOUTS-ITEM.FAILED',
+            'PAYMENT.PAYOUTS-ITEM.REFUNDED',
+            'PAYMENT.PAYOUTS-ITEM.RETURNED',
+          ].includes(eventType);
+          if (succeeded) {
+            payout.status = PayoutStatus.SUCCESS;
+            payout.processedAt = new Date();
+          } else if (failed) {
+            payout.status =
+              eventType === 'PAYMENT.PAYOUTS-ITEM.REFUNDED'
+                ? PayoutStatus.REFUNDED
+                : eventType === 'PAYMENT.PAYOUTS-ITEM.CANCELED'
+                  ? PayoutStatus.CANCELLED
+                  : PayoutStatus.FAILED;
+            payout.processedAt = new Date();
+            if (!payout.balanceRestoredAt) {
+              await manager.increment(
+                TutorProfile,
+                { userId: payout.tutorId },
+                'balance',
+                Number(payout.amount),
+              );
+              payout.balanceRestoredAt = new Date();
+            }
+          }
+          await manager.save(Payout, payout);
+          return {
+            duplicate: false,
+            eventType,
+            payout:
+              succeeded || failed
+                ? { value: payout, approved: succeeded }
+                : undefined,
+          };
+        }
+
+        return { duplicate: false, eventType };
+      });
+
+      if ('approved' in result && result.approved) {
+        await this.notifyPaymentApproved(
+          result.approved.payment,
+          result.approved.balanceToAdd,
+        );
+      }
+      if ('refund' in result && result.refund) {
+        await this.notifyPaymentRefunded(result.refund);
+      }
+      if ('payout' in result && result.payout) {
+        await this.notifyPayoutDecision(
+          result.payout.value,
+          result.payout.approved,
+          result.payout.approved
+            ? undefined
+            : 'PayPal could not deliver the payout',
+        );
+      }
+      if ('platformPayout' in result && result.platformPayout) {
+        await this.notifyPlatformPayoutDecision(
+          result.platformPayout.value,
+          result.platformPayout.approved,
+        );
+      }
+      return { received: true, duplicate: result.duplicate };
+    } catch (error) {
+      const code =
+        (error as { code?: string; driverError?: { code?: string } }).code ??
+        (error as { driverError?: { code?: string } }).driverError?.code;
+      if (code === '23505') return { received: true, duplicate: true };
+      throw error;
+    }
+  }
+
+  private payPalString(
+    value: Record<string, unknown>,
+    key: string,
+  ): string | null {
+    return typeof value[key] === 'string' ? value[key] : null;
+  }
+
+  private payPalNestedString(
+    value: Record<string, unknown>,
+    path: string[],
+  ): string | null {
+    let current: unknown = value;
+    for (const key of path) {
+      if (!current || typeof current !== 'object') return null;
+      current = (current as Record<string, unknown>)[key];
+    }
+    return typeof current === 'string' ? current : null;
+  }
+
+  private payPalAmount(resource: Record<string, unknown>): number {
+    const value = this.payPalNestedString(resource, ['amount', 'value']);
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('PayPal webhook amount is invalid');
+    }
+    return amount;
+  }
+
+  private assertPayPalResourceAmount(
+    payment: Payment,
+    resource: Record<string, unknown>,
+  ) {
+    const currency = this.payPalNestedString(resource, [
+      'amount',
+      'currency_code',
+    ]);
+    if (
+      currency !== payment.currency ||
+      this.payPalAmount(resource) !== Number(payment.amount)
+    ) {
+      throw new BadRequestException('PayPal webhook amount does not match');
+    }
+  }
+
+  private async walletValueInUsd(payment: Payment): Promise<number> {
+    const amountInUsd =
+      payment.currency === 'EGP'
+        ? Number(payment.amount) / (await this.commissionService.getEgpRate())
+        : Number(payment.amount);
+    return Math.round(amountInUsd * 100) / 100;
   }
 
   async getPaymentHistory(userId: string, page = 1, limit = 50) {
@@ -602,209 +1099,580 @@ export class PaymentsService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!payment) throw new NotFoundException('Payment not found');
-      if (payment.status !== PaymentStatus.APPROVED) {
-        throw new BadRequestException('Only approved payments can be refunded');
-      }
-
-      const refundTotal = Math.min(
-        Number(payment.amount),
-        Math.max(0, Math.round(cumulativeRefundAmount * 100) / 100),
+      return this.applyProviderRefund(
+        manager,
+        payment,
+        cumulativeRefundAmount,
+        `Stripe refund${stripeChargeId ? ` (${stripeChargeId})` : ''}`,
+        stripeChargeId,
       );
-      const refundDelta =
-        Math.round((refundTotal - Number(payment.refundedAmount ?? 0)) * 100) /
-        100;
-      if (refundDelta <= 0) {
-        return {
-          payment,
-          refundDelta: 0,
-          walletRefundDelta: 0,
-          revokedCourses: 0,
-        };
-      }
-      const creditedAmountUsd =
-        payment.creditedAmountUsd ??
-        (payment.currency === 'EGP'
-          ? Number(payment.amount) / (await this.commissionService.getEgpRate())
-          : Number(payment.amount));
-      const refundedWalletTotal =
-        Number(payment.amount) > 0
-          ? Math.round(
-              (refundTotal / Number(payment.amount)) *
-                Number(creditedAmountUsd) *
-                100,
-            ) / 100
-          : 0;
-      const previousRefundedWalletTotal =
-        Number(payment.amount) > 0
-          ? Math.round(
-              (Number(payment.refundedAmount ?? 0) / Number(payment.amount)) *
-                Number(creditedAmountUsd) *
-                100,
-            ) / 100
-          : 0;
-      const walletRefundDelta =
-        Math.round((refundedWalletTotal - previousRefundedWalletTotal) * 100) /
-        100;
+    });
+    await this.notifyPaymentRefunded(result);
+    return result;
+  }
 
-      const allocations = await manager.find(CourseFundingAllocation, {
-        where: { paymentId },
-        order: { createdAt: 'ASC' },
+  private async applyProviderRefund(
+    manager: EntityManager,
+    payment: Payment,
+    cumulativeRefundAmount: number,
+    auditLabel: string,
+    providerReference?: string,
+  ) {
+    if (
+      ![
+        PaymentStatus.APPROVED,
+        PaymentStatus.PARTIALLY_REFUNDED,
+        PaymentStatus.DISPUTED,
+        PaymentStatus.REFUNDED,
+      ].includes(payment.status)
+    ) {
+      throw new BadRequestException('Only captured payments can be refunded');
+    }
+
+    const refundTotal = Math.min(
+      Number(payment.amount),
+      Math.max(0, Math.round(cumulativeRefundAmount * 100) / 100),
+    );
+    const refundDelta =
+      Math.round((refundTotal - Number(payment.refundedAmount ?? 0)) * 100) /
+      100;
+    if (refundDelta <= 0) {
+      return {
+        payment,
+        refundDelta: 0,
+        walletRefundDelta: 0,
+        revokedCourses: 0,
+        cancelledLessons: 0,
+        affectedTutorIds: [] as string[],
+      };
+    }
+
+    const creditedAmountUsd =
+      payment.creditedAmountUsd ??
+      (payment.currency === 'EGP'
+        ? Number(payment.amount) / (await this.commissionService.getEgpRate())
+        : Number(payment.amount));
+    const walletAt = (providerAmount: number) =>
+      Number(payment.amount) > 0
+        ? Math.round(
+            (providerAmount / Number(payment.amount)) *
+              Number(creditedAmountUsd) *
+              100,
+          ) / 100
+        : 0;
+    const walletRefundDelta =
+      Math.round(
+        (walletAt(refundTotal) -
+          walletAt(Number(payment.refundedAmount ?? 0))) *
+          100,
+      ) / 100;
+    let amountStillToRelease = walletRefundDelta;
+    let revokedCourses = 0;
+    let cancelledLessons = 0;
+    const affectedTutorIds = new Set<string>();
+
+    const courseAllocations = await manager.find(CourseFundingAllocation, {
+      where: { paymentId: payment.id },
+      order: { createdAt: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    for (const allocation of courseAllocations) {
+      if (amountStillToRelease <= 0) break;
+      const enrollment = await manager.findOne(CourseEnrollment, {
+        where: { id: allocation.enrollmentId },
+        relations: { course: true },
         lock: { mode: 'pessimistic_write' },
       });
-      let amountStillToRelease = walletRefundDelta;
-      let revokedCourses = 0;
-
-      for (const allocation of allocations) {
-        if (amountStillToRelease <= 0) break;
-        const enrollment = await manager.findOne(CourseEnrollment, {
-          where: { id: allocation.enrollmentId },
-          relations: { course: true },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!enrollment) continue;
-
-        const enrollmentAllocations = await manager.find(
-          CourseFundingAllocation,
-          {
-            where: { enrollmentId: enrollment.id },
-            lock: { mode: 'pessimistic_write' },
-          },
-        );
-        const paidAmount =
-          Number(enrollment.platformFee ?? 0) +
-          Number(enrollment.tutorShare ?? 0);
-
-        if (enrollment.tutorShare > 0 && enrollment.tutorShareReleasedAt) {
-          await manager.decrement(
-            TutorProfile,
-            { userId: enrollment.course.tutorId },
-            'balance',
-            Number(enrollment.tutorShare),
-          );
-        }
-        if (paidAmount > 0) {
-          await manager.increment(
-            StudentProfile,
-            { userId: enrollment.studentId },
-            'balance',
-            paidAmount,
-          );
-        }
-
-        await manager.save(
-          CourseRefundReversal,
-          manager.create(CourseRefundReversal, {
-            paymentId,
-            originalEnrollmentId: enrollment.id,
-            studentId: enrollment.studentId,
-            courseId: enrollment.courseId,
-            tutorId: enrollment.course.tutorId,
-            soldBy: enrollment.soldBy,
-            paidAmount,
-            platformFee: Number(enrollment.platformFee ?? 0),
-            tutorShare: Number(enrollment.tutorShare ?? 0),
-            stripeChargeId: stripeChargeId ?? null,
-          }),
-        );
-
-        for (const linkedAllocation of enrollmentAllocations) {
-          await manager.decrement(
-            Payment,
-            { id: linkedAllocation.paymentId },
-            'allocatedAmount',
-            Number(linkedAllocation.amount),
-          );
-        }
-        await manager.delete(CourseLessonCompletion, {
-          enrollmentId: enrollment.id,
-        });
-        await manager.delete(CourseFundingAllocation, {
-          enrollmentId: enrollment.id,
-        });
-        await manager.delete(CourseEnrollment, { id: enrollment.id });
-
-        amountStillToRelease =
-          Math.round((amountStillToRelease - Number(allocation.amount)) * 100) /
-          100;
-        revokedCourses += 1;
-      }
-
-      // Remove the refunded deposit after restoring the value of every
-      // revoked course. Any portion spent elsewhere becomes student debt
-      // rather than silently charging an unrelated tutor.
-      await manager.decrement(
-        StudentProfile,
-        { userId: payment.userId },
-        'balance',
-        walletRefundDelta,
-      );
-      await manager.update(
-        Payment,
-        { id: payment.id },
+      if (!enrollment) continue;
+      const enrollmentAllocations = await manager.find(
+        CourseFundingAllocation,
         {
-          refundedAmount: refundTotal,
-          refundedAt: refundTotal >= Number(payment.amount) ? new Date() : null,
-          adminNote: `Stripe refund ${refundTotal.toFixed(2)}${stripeChargeId ? ` (${stripeChargeId})` : ''}`,
+          where: { enrollmentId: enrollment.id },
+          lock: { mode: 'pessimistic_write' },
         },
       );
-
-      return { payment, refundDelta, walletRefundDelta, revokedCourses };
-    });
-
-    if (result.refundDelta > 0) {
-      await this.notificationRepository.save(
-        this.notificationRepository.create({
-          userId: result.payment.userId,
-          type: 'payment_refunded',
-          title: 'Payment refunded',
-          body: `${result.payment.currency} ${result.refundDelta.toFixed(2)} was refunded (${result.walletRefundDelta.toFixed(2)} USD wallet value). Access to ${result.revokedCourses} affected course(s) was revoked.`,
+      const paidAmount =
+        Number(enrollment.platformFee ?? 0) +
+        Number(enrollment.tutorShare ?? 0);
+      affectedTutorIds.add(enrollment.course.tutorId);
+      if (enrollment.tutorShare > 0 && enrollment.tutorShareReleasedAt) {
+        await manager.decrement(
+          TutorProfile,
+          { userId: enrollment.course.tutorId },
+          'balance',
+          Number(enrollment.tutorShare),
+        );
+      }
+      if (paidAmount > 0) {
+        await manager.increment(
+          StudentProfile,
+          { userId: enrollment.studentId },
+          'balance',
+          paidAmount,
+        );
+      }
+      await manager.save(
+        CourseRefundReversal,
+        manager.create(CourseRefundReversal, {
+          paymentId: payment.id,
+          originalEnrollmentId: enrollment.id,
+          studentId: enrollment.studentId,
+          courseId: enrollment.courseId,
+          tutorId: enrollment.course.tutorId,
+          soldBy: enrollment.soldBy,
+          paidAmount,
+          platformFee: Number(enrollment.platformFee ?? 0),
+          tutorShare: Number(enrollment.tutorShare ?? 0),
+          stripeChargeId: providerReference ?? null,
         }),
       );
+      for (const linked of enrollmentAllocations) {
+        await manager.decrement(
+          Payment,
+          { id: linked.paymentId },
+          'allocatedAmount',
+          Number(linked.amount),
+        );
+      }
+      await manager.delete(CourseLessonCompletion, {
+        enrollmentId: enrollment.id,
+      });
+      await manager.delete(CourseFundingAllocation, {
+        enrollmentId: enrollment.id,
+      });
+      await manager.delete(CourseEnrollment, { id: enrollment.id });
+      amountStillToRelease =
+        Math.round((amountStillToRelease - Number(allocation.amount)) * 100) /
+        100;
+      revokedCourses += 1;
     }
-    return result;
+
+    const lessonAllocations = await manager.find(LessonFundingAllocation, {
+      where: { paymentId: payment.id },
+      order: { createdAt: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    for (const allocation of lessonAllocations) {
+      if (amountStillToRelease <= 0) break;
+      const lesson = await manager.findOne(Lesson, {
+        where: { id: allocation.lessonId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lesson || lesson.paymentStatus === LessonPaymentStatus.REFUNDED) {
+        continue;
+      }
+      affectedTutorIds.add(lesson.tutorId);
+      const linkedAllocations = await manager.find(LessonFundingAllocation, {
+        where: { lessonId: lesson.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (lesson.tutorShareReleasedAt && Number(lesson.tutorShare ?? 0) > 0) {
+        await manager.decrement(
+          TutorProfile,
+          { userId: lesson.tutorId },
+          'balance',
+          Number(lesson.tutorShare),
+        );
+      }
+      await manager.increment(
+        StudentProfile,
+        { userId: lesson.studentId },
+        'balance',
+        Number(lesson.price),
+      );
+      lesson.status = LessonStatus.CANCELLED;
+      lesson.paymentStatus = LessonPaymentStatus.REFUNDED;
+      await manager.save(Lesson, lesson);
+      await manager.update(
+        Classroom,
+        { lessonId: lesson.id },
+        { isActive: false },
+      );
+      for (const linked of linkedAllocations) {
+        await manager.decrement(
+          Payment,
+          { id: linked.paymentId },
+          'allocatedAmount',
+          Number(linked.amount),
+        );
+      }
+      await manager.delete(LessonFundingAllocation, { lessonId: lesson.id });
+      amountStillToRelease =
+        Math.round((amountStillToRelease - Number(allocation.amount)) * 100) /
+        100;
+      cancelledLessons += 1;
+    }
+
+    await manager.decrement(
+      StudentProfile,
+      { userId: payment.userId },
+      'balance',
+      walletRefundDelta,
+    );
+    payment.refundedAmount = refundTotal;
+    payment.refundedAt =
+      refundTotal >= Number(payment.amount) ? new Date() : null;
+    payment.status =
+      refundTotal >= Number(payment.amount)
+        ? PaymentStatus.REFUNDED
+        : PaymentStatus.PARTIALLY_REFUNDED;
+    payment.providerStatus = payment.status;
+    payment.adminNote = `${auditLabel} ${refundTotal.toFixed(2)}`;
+    await manager.update(
+      Payment,
+      { id: payment.id },
+      {
+        refundedAmount: payment.refundedAmount,
+        refundedAt: payment.refundedAt,
+        status: payment.status,
+        providerStatus: payment.providerStatus,
+        adminNote: payment.adminNote,
+      },
+    );
+
+    return {
+      payment,
+      refundDelta,
+      walletRefundDelta,
+      revokedCourses,
+      cancelledLessons,
+      affectedTutorIds: [...affectedTutorIds],
+    };
+  }
+
+  private async notifyPaymentRefunded(result: {
+    payment: Payment;
+    refundDelta: number;
+    walletRefundDelta: number;
+    revokedCourses: number;
+    cancelledLessons: number;
+    affectedTutorIds: string[];
+  }) {
+    if (result.refundDelta <= 0) return;
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        userId: result.payment.userId,
+        type: 'payment_refunded',
+        title: 'Payment refunded',
+        body: `${result.payment.currency} ${result.refundDelta.toFixed(2)} was refunded (${result.walletRefundDelta.toFixed(2)} USD wallet value). ${result.revokedCourses} course enrollment(s) and ${result.cancelledLessons} lesson booking(s) were adjusted.`,
+      }),
+    );
+    if (result.affectedTutorIds.length > 0) {
+      await this.notificationRepository.save(
+        result.affectedTutorIds.map((userId) =>
+          this.notificationRepository.create({
+            userId,
+            type: 'sale_refunded',
+            title: 'Student payment refunded',
+            body: 'A related purchase was reversed and your earnings were adjusted where applicable.',
+          }),
+        ),
+      );
+    }
   }
 
   async requestPayout(tutorId: string, dto: RequestPayoutDto) {
     await this.releaseMatureCourseEarnings(tutorId);
-    return this.dataSource.transaction(async (manager) => {
-      const tutorProfile = await manager.findOne(TutorProfile, {
-        where: { userId: tutorId },
-        lock: { mode: 'pessimistic_write' },
+    let resumablePayout: Payout | null = null;
+    if (dto.idempotencyKey) {
+      const existing = await this.payoutRepository.findOne({
+        where: { idempotencyKey: dto.idempotencyKey },
       });
-      if (!tutorProfile) throw new NotFoundException('Tutor profile not found');
-
-      // The tutor row lock serializes payout requests for the same account.
-      // Check for an existing pending request only after acquiring it so two
-      // concurrent requests cannot both reserve the same available balance.
-      const existingPending = await manager.findOne(Payout, {
-        where: { tutorId, status: PayoutStatus.PENDING },
-      });
-      if (existingPending) {
-        throw new BadRequestException(
-          'You already have a pending payout request. Please wait for it to be processed.',
-        );
+      if (existing) {
+        if (
+          existing.tutorId !== tutorId ||
+          Number(existing.amount) !== Number(dto.amount) ||
+          existing.method !== dto.method
+        ) {
+          throw new BadRequestException(
+            'Payout key is already in use for another request',
+          );
+        }
+        if (
+          existing.method !== 'paypal' ||
+          existing.status !== PayoutStatus.PENDING
+        ) {
+          return existing;
+        }
+        // A crash can occur after reserving the balance but before PayPal
+        // acknowledges the batch. Resume with the same provider request ID.
+        resumablePayout = existing;
       }
-
-      if (tutorProfile.balance < dto.amount) {
-        throw new BadRequestException(
-          `Insufficient balance. Available: $${tutorProfile.balance.toFixed(2)}`,
-        );
-      }
-      await manager.decrement(
-        TutorProfile,
-        { userId: tutorId },
-        'balance',
-        dto.amount,
+    }
+    if (dto.method === 'paypal' && !this.payPalService.isWebhookConfigured()) {
+      throw new BadRequestException(
+        'PayPal payouts require configured API credentials and webhook verification',
       );
-      const payout = manager.create(Payout, {
-        tutorId,
-        amount: dto.amount,
-        method: dto.method,
-        accountDetails: dto.accountDetails,
-        status: PayoutStatus.PENDING,
+    }
+    const receiver =
+      dto.method === 'paypal' ? dto.paypalEmail?.trim() : dto.accountDetails;
+    if (!receiver) {
+      throw new BadRequestException('Payout account details are required');
+    }
+
+    const payout =
+      resumablePayout ??
+      (await this.dataSource.transaction(async (manager) => {
+        const tutorProfile = await manager.findOne(TutorProfile, {
+          where: { userId: tutorId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!tutorProfile)
+          throw new NotFoundException('Tutor profile not found');
+
+        // The tutor row lock serializes payout requests for the same account.
+        // Check for an existing pending request only after acquiring it so two
+        // concurrent requests cannot both reserve the same available balance.
+        const existingPending = await manager.findOne(Payout, {
+          where: {
+            tutorId,
+            status: In([PayoutStatus.PENDING, PayoutStatus.PROCESSING]),
+          },
+        });
+        if (existingPending) {
+          throw new BadRequestException(
+            'You already have a pending payout request. Please wait for it to be processed.',
+          );
+        }
+
+        if (tutorProfile.balance < dto.amount) {
+          throw new BadRequestException(
+            `Insufficient balance. Available: $${tutorProfile.balance.toFixed(2)}`,
+          );
+        }
+        await manager.decrement(
+          TutorProfile,
+          { userId: tutorId },
+          'balance',
+          dto.amount,
+        );
+        const created = manager.create(Payout, {
+          tutorId,
+          amount: dto.amount,
+          method: dto.method,
+          accountDetails: receiver,
+          idempotencyKey: dto.idempotencyKey ?? null,
+          status: PayoutStatus.PENDING,
+        });
+        return manager.save(Payout, created);
+      }));
+
+    if (dto.method !== 'paypal') {
+      await this.notifyPayoutSubmitted(payout);
+      return payout;
+    }
+
+    try {
+      const provider = await this.payPalService.createPayout(payout, receiver);
+      const processing = await this.dataSource.transaction(async (manager) => {
+        const locked = await manager.findOne(Payout, {
+          where: { id: payout.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!locked) throw new NotFoundException('Payout not found');
+        locked.paypalBatchId = provider.batchId;
+        locked.paypalItemId = provider.itemId;
+        locked.providerStatus = provider.status;
+        locked.status = PayoutStatus.PROCESSING;
+        return manager.save(Payout, locked);
       });
-      return manager.save(Payout, payout);
+      await this.notifyPayoutSubmitted(processing);
+      return processing;
+    } catch (error) {
+      const failed = await this.dataSource.transaction(async (manager) => {
+        const locked = await manager.findOne(Payout, {
+          where: { id: payout.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!locked) throw new NotFoundException('Payout not found');
+        if (!locked.balanceRestoredAt) {
+          await manager.increment(
+            TutorProfile,
+            { userId: tutorId },
+            'balance',
+            Number(locked.amount),
+          );
+          locked.balanceRestoredAt = new Date();
+        }
+        locked.status = PayoutStatus.FAILED;
+        locked.processedAt = new Date();
+        locked.errorMessage =
+          error instanceof Error ? error.message : 'PayPal payout failed';
+        return manager.save(Payout, locked);
+      });
+      await this.notifyPayoutDecision(
+        failed,
+        false,
+        'PayPal could not initiate the payout',
+      );
+      throw new BadRequestException('PayPal payout could not be initiated');
+    }
+  }
+
+  async requestPlatformPayout(adminId: string, dto: RequestPlatformPayoutDto) {
+    if (!this.payPalService.isWebhookConfigured()) {
+      throw new BadRequestException(
+        'PayPal payouts require configured API credentials and webhook verification',
+      );
+    }
+    const repository = this.dataSource.getRepository(PlatformPayout);
+    const existing = await repository.findOne({
+      where: { idempotencyKey: dto.idempotencyKey },
     });
+    if (existing) {
+      if (
+        existing.requestedBy !== adminId ||
+        Number(existing.amount) !== Number(dto.amount) ||
+        existing.receiverEmail !== dto.paypalEmail.trim()
+      ) {
+        throw new BadRequestException(
+          'Payout key is already in use for another request',
+        );
+      }
+      if (existing.status !== PayoutStatus.PENDING) return existing;
+    }
+
+    const payout =
+      existing ??
+      (await this.dataSource.transaction(async (manager) => {
+        await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+          'mrh-platform-payout',
+        ]);
+        const keyed = await manager.findOne(PlatformPayout, {
+          where: { idempotencyKey: dto.idempotencyKey },
+        });
+        if (keyed) return keyed;
+        const [ledger] = (await manager.query(`
+        SELECT
+          COALESCE((
+            SELECT SUM("platform_fee")
+            FROM "lessons"
+            WHERE "status" = 'completed'
+          ), 0)
+          + COALESCE((
+            SELECT SUM("platform_fee")
+            FROM "course_enrollments"
+          ), 0)
+          - COALESCE((
+            SELECT SUM("amount")
+            FROM "platform_payouts"
+            WHERE "status" IN ('pending', 'processing', 'success')
+          ), 0) AS "available"
+        `)) as Array<{ available: string | number }>;
+        const available = Number(ledger?.available ?? 0);
+        if (dto.amount > available) {
+          throw new BadRequestException(
+            `Insufficient platform commission balance. Available: $${available.toFixed(2)}`,
+          );
+        }
+        return manager.save(
+          PlatformPayout,
+          manager.create(PlatformPayout, {
+            requestedBy: adminId,
+            amount: dto.amount,
+            receiverEmail: dto.paypalEmail.trim(),
+            idempotencyKey: dto.idempotencyKey,
+            status: PayoutStatus.PENDING,
+          }),
+        );
+      }));
+    if (payout.status !== PayoutStatus.PENDING) return payout;
+
+    try {
+      const provider = await this.payPalService.createPayout(
+        payout,
+        payout.receiverEmail,
+      );
+      const processing = await this.dataSource.transaction(async (manager) => {
+        const locked = await manager.findOne(PlatformPayout, {
+          where: { id: payout.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!locked) throw new NotFoundException('Platform payout not found');
+        if (locked.status !== PayoutStatus.PENDING) return locked;
+        locked.paypalBatchId = provider.batchId;
+        locked.paypalItemId = provider.itemId;
+        locked.providerStatus = provider.status;
+        locked.status = PayoutStatus.PROCESSING;
+        return manager.save(PlatformPayout, locked);
+      });
+      await this.notifyPlatformPayoutDecision(processing);
+      return processing;
+    } catch (error) {
+      const failed = await this.dataSource.transaction(async (manager) => {
+        const locked = await manager.findOne(PlatformPayout, {
+          where: { id: payout.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!locked) throw new NotFoundException('Platform payout not found');
+        if (locked.status === PayoutStatus.PENDING) {
+          locked.status = PayoutStatus.FAILED;
+          locked.processedAt = new Date();
+          locked.errorMessage =
+            error instanceof Error ? error.message : 'PayPal payout failed';
+          await manager.save(PlatformPayout, locked);
+        }
+        return locked;
+      });
+      await this.notifyPlatformPayoutDecision(failed, false);
+      throw new BadRequestException('PayPal payout could not be initiated');
+    }
+  }
+
+  async getPlatformPayouts(page = 1, limit = 50) {
+    const repository = this.dataSource.getRepository(PlatformPayout);
+    const [items, total] = await repository.findAndCount({
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    const rows = await this.dataSource.query(`
+      SELECT
+        COALESCE((SELECT SUM("platform_fee") FROM "lessons" WHERE "status" = 'completed'), 0)
+        + COALESCE((SELECT SUM("platform_fee") FROM "course_enrollments"), 0)
+        - COALESCE((
+          SELECT SUM("amount") FROM "platform_payouts"
+          WHERE "status" IN ('pending', 'processing', 'success')
+        ), 0) AS "available"
+    `);
+    return {
+      items,
+      total,
+      page,
+      limit,
+      availableBalance: Number(rows[0]?.available ?? 0),
+    };
+  }
+
+  private async notifyPlatformPayoutDecision(
+    payout: PlatformPayout,
+    approved?: boolean,
+  ) {
+    const state =
+      approved === undefined
+        ? 'processing'
+        : approved
+          ? 'completed'
+          : payout.status;
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        userId: payout.requestedBy,
+        type: 'platform_payout_update',
+        title: 'Platform payout updated',
+        body: `The $${Number(payout.amount).toFixed(2)} PayPal platform payout is ${state}.`,
+      }),
+    );
+  }
+
+  private async notifyPayoutSubmitted(payout: Payout) {
+    await this.notificationRepository.save(
+      this.notificationRepository.create({
+        userId: payout.tutorId,
+        type: 'payout_processing',
+        title: 'Payout request received',
+        body: `Your $${Number(payout.amount).toFixed(2)} ${payout.method} payout is ${payout.status}.`,
+      }),
+    );
   }
 
   async getTutorPayouts(tutorId: string, page = 1, limit = 50) {
@@ -1022,45 +1890,68 @@ export class PaymentsService {
   }
 
   async approvePayout(payoutId: string, adminId: string) {
-    const payout = await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const payout = await manager.findOne(Payout, {
         where: { id: payoutId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!payout) throw new NotFoundException('Payout not found');
+      if (payout.status === PayoutStatus.SUCCESS) {
+        return { payout, changed: false };
+      }
+      if (payout.method === 'paypal') {
+        throw new BadRequestException(
+          'PayPal payouts are finalized by verified provider webhooks',
+        );
+      }
       if (payout.status !== PayoutStatus.PENDING) {
         throw new BadRequestException('Payout is already processed');
       }
       payout.status = PayoutStatus.SUCCESS;
       payout.adminNote = `Approved by admin ${adminId}`;
-      return manager.save(Payout, payout);
+      payout.processedAt = new Date();
+      return { payout: await manager.save(Payout, payout), changed: true };
     });
-    await this.notifyPayoutDecision(payout, true);
-    return payout;
+    if (result.changed) await this.notifyPayoutDecision(result.payout, true);
+    return result.payout;
   }
 
   async rejectPayout(payoutId: string, adminId: string, reason: string) {
-    const payout = await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const payout = await manager.findOne(Payout, {
         where: { id: payoutId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!payout) throw new NotFoundException('Payout not found');
+      if (payout.status === PayoutStatus.FAILED) {
+        return { payout, changed: false };
+      }
+      if (payout.method === 'paypal') {
+        throw new BadRequestException(
+          'PayPal payouts are finalized by verified provider webhooks',
+        );
+      }
       if (payout.status !== PayoutStatus.PENDING) {
         throw new BadRequestException('Payout already processed');
       }
-      await manager.increment(
-        TutorProfile,
-        { userId: payout.tutorId },
-        'balance',
-        payout.amount,
-      );
+      if (!payout.balanceRestoredAt) {
+        await manager.increment(
+          TutorProfile,
+          { userId: payout.tutorId },
+          'balance',
+          payout.amount,
+        );
+        payout.balanceRestoredAt = new Date();
+      }
       payout.status = PayoutStatus.FAILED;
       payout.adminNote = reason;
-      return manager.save(Payout, payout);
+      payout.processedAt = new Date();
+      return { payout: await manager.save(Payout, payout), changed: true };
     });
-    await this.notifyPayoutDecision(payout, false, reason);
-    return payout;
+    if (result.changed) {
+      await this.notifyPayoutDecision(result.payout, false, reason);
+    }
+    return result.payout;
   }
 
   private async notifyPayoutDecision(

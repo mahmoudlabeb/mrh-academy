@@ -26,6 +26,8 @@ import { CreateCourseDraftDto } from './dto/create-course-draft.dto.js';
 import { EnrollCourseDto } from './dto/enroll-course.dto.js';
 import { UpdateCourseDto } from './dto/update-course.dto.js';
 import { UpsertCourseLessonDto } from './dto/upsert-course-lesson.dto.js';
+import { UpsertCourseSectionDto } from './dto/upsert-course-section.dto.js';
+import { ReorderCourseContentDto } from './dto/reorder-course-content.dto.js';
 import { BunnyService } from '../integrations/video/bunny.service.js';
 import { UploadRateGuard } from '../common/guards/upload-rate.guard.js';
 import {
@@ -86,11 +88,34 @@ export class CoursesController {
     return this.coursesService.getPublicCourseOverview(id);
   }
 
+  @Public()
+  @Get(':id/curriculum')
+  getPublicCurriculum(@Param('id') id: string) {
+    return this.coursesService.findPublicCurriculum(id);
+  }
+
   @Get(':id/lessons')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN, UserRole.SUBADMIN)
   findLessons(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.coursesService.findLessons(id, user.id, user.role);
+  }
+
+  @Get(':id/studio')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  getStudio(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.coursesService.getOwnedCourseStudio(user.id, id);
+  }
+
+  @Get(':id/studio/readiness')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  getStudioReadiness(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.coursesService.getOwnedCourseReadiness(user.id, id);
   }
 
   @Post()
@@ -150,6 +175,13 @@ export class CoursesController {
       throw new BadRequestException('Media kind must be cover or preview');
     }
     return this.coursesService.uploadOwnedCourseMedia(user.id, id, kind, file);
+  }
+
+  @Delete(':id/media/cover')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  deleteCover(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.coursesService.deleteOwnedCourseCover(user.id, id);
   }
 
   @Get(':id/media/preview/status')
@@ -222,6 +254,62 @@ export class CoursesController {
     return this.coursesService.addLesson(user.id, id, dto);
   }
 
+  @Post(':id/sections')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  addSection(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpsertCourseSectionDto,
+  ) {
+    return this.coursesService.addSection(user.id, id, dto);
+  }
+
+  @Patch(':courseId/sections/:sectionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  updateSection(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('courseId') courseId: string,
+    @Param('sectionId') sectionId: string,
+    @Body() dto: UpsertCourseSectionDto,
+  ) {
+    return this.coursesService.updateSection(user.id, courseId, sectionId, dto);
+  }
+
+  @Delete(':courseId/sections/:sectionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  removeSection(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('courseId') courseId: string,
+    @Param('sectionId') sectionId: string,
+  ) {
+    return this.coursesService.removeSection(user.id, courseId, sectionId);
+  }
+
+  @Post(':id/sections/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  reorderSections(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ReorderCourseContentDto,
+  ) {
+    return this.coursesService.reorderSections(user.id, id, dto.ids);
+  }
+
+  @Post(':id/lessons/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  reorderLessons(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ReorderCourseContentDto,
+  ) {
+    return this.coursesService.reorderLessons(user.id, id, dto.ids);
+  }
+
   @Patch(':courseId/lessons/:lessonId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.TUTOR)
@@ -243,6 +331,53 @@ export class CoursesController {
     @Param('lessonId') lessonId: string,
   ) {
     return this.coursesService.removeLesson(user.id, courseId, lessonId);
+  }
+
+  @Post(':courseId/lessons/:lessonId/files')
+  @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
+  @Roles(UserRole.TUTOR)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 20 * 1024 * 1024 },
+    }),
+  )
+  uploadLessonFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @UploadedFile()
+    file:
+      | {
+          buffer: Buffer;
+          mimetype: string;
+          size: number;
+          originalname: string;
+        }
+      | undefined,
+  ) {
+    return this.coursesService.uploadLessonFile(
+      user.id,
+      courseId,
+      lessonId,
+      file,
+    );
+  }
+
+  @Delete(':courseId/lessons/:lessonId/files/:fileId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.TUTOR)
+  deleteLessonFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('courseId') courseId: string,
+    @Param('lessonId') lessonId: string,
+    @Param('fileId') fileId: string,
+  ) {
+    return this.coursesService.deleteLessonFile(
+      user.id,
+      courseId,
+      lessonId,
+      fileId,
+    );
   }
 
   @Post(':id/enroll')

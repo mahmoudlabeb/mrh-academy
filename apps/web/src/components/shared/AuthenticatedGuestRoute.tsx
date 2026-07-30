@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
 import { authenticatedGuestDestination } from "@/lib/workspace-routing";
@@ -23,7 +23,6 @@ function RedirectStatus() {
 function AuthenticatedGuestRouteContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const { user, isLoading } = useAuth();
   const [sourceHash, setSourceHash] = useState<string | null>(null);
   const query = searchParams.toString();
@@ -43,8 +42,8 @@ function AuthenticatedGuestRouteContent({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (destination) router.replace(destination);
-  }, [destination, router]);
+    if (destination) window.location.replace(destination);
+  }, [destination]);
 
   if (isLoading || sourceHash === null || destination) {
     return <RedirectStatus />;

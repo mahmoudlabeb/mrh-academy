@@ -25,6 +25,11 @@ export class UpdateCourseDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
+  category?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(5000)
   description?: string;
 

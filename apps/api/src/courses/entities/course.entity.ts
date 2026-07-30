@@ -27,8 +27,14 @@ export class Course {
   @Column()
   description: string;
 
-  @Column({ nullable: true })
-  thumbnailUrl: string;
+  @Column({ type: 'text', nullable: true })
+  thumbnailUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  thumbnailPublicId: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  category: string | null;
 
   @Column({ type: 'varchar', length: 20, default: 'recorded' })
   courseType: 'recorded' | 'live';

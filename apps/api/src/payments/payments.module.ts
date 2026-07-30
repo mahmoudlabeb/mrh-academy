@@ -28,6 +28,9 @@ import { CourseLessonCompletion } from '../courses/entities/course-lesson-comple
 import { Course } from '../courses/entities/course.entity.js';
 import { PayPalService } from './paypal/paypal.service.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
+import { LessonFundingAllocation } from './entities/lesson-funding-allocation.entity.js';
+import { PayPalWebhookController } from './paypal/paypal-webhook.controller.js';
+import { PlatformPayout } from './entities/platform-payout.entity.js';
 
 @Module({
   imports: [
@@ -47,6 +50,8 @@ import { Lesson } from '../lessons/entities/lesson.entity.js';
       CourseLessonCompletion,
       Course,
       Lesson,
+      LessonFundingAllocation,
+      PlatformPayout,
     ]),
     StorageModule,
   ],
@@ -56,6 +61,7 @@ import { Lesson } from '../lessons/entities/lesson.entity.js';
     PaymentMethodsController,
     StripeWebhookController,
     StripeConnectController,
+    PayPalWebhookController,
   ],
   providers: [
     PaymentsService,

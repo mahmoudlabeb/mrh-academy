@@ -36,15 +36,15 @@ const navigation: Record<Workspace, readonly NavigationItem[]> = {
   teach: [
     { path: "", en: "Home", ar: "الرئيسية" },
     { path: "/classroom", en: "Classroom", ar: "الفصل" },
-    { path: "/schedule", en: "Schedule", ar: "الجدول والتوافر" },
+    { path: "/schedule", en: "Schedule", ar: "الجدول والمواعيد" },
     { path: "/students", en: "Students", ar: "الطلاب" },
     { path: "/messages", en: "Messages", ar: "الرسائل" },
     { path: "/courses", en: "Courses", ar: "الدورات" },
     { path: "/earnings", en: "Earnings", ar: "الأرباح" },
   ],
   ops: [
-    { path: "", en: "Queue", ar: "قائمة القرارات" },
-    { path: "/people", en: "People", ar: "الأشخاص" },
+    { path: "", en: "Queue", ar: "قائمة المراجعة" },
+    { path: "/people", en: "People", ar: "المستخدمون" },
     { path: "/lessons", en: "Lessons", ar: "الدروس" },
     { path: "/money/payments", en: "Payments", ar: "المدفوعات" },
     { path: "/settings", en: "Settings", ar: "الإعدادات" },
@@ -78,7 +78,7 @@ export function BlueprintWorkspaceShell({
         : user?.role === "admin" || user?.role === "subadmin";
 
   useEffect(() => {
-    if (!window.matchMedia("(max-width: 820px)").matches) return;
+    if (!window.matchMedia("(max-width: 980px)").matches) return;
     const activeItem = navigationRef.current?.querySelector<HTMLElement>(
       '[aria-current="page"]',
     );
@@ -122,6 +122,7 @@ export function BlueprintWorkspaceShell({
       </main>
     );
   }
+
   if (!allowed) {
     const roleHome =
       user?.role === "student"
@@ -133,10 +134,12 @@ export function BlueprintWorkspaceShell({
             : `/${lang}`;
     return (
       <main className="workspace-gate">
-        <h1>{lang === "ar" ? "غير مصرح لك بالدخول" : "Access unavailable"}</h1>
+        <h1>
+          {lang === "ar" ? "لا يمكن الوصول إلى الصفحة" : "Access unavailable"}
+        </h1>
         <p>
           {lang === "ar"
-            ? "هذه المساحة مرتبطة بدور وصلاحيات حسابك."
+            ? "هذه المساحة متاحة فقط للدور والصلاحيات المناسبة."
             : "This workspace is restricted to the corresponding account role and permissions."}
         </p>
         <Link

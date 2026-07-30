@@ -24,6 +24,7 @@ import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { Payout } from '../payments/entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
+import { RequestPlatformPayoutDto } from '../payments/dto/request-platform-payout.dto.js';
 
 /**
  * Stripe Connect Automated Payout System
@@ -152,6 +153,25 @@ export class AdminPaymentsController {
       rejectionReason: p.rejectionReason,
       createdAt: p.createdAt,
     }));
+  }
+
+  @Get('platform-payouts')
+  getPlatformPayouts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.paymentsService.getPlatformPayouts(
+      Math.max(1, Math.floor(Number(page) || 1)),
+      Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+    );
+  }
+
+  @Post('platform-payouts')
+  requestPlatformPayout(
+    @CurrentUser() admin: { id: string },
+    @Body() dto: RequestPlatformPayoutDto,
+  ) {
+    return this.paymentsService.requestPlatformPayout(admin.id, dto);
   }
 
   @Post(':id/approve')

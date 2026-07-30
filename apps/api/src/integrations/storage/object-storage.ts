@@ -14,7 +14,13 @@ export type StoredObject = {
 
 export interface ObjectStorage {
   upload(buffer: Buffer, options: UploadOptions): Promise<StoredObject>;
-  destroy(publicId: string, options?: { resourceType?: string }): Promise<void>;
+  destroy(
+    publicId: string,
+    options?: {
+      resourceType?: string;
+      deliveryType?: 'upload' | 'authenticated';
+    },
+  ): Promise<void>;
   signedUrl(
     publicId: string,
     options?: {

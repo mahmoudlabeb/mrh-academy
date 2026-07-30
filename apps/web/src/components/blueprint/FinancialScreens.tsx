@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PaymentMethod } from "@mrh/types";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/contexts/auth-context";
@@ -81,8 +81,13 @@ function paymentStatusLabel(status: string, lang: "ar" | "en"): string {
     pending: { ar: "قيد المراجعة", en: "Pending" },
     approved: { ar: "مقبولة", en: "Approved" },
     rejected: { ar: "مرفوضة", en: "Rejected" },
+    failed: { ar: "فشلت", en: "Failed" },
     completed: { ar: "مكتملة", en: "Completed" },
     cancelled: { ar: "ملغاة", en: "Cancelled" },
+    processing: { ar: "قيد المعالجة", en: "Processing" },
+    partially_refunded: { ar: "مستردة جزئيًا", en: "Partially refunded" },
+    refunded: { ar: "مستردة", en: "Refunded" },
+    disputed: { ar: "متنازع عليها", en: "Disputed" },
   };
   return labels[status]?.[lang] ?? status;
 }
@@ -117,6 +122,11 @@ function DataNotice({
 
 export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
   const { lang, t, formatDate } = useCopy();
+  const searchParams = useSearchParams();
+  const captureStarted = useRef<string | null>(null);
+  const [paypalVerified, setPaypalVerified] = useState(
+    searchParams.get("paypal") === "success",
+  );
   const balanceQuery = useQuery({
     queryKey: ["blueprint-wallet-balance"],
     queryFn: async () =>
@@ -128,6 +138,31 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
       (await apiClient.get<Payment[]>("/payments/history")).data,
   });
   const balance = Number(balanceQuery.data?.balance ?? 0);
+  const paypalPaymentId = searchParams.get("paypalPaymentId");
+  const paypalCapture = useMutation({
+    mutationFn: async (paymentId: string) =>
+      (await apiClient.post(`/payments/paypal/${paymentId}/capture`)).data,
+    onSuccess: () => {
+      void Promise.all([balanceQuery.refetch(), paymentsQuery.refetch()]);
+      setPaypalVerified(true);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `/${lang}/learn/wallet?paypal=success`,
+      );
+    },
+  });
+  useEffect(() => {
+    if (
+      !paypalPaymentId ||
+      captureStarted.current === paypalPaymentId ||
+      paypalCapture.isPending
+    ) {
+      return;
+    }
+    captureStarted.current = paypalPaymentId;
+    paypalCapture.mutate(paypalPaymentId);
+  }, [paypalCapture, paypalPaymentId]);
   return (
     <main className="blueprint-workspace-page">
       <header className="blueprint-workspace-head">
@@ -147,6 +182,40 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
           ＋ {t("إضافة رصيد", "Add funds")}
         </Link>
       </header>
+      {(paypalCapture.isPending ||
+        paypalCapture.isError ||
+        paypalVerified ||
+        searchParams.get("paypalCancelled") === "1") && (
+        <section
+          className={
+            paypalCapture.isError || searchParams.get("paypalCancelled") === "1"
+              ? "blueprint-error"
+              : "blueprint-result blueprint-result--success"
+          }
+          role={paypalCapture.isError ? "alert" : "status"}
+          aria-live="polite"
+        >
+          {paypalCapture.isPending
+            ? t(
+                "جارٍ التحقق من دفعة PayPal مع الخادم…",
+                "Verifying the PayPal payment with the server…",
+              )
+            : paypalCapture.isError
+              ? t(
+                  "تعذر التحقق من دفعة PayPal. لم تتم إضافة أي رصيد.",
+                  "PayPal verification failed. No wallet credit was added.",
+                )
+              : searchParams.get("paypalCancelled") === "1"
+                ? t(
+                    "تم إلغاء عملية PayPal ولم يتغير رصيدك.",
+                    "PayPal checkout was cancelled and your balance was unchanged.",
+                  )
+                : t(
+                    "تم التحقق من دفعة PayPal وإضافة الرصيد.",
+                    "PayPal verified the payment and your wallet was credited.",
+                  )}
+        </section>
+      )}
       <section className="blueprint-balance-card">
         <small>{t("الرصيد المتاح", "Available wallet balance")}</small>
         {balanceQuery.isLoading ? (
@@ -273,6 +342,7 @@ function AddFundsPanel({
   const [receipt, setReceipt] = useState<File | null>(null);
   const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const methodsQuery = useQuery({
     queryKey: ["blueprint-payment-methods"],
     queryFn: async () =>
@@ -322,7 +392,7 @@ function AddFundsPanel({
       if (!method) throw new Error("No enabled payment method selected");
       data.append("method", method);
       data.append("currency", currency);
-      data.append("idempotencyKey", crypto.randomUUID());
+      data.append("idempotencyKey", idempotencyKeyRef.current);
       if (note.trim()) data.append("adminNote", note.trim());
       if (receipt) data.append("screenshot", receipt);
       return (
@@ -740,6 +810,7 @@ function PayoutPanel({
   const [details, setDetails] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [validationVisible, setValidationVisible] = useState(false);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const amountNumber = Number(amount);
   const submit = useMutation({
     mutationFn: async () =>
@@ -747,7 +818,10 @@ function PayoutPanel({
         await apiClient.post("/payouts", {
           amount: amountNumber,
           method,
-          accountDetails: details.trim(),
+          idempotencyKey: idempotencyKeyRef.current,
+          ...(method === "paypal"
+            ? { paypalEmail: details.trim() }
+            : { accountDetails: details.trim() }),
         })
       ).data,
     onSuccess: async () => {
@@ -886,8 +960,11 @@ function PayoutPanel({
             </div>
           </fieldset>
           <label>
-            {t("تفاصيل الحساب", "Account details")}
+            {method === "paypal"
+              ? t("بريد PayPal", "PayPal email")
+              : t("تفاصيل الحساب", "Account details")}
             <input
+              type={method === "paypal" ? "email" : "text"}
               value={details}
               aria-invalid={validationVisible && detailsInvalid}
               aria-describedby={

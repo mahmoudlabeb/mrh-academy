@@ -13,6 +13,7 @@ import { CalendarService } from '../../integrations/google/calendar.service';
 import { EmailService } from '../../integrations/email/email.service';
 import { RedisService } from '../../redis/redis.service';
 import { CourseStatus, LessonStatus } from '@mrh/types';
+import { ClassroomAccessService } from '../../classroom/classroom-access.service';
 
 function futureDate(daysFromNow = 30): string {
   const d = new Date();
@@ -73,6 +74,7 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LessonsService,
+        ClassroomAccessService,
         { provide: getRepositoryToken(Lesson), useValue: lessonRepo },
         { provide: getRepositoryToken(TutorProfile), useValue: tutorRepo },
         { provide: getRepositoryToken(StudentProfile), useFactory: mockRepo },
@@ -82,7 +84,11 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
         { provide: DataSource, useValue: dataSource },
         {
           provide: CommissionService,
-          useValue: { calculateLessonEarnings: jest.fn() },
+          useValue: {
+            calculateLessonEarnings: jest
+              .fn()
+              .mockReturnValue({ platformFee: 2, tutorShare: 23 }),
+          },
         },
         {
           provide: CalendarService,
@@ -170,6 +176,7 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
         .fn()
         .mockResolvedValue({ userId: 'tutor-1', hourlyRate: 30 }),
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      find: jest.fn().mockResolvedValue([]),
       create: jest.fn((_cls: any, data: any) => data),
       decrement: jest.fn(),
       save: jest.fn(async (_target: any, data: any) => {

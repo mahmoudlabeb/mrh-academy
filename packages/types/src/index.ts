@@ -17,10 +17,25 @@ export enum LessonPaymentStatus {
   REFUNDED = "refunded",
 }
 
+export enum ClassroomAccessState {
+  ALLOWED = "allowed",
+  WAITING = "waiting",
+  CANCELLED = "cancelled",
+  REFUNDED = "refunded",
+  EXPIRED = "expired",
+  CLOSED = "closed",
+  UNPAID = "unpaid",
+}
+
 export enum PaymentStatus {
   PENDING = "pending",
   APPROVED = "approved",
   REJECTED = "rejected",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+  PARTIALLY_REFUNDED = "partially_refunded",
+  REFUNDED = "refunded",
+  DISPUTED = "disputed",
 }
 
 export enum PaymentMethod {
@@ -34,8 +49,11 @@ export enum PaymentMethod {
 
 export enum PayoutStatus {
   PENDING = "pending",
+  PROCESSING = "processing",
   SUCCESS = "success",
   FAILED = "failed",
+  CANCELLED = "cancelled",
+  REFUNDED = "refunded",
 }
 
 export enum CourseStatus {
@@ -122,9 +140,11 @@ export const LessonSchema = z.object({
   studentId: z.string().uuid(),
   scheduledTime: z.coerce.date(),
   endTime: z.coerce.date(),
-  durationMinutes: z.union([z.literal(25), z.literal(50)]),
+  durationMinutes: z.number().int().positive(),
   price: z.number(),
   platformFee: z.number().nullable(),
+  tutorShare: z.number().nullable().optional(),
+  tutorShareReleasedAt: z.coerce.date().nullable().optional(),
   status: z.nativeEnum(LessonStatus).default(LessonStatus.CONFIRMED),
   sessionStatus: z.nativeEnum(LessonStatus),
   paymentStatus: z.nativeEnum(LessonPaymentStatus),
@@ -207,8 +227,18 @@ export const CourseSchema = z.object({
   id: z.string().uuid(),
   tutorId: z.string().uuid(),
   title: z.string(),
+  subtitle: z.string().nullable().optional(),
   description: z.string(),
   thumbnailUrl: z.string().nullable(),
+  category: z.string().nullable().optional(),
+  courseType: z.enum(["recorded", "live"]).optional(),
+  learningOutcomes: z.array(z.string()).nullable().optional(),
+  requirements: z.array(z.string()).nullable().optional(),
+  targetAudience: z.array(z.string()).nullable().optional(),
+  language: z.string().optional(),
+  level: z.string().optional(),
+  isDraft: z.boolean().optional(),
+  submittedAt: z.coerce.date().nullable().optional(),
   previewVideoUrl: z.string().nullable(),
   overviewVideoId: z.string().nullable(),
   overviewCaptionLanguages: z.array(z.string()).nullable(),
@@ -220,6 +250,17 @@ export const CourseSchema = z.object({
   updatedAt: z.coerce.date(),
 });
 export type Course = z.infer<typeof CourseSchema>;
+
+export const CourseSectionSchema = z.object({
+  id: z.string().uuid(),
+  courseId: z.string().uuid(),
+  title: z.string(),
+  description: z.string().nullable(),
+  sectionOrder: z.number().int().positive(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type CourseSection = z.infer<typeof CourseSectionSchema>;
 
 export const VideoPlaybackSchema = z.object({
   status: z.enum([
@@ -248,8 +289,30 @@ export type VideoPlayback = z.infer<typeof VideoPlaybackSchema>;
 export const CourseLessonSchema = z.object({
   id: z.string().uuid(),
   courseId: z.string().uuid(),
+  sectionId: z.string().uuid().nullable().optional(),
   title: z.string(),
-  videoAssetId: z.string(),
+  description: z.string().nullable().optional(),
+  contentType: z.enum(["video", "article", "resource"]).optional(),
+  videoAssetId: z.string().nullable(),
+  videoUrl: z.string().nullable().optional(),
+  articleContent: z.string().nullable().optional(),
+  resourceUrl: z.string().nullable().optional(),
+  downloadableFiles: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        url: z.string(),
+        publicId: z.string(),
+        size: z.number(),
+        mimeType: z.string(),
+      }),
+    )
+    .optional(),
+  externalLinks: z
+    .array(z.object({ title: z.string(), url: z.string() }))
+    .optional(),
+  isPreview: z.boolean().optional(),
   durationMinutes: z.number().int(),
   lessonOrder: z.number().int(),
   createdAt: z.coerce.date(),

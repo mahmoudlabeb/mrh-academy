@@ -5,14 +5,21 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  IsUUID,
+  IsArray,
   MaxLength,
   Min,
 } from 'class-validator';
 
 export class UpsertCourseLessonDto {
+  @IsOptional()
   @IsString()
   @MaxLength(200)
-  title: string;
+  title?: string;
+
+  @IsOptional()
+  @IsUUID()
+  sectionId?: string;
 
   @IsOptional()
   @IsString()
@@ -29,6 +36,10 @@ export class UpsertCourseLessonDto {
   videoAssetId?: string;
 
   @IsOptional()
+  @IsUrl({ require_tld: false })
+  videoUrl?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(20000)
   articleContent?: string;
@@ -36,6 +47,11 @@ export class UpsertCourseLessonDto {
   @IsOptional()
   @IsUrl({ require_tld: false })
   resourceUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUrl({ require_tld: false }, { each: true })
+  externalLinks?: string[];
 
   @IsOptional()
   @IsInt()

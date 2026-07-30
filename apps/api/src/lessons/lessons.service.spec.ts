@@ -5,7 +5,13 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole, LessonStatus, CourseStatus } from '@mrh/types';
+import {
+  ClassroomAccessState,
+  CourseStatus,
+  LessonPaymentStatus,
+  LessonStatus,
+  UserRole,
+} from '@mrh/types';
 import { Lesson } from './entities/lesson.entity.js';
 import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
@@ -19,6 +25,7 @@ import { EmailService } from '../integrations/email/email.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
+import { ClassroomAccessService } from '../classroom/classroom-access.service.js';
 
 function futureScheduledTimeIso(daysAhead = 1, hourUtc = 10): string {
   const date = new Date();
@@ -36,11 +43,13 @@ describe('LessonsService', () => {
 
   let transactionManager: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
     increment: jest.Mock;
     decrement: jest.Mock;
+    delete: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
 
@@ -141,11 +150,13 @@ describe('LessonsService', () => {
         }
         return null;
       }),
+      find: jest.fn().mockResolvedValue([]),
       save: jest.fn(async (...args) => (args.length > 1 ? args[1] : args[0])),
       create: jest.fn((_entity, data) => data),
       update: jest.fn(),
       increment: jest.fn(),
       decrement: jest.fn(),
+      delete: jest.fn(),
       createQueryBuilder: jest.fn(() => ({
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -168,6 +179,7 @@ describe('LessonsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LessonsService,
+        ClassroomAccessService,
         { provide: getRepositoryToken(Lesson), useValue: lessonRepository },
         {
           provide: getRepositoryToken(TutorProfile),
@@ -260,6 +272,62 @@ describe('LessonsService', () => {
         { userId: studentId },
         'balance',
         41.67,
+      );
+    });
+
+    it('books multiple whole hours with the correct price and end time', async () => {
+      const multiHourDto: BookLessonDto = {
+        ...dto,
+        durationMinutes: 120,
+      };
+      transactionManager.findOne.mockImplementation(async (entity) => {
+        if (entity === StudentProfile) {
+          return { userId: studentId, balance: 250, heldBalance: 0 };
+        }
+        if (entity === TutorProfile) {
+          return {
+            userId: 'tutor-1',
+            hourlyRate: 50,
+            status: CourseStatus.APPROVED,
+          };
+        }
+        if (entity === User) {
+          return { id: studentId, isActive: true };
+        }
+        return null;
+      });
+      transactionManager.save.mockImplementation(async (entity, data) => {
+        if (entity === Lesson) return { ...data, id: 'lesson-2' };
+        return data;
+      });
+      lessonRepository.findOne.mockResolvedValue({
+        id: 'lesson-2',
+        tutorId: 'tutor-1',
+        studentId,
+        status: LessonStatus.CONFIRMED,
+        durationMinutes: 120,
+        price: 100,
+      });
+
+      await service.bookLesson(studentId, multiHourDto);
+
+      expect(transactionManager.create).toHaveBeenCalledWith(
+        Lesson,
+        expect.objectContaining({
+          durationMinutes: 120,
+          price: 100,
+          endTime: new Date(
+            new Date(multiHourDto.scheduledTime).getTime() + 120 * 60_000,
+          ),
+          platformFee: 30,
+          tutorShare: 70,
+        }),
+      );
+      expect(transactionManager.decrement).toHaveBeenCalledWith(
+        StudentProfile,
+        { userId: studentId },
+        'balance',
+        100,
       );
     });
 
@@ -570,10 +638,10 @@ describe('LessonsService', () => {
 
       await service.completeLesson(lessonId, tutorId, dto);
 
-      expect(transactionManager.update).toHaveBeenCalledWith(
+      expect(transactionManager.save).toHaveBeenCalledWith(
         Lesson,
-        { id: lessonId },
         expect.objectContaining({
+          id: lessonId,
           status: LessonStatus.COMPLETED,
           platformFee: 30,
           notes: 'Great lesson',
@@ -749,6 +817,7 @@ describe('LessonsService', () => {
 
   describe('findByRoomId', () => {
     it('uses the native room id first and keeps legacy meet-url compatibility', async () => {
+      const scheduledTime = new Date(Date.now() - 5 * 60_000);
       const lesson = {
         id: 'lesson-1',
         roomId: 'native-room-1',
@@ -756,6 +825,10 @@ describe('LessonsService', () => {
         studentId: 'student-1',
         tutorId: 'tutor-1',
         status: LessonStatus.CONFIRMED,
+        paymentStatus: LessonPaymentStatus.PAID,
+        scheduledTime,
+        endTime: new Date(scheduledTime.getTime() + 50 * 60_000),
+        durationMinutes: 50,
         tutor: {},
         student: {},
       };
@@ -767,7 +840,15 @@ describe('LessonsService', () => {
 
       await expect(
         service.findByRoomId('native-room-1', 'student-1'),
-      ).resolves.toEqual(lesson);
+      ).resolves.toEqual(
+        expect.objectContaining({
+          id: lesson.id,
+          access: expect.objectContaining({
+            state: ClassroomAccessState.ALLOWED,
+            canJoin: true,
+          }),
+        }),
+      );
       expect(lessonRepository.findOne).toHaveBeenCalledWith(
         expect.objectContaining({
           where: [{ roomId: 'native-room-1' }, { meetUrl: 'native-room-1' }],

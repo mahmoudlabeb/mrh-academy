@@ -54,31 +54,34 @@ export class StripeService implements OnModuleInit {
     const providerCurrency = currency.toLowerCase();
     const currencySymbol = currency === 'EGP' ? 'EGP ' : '$';
 
-    const session = await this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: providerCurrency,
-            product_data: {
-              name: 'Mr.H Academy Balance',
-              description: `Add ${currencySymbol}${amount} to your student balance`,
+    const session = await this.stripe.checkout.sessions.create(
+      {
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: providerCurrency,
+              product_data: {
+                name: 'Mr.H Academy Balance',
+                description: `Add ${currencySymbol}${amount} to your student balance`,
+              },
+              unit_amount: amountInCents,
             },
-            unit_amount: amountInCents,
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: 'payment',
+        success_url: `${frontendUrl}/student?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${frontendUrl}/student?payment_cancelled=true`,
+        client_reference_id: paymentId,
+        metadata: {
+          userId,
+          paymentId,
+          currency,
         },
-      ],
-      mode: 'payment',
-      success_url: `${frontendUrl}/student?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${frontendUrl}/student?payment_cancelled=true`,
-      client_reference_id: paymentId,
-      metadata: {
-        userId,
-        paymentId,
-        currency,
       },
-    });
+      { idempotencyKey: `mrh-wallet-${paymentId}` },
+    );
 
     return session;
   }
@@ -91,38 +94,42 @@ export class StripeService implements OnModuleInit {
     amount: number;
     email: string;
     referralCode?: string;
+    idempotencyKey: string;
   }) {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    return this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      customer_email: input.email,
-      line_items: [
-        {
-          price_data: {
-            currency: this.currency,
-            product_data: {
-              name: input.courseTitle,
-              description: 'MRH Academy course access',
+    return this.stripe.checkout.sessions.create(
+      {
+        payment_method_types: ['card'],
+        customer_email: input.email,
+        line_items: [
+          {
+            price_data: {
+              currency: this.currency,
+              product_data: {
+                name: input.courseTitle,
+                description: 'MRH Academy course access',
+              },
+              unit_amount: Math.round(input.amount * 100),
             },
-            unit_amount: Math.round(input.amount * 100),
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: 'payment',
+        success_url: `${frontendUrl}/courses/${input.courseId}?payment_success=true`,
+        cancel_url: `${frontendUrl}/courses/${input.courseId}?payment_cancelled=true`,
+        client_reference_id: input.paymentId,
+        metadata: {
+          checkoutType: 'course',
+          userId: input.userId,
+          paymentId: input.paymentId,
+          courseId: input.courseId,
+          referralCode: input.referralCode ?? '',
         },
-      ],
-      mode: 'payment',
-      success_url: `${frontendUrl}/courses/${input.courseId}?payment_success=true`,
-      cancel_url: `${frontendUrl}/courses/${input.courseId}?payment_cancelled=true`,
-      client_reference_id: input.paymentId,
-      metadata: {
-        checkoutType: 'course',
-        userId: input.userId,
-        paymentId: input.paymentId,
-        courseId: input.courseId,
-        referralCode: input.referralCode ?? '',
       },
-    });
+      { idempotencyKey: `mrh-course-${input.idempotencyKey}` },
+    );
   }
 
   // ─── Stripe Connect ──────────────────────────────────────────────────

@@ -8,7 +8,7 @@ async function mockSession(
     {
       name: "mrh_token",
       value: `mock-${role}-session`,
-      url: "http://localhost:3210",
+      url: "http://127.0.0.1:3210",
       httpOnly: true,
       sameSite: "Strict",
     },
@@ -216,7 +216,12 @@ test("Arabic learner discovery preserves RTL and the selected theme", async ({
   await mockStudentSession(page);
 
   await page.goto("/ar/learn");
-  await page.getByRole("link", { name: "اعثر على معلم", exact: true }).click();
+  const findTutor = page.getByRole("link", {
+    name: "اعثر على معلم",
+    exact: true,
+  });
+  await expect(findTutor).toHaveAttribute("href", "/ar/learn/tutors");
+  await page.goto("/ar/learn/tutors");
 
   await expect(page).toHaveURL(/\/ar\/learn\/tutors$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");

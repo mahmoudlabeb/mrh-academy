@@ -11,6 +11,8 @@ import { CoursesService } from './courses.service.js';
 import { BunnyService } from '../integrations/video/bunny.service.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
+import { Notification } from '../messages/entities/notification.entity.js';
+import { CourseSection } from './entities/course-section.entity.js';
 
 @Module({
   imports: [
@@ -21,8 +23,10 @@ import { StorageModule } from '../integrations/storage/storage.module.js';
       CourseEnrollment,
       CourseLesson,
       CourseLessonCompletion,
+      CourseSection,
       TutorProfile,
       StudentProfile,
+      Notification,
     ]),
   ],
   controllers: [CoursesController],

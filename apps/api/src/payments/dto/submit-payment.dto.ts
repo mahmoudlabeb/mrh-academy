@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -29,7 +30,6 @@ export class SubmitPaymentDto {
   @IsString()
   adminNote?: string;
 
-  @IsOptional()
-  @IsString()
+  @IsUUID()
   idempotencyKey?: string;
 }

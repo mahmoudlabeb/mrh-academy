@@ -53,6 +53,7 @@ export const environmentValidationSchema = Joi.object({
   STRIPE_PUBLISHABLE_KEY: Joi.string().allow('').optional(),
   PAYPAL_CLIENT_ID: Joi.string().allow('').optional(),
   PAYPAL_CLIENT_SECRET: Joi.string().allow('').optional(),
+  PAYPAL_WEBHOOK_ID: Joi.string().allow('').optional(),
   PAYPAL_BASE_URL: Joi.string()
     .uri()
     .default('https://api-m.sandbox.paypal.com'),

@@ -1,10 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = "http://localhost:3210";
+const baseURL = "http://127.0.0.1:3210";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "workspace-navigation.mock.spec.ts",
+  testMatch: [
+    "workspace-navigation.mock.spec.ts",
+    "classroom-flow.mock.spec.ts",
+    "paid-learning-flow.mock.spec.ts",
+    "course-studio.mock.spec.ts",
+    "secure-videos.spec.ts",
+  ],
   workers: 1,
   retries: 0,
   reporter: [["list"]],
@@ -25,9 +31,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm exec next dev --turbopack --hostname 127.0.0.1 --port 3210",
+    command: "pnpm exec next dev --hostname 127.0.0.1 --port 3210",
     url: baseURL,
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     env: {
       API_UPSTREAM_URL: "http://127.0.0.1:9",

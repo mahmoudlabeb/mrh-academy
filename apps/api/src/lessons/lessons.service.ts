@@ -7,9 +7,15 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { randomUUID } from 'node:crypto';
-import { UserRole, LessonStatus, CourseStatus } from '@mrh/types';
+import {
+  UserRole,
+  LessonPaymentStatus,
+  LessonStatus,
+  CourseStatus,
+  PaymentStatus,
+} from '@mrh/types';
 import { Lesson } from './entities/lesson.entity.js';
 import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
@@ -24,6 +30,9 @@ import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
 import { RescheduleLessonDto } from './dto/reschedule-lesson.dto.js';
 import { Notification } from '../messages/entities/notification.entity.js';
+import { ClassroomAccessService } from '../classroom/classroom-access.service.js';
+import { Payment } from '../payments/entities/payment.entity.js';
+import { LessonFundingAllocation } from '../payments/entities/lesson-funding-allocation.entity.js';
 
 @Injectable()
 export class LessonsService {
@@ -50,6 +59,7 @@ export class LessonsService {
     private readonly emailService: EmailService,
     private readonly calendarService: CalendarService,
     private readonly dataSource: DataSource,
+    private readonly classroomAccessService: ClassroomAccessService,
   ) {}
 
   async findUserLessons(userId: string, role: UserRole, page = 1, limit = 20) {
@@ -71,6 +81,7 @@ export class LessonsService {
         endTime: true,
         durationMinutes: true,
         status: true,
+        paymentStatus: true,
         price: true,
         roomId: true,
         meetUrl: true,
@@ -135,6 +146,10 @@ export class LessonsService {
     const price =
       Math.round(tutorProfile.hourlyRate * (dto.durationMinutes / 60) * 100) /
       100;
+    const lessonEarnings = this.commissionService.calculateLessonEarnings(
+      price,
+      tutorProfile.totalHoursTaught,
+    );
 
     const scheduledDate = new Date(dto.scheduledTime);
     if (isNaN(scheduledDate.getTime())) {
@@ -229,7 +244,10 @@ export class LessonsService {
           price,
           idempotencyKey,
           status: LessonStatus.CONFIRMED,
-          platformFee: null,
+          paymentStatus: LessonPaymentStatus.PAID,
+          platformFee: lessonEarnings.platformFee,
+          tutorShare: lessonEarnings.tutorShare,
+          tutorShareReleasedAt: null,
           roomId,
           meetUrl: roomId,
         });
@@ -240,6 +258,53 @@ export class LessonsService {
           'balance',
           price,
         );
+        let amountToAllocate = price;
+        const deposits = await manager.find(Payment, {
+          where: {
+            userId: studentId,
+            status: In([
+              PaymentStatus.APPROVED,
+              PaymentStatus.PARTIALLY_REFUNDED,
+            ]),
+          },
+          order: { createdAt: 'ASC' },
+          lock: { mode: 'pessimistic_write' },
+        });
+        for (const deposit of deposits) {
+          if (amountToAllocate <= 0) break;
+          const creditedAmountUsd =
+            deposit.creditedAmountUsd ??
+            (deposit.currency === 'EGP'
+              ? Number(deposit.amount) /
+                (await this.commissionService.getEgpRate())
+              : Number(deposit.amount));
+          const refundedAmountUsd =
+            Number(deposit.amount) > 0
+              ? (Number(deposit.refundedAmount ?? 0) / Number(deposit.amount)) *
+                creditedAmountUsd
+              : 0;
+          const available = Math.max(
+            0,
+            creditedAmountUsd -
+              refundedAmountUsd -
+              Number(deposit.allocatedAmount ?? 0),
+          );
+          if (available <= 0) continue;
+          const allocated = Math.min(available, amountToAllocate);
+          deposit.allocatedAmount =
+            Number(deposit.allocatedAmount ?? 0) + allocated;
+          await manager.save(Payment, deposit);
+          await manager.save(
+            LessonFundingAllocation,
+            manager.create(LessonFundingAllocation, {
+              paymentId: deposit.id,
+              lessonId: saved.id,
+              amount: allocated,
+            }),
+          );
+          amountToAllocate =
+            Math.round((amountToAllocate - allocated) * 100) / 100;
+        }
         await manager.save(
           Classroom,
           manager.create(Classroom, { lessonId: saved.id, isActive: true }),
@@ -286,6 +351,7 @@ export class LessonsService {
         scheduledTime: true,
         durationMinutes: true,
         status: true,
+        paymentStatus: true,
         price: true,
         meetUrl: true,
         googleMeetUrl: true,
@@ -633,9 +699,6 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
         lesson.price,
         tutorProfile.totalHoursTaught,
       );
-    const earningsAlreadyCredited =
-      lesson.platformFee !== null && lesson.platformFee !== undefined;
-
     const hoursToAdd = lesson.durationMinutes / 60;
 
     await this.dataSource.transaction(async (manager) => {
@@ -650,17 +713,23 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
         );
       }
 
-      await manager.update(
-        Lesson,
-        { id: lessonId },
-        {
-          status: LessonStatus.COMPLETED,
-          platformFee: earningsAlreadyCredited
-            ? lesson.platformFee
-            : platformFee,
-          ...(dto?.notes ? { notes: dto.notes } : {}),
-        },
-      );
+      const recordedPlatformFee =
+        lockedLesson.platformFee === null ||
+        lockedLesson.platformFee === undefined
+          ? platformFee
+          : Number(lockedLesson.platformFee);
+      const recordedTutorShare =
+        lockedLesson.tutorShare === null ||
+        lockedLesson.tutorShare === undefined
+          ? tutorShare
+          : Number(lockedLesson.tutorShare);
+      const shouldRelease = !lockedLesson.tutorShareReleasedAt;
+      lockedLesson.status = LessonStatus.COMPLETED;
+      lockedLesson.platformFee = recordedPlatformFee;
+      lockedLesson.tutorShare = recordedTutorShare;
+      if (shouldRelease) lockedLesson.tutorShareReleasedAt = new Date();
+      if (dto?.notes) lockedLesson.notes = dto.notes;
+      await manager.save(Lesson, lockedLesson);
 
       await manager.increment(
         TutorProfile,
@@ -669,12 +738,12 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
         hoursToAdd,
       );
 
-      if (!earningsAlreadyCredited) {
+      if (shouldRelease) {
         await manager.increment(
           TutorProfile,
           { userId: lesson.tutorId },
           'balance',
-          tutorShare,
+          recordedTutorShare,
         );
       }
 
@@ -694,6 +763,7 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
         scheduledTime: true,
         durationMinutes: true,
         status: true,
+        paymentStatus: true,
         price: true,
         meetUrl: true,
         googleMeetUrl: true,
@@ -796,6 +866,7 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
       }
 
       lockedLesson.status = LessonStatus.CANCELLED;
+      lockedLesson.paymentStatus = LessonPaymentStatus.REFUNDED;
       await manager.save(Lesson, lockedLesson);
 
       await manager.increment(
@@ -805,16 +876,31 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
         lockedLesson.price,
       );
 
+      const fundingAllocations = await manager.find(LessonFundingAllocation, {
+        where: { lessonId: lockedLesson.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      for (const allocation of fundingAllocations) {
+        await manager.decrement(
+          Payment,
+          { id: allocation.paymentId },
+          'allocatedAmount',
+          Number(allocation.amount),
+        );
+      }
+      await manager.delete(LessonFundingAllocation, {
+        lessonId: lockedLesson.id,
+      });
+
       // Compatibility for lessons confirmed before earnings recognition was
       // moved to completion: reverse any tutor share already credited.
-      if (
-        lockedLesson.platformFee !== null &&
-        lockedLesson.platformFee !== undefined
-      ) {
-        const tutorShare = Math.max(
-          0,
-          Number(lockedLesson.price) - Number(lockedLesson.platformFee),
-        );
+      if (lockedLesson.tutorShareReleasedAt) {
+        const tutorShare =
+          lockedLesson.tutorShare ??
+          Math.max(
+            0,
+            Number(lockedLesson.price) - Number(lockedLesson.platformFee ?? 0),
+          );
         if (tutorShare > 0) {
           await manager.decrement(
             TutorProfile,
@@ -862,6 +948,7 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
         scheduledTime: true,
         durationMinutes: true,
         status: true,
+        paymentStatus: true,
         price: true,
         meetUrl: true,
         googleMeetUrl: true,
@@ -899,6 +986,25 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
     const refundNoteAr = wasRefunded
       ? `<p>تمت إعادة $${refundAmount.toFixed(2)} إلى رصيد الطالب.</p>`
       : '<p>لم يصدر ردّ مالي لأن الدرس المعلّق لم يُخصم بعد.</p>';
+
+    if (this.notificationRepository) {
+      await this.notificationRepository.save([
+        this.notificationRepository.create({
+          userId: lesson.studentId,
+          type: 'lesson_cancelled',
+          title: 'Lesson cancelled',
+          body: wasRefunded
+            ? `The lesson was cancelled and $${refundAmount.toFixed(2)} was returned to your wallet.`
+            : 'The lesson was cancelled.',
+        }),
+        this.notificationRepository.create({
+          userId: lesson.tutorId,
+          type: 'lesson_cancelled',
+          title: 'Lesson cancelled',
+          body: `The lesson with ${studentName} scheduled for ${scheduledLabel} was cancelled.`,
+        }),
+      ]);
+    }
 
     if (lesson.tutor?.email) {
       this.emailService
@@ -983,54 +1089,14 @@ ${studentRefundNote}</div>`,
   }
 
   async findByRoomId(roomId: string, userId: string) {
-    const lesson = await this.lessonRepository.findOne({
-      // Native classroom rooms are authoritative. Keep the legacy meetUrl
-      // lookup only as a compatibility fallback for older lesson records.
-      where: [{ roomId }, { meetUrl: roomId }],
-      relations: { tutor: true, student: true },
-      select: {
-        id: true,
-        tutorId: true,
-        studentId: true,
-        scheduledTime: true,
-        durationMinutes: true,
-        status: true,
-        price: true,
-        meetUrl: true,
-        googleMeetUrl: true,
-        notes: true,
-        createdAt: true,
-        tutor: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
-        },
-        student: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
-        },
-      },
-    });
-    if (!lesson) throw new NotFoundException('Lesson not found');
-    if (lesson.studentId !== userId && lesson.tutorId !== userId) {
-      throw new ForbiddenException('You are not a participant of this lesson');
-    }
-    if (
-      lesson.status === LessonStatus.COMPLETED ||
-      lesson.status === LessonStatus.CANCELLED
-    ) {
-      throw new BadRequestException('This lesson is no longer available');
-    }
-    const classroom = await this.classroomRepository.findOne({
-      where: { lessonId: lesson.id },
-    });
-    if (classroom && !classroom.isActive) {
-      throw new BadRequestException('Classroom is closed');
-    }
-    return lesson;
+    const { lesson, access } = await this.classroomAccessService.findByRoomId(
+      roomId,
+      userId,
+    );
+    return {
+      ...this.presentLesson(lesson),
+      access,
+    };
   }
 
   async findLessonForParticipant(lessonId: string, userId: string) {
@@ -1044,6 +1110,7 @@ ${studentRefundNote}</div>`,
         scheduledTime: true,
         durationMinutes: true,
         status: true,
+        paymentStatus: true,
         price: true,
         meetUrl: true,
         googleMeetUrl: true,
@@ -1100,9 +1167,10 @@ ${studentRefundNote}</div>`,
       status: lesson.status,
       sessionStatus: lesson.status,
       paymentStatus:
-        lesson.status === LessonStatus.CANCELLED
-          ? ('refunded' as const)
-          : ('paid' as const),
+        lesson.paymentStatus ??
+        (lesson.status === LessonStatus.CANCELLED
+          ? LessonPaymentStatus.REFUNDED
+          : LessonPaymentStatus.PAID),
       timezone,
       roomId: lesson.roomId,
       meetUrl: lesson.meetUrl,

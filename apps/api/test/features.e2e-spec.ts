@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { Repository } from 'typeorm';
+import { randomUUID } from 'node:crypto';
 import { AppModule } from '../src/app.module.js';
 import { User } from '../src/users/entities/user.entity.js';
 import { StudentProfile } from '../src/students/entities/student-profile.entity.js';
@@ -330,6 +331,7 @@ describe('Courses (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/enroll`)
       .set('Authorization', `Bearer ${student.accessToken}`)
+      .send({ idempotencyKey: randomUUID() })
       .expect(201);
 
     const enrollment = await courseEnrollmentRepository.findOneByOrFail({

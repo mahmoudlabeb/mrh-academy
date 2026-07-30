@@ -9,6 +9,21 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Course } from './course.entity.js';
+import { CourseSection } from './course-section.entity.js';
+
+export type CourseDownloadableFile = {
+  id: string;
+  name: string;
+  url: string;
+  publicId: string;
+  size: number;
+  mimeType: string;
+};
+
+export type CourseExternalLink = {
+  title: string;
+  url: string;
+};
 
 @Entity('course_lessons')
 export class CourseLesson {
@@ -19,11 +34,18 @@ export class CourseLesson {
   @Column()
   courseId: string;
 
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  sectionId: string | null;
+
   @Column()
   title: string;
 
   @Column({ type: 'text', nullable: true })
   videoAssetId: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  videoUrl: string | null;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
@@ -36,6 +58,12 @@ export class CourseLesson {
 
   @Column({ type: 'text', nullable: true })
   resourceUrl: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  downloadableFiles: CourseDownloadableFile[];
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  externalLinks: CourseExternalLink[];
 
   @Column({ type: 'boolean', default: false })
   isPreview: boolean;
@@ -55,4 +83,8 @@ export class CourseLesson {
   @ManyToOne(() => Course)
   @JoinColumn({ name: 'course_id' })
   course: Course;
+
+  @ManyToOne(() => CourseSection, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'section_id' })
+  section: CourseSection | null;
 }

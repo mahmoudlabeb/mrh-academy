@@ -10,12 +10,15 @@ import {
   JoinColumn,
   AfterLoad,
 } from 'typeorm';
-import { LessonStatus } from '@mrh/types';
+import { LessonPaymentStatus, LessonStatus } from '@mrh/types';
 import { ColumnNumericTransformer } from '../../common/transformers/numeric.transformer.js';
 import { User } from '../../users/entities/user.entity.js';
 
 @Entity('lessons')
-@Check('chk_lessons_duration_minutes', '"duration_minutes" IN (25, 50)')
+@Check(
+  'chk_lessons_duration_minutes',
+  '"duration_minutes" IN (25, 50) OR ("duration_minutes" BETWEEN 60 AND 480 AND MOD("duration_minutes", 60) = 0)',
+)
 export class Lesson {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -54,12 +57,31 @@ export class Lesson {
   })
   platformFee: number | null;
 
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: new ColumnNumericTransformer(),
+  })
+  tutorShare: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  tutorShareReleasedAt: Date | null;
+
   @Index('IDX_lessons_idempotency_key', { unique: true })
   @Column({ type: 'varchar', nullable: true })
   idempotencyKey: string | null;
 
   @Column({ type: 'enum', enum: LessonStatus, default: LessonStatus.CONFIRMED })
   status: LessonStatus;
+
+  @Column({
+    type: 'enum',
+    enum: LessonPaymentStatus,
+    default: LessonPaymentStatus.PAID,
+  })
+  paymentStatus: LessonPaymentStatus;
 
   @Column({ type: 'varchar', nullable: true })
   roomId: string | null;

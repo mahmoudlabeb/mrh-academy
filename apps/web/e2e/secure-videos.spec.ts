@@ -13,6 +13,15 @@ const tutorUser = {
 };
 
 async function mockSession(page: Page) {
+  await page.context().addCookies([
+    {
+      name: "mrh_token",
+      value: "mock-tutor-session",
+      url: "http://127.0.0.1:3210",
+      httpOnly: true,
+      sameSite: "Strict",
+    },
+  ]);
   await page.route("**/api/v1/users/me", (route) =>
     route.fulfill({
       status: 200,
@@ -38,19 +47,17 @@ test.describe("secure tutor and course videos", () => {
     let uploadAttempts = 0;
     let status: "ready" | "processing" = "ready";
 
-    await page.route(
-      "**/api/v1/tutors/me/profile/video/status",
-      (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({
-            status,
-            embedUrl: status === "ready" ? "/e2e-current-player" : undefined,
-            expiresAt: status === "ready" ? Date.now() + 600_000 : undefined,
-            captions: [],
-          }),
+    await page.route("**/api/v1/tutors/me/profile/video/status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status,
+          embedUrl: status === "ready" ? "/e2e-current-player" : undefined,
+          expiresAt: status === "ready" ? Date.now() + 600_000 : undefined,
+          captions: [],
         }),
+      }),
     );
     await page.route("**/e2e-current-player", (route) =>
       route.fulfill({
@@ -101,10 +108,12 @@ test.describe("secure tutor and course videos", () => {
     await expect(studio.getByRole("progressbar")).toBeVisible();
     await expect(
       studio.getByText(
-        "Replacement preview · current video stays saved until upload succeeds",
+        "Replacement preview — current video stays saved until upload succeeds",
       ),
     ).toBeVisible();
-    await expect(studio.getByText("Temporary storage interruption")).toBeVisible();
+    await expect(
+      studio.getByText("Temporary storage interruption"),
+    ).toBeVisible();
     await expect(studio.getByText("tutor-introduction.mp4")).toBeVisible();
 
     await studio.getByRole("button", { name: "Retry upload" }).click();
@@ -120,23 +129,21 @@ test.describe("secure tutor and course videos", () => {
     await mockSession(page);
     let deleted = false;
     let captions = [{ language: "en", label: "English" }];
-    await page.route(
-      "**/api/v1/tutors/me/profile/video/status",
-      (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify(
-            deleted
-              ? { status: "missing", captions: [] }
-              : {
-                  status: "ready",
-                  embedUrl: "/e2e-secure-player",
-                  expiresAt: Date.now() + 600_000,
-                  captions,
-                },
-          ),
-        }),
+    await page.route("**/api/v1/tutors/me/profile/video/status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          deleted
+            ? { status: "missing", captions: [] }
+            : {
+                status: "ready",
+                embedUrl: "/e2e-secure-player",
+                expiresAt: Date.now() + 600_000,
+                captions,
+              },
+        ),
+      }),
     );
     await page.route(
       "**/api/v1/tutors/me/profile/video/captions/**",
@@ -149,17 +156,14 @@ test.describe("secure tutor and course videos", () => {
         });
       },
     );
-    await page.route(
-      "**/api/v1/tutors/me/profile/video/captions",
-      (route) => {
-        captions = [...captions, { language: "ar", label: "العربية" }];
-        return route.fulfill({
-          status: 201,
-          contentType: "application/json",
-          body: JSON.stringify({ language: "ar", label: "العربية" }),
-        });
-      },
-    );
+    await page.route("**/api/v1/tutors/me/profile/video/captions", (route) => {
+      captions = [...captions, { language: "ar", label: "العربية" }];
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ language: "ar", label: "العربية" }),
+      });
+    });
     await page.route("**/api/v1/tutors/me/profile/video", (route) => {
       if (route.request().method() !== "DELETE") return route.continue();
       deleted = true;
@@ -229,6 +233,47 @@ test.describe("secure tutor and course videos", () => {
         body: "[]",
       }),
     );
+    await page.route("**/api/v1/courses/course-draft/studio", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          course: {
+            id: "course-draft",
+            tutorId: "mock-tutor",
+            title: "Confident Arabic",
+            subtitle: "Build confidence with practical Arabic conversations",
+            description:
+              "A practical course for confident everyday Arabic conversations with guided exercises, useful vocabulary, and structured progress.",
+            category: "languages",
+            price: 45,
+            status: "pending",
+            courseType: "recorded",
+            thumbnailUrl: null,
+            overviewVideoId: null,
+            previewVideoUrl: null,
+            learningOutcomes: ["Speak with confidence"],
+            requirements: ["No previous experience required"],
+            targetAudience: ["Beginner Arabic learners"],
+            language: "Arabic",
+            level: "beginner",
+            capacity: null,
+            cohortStartAt: null,
+            cohortEndAt: null,
+            isDraft: true,
+          },
+          sections: [],
+          lessons: [],
+          readiness: {
+            ready: false,
+            completed: 2,
+            total: 5,
+            progress: 40,
+            items: [],
+          },
+        }),
+      }),
+    );
     await page.route(
       "**/api/v1/courses/course-draft/media/preview/status",
       (route) =>
@@ -255,9 +300,7 @@ test.describe("secure tutor and course videos", () => {
     );
 
     await page.goto("/en/teach/courses/course-draft/studio");
-    await page
-      .getByRole("button", { name: "Landing page & banner" })
-      .click();
+    await page.getByRole("button", { name: /Course media/ }).click();
     const studio = page.getByTestId("course-video-uploader");
     await expect(studio).toBeVisible();
     await expect(
@@ -274,7 +317,9 @@ test.describe("secure tutor and course videos", () => {
     );
   });
 
-  test("uses signed public playback with caption metadata", async ({ page }) => {
+  test("uses signed public playback with caption metadata", async ({
+    page,
+  }) => {
     await mockSession(page);
     await page.route("**/api/v1/tutors/tutor-public/video/playback", (route) =>
       route.fulfill({
@@ -304,16 +349,18 @@ test.describe("secure tutor and course videos", () => {
       }),
     );
     await page.route("**/api/v1/reviews/tutor/tutor-public", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      }),
     );
-    await page.route(
-      "**/api/v1/tutors/tutor-public/availability",
-      (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: "[]",
-        }),
+    await page.route("**/api/v1/tutors/tutor-public/availability", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      }),
     );
     await page.route("**/e2e-public-player", (route) =>
       route.fulfill({

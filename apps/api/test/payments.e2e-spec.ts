@@ -30,6 +30,7 @@ import { PayPalService } from '../src/payments/paypal/paypal.service.js';
 
 const payPalServiceMock = {
   isConfigured: jest.fn(() => true),
+  isWebhookConfigured: jest.fn(() => true),
   createOrder: jest.fn(async () => ({
     orderId: 'PAYPAL-E2E-ORDER',
     approvalUrl:
@@ -209,7 +210,11 @@ describe('Payments & Booking Flow (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post('/api/v1/payments/submit')
       .set('Authorization', `Bearer ${studentToken}`)
-      .send({ amount: 1500, method: 'paypal' });
+      .send({
+        amount: 1500,
+        method: 'paypal',
+        idempotencyKey: randomUUID(),
+      });
     if (res.status !== 201) console.error(res.body);
     expect(res.status).toBe(201);
     expect(res.body.payment.status).toBe('pending');
@@ -248,7 +253,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     expect(student?.balance).toBe(1800);
   });
 
-  it('Student booking is confirmed and charged atomically after server balance verification', async () => {
+  it('Student multi-hour booking is immediately confirmed, visible, and classroom-authorized', async () => {
     const scheduledDay = futureDayIso();
     const idempotencyKey = randomUUID();
 
@@ -259,7 +264,7 @@ describe('Payments & Booking Flow (e2e)', () => {
         idempotencyKey,
         tutorId: tutorUser.id,
         scheduledTime: scheduledDay,
-        durationMinutes: 50,
+        durationMinutes: 120,
       });
     if (res.status !== 201) console.error(res.body);
     expect(res.status).toBe(201);
@@ -268,7 +273,28 @@ describe('Payments & Booking Flow (e2e)', () => {
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBeCloseTo(1758.33, 2);
+    expect(student?.balance).toBeCloseTo(1700, 2);
+    expect(res.body.durationMinutes).toBe(120);
+    expect(
+      new Date(res.body.endTime).getTime() -
+        new Date(res.body.scheduledTime).getTime(),
+    ).toBe(120 * 60 * 1000);
+    expect(Number(res.body.platformFee)).toBe(30);
+    expect(Number(res.body.tutorShare)).toBe(70);
+
+    const tutorSchedule = await request(app.getHttpServer())
+      .get('/api/v1/lessons?page=1&limit=50')
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .expect(200);
+    expect(tutorSchedule.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: res.body.id,
+          status: LessonStatus.CONFIRMED,
+          paymentStatus: 'paid',
+        }),
+      ]),
+    );
 
     const retry = await request(app.getHttpServer())
       .post('/api/v1/lessons/book')
@@ -277,7 +303,7 @@ describe('Payments & Booking Flow (e2e)', () => {
         idempotencyKey,
         tutorId: tutorUser.id,
         scheduledTime: scheduledDay,
-        durationMinutes: 50,
+        durationMinutes: 120,
       })
       .expect(201);
     expect(retry.body.id).toBe(res.body.id);
@@ -285,9 +311,29 @@ describe('Payments & Booking Flow (e2e)', () => {
     const studentAfterRetry = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(studentAfterRetry?.balance).toBeCloseTo(1758.33, 2);
+    expect(studentAfterRetry?.balance).toBeCloseTo(1700, 2);
 
     const lessonId = res.body.id;
+    const roomId = res.body.roomId;
+
+    await lessonRepository.update(lessonId, {
+      scheduledTime: new Date(Date.now() - 60_000),
+      endTime: new Date(Date.now() + 119 * 60_000),
+    });
+    const studentClassroom = await request(app.getHttpServer())
+      .get(`/api/v1/lessons/by-room/${roomId}`)
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(200);
+    expect(studentClassroom.body.access).toEqual(
+      expect.objectContaining({ state: 'allowed', canJoin: true }),
+    );
+    const tutorClassroom = await request(app.getHttpServer())
+      .get(`/api/v1/lessons/by-room/${roomId}`)
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .expect(200);
+    expect(tutorClassroom.body.access).toEqual(
+      expect.objectContaining({ state: 'allowed', canJoin: true }),
+    );
 
     await lessonRepository.update(lessonId, {
       scheduledTime: new Date(Date.now() - 3600000),
@@ -303,7 +349,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     const tutor = await tutorProfileRepo.findOne({
       where: { userId: tutorUser.id },
     });
-    expect(tutor?.balance).toBeGreaterThan(0);
+    expect(tutor?.balance).toBe(70);
 
     const completedLesson = await lessonRepository.findOne({
       where: { id: lessonId },

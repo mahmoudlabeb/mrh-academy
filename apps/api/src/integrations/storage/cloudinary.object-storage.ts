@@ -55,11 +55,17 @@ export class CloudinaryObjectStorage implements ObjectStorage {
     });
   }
 
-  async destroy(publicId: string, options: { resourceType?: string } = {}) {
+  async destroy(
+    publicId: string,
+    options: {
+      resourceType?: string;
+      deliveryType?: 'upload' | 'authenticated';
+    } = {},
+  ) {
     if (!this.configured) return;
     await cloudinary.uploader.destroy(publicId, {
       resource_type: options.resourceType ?? 'image',
-      type: 'authenticated',
+      type: options.deliveryType ?? 'authenticated',
     });
   }
 

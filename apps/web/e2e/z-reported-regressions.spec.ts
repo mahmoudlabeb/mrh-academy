@@ -44,10 +44,16 @@ test.beforeAll(async () => {
     await client.query(
       `INSERT INTO lessons
         (id, tutor_id, student_id, scheduled_time, end_time, duration_minutes,
-         price, platform_fee, status, room_id, meet_url, created_at, updated_at)
+         price, platform_fee, status, payment_status, room_id, meet_url, created_at, updated_at)
        VALUES ($1, $2, $3, now() + interval '5 minutes',
-         now() + interval '30 minutes', 25, 0, 0, 'confirmed', $4, $4, now(), now())`,
+         now() + interval '30 minutes', 25, 0, 0, 'confirmed', 'paid', $4, $4, now(), now())`,
       [lessonId, tutorId, studentId, roomId],
+    );
+    await client.query(
+      `INSERT INTO classrooms
+        (lesson_id, is_active, created_at, updated_at)
+       VALUES ($1, true, now(), now())`,
+      [lessonId],
     );
   } finally {
     await client.end();

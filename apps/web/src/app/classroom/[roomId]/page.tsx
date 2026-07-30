@@ -14,6 +14,7 @@ import {
   ClassroomBookPanel,
   type LessonBookMeta,
 } from "@/components/classroom/ClassroomBookPanel";
+import { ClassroomIcon } from "@/components/classroom/ClassroomIcon";
 
 interface ChatMessage {
   senderId: string;
@@ -47,6 +48,24 @@ interface BookSessionState {
   page: number;
 }
 
+type ClassroomAccessState =
+  | "allowed"
+  | "waiting"
+  | "cancelled"
+  | "refunded"
+  | "expired"
+  | "closed"
+  | "unpaid";
+
+interface ClassroomAccess {
+  state: ClassroomAccessState;
+  canJoin: boolean;
+  reason?: string;
+  opensAt?: string;
+  closesAt?: string;
+  serverTime?: string;
+}
+
 const COLORS = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "var(--signal)"];
 const ERASER_WIDTH = 30;
 
@@ -56,7 +75,7 @@ export default function ClassroomPage() {
   const params = useParams();
   const roomId = params.roomId as string;
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { lang, dir } = useLanguage();
   const isRtl = dir === "rtl";
 
@@ -85,10 +104,10 @@ export default function ClassroomPage() {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [reportSubject, setReportSubject] = useState("");
   const [reportDescription, setReportDescription] = useState("");
-  const [focusedStudent, setFocusedStudent] = useState<string | null>(null);
   const [rtt, setRtt] = useState<number | null>(null);
   const [healthMap, setHealthMap] = useState<Record<string, number>>({});
   const [mainView, setMainView] = useState<"whiteboard" | "book">("whiteboard");
+  const [canvasOpen, setCanvasOpen] = useState(false);
   const [bookSession, setBookSession] = useState<BookSessionState | null>(null);
   const [joined, setJoined] = useState(false);
   const [preflightStream, setPreflightStream] = useState<MediaStream | null>(
@@ -106,8 +125,10 @@ export default function ClassroomPage() {
 
   const {
     data: lesson,
+    error: lessonQueryError,
     isError: lessonError,
     isLoading: lessonLoading,
+    refetch: refetchLesson,
   } = useQuery({
     queryKey: ["lesson-by-room", roomId],
     queryFn: async () => {
@@ -116,9 +137,12 @@ export default function ClassroomPage() {
         id: string;
         status: string;
         title?: string;
+        scheduledTime?: string;
+        durationMinutes?: number;
         googleMeetUrl?: string;
-        tutor?: { firstName?: string };
-        student?: { firstName?: string };
+        tutor?: { firstName?: string; lastName?: string };
+        student?: { firstName?: string; lastName?: string };
+        access?: ClassroomAccess;
       };
     },
     enabled: !!roomId && !!user,
@@ -145,6 +169,9 @@ export default function ClassroomPage() {
   const autoStartedPeerRef = useRef<string | null>(null);
 
   const [showFallback, setShowFallback] = useState(false);
+  const [showSidePanel, setShowSidePanel] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const fallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -189,7 +216,8 @@ export default function ClassroomPage() {
   useEffect(() => {
     // Never request device access until the authenticated user has passed the
     // server-backed room membership check.
-    if (joined || !user || !lessonId) return;
+    if (joined || !user || !lessonId || lesson?.access?.canJoin !== true)
+      return;
     let stream: MediaStream | null = null;
     navigator.mediaDevices
       ?.getUserMedia({ audio: true, video: { width: 960, height: 540 } })
@@ -218,7 +246,7 @@ export default function ClassroomPage() {
     // `t` is intentionally locale-derived and the preflight should only restart
     // when the room/join state changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, joined, user, lessonId]);
+  }, [roomId, joined, user, lessonId, lesson?.access?.canJoin]);
 
   useEffect(() => {
     preflightStream?.getAudioTracks().forEach((track) => {
@@ -352,6 +380,14 @@ export default function ClassroomPage() {
   }, [currentPage, initCanvas, redrawPage]);
 
   useEffect(() => {
+    if (!canvasOpen || mainView !== "whiteboard") return;
+    requestAnimationFrame(() => {
+      initCanvas();
+      redrawPage(currentPage);
+    });
+  }, [canvasOpen, currentPage, initCanvas, mainView, redrawPage]);
+
+  useEffect(() => {
     if (canvasRef.current && ctxRef.current) {
       redrawPage(currentPage);
     }
@@ -404,6 +440,7 @@ export default function ClassroomPage() {
     const onBookSync = (state: BookSessionState) => {
       if (state?.active && state.bookId) {
         setBookSession(state);
+        setCanvasOpen(false);
         setMainView("book");
       }
     };
@@ -414,6 +451,7 @@ export default function ClassroomPage() {
 
     const onBookClose = () => {
       setBookSession(null);
+      setCanvasOpen(true);
       setMainView("whiteboard");
     };
 
@@ -704,6 +742,7 @@ export default function ClassroomPage() {
       pageCount: book.pageCount,
       page: 1,
     });
+    setCanvasOpen(false);
     setMainView("book");
   };
 
@@ -712,6 +751,7 @@ export default function ClassroomPage() {
     const socket = getSocket();
     socket.emit("book_close", { lessonId });
     setBookSession(null);
+    setCanvasOpen(true);
     setMainView("whiteboard");
   };
 
@@ -769,125 +809,339 @@ export default function ClassroomPage() {
     ...Object.keys(pages).map(Number),
     currentPage,
   );
+  const participantName = (
+    participant?: { firstName?: string; lastName?: string } | null,
+  ) =>
+    [participant?.firstName, participant?.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
 
-  if (lessonLoading) {
+  if (authLoading || lessonLoading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "var(--bg-main)" }}
+      <main
+        className="classroom-access-state classroom-shell"
+        data-testid="classroom-state"
+        data-access-state="loading"
+        aria-busy="true"
       >
-        <p style={{ color: "var(--text-muted)" }}>
-          {t("جاري تحميل الدرس...", "Loading lesson...")}
-        </p>
-      </div>
+        <div className="classroom-access-card" role="status">
+          <span className="classroom-access-loader" />
+          <h1>{t("جارٍ تجهيز الفصل", "Preparing your classroom")}</h1>
+          <p>
+            {t(
+              "نتحقق من الحجز والدفع وموعد الدرس…",
+              "Checking your booking, payment, and lesson time…",
+            )}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main
+        className="classroom-access-state classroom-shell"
+        data-testid="classroom-state"
+        data-access-state="unauthenticated"
+      >
+        <div className="classroom-access-card">
+          <span className="classroom-access-icon">
+            <ClassroomIcon name="user" />
+          </span>
+          <h1>{t("سجّل الدخول للمتابعة", "Sign in to continue")}</h1>
+          <p>
+            {t(
+              "يجب تسجيل الدخول بالحساب المرتبط بهذا الحجز.",
+              "Use the account connected to this booking.",
+            )}
+          </p>
+          <button type="button" onClick={() => router.push(`/${lang}/sign-in`)}>
+            {t("تسجيل الدخول", "Sign in")}
+          </button>
+        </div>
+      </main>
     );
   }
 
   if (lessonError || !lessonId) {
+    const responseStatus = (
+      lessonQueryError as { response?: { status?: number } } | null
+    )?.response?.status;
+    const denied = responseStatus === 401 || responseStatus === 403;
     return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center gap-4"
-        style={{ background: "var(--bg-main)" }}
+      <main
+        className="classroom-access-state classroom-shell"
+        data-testid="classroom-state"
+        data-access-state={denied ? "denied" : "error"}
       >
-        <p style={{ color: "var(--text-muted)" }}>
-          {t("الدرس غير متاح أو انتهى", "Lesson unavailable or ended")}
-        </p>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => router.push("/student")}
+        <div
+          className="classroom-access-card"
+          role={denied ? "alert" : "status"}
         >
-          {t("العودة", "Go Back")}
-        </button>
-      </div>
+          <span className="classroom-access-icon is-danger">
+            <ClassroomIcon name={denied ? "close" : "info"} />
+          </span>
+          <h1>
+            {denied
+              ? t("لا يمكنك دخول هذا الفصل", "You cannot enter this classroom")
+              : t("تعذّر فتح الفصل", "We could not open the classroom")}
+          </h1>
+          <p>
+            {denied
+              ? t(
+                  "هذا الفصل متاح فقط للطالب والمعلم المسجلين في الحجز المؤكد والمدفوع.",
+                  "Only the student and tutor on the confirmed paid booking can enter.",
+                )
+              : t(
+                  "تحقق من اتصالك ثم حاول مجددًا. قد يكون رابط الفصل غير صحيح.",
+                  "Check your connection and try again. The classroom link may also be invalid.",
+                )}
+          </p>
+          <div className="classroom-access-actions">
+            {!denied && (
+              <button type="button" onClick={() => void refetchLesson()}>
+                <ClassroomIcon name="retry" />
+                {t("إعادة المحاولة", "Try again")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="is-secondary"
+              onClick={() =>
+                router.push(user.role === "tutor" ? "/tutor" : "/student")
+              }
+            >
+              {t("العودة إلى مساحتي", "Back to my workspace")}
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (lesson.access?.canJoin !== true) {
+    const accessState = lesson.access?.state ?? "closed";
+    const copy: Record<ClassroomAccessState, { title: string; body: string }> =
+      {
+        allowed: {
+          title: t("الفصل جاهز", "Classroom ready"),
+          body: t("يمكنك الدخول الآن.", "You can join now."),
+        },
+        waiting: {
+          title: t("لم يحن موعد الدخول بعد", "Your classroom is not open yet"),
+          body: t(
+            "حجزك مؤكد ومدفوع. سيُفتح الفصل تلقائيًا داخل نافذة الدخول المسموحة.",
+            "Your booking is confirmed and paid. The classroom opens automatically within the allowed join window.",
+          ),
+        },
+        cancelled: {
+          title: t("تم إلغاء هذا الدرس", "This lesson was cancelled"),
+          body: t(
+            "لا يمكن دخول فصل لحجز ملغي.",
+            "A cancelled booking cannot enter the classroom.",
+          ),
+        },
+        refunded: {
+          title: t("تم رد قيمة الحجز", "This booking was refunded"),
+          body: t(
+            "لم يعد هذا الفصل متاحًا بعد استرداد الدفع.",
+            "This classroom is no longer available after a refund.",
+          ),
+        },
+        expired: {
+          title: t("انتهت نافذة الدرس", "The lesson window has expired"),
+          body: t(
+            "انتهى وقت الدخول لهذا الدرس.",
+            "The entry window for this lesson has ended.",
+          ),
+        },
+        closed: {
+          title: t("الفصل مغلق", "Classroom closed"),
+          body: t(
+            "هذا الفصل غير متاح للدخول حاليًا.",
+            "This classroom is not available to enter right now.",
+          ),
+        },
+        unpaid: {
+          title: t("الدفع غير مكتمل", "Payment is not complete"),
+          body: t(
+            "يُفتح الفصل فقط بعد تأكيد الدفع للحجز.",
+            "The classroom opens only after booking payment is confirmed.",
+          ),
+        },
+      };
+    const stateCopy = copy[accessState];
+    const opensAt = lesson.access?.opensAt
+      ? new Date(lesson.access.opensAt).toLocaleString(
+          lang === "ar" ? "ar-EG" : "en-US",
+          {
+            dateStyle: "medium",
+            timeStyle: "short",
+          },
+        )
+      : null;
+    return (
+      <main
+        className="classroom-access-state classroom-shell"
+        data-testid="classroom-state"
+        data-access-state={accessState}
+      >
+        <div className="classroom-access-card" role="status">
+          <span
+            className={`classroom-access-icon ${accessState === "waiting" ? "is-waiting" : "is-danger"}`}
+          >
+            <ClassroomIcon
+              name={accessState === "waiting" ? "info" : "close"}
+            />
+          </span>
+          <p className="classroom-access-kicker">
+            {lesson.title || t("درس مباشر", "Live lesson")}
+          </p>
+          <h1>{stateCopy.title}</h1>
+          <p>{stateCopy.body}</p>
+          {accessState === "waiting" && opensAt && (
+            <div className="classroom-opening-time">
+              <span>{t("موعد فتح الفصل", "Classroom opens")}</span>
+              <strong>{opensAt}</strong>
+            </div>
+          )}
+          <div className="classroom-access-actions">
+            {accessState === "waiting" && (
+              <button type="button" onClick={() => void refetchLesson()}>
+                <ClassroomIcon name="retry" />
+                {t("تحقق من الموعد", "Check again")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="is-secondary"
+              onClick={() =>
+                router.push(user.role === "tutor" ? "/tutor" : "/student")
+              }
+            >
+              {t("العودة إلى مساحتي", "Back to my workspace")}
+            </button>
+          </div>
+        </div>
+      </main>
     );
   }
 
   if (!joined) {
     const otherName =
       user?.role === "tutor"
-        ? lesson?.student?.firstName
-        : lesson?.tutor?.firstName;
+        ? participantName(lesson?.student)
+        : participantName(lesson?.tutor);
     return (
       <main
-        className="min-h-screen grid place-items-center p-4"
-        style={{ background: "var(--canvas)", color: "var(--focus-ink)" }}
+        className="classroom-preflight classroom-shell"
+        data-testid="classroom-preflight"
       >
-        <section className="w-full max-w-3xl" aria-labelledby="preflight-title">
-          <header className="text-center mb-6">
-            <p className="text-xs mb-2" style={{ color: "var(--signal)" }}>
-              {t("فصل MRH المباشر", "MRH native classroom")}
+        <header className="classroom-topbar">
+          <div className="classroom-room-id">
+            <span className="classroom-room-id__icon">
+              <ClassroomIcon name="user" />
+            </span>
+            <div>
+              <h1>{lesson.title || t("غرفة الدرس", "Classroom")}</h1>
+              <p>
+                {otherName
+                  ? t(`درس مع ${otherName}`, `Lesson with ${otherName}`)
+                  : t("درس مباشر", "Live lesson")}
+              </p>
+            </div>
+          </div>
+          <span className="classroom-status-chip">
+            <span className="classroom-status-dot is-ready" />
+            {t("الحجز مؤكد ومدفوع", "Confirmed & paid")}
+          </span>
+        </header>
+        <section
+          className="classroom-preflight__body"
+          aria-labelledby="preflight-title"
+        >
+          <div className="classroom-preflight__copy">
+            <p className="classroom-access-kicker">
+              {t("فحص ما قبل الدرس", "Pre-class check")}
             </p>
-            <h1
-              id="preflight-title"
-              className="text-2xl md:text-3xl font-semibold"
-            >
+            <h1 id="preflight-title">
               {otherName
                 ? t(`درس مع ${otherName}`, `Lesson with ${otherName}`)
                 : t("استعد للدرس", "Get ready for your lesson")}
             </h1>
-            <p className="mt-2 text-sm" style={{ color: "var(--focus-muted)" }}>
+            <p>
               {t(
                 "افحص الصوت والصورة قبل الدخول. يمكنك تغييرهما أثناء الدرس.",
                 "Check your audio and video before joining. You can change them during the lesson.",
               )}
             </p>
-          </header>
-
-          <div
-            className="grid md:grid-cols-[minmax(0,1fr)_220px] overflow-hidden rounded-[20px]"
-            style={{
-              background: "var(--surface)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            <div
-              className="relative aspect-video grid place-items-center overflow-hidden"
-              style={{ background: "var(--canvas-sunken)" }}
-            >
-              <video
-                ref={preflightVideoRef}
-                muted
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
-              {!cameraEnabled && (
-                <div
-                  className="absolute inset-0 grid place-items-center text-sm"
-                  style={{
-                    background: "var(--canvas-sunken)",
-                    color: "var(--focus-muted)",
-                  }}
-                >
-                  {t("الكاميرا متوقفة", "Camera is off")}
+            {(lesson.scheduledTime || lesson.durationMinutes) && (
+              <div className="classroom-preflight__lesson-meta">
+                {lesson.scheduledTime && (
+                  <span>
+                    {new Date(lesson.scheduledTime).toLocaleString(
+                      lang === "ar" ? "ar-EG" : "en-US",
+                      { dateStyle: "medium", timeStyle: "short" },
+                    )}
+                  </span>
+                )}
+                {lesson.durationMinutes && (
+                  <span>
+                    {lesson.durationMinutes} {t("دقيقة", "minutes")}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="classroom-preflight__grid">
+            <div className="classroom-preflight__preview">
+              <video ref={preflightVideoRef} muted autoPlay playsInline />
+              {(!cameraEnabled || !preflightStream) && (
+                <div className="classroom-video-placeholder">
+                  <ClassroomIcon name={preflightError ? "cameraOff" : "user"} />
+                  <span>
+                    {preflightError
+                      ? t("تعذّر فتح الكاميرا", "Camera unavailable")
+                      : t("جارٍ تجهيز المعاينة…", "Preparing preview…")}
+                  </span>
                 </div>
               )}
+              <span className="classroom-video-label">
+                {t("معاينتك", "Your preview")}
+              </span>
             </div>
-            <div className="p-4 flex flex-col gap-3">
+            <div className="classroom-preflight__controls">
+              <h2>{t("الأجهزة", "Devices")}</h2>
               <button
                 type="button"
-                className="btn-secondary justify-between"
                 aria-pressed={micEnabled}
                 onClick={() => setMicEnabled((value) => !value)}
               >
-                <span>{t("الميكروفون", "Microphone")}</span>
-                <span>{micEnabled ? t("يعمل", "On") : t("متوقف", "Off")}</span>
-              </button>
-              <button
-                type="button"
-                className="btn-secondary justify-between"
-                aria-pressed={cameraEnabled}
-                onClick={() => setCameraEnabled((value) => !value)}
-              >
-                <span>{t("الكاميرا", "Camera")}</span>
+                <ClassroomIcon name={micEnabled ? "mic" : "micOff"} />
                 <span>
-                  {cameraEnabled ? t("تعمل", "On") : t("متوقفة", "Off")}
+                  <strong>{t("الميكروفون", "Microphone")}</strong>
+                  <small>
+                    {micEnabled ? t("يعمل", "On") : t("متوقف", "Off")}
+                  </small>
                 </span>
               </button>
               <button
                 type="button"
-                className="btn-secondary justify-between"
+                aria-pressed={cameraEnabled}
+                onClick={() => setCameraEnabled((value) => !value)}
+              >
+                <ClassroomIcon name={cameraEnabled ? "camera" : "cameraOff"} />
+                <span>
+                  <strong>{t("الكاميرا", "Camera")}</strong>
+                  <small>
+                    {cameraEnabled ? t("تعمل", "On") : t("متوقفة", "Off")}
+                  </small>
+                </span>
+              </button>
+              <button
+                type="button"
                 aria-pressed={screenTested}
                 onClick={async () => {
                   try {
@@ -901,32 +1155,36 @@ export default function ClassroomPage() {
                   }
                 }}
               >
-                <span>{t("مشاركة الشاشة", "Screen share")}</span>
-                <span>{screenTested ? "✓" : t("فحص", "Test")}</span>
+                <ClassroomIcon name={screenTested ? "check" : "screen"} />
+                <span>
+                  <strong>{t("مشاركة الشاشة", "Screen share")}</strong>
+                  <small>
+                    {screenTested ? t("جاهزة", "Ready") : t("اختبار", "Test")}
+                  </small>
+                </span>
               </button>
             </div>
           </div>
 
           {preflightError && (
-            <p
-              role="alert"
-              className="mt-4 text-sm"
-              style={{ color: "var(--danger)" }}
-            >
+            <p role="alert" className="classroom-preflight__error">
+              <ClassroomIcon name="cameraOff" />
               {preflightError}
             </p>
           )}
 
-          <div className="mt-6 flex flex-col items-center gap-3">
+          <div className="classroom-preflight__actions">
             <button
               type="button"
-              className="btn-primary min-w-56"
+              data-testid="join-classroom"
               onClick={() => {
+                if (lesson.access?.canJoin !== true) return;
                 preflightStream?.getTracks().forEach((track) => track.stop());
                 setPreflightStream(null);
                 setJoined(true);
               }}
             >
+              <ClassroomIcon name="leave" />
               {t("الدخول إلى الفصل", "Join classroom")}
             </button>
             {lesson?.googleMeetUrl && (
@@ -934,11 +1192,7 @@ export default function ClassroomPage() {
                 href={lesson.googleMeetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm"
-                style={{
-                  color: "var(--focus-muted)",
-                  textDecoration: "underline",
-                }}
+                className="classroom-preflight__fallback"
               >
                 {t("استخدام رابط Meet الاحتياطي", "Use the Meet fallback")}
               </a>
@@ -952,6 +1206,7 @@ export default function ClassroomPage() {
   return (
     <div
       className="classroom-shell min-h-screen flex flex-col select-none"
+      data-testid="classroom-shell"
       style={{ background: "var(--bg-main)" }}
     >
       <div
@@ -968,134 +1223,70 @@ export default function ClassroomPage() {
         </div>
       </div>
       {/* Top Bar */}
-      <header
-        className="classroom-topbar flex items-center justify-between px-2 md:px-4 py-2 shrink-0 flex-wrap gap-2"
-        style={{
-          background: "var(--canvas)",
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <div className="flex items-center gap-2 md:gap-4 flex-wrap">
-          <span
-            className="text-xs md:text-sm font-bold"
-            style={{ color: "var(--focus-ink)" }}
-          >
-            {lesson?.title || t("غرفة الدرس", "Classroom")}
+      <header className="classroom-topbar">
+        <div className="classroom-room-id">
+          <span className="classroom-room-id__icon">
+            <ClassroomIcon name="user" />
           </span>
-          <span
-            className="text-[10px] md:text-xs font-mono"
-            style={{ color: "var(--focus-muted)" }}
-          >
-            {formatTime(elapsed)}
-          </span>
-          <div
-            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg"
-            style={{ background: "var(--surface-raised)" }}
-          >
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{
-                background:
-                  rtt === null
-                    ? "var(--ink-faint)"
-                    : rtt < 150
-                      ? "var(--success)"
-                      : rtt < 500
-                        ? "var(--warning)"
-                        : "var(--danger)",
-              }}
-            />
-            <span
-              className="text-[10px] font-mono"
-              style={{ color: "var(--focus-ink)" }}
-            >
-              {rtt === null
-                ? t("جارٍ قياس الاتصال", "Measuring connection")
-                : rtt < 150
-                  ? `${t("اتصال جيد", "Good connection")} · ${rtt}ms`
-                  : rtt < 500
-                    ? `${t("اتصال متوسط", "Fair connection")} · ${rtt}ms`
-                    : `${t("اتصال ضعيف", "Poor connection")} · ${rtt}ms`}
-            </span>
+          <div>
+            <h1>{lesson?.title || t("غرفة الدرس", "Classroom")}</h1>
+            <p>
+              {user.role === "tutor"
+                ? t(
+                    `مع ${participantName(lesson.student) || "الطالب"}`,
+                    `With ${participantName(lesson.student) || "student"}`,
+                  )
+                : t(
+                    `مع ${participantName(lesson.tutor) || "المعلم"}`,
+                    `With ${participantName(lesson.tutor) || "tutor"}`,
+                  )}
+              {" · "}
+              {formatTime(elapsed)}
+            </p>
           </div>
-          {user?.role === "tutor" && participants.length > 0 && (
-            <select
-              value={focusedStudent || ""}
-              onChange={(e) => setFocusedStudent(e.target.value || null)}
-              className="text-xs px-2 py-1 rounded-lg max-w-[120px]"
-              style={{
-                background: "var(--ink-muted)",
-                color: "var(--focus-ink)",
-                border: "1px solid var(--ink-muted)",
-              }}
-            >
-              <option value="">{t("كل الطلاب", "All Students")}</option>
-              {participants
-                .filter((p) => p.role === "student")
-                .map((p) => (
-                  <option key={p.userId} value={p.userId}>
-                    {p.userId.slice(0, 8)}
-                  </option>
-                ))}
-            </select>
-          )}
         </div>
 
-        <div className="flex items-center gap-1 md:gap-2">
-          <div
-            className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${connected ? "bg-[var(--success)]" : "bg-[var(--danger)]"}`}
-          />
+        <div className="classroom-top-actions">
+          <span className="classroom-status-chip">
+            <span
+              className={`classroom-status-dot ${connected ? "is-ready" : ""}`}
+            />
+            {connectionStatus === "failed"
+              ? t("فشل الاتصال", "Connection failed")
+              : rtt === null
+                ? t("جارٍ الاتصال", "Connecting")
+                : rtt < 150
+                  ? t("اتصال جيد", "Good connection")
+                  : rtt < 500
+                    ? t("اتصال متوسط", "Fair connection")
+                    : t("اتصال ضعيف", "Poor connection")}
+          </span>
           {lesson?.googleMeetUrl &&
             (showFallback || connectionStatus === "failed") && (
               <a
                 href={lesson.googleMeetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-ghost text-xs px-3 py-1.5"
-                style={{ color: "var(--focus-ink)" }}
+                className="classroom-top-fallback"
               >
-                {t("فتح رابط Meet الاحتياطي", "Open Meet fallback")}
+                {t("Meet الاحتياطي", "Meet fallback")}
               </a>
             )}
           <button
-            onClick={() => setShowReport(true)}
-            className="btn-ghost text-xs px-3 py-1.5"
-            style={{ color: "var(--focus-ink)" }}
+            type="button"
+            onClick={() => setShowMore((value) => !value)}
+            className="classroom-icon-button"
+            aria-label={t("معلومات الفصل", "Classroom information")}
           >
-            <svg
-              className="w-4 h-4 inline ms-1"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-              />
-            </svg>
-            {t("بلّغ", "Report")}
+            <ClassroomIcon name="info" />
           </button>
           <button
-            onClick={() => setShowLeaveConfirm(true)}
-            className="btn-ghost text-xs px-3 py-1.5"
-            style={{ color: "var(--danger)" }}
+            type="button"
+            className="classroom-icon-button"
+            aria-label={t("جودة الاتصال", "Connection quality")}
+            onClick={() => setShowMore(true)}
           >
-            <svg
-              className="w-4 h-4 inline ms-1"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
-              />
-            </svg>
-            {t("مغادرة", "Leave")}
+            <ClassroomIcon name="signal" />
           </button>
         </div>
       </header>
@@ -1185,7 +1376,7 @@ export default function ClassroomPage() {
           className="classroom-stage flex flex-col flex-1 min-w-0 order-2 lg:order-1"
           style={{ background: "var(--bg-main)" }}
         >
-          {user?.role === "tutor" && (
+          {user?.role === "tutor" && showTools && (
             <ClassroomBookPanel
               lessonId={lessonId}
               activeBookId={bookSession?.bookId ?? null}
@@ -1198,7 +1389,7 @@ export default function ClassroomPage() {
 
           {/* View + Drawing Toolbar */}
           <div
-            className="classroom-toolbar flex items-center gap-2 px-4 py-2 flex-wrap"
+            className={`classroom-toolbar flex items-center gap-2 px-4 py-2 flex-wrap ${showTools ? "is-open" : ""}`}
             style={{
               background: "var(--bg-light)",
               borderBottom: "1px solid var(--border-color)",
@@ -1210,7 +1401,10 @@ export default function ClassroomPage() {
             >
               <button
                 type="button"
-                onClick={() => setMainView("whiteboard")}
+                onClick={() => {
+                  setMainView("whiteboard");
+                  setCanvasOpen(true);
+                }}
                 className="min-h-11 px-3 rounded-md text-xs font-medium"
                 aria-pressed={mainView === "whiteboard"}
                 style={{
@@ -1457,42 +1651,47 @@ export default function ClassroomPage() {
           </div>
 
           {/* Main canvas / book area */}
-          <div className="classroom-stage-surface flex-1 relative p-2 min-h-[320px]">
-            {mainView === "whiteboard" &&
-              !activeCall &&
-              Object.keys(remoteStreams).length === 0 && (
-                <div className="classroom-stage-empty" role="status">
-                  <div
-                    className="classroom-stage-empty__icon"
-                    aria-hidden="true"
+          <div
+            className="classroom-stage-surface flex-1 relative p-2 min-h-[320px]"
+            data-testid="classroom-stage"
+          >
+            {mainView === "whiteboard" && !canvasOpen && (
+              <div className="classroom-stage-empty" role="status">
+                <div className="classroom-stage-empty__icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15.75 10.5 19.5 8.25v7.5l-3.75-2.25M4.5 18.75h8.25A2.25 2.25 0 0 0 15 16.5v-9a2.25 2.25 0 0 0-2.25-2.25H4.5A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-                      />
-                    </svg>
-                  </div>
-                  <h2>
-                    {t(
-                      "ابدأ الدرس عندما تكون مستعدًا",
-                      "Start when you are ready",
-                    )}
-                  </h2>
-                  <p>
-                    {t(
-                      "فعّل الكاميرا أو الميكروفون من شريط التحكم السفلي للانضمام إلى معلمك.",
-                      "Turn on your camera or microphone from the control dock to connect with your tutor.",
-                    )}
-                  </p>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15.75 10.5 19.5 8.25v7.5l-3.75-2.25M4.5 18.75h8.25A2.25 2.25 0 0 0 15 16.5v-9a2.25 2.25 0 0 0-2.25-2.25H4.5A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
+                    />
+                  </svg>
                 </div>
-              )}
+                <h2>
+                  {peerUser
+                    ? t("جارٍ إنشاء الاتصال", "Connecting your call")
+                    : t(
+                        "بانتظار الطرف الآخر",
+                        "Waiting for the other participant",
+                      )}
+                </h2>
+                <p>
+                  {peerUser
+                    ? t(
+                        "حافظ على هذه الصفحة مفتوحة بينما نُنشئ اتصالًا مباشرًا وآمنًا.",
+                        "Keep this page open while we establish a secure direct connection.",
+                      )
+                    : t(
+                        "يمكنك استخدام السبورة أو تجهيز أدواتك. سنوصلكما تلقائيًا عند الانضمام.",
+                        "You can use the canvas or prepare your tools. We will connect you automatically when they join.",
+                      )}
+                </p>
+              </div>
+            )}
             {mainView === "book" && bookSession ? (
               <SecureBookViewer
                 lessonId={lessonId}
@@ -1503,7 +1702,7 @@ export default function ClassroomPage() {
                 watermark={user?.email || user?.id || "MRH"}
                 t={t}
               />
-            ) : (
+            ) : canvasOpen ? (
               <canvas
                 ref={canvasRef}
                 onPointerDown={handlePointerDown}
@@ -1513,7 +1712,7 @@ export default function ClassroomPage() {
                 className="w-full h-full rounded-xl cursor-crosshair"
                 style={{ background: "#ffffff", touchAction: "none" }}
               />
-            )}
+            ) : null}
             {/* WebRTC Remote Video Overlay */}
             {Object.entries(remoteStreams).map(([pid, stream]) => (
               <div
@@ -1556,146 +1755,165 @@ export default function ClassroomPage() {
 
           {/* WebRTC Buttons */}
           <div
-            className="classroom-media-controls classroom-dock flex items-center gap-2 px-4 py-2"
-            style={{
-              background: "var(--bg-light)",
-              borderTop: "1px solid var(--border-color)",
-            }}
+            className="classroom-media-controls classroom-dock"
+            data-testid="classroom-dock"
           >
-            {!peerUser ? (
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {t(
-                  "انتظر حتى ينضم الطرف الآخر...",
-                  "Waiting for the other participant to join...",
-                )}
-              </span>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!activeCall) {
-                      void startCall("voice");
-                      return;
-                    }
+            <div className="classroom-dock__controls">
+              <button
+                type="button"
+                data-dock-action="mic"
+                onClick={() => {
+                  if (!activeCall && peerUser) {
+                    void startCall("voice");
+                  } else {
                     setMicEnabled((enabled) => !enabled);
-                  }}
-                  disabled={isCallLoading}
-                  className="btn-ghost text-xs px-3 py-1.5"
-                  aria-pressed={micEnabled}
-                  aria-label={
-                    micEnabled
-                      ? t("كتم الميكروفون", "Mute microphone")
-                      : t("تشغيل الميكروفون", "Unmute microphone")
                   }
-                  style={{
-                    color: micEnabled ? "var(--success)" : "var(--danger)",
-                  }}
-                >
-                  <svg
-                    className="w-4 h-4 inline ms-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    {activeCall === "voice" ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
-                      />
-                    ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
-                      />
-                    )}
-                  </svg>
-                  {micEnabled
-                    ? t("الميكروفون", "Microphone")
-                    : t("إلغاء الكتم", "Unmute")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!activeCall || activeCall === "voice") {
-                      setCameraEnabled(true);
-                      setWebRtcCameraEnabled(true);
-                      void startCall("camera");
-                      return;
-                    }
-                    setCameraEnabled((enabled) => !enabled);
-                  }}
-                  disabled={isCallLoading}
-                  className="btn-ghost text-xs px-3 py-1.5"
-                  aria-pressed={cameraEnabled}
-                  aria-label={
-                    cameraEnabled
-                      ? t("إيقاف الكاميرا", "Turn camera off")
-                      : t("تشغيل الكاميرا", "Turn camera on")
-                  }
-                  style={{
-                    color: cameraEnabled ? "var(--success)" : "var(--danger)",
-                  }}
-                >
-                  <svg
-                    className="w-4 h-4 inline ms-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                    />
-                  </svg>
-                  {cameraEnabled
-                    ? t("الكاميرا", "Camera")
-                    : t("تشغيل الكاميرا", "Start camera")}
-                </button>
-                <button
-                  onClick={() =>
-                    activeCall === "screen"
-                      ? stopCall("screen")
-                      : startCall("screen")
-                  }
-                  disabled={isCallLoading}
-                  className="btn-ghost text-xs px-3 py-1.5"
-                  style={{
-                    color:
-                      activeCall === "screen"
-                        ? "var(--success)"
-                        : "var(--text-muted)",
-                  }}
-                >
-                  <svg
-                    className="w-4 h-4 inline ms-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z"
-                    />
-                  </svg>
-                  {activeCall === "screen"
-                    ? t("إيقاف المشاركة", "Stop Share")
-                    : t("مشاركة الشاشة", "Screen Share")}
-                </button>
-              </>
-            )}
-            {callError && (
-              <p
-                className="text-xs w-full mt-1"
-                style={{ color: "var(--danger)" }}
+                }}
+                disabled={isCallLoading}
+                className={micEnabled ? "is-active" : ""}
+                aria-pressed={micEnabled}
+                aria-label={
+                  micEnabled
+                    ? t("كتم الميكروفون", "Mute microphone")
+                    : t("تشغيل الميكروفون", "Unmute microphone")
+                }
               >
+                <span>
+                  <ClassroomIcon name={micEnabled ? "mic" : "micOff"} />
+                </span>
+                <small>{t("الميكروفون", "Mic")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="camera"
+                onClick={() => {
+                  if ((!activeCall || activeCall === "voice") && peerUser) {
+                    setCameraEnabled(true);
+                    setWebRtcCameraEnabled(true);
+                    void startCall("camera");
+                  } else {
+                    setCameraEnabled((enabled) => !enabled);
+                  }
+                }}
+                disabled={isCallLoading}
+                className={cameraEnabled ? "is-active" : ""}
+                aria-pressed={cameraEnabled}
+                aria-label={
+                  cameraEnabled
+                    ? t("إيقاف الكاميرا", "Turn camera off")
+                    : t("تشغيل الكاميرا", "Turn camera on")
+                }
+              >
+                <span>
+                  <ClassroomIcon
+                    name={cameraEnabled ? "camera" : "cameraOff"}
+                  />
+                </span>
+                <small>{t("الكاميرا", "Camera")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="canvas"
+                className={
+                  mainView === "whiteboard" && canvasOpen ? "is-active" : ""
+                }
+                aria-pressed={mainView === "whiteboard" && canvasOpen}
+                onClick={() => {
+                  setMainView("whiteboard");
+                  setCanvasOpen(true);
+                }}
+                aria-label={t("فتح السبورة", "Open canvas")}
+              >
+                <span>
+                  <ClassroomIcon name="board" />
+                </span>
+                <small>{t("السبورة", "Canvas")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="tools"
+                className={showTools ? "is-active" : ""}
+                aria-pressed={showTools}
+                onClick={() => {
+                  setMainView("whiteboard");
+                  setCanvasOpen(true);
+                  setShowTools((value) => !value);
+                }}
+                aria-label={t("أدوات السبورة", "Teaching tools")}
+              >
+                <span>
+                  <ClassroomIcon name="tools" />
+                </span>
+                <small>{t("الأدوات", "Tools")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="share"
+                className={activeCall === "screen" ? "is-active" : ""}
+                aria-pressed={activeCall === "screen"}
+                onClick={() =>
+                  activeCall === "screen"
+                    ? stopCall("screen")
+                    : void startCall("screen")
+                }
+                disabled={isCallLoading || !peerUser}
+                aria-label={
+                  activeCall === "screen"
+                    ? t("إيقاف مشاركة الشاشة", "Stop screen sharing")
+                    : t("مشاركة الشاشة", "Share screen")
+                }
+              >
+                <span>
+                  <ClassroomIcon name="screen" />
+                </span>
+                <small>{t("مشاركة", "Share")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="chat"
+                className={
+                  showSidePanel && sideTab === "chat" ? "is-active" : ""
+                }
+                aria-pressed={showSidePanel && sideTab === "chat"}
+                onClick={() => {
+                  setSideTab("chat");
+                  setShowSidePanel((value) => sideTab !== "chat" || !value);
+                }}
+                aria-label={t("فتح الدردشة", "Open chat")}
+              >
+                <span>
+                  <ClassroomIcon name="chat" />
+                </span>
+                <small>{t("الدردشة", "Chat")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="more"
+                className={showMore ? "is-active" : ""}
+                aria-pressed={showMore}
+                onClick={() => setShowMore((value) => !value)}
+                aria-label={t("المزيد من الإجراءات", "More actions")}
+              >
+                <span>
+                  <ClassroomIcon name="more" />
+                </span>
+                <small>{t("المزيد", "More")}</small>
+              </button>
+              <button
+                type="button"
+                data-dock-action="leave"
+                className="classroom-dock__leave"
+                onClick={() => setShowLeaveConfirm(true)}
+                aria-label={t("مغادرة الفصل", "Leave classroom")}
+              >
+                <span>
+                  <ClassroomIcon name="leave" />
+                </span>
+                <small>{t("مغادرة", "Leave")}</small>
+              </button>
+            </div>
+            {callError && (
+              <p className="classroom-call-error" role="alert">
                 {callError}
               </p>
             )}
@@ -1703,216 +1921,401 @@ export default function ClassroomPage() {
         </div>
 
         {/* Side Panel */}
-        <div
-          className="classroom-sidepanel w-full lg:w-80 flex-shrink-0 flex flex-col order-1 lg:order-2 max-h-80 lg:max-h-none"
-          style={{
-            background: "var(--bg-light)",
-            borderBottom: "1px solid var(--border-color)",
-            borderInlineStart: "none",
-          }}
-        >
-          {/* Tab Switcher */}
+        {showSidePanel && (
           <div
-            className="flex"
-            style={{ borderBottom: "1px solid var(--border-color)" }}
+            className="classroom-sidepanel flex flex-col"
+            style={{
+              background: "var(--bg-light)",
+              borderBottom: "1px solid var(--border-color)",
+              borderInlineStart: "none",
+            }}
           >
-            <button
-              onClick={() => setSideTab("chat")}
-              className="flex-1 py-3 text-sm font-medium text-center transition-colors"
-              style={{
-                color:
-                  sideTab === "chat" ? "var(--signal)" : "var(--text-muted)",
-                borderBottom:
-                  sideTab === "chat"
-                    ? "2px solid var(--signal)"
-                    : "2px solid transparent",
-              }}
+            {/* Tab Switcher */}
+            <div
+              className="flex"
+              style={{ borderBottom: "1px solid var(--border-color)" }}
             >
-              {t("الدردشة", "Chat")}
-            </button>
-            <button
-              onClick={() => setSideTab("participants")}
-              className="flex-1 py-3 text-sm font-medium text-center transition-colors"
-              style={{
-                color:
-                  sideTab === "participants"
-                    ? "var(--signal)"
-                    : "var(--text-muted)",
-                borderBottom:
-                  sideTab === "participants"
-                    ? "2px solid var(--signal)"
-                    : "2px solid transparent",
-              }}
-            >
-              {t("المشاركون", "Participants")} ({participants.length})
-            </button>
-          </div>
+              <button
+                onClick={() => setSideTab("chat")}
+                className="flex-1 py-3 text-sm font-medium text-center transition-colors"
+                style={{
+                  color:
+                    sideTab === "chat" ? "var(--signal)" : "var(--text-muted)",
+                  borderBottom:
+                    sideTab === "chat"
+                      ? "2px solid var(--signal)"
+                      : "2px solid transparent",
+                }}
+              >
+                {t("الدردشة", "Chat")}
+              </button>
+              <button
+                onClick={() => setSideTab("participants")}
+                className="flex-1 py-3 text-sm font-medium text-center transition-colors"
+                style={{
+                  color:
+                    sideTab === "participants"
+                      ? "var(--signal)"
+                      : "var(--text-muted)",
+                  borderBottom:
+                    sideTab === "participants"
+                      ? "2px solid var(--signal)"
+                      : "2px solid transparent",
+                }}
+              >
+                {t("المشاركون", "Participants")} ({participants.length})
+              </button>
+              <button
+                type="button"
+                className="classroom-sidepanel__close"
+                onClick={() => setShowSidePanel(false)}
+                aria-label={t("إغلاق اللوحة", "Close panel")}
+              >
+                <ClassroomIcon name="close" />
+              </button>
+            </div>
 
-          {/* Chat Panel */}
-          {sideTab === "chat" && (
-            <>
-              <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                {messages.length === 0 && (
+            {/* Chat Panel */}
+            {sideTab === "chat" && (
+              <>
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  {messages.length === 0 && (
+                    <p
+                      className="text-xs text-center mt-8"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {t("لا توجد رسائل بعد", "No messages yet")}
+                    </p>
+                  )}
+                  {messages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex flex-col ${msg.senderId === user?.id ? "items-end" : "items-start"}`}
+                    >
+                      <span
+                        className="text-[10px] font-medium mb-0.5"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {chatSenderName(msg.senderId)}
+                      </span>
+                      <div
+                        className="max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed"
+                        style={{
+                          background:
+                            msg.senderId === user?.id
+                              ? "var(--signal)"
+                              : "var(--bg-main)",
+                          color:
+                            msg.senderId === user?.id
+                              ? "var(--ink)"
+                              : "var(--text-main)",
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                      <span
+                        className="text-[10px] mt-0.5"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {new Date(msg.timestamp).toLocaleTimeString(
+                          lang === "ar" ? "ar-SA" : "en-US",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+                <div
+                  className="p-3"
+                  style={{ borderTop: "1px solid var(--border-color)" }}
+                >
+                  <div className="flex gap-2">
+                    <input
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") sendChat();
+                      }}
+                      placeholder={t("اكتب رسالة...", "Type a message...")}
+                      className="input-field text-sm flex-1"
+                    />
+                    <button
+                      onClick={sendChat}
+                      className="btn-primary px-3 py-2"
+                      style={{
+                        background: "var(--signal)",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d={
+                            isRtl
+                              ? "M14 5l-7 7 7 7"
+                              : "M10 19l-7-7m0 0l7-7m-7 7h18"
+                          }
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Participants Panel */}
+            {sideTab === "participants" && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {participants.length === 0 && (
                   <p
                     className="text-xs text-center mt-8"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    {t("لا توجد رسائل بعد", "No messages yet")}
+                    {t("لا يوجد مشاركون", "No participants")}
                   </p>
                 )}
-                {messages.map((msg, i) => (
+                {participants.map((p) => (
                   <div
-                    key={i}
-                    className={`flex flex-col ${msg.senderId === user?.id ? "items-end" : "items-start"}`}
+                    key={p.userId}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                    style={{ background: "var(--bg-main)" }}
                   >
-                    <span
-                      className="text-[10px] font-medium mb-0.5"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {chatSenderName(msg.senderId)}
-                    </span>
                     <div
-                      className="max-w-[85%] rounded-xl px-3 py-2 text-sm leading-relaxed"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                       style={{
                         background:
-                          msg.senderId === user?.id
-                            ? "var(--signal)"
-                            : "var(--bg-main)",
-                        color:
-                          msg.senderId === user?.id
-                            ? "var(--ink)"
-                            : "var(--text-main)",
+                          "color-mix(in srgb, var(--signal) 15%, transparent)",
+                        color: "var(--signal)",
                       }}
                     >
-                      {msg.content}
+                      {p.role === "tutor" ? "M" : "T"}
                     </div>
-                    <span
-                      className="text-[10px] mt-0.5"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      {new Date(msg.timestamp).toLocaleTimeString(
-                        lang === "ar" ? "ar-SA" : "en-US",
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-sm font-medium truncate"
+                        style={{ color: "var(--text-main)" }}
+                      >
+                        {p.userId === user?.id
+                          ? t("أنت", "You")
+                          : p.userId.slice(0, 8)}
+                      </p>
+                      <span
+                        className="text-[10px] font-medium"
+                        style={{
+                          color:
+                            p.role === "tutor"
+                              ? "var(--signal)"
+                              : "var(--text-muted)",
+                        }}
+                      >
+                        {p.role === "tutor"
+                          ? t("معلم", "Tutor")
+                          : t("طالب", "Student")}
+                      </span>
+                    </div>
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        background: (() => {
+                          const r = healthMap[p.userId] ?? rtt;
+                          if (r === null) return "var(--ink-faint)";
+                          if (r < 150) return "var(--success)";
+                          if (r < 500) return "var(--warning)";
+                          return "var(--danger)";
+                        })(),
+                      }}
+                      title={`${healthMap[p.userId] ?? rtt ?? "?"}ms`}
+                    />
                   </div>
                 ))}
-                <div ref={messagesEndRef} />
               </div>
-              <div
-                className="p-3"
-                style={{ borderTop: "1px solid var(--border-color)" }}
-              >
-                <div className="flex gap-2">
-                  <input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") sendChat();
-                    }}
-                    placeholder={t("اكتب رسالة...", "Type a message...")}
-                    className="input-field text-sm flex-1"
-                  />
-                  <button
-                    onClick={sendChat}
-                    className="btn-primary px-3 py-2"
-                    style={{ background: "var(--signal)", color: "var(--ink)" }}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d={
-                          isRtl
-                            ? "M14 5l-7 7 7 7"
-                            : "M10 19l-7-7m0 0l7-7m-7 7h18"
-                        }
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Participants Panel */}
-          {sideTab === "participants" && (
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {participants.length === 0 && (
-                <p
-                  className="text-xs text-center mt-8"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {t("لا يوجد مشاركون", "No participants")}
-                </p>
-              )}
-              {participants.map((p) => (
-                <div
-                  key={p.userId}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                  style={{ background: "var(--bg-main)" }}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={{
-                      background:
-                        "color-mix(in srgb, var(--signal) 15%, transparent)",
-                      color: "var(--signal)",
-                    }}
-                  >
-                    {p.role === "tutor" ? "M" : "T"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-sm font-medium truncate"
-                      style={{ color: "var(--text-main)" }}
-                    >
-                      {p.userId === user?.id
-                        ? t("أنت", "You")
-                        : p.userId.slice(0, 8)}
-                    </p>
-                    <span
-                      className="text-[10px] font-medium"
-                      style={{
-                        color:
-                          p.role === "tutor"
-                            ? "var(--signal)"
-                            : "var(--text-muted)",
-                      }}
-                    >
-                      {p.role === "tutor"
-                        ? t("معلم", "Tutor")
-                        : t("طالب", "Student")}
-                    </span>
-                  </div>
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{
-                      background: (() => {
-                        const r = healthMap[p.userId] ?? rtt;
-                        if (r === null) return "var(--ink-faint)";
-                        if (r < 150) return "var(--success)";
-                        if (r < 500) return "var(--warning)";
-                        return "var(--danger)";
-                      })(),
-                    }}
-                    title={`${healthMap[p.userId] ?? rtt ?? "?"}ms`}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {showMore && (
+        <>
+          <button
+            type="button"
+            className="classroom-panel-scrim"
+            aria-label={t("إغلاق قائمة المزيد", "Close more menu")}
+            onClick={() => setShowMore(false)}
+          />
+          <aside
+            className="classroom-popover classroom-more-panel"
+            aria-label={t("المزيد من الإجراءات", "More actions")}
+          >
+            <button
+              type="button"
+              className="classroom-popover__close"
+              onClick={() => setShowMore(false)}
+              aria-label={t("إغلاق القائمة", "Close menu")}
+            >
+              <ClassroomIcon name="close" />
+            </button>
+            <h2>{t("الفصل والاتصال", "Classroom & connection")}</h2>
+            <div className="classroom-detail-list">
+              <span>
+                <ClassroomIcon name="participants" />
+                {t("المشاركون", "Participants")}
+                <b>{participants.length + 1}</b>
+              </span>
+              <span>
+                <ClassroomIcon name="signal" />
+                {t("زمن الاستجابة", "Latency")}
+                <b>{rtt === null ? "—" : `${rtt}ms`}</b>
+              </span>
+              <span>
+                <ClassroomIcon name="info" />
+                {t("مدة الجلسة", "Session time")}
+                <b>{formatTime(elapsed)}</b>
+              </span>
+              {lesson.scheduledTime && (
+                <span>
+                  <ClassroomIcon name="info" />
+                  {t("موعد الدرس", "Scheduled")}
+                  <b>
+                    {new Date(lesson.scheduledTime).toLocaleTimeString(
+                      lang === "ar" ? "ar-EG" : "en-US",
+                      { hour: "2-digit", minute: "2-digit" },
+                    )}
+                  </b>
+                </span>
+              )}
+              {lesson.durationMinutes && (
+                <span>
+                  <ClassroomIcon name="info" />
+                  {t("المدة", "Duration")}
+                  <b>
+                    {lesson.durationMinutes} {t("د", "min")}
+                  </b>
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowTools(true);
+                setShowMore(false);
+              }}
+            >
+              <ClassroomIcon name="tools" />
+              <span>
+                <strong>{t("أدوات التدريس", "Teaching tools")}</strong>
+                <small>
+                  {t(
+                    "افتح أدوات السبورة والكتاب",
+                    "Open whiteboard and book controls",
+                  )}
+                </small>
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={isCallLoading || !peerUser}
+              onClick={() => {
+                if (activeCall === "screen") {
+                  stopCall("screen");
+                } else {
+                  void startCall("screen");
+                }
+                setShowMore(false);
+              }}
+            >
+              <ClassroomIcon name="screen" />
+              <span>
+                <strong>
+                  {activeCall === "screen"
+                    ? t("إيقاف مشاركة الشاشة", "Stop screen sharing")
+                    : t("مشاركة الشاشة", "Share screen")}
+                </strong>
+                <small>
+                  {peerUser
+                    ? t(
+                        "شارك نافذة أو شاشة كاملة",
+                        "Share a window or full screen",
+                      )
+                    : t(
+                        "متاحة عند انضمام الطرف الآخر",
+                        "Available when the other participant joins",
+                      )}
+                </small>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSideTab("participants");
+                setShowSidePanel(true);
+                setShowMore(false);
+              }}
+            >
+              <ClassroomIcon name="participants" />
+              <span>
+                <strong>{t("عرض المشاركين", "View participants")}</strong>
+                <small>
+                  {peerUser
+                    ? t("الطرف الآخر متصل", "The other participant is here")
+                    : t(
+                        "بانتظار الطرف الآخر",
+                        "Waiting for the other participant",
+                      )}
+                </small>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowReport(true);
+                setShowMore(false);
+              }}
+            >
+              <ClassroomIcon name="info" />
+              <span>
+                <strong>{t("الإبلاغ عن مشكلة", "Report an issue")}</strong>
+                <small>
+                  {t(
+                    "أرسل تفاصيل المشكلة إلى فريق الدعم",
+                    "Send issue details to support",
+                  )}
+                </small>
+              </span>
+            </button>
+            {lesson.googleMeetUrl && (
+              <a
+                href={lesson.googleMeetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ClassroomIcon name="screen" />
+                <span>
+                  <strong>
+                    {t("فتح Meet الاحتياطي", "Open Meet fallback")}
+                  </strong>
+                  <small>
+                    {t(
+                      "استخدمه عند تعذّر الاتصال المباشر",
+                      "Use when the direct connection fails",
+                    )}
+                  </small>
+                </span>
+              </a>
+            )}
+          </aside>
+        </>
+      )}
 
       {/* Report Modal */}
       {showLeaveConfirm && (

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/contexts/language-context";
@@ -34,6 +34,21 @@ type TutorWallet = {
   stripeOnboardingComplete: boolean;
 };
 
+type PlatformPayout = {
+  id: string;
+  amount: number;
+  receiverEmail: string;
+  status: string;
+  providerStatus: string | null;
+  createdAt: string;
+};
+
+type PlatformPayoutPage = {
+  items: PlatformPayout[];
+  total: number;
+  availableBalance: number;
+};
+
 const statusConfig: Record<
   string,
   { ar: string; en: string; bg: string; color: string }
@@ -43,6 +58,12 @@ const statusConfig: Record<
     en: "Pending",
     bg: "var(--warning-soft)",
     color: "var(--warning)",
+  },
+  processing: {
+    ar: "قيد المعالجة",
+    en: "Processing",
+    bg: "var(--info-soft)",
+    color: "var(--info)",
   },
   success: {
     ar: "مكتمل",
@@ -56,6 +77,18 @@ const statusConfig: Record<
     bg: "var(--danger-soft)",
     color: "var(--danger)",
   },
+  cancelled: {
+    ar: "ملغي",
+    en: "Cancelled",
+    bg: "var(--danger-soft)",
+    color: "var(--danger)",
+  },
+  refunded: {
+    ar: "مُعاد",
+    en: "Refunded",
+    bg: "var(--danger-soft)",
+    color: "var(--danger)",
+  },
 };
 
 export default function AdminPayoutsPage() {
@@ -65,6 +98,9 @@ export default function AdminPayoutsPage() {
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>(
     {},
   );
+  const [platformAmount, setPlatformAmount] = useState("");
+  const [platformPaypalEmail, setPlatformPaypalEmail] = useState("");
+  const platformPayoutKey = useRef(crypto.randomUUID());
 
   const { data: payouts = [], isLoading } = useQuery<Payout[]>({
     queryKey: ["admin-payouts"],
@@ -83,6 +119,34 @@ export default function AdminPayoutsPage() {
         "/admin/payments/tutor-earnings",
       );
       return data;
+    },
+  });
+
+  const platformPayoutsQuery = useQuery<PlatformPayoutPage>({
+    queryKey: ["admin-platform-payouts"],
+    queryFn: async () =>
+      (
+        await apiClient.get<PlatformPayoutPage>(
+          "/admin/payments/platform-payouts",
+        )
+      ).data,
+  });
+
+  const platformPayoutMutation = useMutation({
+    mutationFn: async () =>
+      (
+        await apiClient.post("/admin/payments/platform-payouts", {
+          amount: Number(platformAmount),
+          paypalEmail: platformPaypalEmail.trim(),
+          idempotencyKey: platformPayoutKey.current,
+        })
+      ).data,
+    onSuccess: async () => {
+      platformPayoutKey.current = crypto.randomUUID();
+      setPlatformAmount("");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-platform-payouts"],
+      });
     },
   });
 
@@ -201,6 +265,99 @@ export default function AdminPayoutsPage() {
           )}
         </p>
       </div>
+
+      <section className="card p-5 space-y-4">
+        <div>
+          <h3
+            className="text-lg font-bold"
+            style={{ color: "var(--text-main)" }}
+          >
+            {t("سحب عمولة المنصة عبر PayPal", "Platform commission via PayPal")}
+          </h3>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+            {t(
+              "يُحجز المبلغ من سجل العمولات، وتُحدّث حالته فقط من إشعارات PayPal الموثقة.",
+              "The amount is reserved from the commission ledger and finalized only by verified PayPal events.",
+            )}
+          </p>
+        </div>
+        <p className="text-sm" style={{ color: "var(--text-main)" }}>
+          {t("الرصيد المتاح", "Available balance")}:{" "}
+          <strong>
+            $
+            {Number(platformPayoutsQuery.data?.availableBalance ?? 0).toFixed(
+              2,
+            )}
+          </strong>
+        </p>
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <label className="space-y-1 text-sm">
+            <span>{t("المبلغ بالدولار", "Amount (USD)")}</span>
+            <input
+              className="input-field"
+              type="number"
+              min="10"
+              step="0.01"
+              value={platformAmount}
+              onChange={(event) => setPlatformAmount(event.target.value)}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span>{t("بريد PayPal", "PayPal email")}</span>
+            <input
+              className="input-field"
+              type="email"
+              value={platformPaypalEmail}
+              onChange={(event) => setPlatformPaypalEmail(event.target.value)}
+            />
+          </label>
+          <button
+            className="btn-primary self-end"
+            type="button"
+            disabled={
+              platformPayoutMutation.isPending ||
+              Number(platformAmount) < 10 ||
+              Number(platformAmount) >
+                Number(platformPayoutsQuery.data?.availableBalance ?? 0) ||
+              !platformPaypalEmail.includes("@")
+            }
+            onClick={() => platformPayoutMutation.mutate()}
+          >
+            {platformPayoutMutation.isPending
+              ? t("جارٍ الإرسال…", "Sending…")
+              : t("إرسال إلى PayPal", "Send to PayPal")}
+          </button>
+        </div>
+        {platformPayoutMutation.isError && (
+          <p
+            className="text-sm"
+            style={{ color: "var(--danger)" }}
+            role="alert"
+          >
+            {(
+              platformPayoutMutation.error as {
+                response?: { data?: { message?: string } };
+              }
+            ).response?.data?.message ??
+              t("تعذر إنشاء الدفعة.", "The payout could not be created.")}
+          </p>
+        )}
+        {platformPayoutsQuery.data?.items.slice(0, 5).map((payout) => (
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm"
+            style={{ borderColor: "var(--border-color)" }}
+            key={payout.id}
+          >
+            <span>{payout.receiverEmail}</span>
+            <strong>${Number(payout.amount).toFixed(2)}</strong>
+            <span>
+              {lang === "ar"
+                ? (statusConfig[payout.status]?.ar ?? payout.status)
+                : (statusConfig[payout.status]?.en ?? payout.status)}
+            </span>
+          </div>
+        ))}
+      </section>
 
       <section className="card p-5 space-y-4">
         <div>

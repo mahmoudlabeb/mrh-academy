@@ -19,6 +19,7 @@ describe('CoursesService course creation approval', () => {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     tutorProfileRepository as never,
     {} as never,
     {} as never,
@@ -85,9 +86,13 @@ describe('CoursesService secure overview videos', () => {
     getVideoStatus: jest.fn(),
     generateEmbedUrl: jest.fn(),
   };
+  const lessonRepository = {
+    find: jest.fn(),
+  };
   const service = new CoursesService(
     courseRepository as never,
     {} as never,
+    lessonRepository as never,
     {} as never,
     {} as never,
     {} as never,
@@ -225,5 +230,282 @@ describe('CoursesService secure overview videos', () => {
         isDraft: false,
       },
     });
+  });
+
+  it('publishes curriculum metadata without exposing protected material URLs', async () => {
+    courseRepository.findOne.mockResolvedValue({
+      id: 'course-1',
+      status: CourseStatus.APPROVED,
+      isDraft: false,
+    });
+    lessonRepository.find.mockResolvedValue([
+      {
+        id: 'lesson-1',
+        title: 'Introductions',
+        description: 'Course outline',
+        contentType: 'video',
+        durationMinutes: 20,
+        lessonOrder: 1,
+        isPreview: false,
+      },
+    ]);
+
+    await service.findPublicCurriculum('course-1');
+
+    expect(lessonRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          title: true,
+          contentType: true,
+          durationMinutes: true,
+        }),
+      }),
+    );
+    expect(lessonRepository.find.mock.calls[0][0].select).not.toHaveProperty(
+      'videoAssetId',
+    );
+    expect(lessonRepository.find.mock.calls[0][0].select).not.toHaveProperty(
+      'resourceUrl',
+    );
+  });
+});
+
+describe('CoursesService professional authoring workflow', () => {
+  const courseRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: value.id ?? 'course-1', ...value })),
+    findOne: jest.fn(),
+  };
+  const lessonRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    maximum: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: value.id ?? 'lesson-1', ...value })),
+    update: jest.fn(),
+    delete: jest.fn(),
+    remove: jest.fn(),
+  };
+  const sectionRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    maximum: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) =>
+      Array.isArray(value) ? value : { id: value.id ?? 'section-1', ...value },
+    ),
+    delete: jest.fn(),
+  };
+  const tutorProfileRepository = {
+    findOne: jest.fn(),
+  };
+  const storage = {
+    upload: jest.fn(),
+    destroy: jest.fn(),
+    signedUrl: jest.fn(),
+  };
+  const bunnyService = {
+    uploadVideo: jest.fn(),
+    deleteVideo: jest.fn(),
+    addCaption: jest.fn(),
+    deleteCaption: jest.fn(),
+    getVideoStatus: jest.fn(),
+    generateEmbedUrl: jest.fn(),
+  };
+  const service = new CoursesService(
+    courseRepository as never,
+    {} as never,
+    lessonRepository as never,
+    sectionRepository as never,
+    {} as never,
+    tutorProfileRepository as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { get: jest.fn().mockReturnValue('studio-secret') } as never,
+    storage as never,
+    bunnyService as never,
+  );
+  const completeCourse = {
+    id: 'course-1',
+    tutorId: 'tutor-1',
+    title: 'Arabic conversation for confident beginners',
+    subtitle: 'Build practical confidence through guided Arabic conversations',
+    description:
+      'A practical Arabic course with guided conversations, focused exercises, useful vocabulary, and clear progress milestones for independent learners.',
+    category: 'languages',
+    language: 'Arabic',
+    level: 'beginner',
+    price: 39,
+    courseType: 'recorded' as const,
+    thumbnailUrl: 'https://cdn.example/cover.jpg',
+    thumbnailPublicId: 'cover-id',
+    overviewVideoId: 'promo-video',
+    previewVideoUrl: null,
+    learningOutcomes: ['Hold an everyday Arabic conversation'],
+    requirements: ['No prior experience is required'],
+    targetAudience: ['Beginner Arabic learners'],
+    capacity: null,
+    cohortStartAt: null,
+    cohortEndAt: null,
+    isDraft: true,
+    status: CourseStatus.PENDING,
+    submittedAt: null,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    storage.destroy.mockResolvedValue(undefined);
+    storage.signedUrl.mockReturnValue('https://cdn.example/signed-resource');
+    tutorProfileRepository.findOne.mockResolvedValue({
+      userId: 'tutor-1',
+      status: CourseStatus.APPROVED,
+    });
+    courseRepository.findOne.mockResolvedValue({ ...completeCourse });
+    sectionRepository.find.mockResolvedValue([
+      {
+        id: 'section-1',
+        courseId: 'course-1',
+        title: 'Foundations',
+        sectionOrder: 1,
+      },
+    ]);
+    sectionRepository.findOne.mockResolvedValue({
+      id: 'section-1',
+      courseId: 'course-1',
+      title: 'Foundations',
+      sectionOrder: 1,
+    });
+    sectionRepository.maximum.mockResolvedValue(0);
+    lessonRepository.find.mockResolvedValue([
+      {
+        id: 'lesson-1',
+        courseId: 'course-1',
+        sectionId: 'section-1',
+        title: 'Welcome',
+        contentType: 'video',
+        videoUrl: 'https://video.example/welcome',
+        videoAssetId: null,
+        durationMinutes: 10,
+        lessonOrder: 1,
+        downloadableFiles: [],
+        externalLinks: [],
+      },
+    ]);
+    lessonRepository.maximum.mockResolvedValue(0);
+  });
+
+  it('creates a persistent course draft for an approved tutor', async () => {
+    const draft = await service.createDraft('tutor-1', 'recorded');
+
+    expect(courseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tutorId: 'tutor-1',
+        isDraft: true,
+        courseType: 'recorded',
+      }),
+    );
+    expect(draft.id).toBe('course-1');
+  });
+
+  it('saves course basics and pricing on an owned draft', async () => {
+    await service.updateOwnedCourse('tutor-1', 'course-1', {
+      title: completeCourse.title,
+      subtitle: completeCourse.subtitle,
+      description: completeCourse.description,
+      category: 'languages',
+      language: 'Arabic',
+      level: 'beginner',
+      price: 49,
+    });
+
+    expect(courseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: completeCourse.title,
+        category: 'languages',
+        price: 49,
+      }),
+    );
+  });
+
+  it('adds curriculum sections and lessons with video URLs', async () => {
+    const section = await service.addSection('tutor-1', 'course-1', {
+      title: 'Foundations',
+    });
+    const lesson = await service.addLesson('tutor-1', 'course-1', {
+      sectionId: 'section-1',
+      title: 'Welcome lesson',
+      contentType: 'video',
+      videoUrl: 'https://video.example/welcome',
+      durationMinutes: 8,
+    });
+
+    expect(section).toEqual(expect.objectContaining({ title: 'Foundations' }));
+    expect(lesson).toEqual(
+      expect.objectContaining({
+        sectionId: 'section-1',
+        videoUrl: 'https://video.example/welcome',
+      }),
+    );
+  });
+
+  it('uploads and attaches a validated course cover', async () => {
+    storage.upload.mockResolvedValue({
+      publicId: 'new-cover',
+      secureUrl: 'https://cdn.example/new-cover.webp',
+    });
+
+    const result = await service.uploadOwnedCourseMedia(
+      'tutor-1',
+      'course-1',
+      'cover',
+      {
+        buffer: Buffer.from('cover'),
+        mimetype: 'image/webp',
+        size: 1024,
+      },
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        url: 'https://cdn.example/new-cover.webp',
+        publicId: 'new-cover',
+      }),
+    );
+    expect(courseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        thumbnailUrl: 'https://cdn.example/new-cover.webp',
+        thumbnailPublicId: 'new-cover',
+      }),
+    );
+  });
+
+  it('rejects submission while required course data is incomplete', async () => {
+    courseRepository.findOne.mockResolvedValue({
+      ...completeCourse,
+      subtitle: '',
+      thumbnailUrl: null,
+      overviewVideoId: null,
+      learningOutcomes: [],
+    });
+    sectionRepository.find.mockResolvedValue([]);
+    lessonRepository.find.mockResolvedValue([]);
+
+    await expect(
+      service.submitForReview('tutor-1', 'course-1'),
+    ).rejects.toThrow('Course is not ready for review');
+  });
+
+  it('submits a complete course for publishing review', async () => {
+    const submitted = await service.submitForReview('tutor-1', 'course-1');
+
+    expect(courseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isDraft: false,
+        status: CourseStatus.PENDING,
+        submittedAt: expect.any(Date),
+      }),
+    );
+    expect(submitted.message).toBe('Course submitted for academy review');
   });
 });

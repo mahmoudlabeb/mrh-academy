@@ -1,19 +1,10 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/language-context";
 import { apiClient } from "@/lib/api-client";
-import {
-  SecureVideoPlayer,
-  type SecureVideoStatus,
-} from "./SecureVideoPlayer";
+import { SecureVideoPlayer, type SecureVideoStatus } from "./SecureVideoPlayer";
 import styles from "./VideoUploader.module.css";
 
 const MAX_VIDEO_BYTES = 250 * 1024 * 1024;
@@ -31,13 +22,14 @@ type VideoUploaderProps = {
   uploadField?: string;
   enabled?: boolean;
   readonly?: boolean;
-  onChange?: () => void;
+  onChange?: () => void | Promise<void>;
   testId?: string;
 };
 
 function apiError(error: unknown, fallback: string) {
-  const message = (error as { response?: { data?: { message?: string | string[] } } })
-    ?.response?.data?.message;
+  const message = (
+    error as { response?: { data?: { message?: string | string[] } } }
+  )?.response?.data?.message;
   if (Array.isArray(message)) return message.join(" ");
   return typeof message === "string" ? message : fallback;
 }
@@ -63,18 +55,18 @@ export function VideoUploader({
   const { lang } = useLanguage();
   const tr = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const inputId = useId();
-  const captionsId = useId();
+  const captionInputId = useId();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const captionInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [localUrl, setLocalUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [captionLanguage, setCaptionLanguage] = useState<string>(lang);
-  const [captionError, setCaptionError] = useState<string | null>(null);
+  const [captionError, setCaptionError] = useState("");
 
   const statusQuery = useQuery({
     queryKey: ["video-uploader-status", statusEndpoint],
@@ -105,15 +97,17 @@ export function VideoUploader({
     return () => URL.revokeObjectURL(url);
   }, [selectedFile]);
 
-  const refreshStatus = async () => {
-    await queryClient.invalidateQueries({
-      queryKey: ["video-uploader-status", statusEndpoint],
-    });
-    await queryClient.invalidateQueries({
-      queryKey: ["secure-video-playback", statusEndpoint],
-    });
-    onChange?.();
-  };
+  async function refreshStatus() {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ["video-uploader-status", statusEndpoint],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["secure-video-playback", statusEndpoint],
+      }),
+    ]);
+    await onChange?.();
+  }
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -124,14 +118,16 @@ export function VideoUploader({
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (event) => {
             if (!event.total) return;
-            setProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+            setProgress(
+              Math.min(100, Math.round((event.loaded / event.total) * 100)),
+            );
           },
         })
       ).data;
     },
     onMutate: () => {
-      setValidationError(null);
-      setSuccessMessage(null);
+      setValidationError("");
+      setSuccessMessage("");
       setProgress(0);
     },
     onSuccess: async () => {
@@ -140,7 +136,7 @@ export function VideoUploader({
       if (inputRef.current) inputRef.current.value = "";
       setSuccessMessage(
         tr(
-          "تم الرفع بأمان. تتم الآن معالجة الفيديو للتشغيل.",
+          "تم رفع الفيديو بنجاح وهو قيد المعالجة الآمنة.",
           "Upload secured. The video is now processing for playback.",
         ),
       );
@@ -174,7 +170,7 @@ export function VideoUploader({
       ).data;
     },
     onSuccess: async () => {
-      setCaptionError(null);
+      setCaptionError("");
       if (captionInputRef.current) captionInputRef.current.value = "";
       setSuccessMessage(tr("تمت إضافة الترجمة.", "Captions added."));
       await refreshStatus();
@@ -185,15 +181,15 @@ export function VideoUploader({
     mutationFn: async (language: string) =>
       (await apiClient.delete(captionDeleteEndpoint(language))).data,
     onSuccess: async () => {
-      setSuccessMessage(tr("تم حذف ملف الترجمة.", "Caption track deleted."));
+      setSuccessMessage(tr("تم حذف مسار الترجمة.", "Caption track deleted."));
       await refreshStatus();
     },
   });
 
   function selectVideo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    setValidationError(null);
-    setSuccessMessage(null);
+    setValidationError("");
+    setSuccessMessage("");
     if (!file) return;
     if (!VIDEO_TYPES.includes(file.type)) {
       setValidationError(
@@ -208,7 +204,7 @@ export function VideoUploader({
     if (file.size > MAX_VIDEO_BYTES) {
       setValidationError(
         tr(
-          "يجب ألا يتجاوز حجم الفيديو 250 ميجابايت.",
+          "يجب ألا يزيد حجم الفيديو عن 250 ميجابايت.",
           "Video must be 250MB or smaller.",
         ),
       );
@@ -221,20 +217,26 @@ export function VideoUploader({
 
   function selectCaption(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    setCaptionError(null);
+    setCaptionError("");
     if (!file) return;
     const validType =
       file.type === "text/vtt" || file.name.toLowerCase().endsWith(".vtt");
     if (!validType) {
       setCaptionError(
-        tr("اختر ملف ترجمة WebVTT بصيغة .vtt.", "Choose a WebVTT .vtt caption file."),
+        tr(
+          "اختر ملف ترجمة WebVTT بامتداد .vtt.",
+          "Choose a WebVTT .vtt caption file.",
+        ),
       );
       event.target.value = "";
       return;
     }
     if (file.size > MAX_CAPTION_BYTES) {
       setCaptionError(
-        tr("يجب ألا يتجاوز ملف الترجمة 2 ميجابايت.", "Caption file must be 2MB or smaller."),
+        tr(
+          "يجب ألا يزيد حجم الترجمة عن 2 ميجابايت.",
+          "Caption file must be 2MB or smaller.",
+        ),
       );
       event.target.value = "";
       return;
@@ -246,13 +248,13 @@ export function VideoUploader({
     ? apiError(
         uploadMutation.error,
         tr(
-          "لم يكتمل الرفع. الملف ما زال محددًا ويمكنك المحاولة مجددًا.",
+          "لم يكتمل الرفع. تحقق من حجم الملف والاتصال وحاول مجددًا.",
           "Upload did not finish. Your file is still selected and ready to retry.",
         ),
       )
-    : null;
+    : "";
   const statusText = uploadMutation.isPending
-    ? tr(`جاري الرفع ${progress}%`, `Uploading ${progress}%`)
+    ? tr(`جارٍ الرفع ${progress}%`, `Uploading ${progress}%`)
     : statusQuery.data?.status === "ready"
       ? tr("جاهز للتشغيل الآمن", "Ready for secure playback")
       : statusQuery.data?.status === "created" ||
@@ -278,7 +280,7 @@ export function VideoUploader({
           <p>{description}</p>
         </div>
         <span className={styles.secureBadge}>
-          {tr("تشغيل محمي", "Secure playback")}
+          {tr("تشغيل آمن", "Secure playback")}
         </span>
       </header>
 
@@ -296,8 +298,8 @@ export function VideoUploader({
             <p className={styles.localLabel}>
               {hasExisting
                 ? tr(
-                    "معاينة البديل · الفيديو الحالي محفوظ حتى نجاح الرفع",
-                    "Replacement preview · current video stays saved until upload succeeds",
+                    "معاينة الاستبدال — يبقى الفيديو الحالي محفوظًا حتى نجاح الرفع",
+                    "Replacement preview — current video stays saved until upload succeeds",
                   )
                 : tr("معاينة محلية", "Local preview")}
             </p>
@@ -317,7 +319,6 @@ export function VideoUploader({
           </span>
           {uploadMutation.isPending && <span>{progress}%</span>}
         </div>
-
         {uploadMutation.isPending && (
           <div
             className={styles.progress}
@@ -330,7 +331,6 @@ export function VideoUploader({
             <span style={{ width: `${progress}%` }} />
           </div>
         )}
-
         {selectedFile && (
           <div className={styles.fileRow}>
             <div className={styles.fileName}>
@@ -338,13 +338,15 @@ export function VideoUploader({
               <small>
                 {formatMegabytes(selectedFile.size)}
                 {hasExisting
-                  ? tr(" · سيبقى الفيديو الحالي آمنًا حتى نجاح الاستبدال", " · Current video stays safe until replacement succeeds")
+                  ? tr(
+                      " — يبقى الفيديو الحالي آمنًا حتى نجاح الاستبدال",
+                      " — Current video stays safe until replacement succeeds",
+                    )
                   : ""}
               </small>
             </div>
           </div>
         )}
-
         {(validationError || uploadError) && (
           <div className={styles.error} role="alert">
             {validationError || uploadError}
@@ -363,78 +365,81 @@ export function VideoUploader({
             {successMessage}
           </div>
         )}
-
-        <div className={styles.actions}>
-          <label
-            htmlFor={inputId}
-            className={readonly || !enabled ? styles.button : styles.primaryButton}
-            aria-disabled={readonly || !enabled || uploadMutation.isPending}
-          >
-            <span aria-hidden="true">↑</span>
-            {hasExisting
-              ? tr("اختيار فيديو بديل", "Choose replacement")
-              : tr("اختيار فيديو", "Choose video")}
-          </label>
-          <input
-            ref={inputRef}
-            id={inputId}
-            className={styles.nativeInput}
-            type="file"
-            accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
-            disabled={readonly || !enabled || uploadMutation.isPending}
-            onChange={selectVideo}
-          />
-          {uploadMutation.isError && selectedFile && (
-            <button
-              className={styles.primaryButton}
-              type="button"
-              disabled={uploadMutation.isPending}
-              onClick={() => uploadMutation.mutate(selectedFile)}
+        {!readonly && (
+          <div className={styles.actions}>
+            <label
+              className={hasExisting ? styles.button : styles.primaryButton}
+              aria-disabled={!enabled || uploadMutation.isPending}
+              htmlFor={inputId}
             >
-              {tr("إعادة الرفع", "Retry upload")}
-            </button>
-          )}
-          {hasExisting && !confirmDelete && (
-            <button
-              className={styles.dangerButton}
-              type="button"
-              disabled={readonly || deleteMutation.isPending}
-              onClick={() => setConfirmDelete(true)}
-            >
-              {tr("حذف الفيديو", "Delete video")}
-            </button>
-          )}
-        </div>
+              {hasExisting
+                ? tr("استبدال الفيديو", "Replace video")
+                : tr("رفع فيديو", "Upload video")}
+            </label>
+            <input
+              ref={inputRef}
+              className={styles.nativeInput}
+              id={inputId}
+              type="file"
+              accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
+              disabled={!enabled || uploadMutation.isPending}
+              onChange={selectVideo}
+            />
+            {uploadMutation.isError && selectedFile && (
+              <button
+                type="button"
+                className={styles.button}
+                disabled={uploadMutation.isPending}
+                onClick={() => uploadMutation.mutate(selectedFile)}
+              >
+                {tr("إعادة المحاولة", "Retry upload")}
+              </button>
+            )}
+            {hasExisting && (
+              <button
+                type="button"
+                className={styles.dangerButton}
+                disabled={deleteMutation.isPending}
+                onClick={() => setConfirmDelete(true)}
+              >
+                {tr("حذف الفيديو", "Delete video")}
+              </button>
+            )}
+          </div>
+        )}
         <p className={styles.help}>
           {tr(
-            "MP4 أو WebM أو MOV · الحد الأقصى 250 ميجابايت. لا تُعرض ملفات التخزين مباشرة للجمهور.",
-            "MP4, WebM, or MOV · 250MB maximum. Storage files are never exposed directly to the public.",
+            "الصيغ المدعومة: MP4 وWebM وMOV حتى 250 ميجابايت.",
+            "Supported: MP4, WebM, and MOV up to 250MB.",
           )}
         </p>
 
         {confirmDelete && (
-          <div className={styles.confirmation} role="alert">
+          <div className={styles.confirmation}>
             <p>
               <strong>{tr("حذف نهائي؟", "Delete permanently?")}</strong>
               <br />
-              {tr("لن يعود الفيديو متاحًا للطلاب.", "The video will no longer be available to students.")}
+              {tr(
+                "لا يمكن التراجع عن عملية حذف الفيديو بعد تأكيدها.",
+                "Viewers will no longer be able to play this video.",
+              )}
             </p>
             <div className={styles.actions}>
               <button
-                className={styles.button}
                 type="button"
+                className={styles.button}
                 onClick={() => setConfirmDelete(false)}
               >
                 {tr("إلغاء", "Cancel")}
               </button>
               <button
-                className={styles.dangerButton}
                 type="button"
+                className={styles.dangerButton}
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate()}
               >
                 {deleteMutation.isPending
-                  ? tr("جاري الحذف…", "Deleting…")
+                  ? tr("جارٍ الحذف…", "Deleting…")
                   : tr("تأكيد الحذف", "Confirm delete")}
               </button>
             </div>
@@ -442,71 +447,66 @@ export function VideoUploader({
         )}
 
         {hasExisting && (
-          <section className={styles.captions} aria-labelledby={`${captionsId}-heading`}>
-            <div>
-              <h4 id={`${captionsId}-heading`}>
-                {tr("الترجمة النصية", "Captions")}
-              </h4>
-              <p className={styles.help}>
-                {tr("أضف ملف WebVTT لتحسين الوصول.", "Add a WebVTT file to improve accessibility.")}
-              </p>
-            </div>
+          <section
+            className={styles.captions}
+            data-testid="video-captions-notice"
+          >
+            <h4>{tr("الترجمة", "Captions")}</h4>
             {statusQuery.data?.captions?.map((caption) => (
               <div className={styles.captionItem} key={caption.language}>
-                <span>
-                  <strong>{caption.label}</strong> · {caption.language.toUpperCase()}
-                </span>
-                <button
-                  className={styles.linkButton}
-                  type="button"
-                  disabled={readonly || deleteCaptionMutation.isPending}
-                  onClick={() => deleteCaptionMutation.mutate(caption.language)}
-                >
-                  {tr("حذف", "Delete")}
-                </button>
+                <span>{caption.label}</span>
+                {!readonly && (
+                  <button
+                    type="button"
+                    className={styles.linkButton}
+                    disabled={deleteCaptionMutation.isPending}
+                    onClick={() =>
+                      deleteCaptionMutation.mutate(caption.language)
+                    }
+                  >
+                    {tr("حذف", "Remove")}
+                  </button>
+                )}
               </div>
             ))}
-            <div className={styles.captionForm}>
-              <label>
-                <span className={styles.nativeInput}>
-                  {tr("لغة الترجمة", "Caption language")}
-                </span>
+            {!readonly && (
+              <div className={styles.captionForm}>
                 <select
-                  aria-label={tr("لغة الترجمة", "Caption language")}
                   value={captionLanguage}
-                  disabled={readonly || captionMutation.isPending}
                   onChange={(event) => setCaptionLanguage(event.target.value)}
+                  aria-label={tr("لغة الترجمة", "Caption language")}
                 >
-                  <option value="ar">العربية (AR)</option>
-                  <option value="en">English (EN)</option>
-                  <option value="fr">Français (FR)</option>
-                  <option value="es">Español (ES)</option>
-                  <option value="de">Deutsch (DE)</option>
+                  <option value="ar">{tr("العربية", "Arabic")}</option>
+                  <option value="en">{tr("الإنجليزية", "English")}</option>
+                  <option value="fr">{tr("الفرنسية", "French")}</option>
                 </select>
-              </label>
-              <label
-                className={styles.button}
-                htmlFor={captionsId}
-                aria-disabled={readonly || captionMutation.isPending}
-              >
-                {tr("اختيار ملف .vtt", "Choose .vtt file")}
-              </label>
-              <input
-                ref={captionInputRef}
-                id={captionsId}
-                className={styles.nativeInput}
-                type="file"
-                accept=".vtt,text/vtt"
-                disabled={readonly || captionMutation.isPending}
-                onChange={selectCaption}
-              />
-            </div>
-            {(captionError || captionMutation.isError || deleteCaptionMutation.isError) && (
+                <label className={styles.button} htmlFor={captionInputId}>
+                  {captionMutation.isPending
+                    ? tr("جارٍ الرفع…", "Uploading…")
+                    : tr("إضافة ملف VTT", "Add VTT file")}
+                </label>
+                <input
+                  ref={captionInputRef}
+                  className={styles.nativeInput}
+                  id={captionInputId}
+                  type="file"
+                  accept=".vtt,text/vtt"
+                  disabled={captionMutation.isPending}
+                  onChange={selectCaption}
+                />
+              </div>
+            )}
+            {(captionError ||
+              captionMutation.isError ||
+              deleteCaptionMutation.isError) && (
               <div className={styles.error} role="alert">
                 {captionError ||
                   apiError(
                     captionMutation.error || deleteCaptionMutation.error,
-                    tr("تعذّر تحديث الترجمة.", "Captions could not be updated."),
+                    tr(
+                      "تعذّر تحديث مسارات الترجمة.",
+                      "Captions could not be updated.",
+                    ),
                   )}
               </div>
             )}

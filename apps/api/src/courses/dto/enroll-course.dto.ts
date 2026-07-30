@@ -1,6 +1,9 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class EnrollCourseDto {
+  @IsUUID()
+  idempotencyKey?: string;
+
   @IsOptional()
   @IsString()
   promoCode?: string;

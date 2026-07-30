@@ -8,7 +8,7 @@ import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RoutedPanel } from "@/components/shared/RoutedPanel";
@@ -46,6 +46,7 @@ export default function CourseDetailPage() {
     [lang, params.id, router],
   );
   const referralStorageKey = `course_ref_${params.id}`;
+  const enrollmentKeyRef = useRef(crypto.randomUUID());
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [streamError, setStreamError] = useState("");
   const { data: course, isLoading } = useQuery({
@@ -135,6 +136,7 @@ export default function CourseDetailPage() {
       }
       const { data } = await apiClient.post(`/courses/${params.id}/enroll`, {
         referralCode: referralCode || undefined,
+        idempotencyKey: enrollmentKeyRef.current,
       });
       return data;
     },

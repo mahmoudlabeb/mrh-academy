@@ -104,7 +104,7 @@ function BookLessonContent() {
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("12:00");
-  const [duration, setDuration] = useState<25 | 50>(25);
+  const [duration, setDuration] = useState<60 | 120 | 180>(60);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -393,12 +393,12 @@ function BookLessonContent() {
             className="text-xl font-bold mb-2"
             style={{ color: "var(--text-main)" }}
           >
-            {t("تم إرسال طلب الحجز", "Booking Request Sent")}
+            {t("تم تأكيد الحجز", "Booking Confirmed")}
           </h2>
           <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
             {t(
-              "بانتظار موافقة المعلم على الحجز واختيار الوقت المناسب. سنرسل لك إشعاراً عند التأكيد.",
-              "Awaiting tutor approval and time selection. You will be notified once confirmed.",
+              "تم خصم الرصيد وتأكيد الدرس فوراً، ولا يلزم انتظار موافقة المعلم.",
+              "Your wallet was charged and the lesson was confirmed immediately. No tutor approval is required.",
             )}
           </p>
           <div className="flex gap-3 justify-center">
@@ -601,16 +601,14 @@ function BookLessonContent() {
               </h3>
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    setDuration(25);
-                  }}
+                  onClick={() => setDuration(60)}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all ${
-                    duration === 25
+                    duration === 60
                       ? "bg-[var(--signal)] text-[var(--ink)] shadow-md"
                       : "border text-[var(--text-main)] hover:border-[var(--signal)]"
                   }`}
                   style={
-                    duration !== 25
+                    duration !== 60
                       ? {
                           borderColor: "var(--border-color)",
                           background: "var(--bg-light)",
@@ -618,25 +616,23 @@ function BookLessonContent() {
                       : {}
                   }
                 >
-                  {t("٢٥ دقيقة", "25 min")}
+                  {t("ساعة واحدة", "1 hour")}
                   <span
                     className="block text-[10px] font-medium mt-0.5"
                     style={{ opacity: 0.8 }}
                   >
-                    ${((tutor.hourlyRate * 25) / 60).toFixed(2)}
+                    ${tutor.hourlyRate.toFixed(2)}
                   </span>
                 </button>
                 <button
-                  onClick={() => {
-                    setDuration(50);
-                  }}
+                  onClick={() => setDuration(120)}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all ${
-                    duration === 50
+                    duration === 120
                       ? "bg-[var(--signal)] text-[var(--ink)] shadow-md"
                       : "border text-[var(--text-main)] hover:border-[var(--signal)]"
                   }`}
                   style={
-                    duration !== 50
+                    duration !== 120
                       ? {
                           borderColor: "var(--border-color)",
                           background: "var(--bg-light)",
@@ -644,12 +640,12 @@ function BookLessonContent() {
                       : {}
                   }
                 >
-                  {t("٥٠ دقيقة", "50 min")}
+                  {t("ساعتان", "2 hours")}
                   <span
                     className="block text-[10px] font-medium mt-0.5"
                     style={{ opacity: 0.8 }}
                   >
-                    ${((tutor.hourlyRate * 50) / 60).toFixed(2)}
+                    ${(tutor.hourlyRate * 2).toFixed(2)}
                   </span>
                 </button>
               </div>
@@ -876,9 +872,9 @@ function BookLessonContent() {
                     className="font-medium"
                     style={{ color: "var(--text-main)" }}
                   >
-                    {duration === 25
-                      ? t("٢٥ دقيقة", "25 min")
-                      : t("٥٠ دقيقة", "50 min")}
+                    {duration === 60
+                      ? t("ساعة واحدة", "1 hour")
+                      : t("ساعتان", "2 hours")}
                   </span>
                 </div>
 

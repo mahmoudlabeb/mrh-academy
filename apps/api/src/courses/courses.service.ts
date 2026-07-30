@@ -7,12 +7,13 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import { createHmac } from 'node:crypto';
+import { DataSource, In, Repository } from 'typeorm';
+import { createHmac, randomUUID } from 'node:crypto';
 import { CourseStatus, PaymentStatus, UserRole } from '@mrh/types';
 import { Course } from './entities/course.entity.js';
 import { CourseEnrollment } from './entities/course-enrollment.entity.js';
 import { CourseLesson } from './entities/course-lesson.entity.js';
+import { CourseSection } from './entities/course-section.entity.js';
 import { CourseLessonCompletion } from './entities/course-lesson-completion.entity.js';
 import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
@@ -30,6 +31,7 @@ import {
   validateCaptionUpload,
   validateVideoUpload,
 } from '../integrations/video/video-upload.validation.js';
+import { Notification } from '../messages/entities/notification.entity.js';
 
 @Injectable()
 export class CoursesService {
@@ -42,6 +44,8 @@ export class CoursesService {
     private readonly enrollmentRepository: Repository<CourseEnrollment>,
     @InjectRepository(CourseLesson)
     private readonly lessonRepository: Repository<CourseLesson>,
+    @InjectRepository(CourseSection)
+    private readonly sectionRepository: Repository<CourseSection>,
     @InjectRepository(CourseLessonCompletion)
     private readonly completionRepository: Repository<CourseLessonCompletion>,
     @InjectRepository(TutorProfile)
@@ -173,6 +177,47 @@ export class CoursesService {
     }));
   }
 
+  async findPublicCurriculum(courseId: string) {
+    const course = await this.courseRepository.findOne({
+      where: {
+        id: courseId,
+        status: CourseStatus.APPROVED,
+        isDraft: false,
+      },
+      select: { id: true },
+    });
+    if (!course) throw new NotFoundException('Course not found');
+    const lessons = await this.lessonRepository.find({
+      where: { courseId },
+      relations: { section: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        contentType: true,
+        durationMinutes: true,
+        lessonOrder: true,
+        isPreview: true,
+        sectionId: true,
+        section: {
+          id: true,
+          title: true,
+          sectionOrder: true,
+        },
+      },
+      order: {
+        section: { sectionOrder: 'ASC' },
+        lessonOrder: 'ASC',
+      },
+    });
+    return lessons.map((lesson) => ({
+      ...lesson,
+      sectionTitle: lesson.section?.title ?? null,
+      sectionOrder: lesson.section?.sectionOrder ?? null,
+      section: undefined,
+    }));
+  }
+
   async create(
     tutorId: string,
     dto: {
@@ -221,6 +266,8 @@ export class CoursesService {
       status: CourseStatus.PENDING,
       isDraft: true,
       soldBy: 'academy',
+      language: 'Arabic',
+      level: 'beginner',
     });
     const saved = await this.courseRepository.save(draft);
     return {
@@ -235,6 +282,7 @@ export class CoursesService {
     dto: {
       title?: string;
       subtitle?: string;
+      category?: string;
       description?: string;
       price?: number;
       thumbnailUrl?: string;
@@ -267,7 +315,11 @@ export class CoursesService {
           ? course.cohortEndAt
           : new Date(dto.cohortEndAt),
     });
-    return this.courseRepository.save(course);
+    const saved = await this.courseRepository.save(course);
+    return {
+      ...saved,
+      referralCode: this.getCourseReferralCode(tutorId, saved.id),
+    };
   }
 
   async submitForReview(tutorId: string, courseId: string) {
@@ -279,37 +331,13 @@ export class CoursesService {
     ) {
       throw new BadRequestException('Course is already pending review');
     }
-    const lessons = await this.lessonRepository.find({
-      where: { courseId },
-      order: { lessonOrder: 'ASC' },
-    });
-    const missing: string[] = [];
-    if (!course.title.trim()) missing.push('course title');
-    if (!course.description.trim()) missing.push('course description');
-    if (!course.thumbnailUrl) missing.push('course cover');
-    if (!course.overviewVideoId && !course.previewVideoUrl) {
-      missing.push('introduction video');
-    }
-    if (course.price < 0) missing.push('valid price');
-    if (!course.learningOutcomes?.length) missing.push('learning outcomes');
-    if (course.courseType === 'recorded' && lessons.length === 0) {
-      missing.push('at least one curriculum lesson');
-    }
-    if (course.courseType === 'live') {
-      if (!course.cohortStartAt) missing.push('cohort start date');
-      if (!course.cohortEndAt) missing.push('cohort end date');
-      if (!course.capacity) missing.push('cohort capacity');
-      if (
-        course.cohortStartAt &&
-        course.cohortEndAt &&
-        course.cohortEndAt <= course.cohortStartAt
-      ) {
-        missing.push('cohort end date after its start date');
-      }
-    }
-    if (missing.length) {
+    const readiness = await this.buildReadiness(course);
+    if (!readiness.ready) {
       throw new BadRequestException(
-        `Course is not ready for review: ${missing.join(', ')}`,
+        `Course is not ready for review: ${readiness.items
+          .filter((item) => !item.complete)
+          .map((item) => item.label)
+          .join(', ')}`,
       );
     }
     course.isDraft = false;
@@ -322,16 +350,258 @@ export class CoursesService {
     };
   }
 
+  async getOwnedCourseStudio(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    const [sections, lessons, readiness] = await Promise.all([
+      this.sectionRepository.find({
+        where: { courseId },
+        order: { sectionOrder: 'ASC' },
+      }),
+      this.lessonRepository.find({
+        where: { courseId },
+        order: { lessonOrder: 'ASC' },
+      }),
+      this.buildReadiness(course),
+    ]);
+    return {
+      course: {
+        ...course,
+        referralCode: this.getCourseReferralCode(tutorId, course.id),
+      },
+      sections,
+      lessons,
+      readiness,
+    };
+  }
+
+  async getOwnedCourseReadiness(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    return this.buildReadiness(course);
+  }
+
+  private async buildReadiness(course: Course) {
+    const [sections, lessons] = await Promise.all([
+      this.sectionRepository.find({
+        where: { courseId: course.id },
+        order: { sectionOrder: 'ASC' },
+      }),
+      this.lessonRepository.find({
+        where: { courseId: course.id },
+        order: { lessonOrder: 'ASC' },
+      }),
+    ]);
+    const recordedLessonsComplete =
+      course.courseType !== 'recorded' ||
+      (lessons.length > 0 &&
+        lessons.every((lesson) => {
+          if (lesson.contentType === 'video') {
+            return Boolean(lesson.videoUrl || lesson.videoAssetId);
+          }
+          if (lesson.contentType === 'article') {
+            return Boolean(lesson.articleContent?.trim());
+          }
+          return Boolean(
+            lesson.resourceUrl ||
+            lesson.downloadableFiles?.length ||
+            lesson.externalLinks?.length,
+          );
+        }));
+    const liveScheduleComplete =
+      course.courseType !== 'live' ||
+      Boolean(
+        course.cohortStartAt &&
+        course.cohortEndAt &&
+        course.cohortEndAt > course.cohortStartAt &&
+        course.capacity,
+      );
+    const items = [
+      {
+        key: 'basics',
+        label:
+          'complete title, subtitle, description, category, level, and language',
+        complete: Boolean(
+          course.title.trim().length >= 10 &&
+          (course.subtitle?.trim().length ?? 0) >= 20 &&
+          course.description.trim().length >= 100 &&
+          course.category?.trim() &&
+          course.level &&
+          course.language,
+        ),
+      },
+      {
+        key: 'audience',
+        label: 'learning outcomes, requirements, and target audience',
+        complete: Boolean(
+          course.learningOutcomes?.length &&
+          course.requirements?.length &&
+          course.targetAudience?.length,
+        ),
+      },
+      {
+        key: 'curriculum',
+        label: 'at least one section and complete curriculum lesson',
+        complete: sections.length > 0 && recordedLessonsComplete,
+      },
+      {
+        key: 'media',
+        label: 'course cover and introduction video',
+        complete: Boolean(
+          course.thumbnailUrl &&
+          (course.overviewVideoId || course.previewVideoUrl),
+        ),
+      },
+      {
+        key: 'pricing',
+        label: 'valid course price',
+        complete: Number.isFinite(Number(course.price)) && course.price >= 0,
+      },
+      {
+        key: 'schedule',
+        label: 'valid live cohort schedule and capacity',
+        complete: liveScheduleComplete,
+      },
+    ].filter((item) => item.key !== 'schedule' || course.courseType === 'live');
+    const completed = items.filter((item) => item.complete).length;
+    return {
+      ready: completed === items.length,
+      completed,
+      total: items.length,
+      progress: Math.round((completed / items.length) * 100),
+      items,
+    };
+  }
+
+  async addSection(
+    tutorId: string,
+    courseId: string,
+    dto: { title?: string; description?: string; sectionOrder?: number },
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    if (!dto.title?.trim()) {
+      throw new BadRequestException('Section title is required');
+    }
+    const nextOrder =
+      dto.sectionOrder ??
+      ((await this.sectionRepository.maximum('sectionOrder', { courseId })) ??
+        0) + 1;
+    return this.sectionRepository.save(
+      this.sectionRepository.create({
+        courseId,
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        sectionOrder: nextOrder,
+      }),
+    );
+  }
+
+  async updateSection(
+    tutorId: string,
+    courseId: string,
+    sectionId: string,
+    dto: { title?: string; description?: string; sectionOrder?: number },
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const section = await this.assertOwnedSection(courseId, sectionId);
+    if (dto.title !== undefined && !dto.title.trim()) {
+      throw new BadRequestException('Section title is required');
+    }
+    Object.assign(section, {
+      ...dto,
+      ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+      ...(dto.description !== undefined
+        ? { description: dto.description.trim() || null }
+        : {}),
+    });
+    return this.sectionRepository.save(section);
+  }
+
+  async removeSection(tutorId: string, courseId: string, sectionId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    await this.assertOwnedSection(courseId, sectionId);
+    await this.lessonRepository.update(
+      { courseId, sectionId },
+      { sectionId: null },
+    );
+    await this.sectionRepository.delete({ id: sectionId, courseId });
+    return { deleted: true, sectionId };
+  }
+
+  async reorderSections(tutorId: string, courseId: string, ids: string[]) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const sections = await this.sectionRepository.find({
+      where: { courseId },
+      order: { sectionOrder: 'ASC' },
+    });
+    this.assertSameIds(
+      ids,
+      sections.map((section) => section.id),
+      'sections',
+    );
+    await this.sectionRepository.save(
+      ids.map((id, index) => ({
+        ...sections.find((section) => section.id === id)!,
+        sectionOrder: index + 1,
+      })),
+    );
+    return this.sectionRepository.find({
+      where: { courseId },
+      order: { sectionOrder: 'ASC' },
+    });
+  }
+
+  private async assertOwnedSection(courseId: string, sectionId: string) {
+    const section = await this.sectionRepository.findOne({
+      where: { id: sectionId, courseId },
+    });
+    if (!section) throw new NotFoundException('Course section not found');
+    return section;
+  }
+
+  private assertSameIds(actual: string[], expected: string[], label: string) {
+    if (
+      actual.length !== expected.length ||
+      new Set(actual).size !== actual.length ||
+      actual.some((id) => !expected.includes(id))
+    ) {
+      throw new BadRequestException(
+        `Reorder request must include every ${label} item exactly once`,
+      );
+    }
+  }
+
   async addLesson(
     tutorId: string,
     courseId: string,
     dto: {
-      title: string;
+      title?: string;
+      sectionId?: string;
       description?: string;
       contentType?: 'video' | 'article' | 'resource';
       videoAssetId?: string;
+      videoUrl?: string;
       articleContent?: string;
       resourceUrl?: string;
+      externalLinks?: string[];
       durationMinutes?: number;
       lessonOrder?: number;
       isPreview?: boolean;
@@ -343,6 +613,12 @@ export class CoursesService {
         'Only draft courses can change their curriculum',
       );
     }
+    if (!dto.title?.trim()) {
+      throw new BadRequestException('Lesson title is required');
+    }
+    if (dto.sectionId) {
+      await this.assertOwnedSection(courseId, dto.sectionId);
+    }
     const nextOrder =
       dto.lessonOrder ??
       ((await this.lessonRepository.maximum('lessonOrder', { courseId })) ??
@@ -350,12 +626,19 @@ export class CoursesService {
     return this.lessonRepository.save(
       this.lessonRepository.create({
         courseId,
-        title: dto.title,
+        sectionId: dto.sectionId ?? null,
+        title: dto.title.trim(),
         description: dto.description ?? null,
         contentType: dto.contentType ?? 'video',
         videoAssetId: dto.videoAssetId ?? null,
+        videoUrl: dto.videoUrl ?? null,
         articleContent: dto.articleContent ?? null,
         resourceUrl: dto.resourceUrl ?? null,
+        downloadableFiles: [],
+        externalLinks: (dto.externalLinks ?? []).map((url) => ({
+          title: url,
+          url,
+        })),
         durationMinutes: dto.durationMinutes ?? 0,
         lessonOrder: nextOrder,
         isPreview: dto.isPreview ?? false,
@@ -369,11 +652,14 @@ export class CoursesService {
     lessonId: string,
     dto: {
       title?: string;
+      sectionId?: string;
       description?: string;
       contentType?: 'video' | 'article' | 'resource';
       videoAssetId?: string;
+      videoUrl?: string;
       articleContent?: string;
       resourceUrl?: string;
+      externalLinks?: string[];
       durationMinutes?: number;
       lessonOrder?: number;
       isPreview?: boolean;
@@ -389,8 +675,53 @@ export class CoursesService {
       where: { id: lessonId, courseId },
     });
     if (!lesson) throw new NotFoundException('Course lesson not found');
-    Object.assign(lesson, dto);
+    if (dto.sectionId) {
+      await this.assertOwnedSection(courseId, dto.sectionId);
+    }
+    if (dto.title !== undefined && !dto.title.trim()) {
+      throw new BadRequestException('Lesson title is required');
+    }
+    const { externalLinks, ...lessonChanges } = dto;
+    Object.assign(lesson, lessonChanges, {
+      ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+      ...(externalLinks !== undefined
+        ? {
+            externalLinks: externalLinks.map((url) => ({
+              title: url,
+              url,
+            })),
+          }
+        : {}),
+    });
     return this.lessonRepository.save(lesson);
+  }
+
+  async reorderLessons(tutorId: string, courseId: string, ids: string[]) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const lessons = await this.lessonRepository.find({
+      where: { courseId },
+      order: { lessonOrder: 'ASC' },
+    });
+    this.assertSameIds(
+      ids,
+      lessons.map((lesson) => lesson.id),
+      'lessons',
+    );
+    await this.lessonRepository.save(
+      ids.map((id, index) => ({
+        ...lessons.find((lesson) => lesson.id === id)!,
+        lessonOrder: index + 1,
+      })),
+    );
+    return this.lessonRepository.find({
+      where: { courseId },
+      order: { lessonOrder: 'ASC' },
+    });
   }
 
   async removeLesson(tutorId: string, courseId: string, lessonId: string) {
@@ -400,12 +731,24 @@ export class CoursesService {
         'Only draft courses can change their curriculum',
       );
     }
-    const result = await this.lessonRepository.delete({
-      id: lessonId,
-      courseId,
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, courseId },
     });
-    if (!result.affected)
-      throw new NotFoundException('Course lesson not found');
+    if (!lesson) throw new NotFoundException('Course lesson not found');
+    await this.lessonRepository.remove(lesson);
+    await Promise.all(
+      (lesson.downloadableFiles ?? []).map((file) =>
+        this.storage
+          .destroy(file.publicId, { resourceType: 'raw' })
+          .catch((error) => {
+            this.logger.warn(
+              `Could not remove lesson file ${file.publicId}: ${
+                error instanceof Error ? error.message : 'unknown error'
+              }`,
+            );
+          }),
+      ),
+    );
     return { deleted: true, lessonId };
   }
 
@@ -472,13 +815,173 @@ export class CoursesService {
       folder: `mrh-academy/courses/${courseId}`,
       resourceType: 'image',
     });
+    const previousPublicId = course.thumbnailPublicId;
     course.thumbnailUrl = uploaded.secureUrl;
-    await this.courseRepository.save(course);
+    course.thumbnailPublicId = uploaded.publicId;
+    try {
+      await this.courseRepository.save(course);
+    } catch (error) {
+      await this.storage
+        .destroy(uploaded.publicId, {
+          resourceType: 'image',
+          deliveryType: 'upload',
+        })
+        .catch(() => undefined);
+      throw error;
+    }
+    if (previousPublicId) {
+      await this.storage
+        .destroy(previousPublicId, {
+          resourceType: 'image',
+          deliveryType: 'upload',
+        })
+        .catch((error) => {
+          this.logger.warn(
+            `Could not remove replaced course cover ${previousPublicId}: ${
+              error instanceof Error ? error.message : 'unknown error'
+            }`,
+          );
+        });
+    }
     return {
       kind,
       url: uploaded.secureUrl,
+      publicId: uploaded.publicId,
       courseId,
     };
+  }
+
+  async deleteOwnedCourseCover(tutorId: string, courseId: string) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException('Media can only be changed on a draft');
+    }
+    if (!course.thumbnailUrl) return { deleted: false };
+    const publicId = course.thumbnailPublicId;
+    const previousUrl = course.thumbnailUrl;
+    course.thumbnailUrl = null;
+    course.thumbnailPublicId = null;
+    await this.courseRepository.save(course);
+    if (publicId) {
+      try {
+        await this.storage.destroy(publicId, {
+          resourceType: 'image',
+          deliveryType: 'upload',
+        });
+      } catch (error) {
+        course.thumbnailUrl = previousUrl;
+        course.thumbnailPublicId = publicId;
+        await this.courseRepository.save(course);
+        throw error;
+      }
+    }
+    return { deleted: true };
+  }
+
+  async uploadLessonFile(
+    tutorId: string,
+    courseId: string,
+    lessonId: string,
+    file:
+      | { buffer: Buffer; mimetype: string; size: number; originalname: string }
+      | undefined,
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, courseId },
+    });
+    if (!lesson) throw new NotFoundException('Course lesson not found');
+    if (!file) throw new BadRequestException('Lesson file is required');
+    const allowed = new Set([
+      'application/pdf',
+      'application/zip',
+      'application/x-zip-compressed',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'image/jpeg',
+      'image/png',
+      'text/plain',
+    ]);
+    if (!allowed.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Lesson files must be PDF, ZIP, Office, image, or text files',
+      );
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      throw new BadRequestException('Lesson files must be 20MB or smaller');
+    }
+    const uploaded = await this.storage.upload(file.buffer, {
+      folder: `mrh-academy/courses/${courseId}/lessons/${lessonId}`,
+      resourceType: 'raw',
+      accessMode: 'authenticated',
+    });
+    const storedFile = {
+      id: randomUUID(),
+      name: file.originalname,
+      url: this.storage.signedUrl(uploaded.publicId, {
+        resourceType: 'raw',
+        deliveryType: 'authenticated',
+      }),
+      publicId: uploaded.publicId,
+      size: file.size,
+      mimeType: file.mimetype,
+    };
+    lesson.downloadableFiles = [
+      ...(lesson.downloadableFiles ?? []),
+      storedFile,
+    ];
+    try {
+      await this.lessonRepository.save(lesson);
+    } catch (error) {
+      await this.storage
+        .destroy(uploaded.publicId, { resourceType: 'raw' })
+        .catch(() => undefined);
+      throw error;
+    }
+    return storedFile;
+  }
+
+  async deleteLessonFile(
+    tutorId: string,
+    courseId: string,
+    lessonId: string,
+    fileId: string,
+  ) {
+    const course = await this.getOwnedCourse(tutorId, courseId);
+    if (!course.isDraft) {
+      throw new BadRequestException(
+        'Only draft courses can change their curriculum',
+      );
+    }
+    const lesson = await this.lessonRepository.findOne({
+      where: { id: lessonId, courseId },
+    });
+    if (!lesson) throw new NotFoundException('Course lesson not found');
+    const file = (lesson.downloadableFiles ?? []).find(
+      (item) => item.id === fileId,
+    );
+    if (!file) throw new NotFoundException('Lesson file not found');
+    lesson.downloadableFiles = lesson.downloadableFiles.filter(
+      (item) => item.id !== fileId,
+    );
+    await this.lessonRepository.save(lesson);
+    try {
+      await this.storage.destroy(file.publicId, { resourceType: 'raw' });
+    } catch (error) {
+      lesson.downloadableFiles = [...lesson.downloadableFiles, file];
+      await this.lessonRepository.save(lesson);
+      throw error;
+    }
+    return { deleted: true, fileId };
   }
 
   async deleteOwnedCourseOverview(tutorId: string, courseId: string) {
@@ -624,6 +1127,7 @@ export class CoursesService {
     studentId: string,
     courseId: string,
     dto?: {
+      idempotencyKey?: string;
       promoCode?: string;
       referralCode?: string;
     },
@@ -641,20 +1145,35 @@ export class CoursesService {
     );
     const soldBy = hasValidReferral ? 'tutor' : 'academy';
 
-    await this.dataSource.transaction(async (manager) => {
-      const existing = await manager.findOne(CourseEnrollment, {
-        where: { studentId, courseId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (existing)
-        throw new BadRequestException('Already enrolled in this course');
-
+    const purchase = await this.dataSource.transaction(async (manager) => {
       const studentProfile = await manager.findOne(StudentProfile, {
         where: { userId: studentId },
         lock: { mode: 'pessimistic_write' },
       });
       if (!studentProfile)
         throw new NotFoundException('Student profile not found');
+
+      if (dto?.idempotencyKey) {
+        const keyed = await manager.findOne(CourseEnrollment, {
+          where: { idempotencyKey: dto.idempotencyKey },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (keyed) {
+          if (keyed.studentId !== studentId || keyed.courseId !== courseId) {
+            throw new BadRequestException(
+              'Enrollment key is already in use for another purchase',
+            );
+          }
+          return { enrollment: keyed, created: false, finalPrice: 0 };
+        }
+      }
+      const existing = await manager.findOne(CourseEnrollment, {
+        where: { studentId, courseId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (existing) {
+        return { enrollment: existing, created: false, finalPrice: 0 };
+      }
 
       let finalPrice = course.price;
       if (dto?.promoCode) {
@@ -703,6 +1222,7 @@ export class CoursesService {
         tutorShare,
         soldBy,
         referralTutorId: hasValidReferral ? course.tutorId : null,
+        idempotencyKey: dto?.idempotencyKey ?? null,
         tutorShareAvailableAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         tutorShareReleasedAt: null,
       });
@@ -714,17 +1234,24 @@ export class CoursesService {
       let amountToAllocate = finalPrice;
       if (amountToAllocate > 0) {
         const deposits = await manager.find(Payment, {
-          where: { userId: studentId, status: PaymentStatus.APPROVED },
+          where: {
+            userId: studentId,
+            status: In([
+              PaymentStatus.APPROVED,
+              PaymentStatus.PARTIALLY_REFUNDED,
+            ]),
+          },
           order: { createdAt: 'ASC' },
           lock: { mode: 'pessimistic_write' },
         });
         for (const deposit of deposits) {
           if (amountToAllocate <= 0) break;
           const creditedAmountUsd =
-            deposit.currency === 'EGP'
+            deposit.creditedAmountUsd ??
+            (deposit.currency === 'EGP'
               ? Number(deposit.amount) /
                 (await this.commissionService.getEgpRate())
-              : Number(deposit.amount);
+              : Number(deposit.amount));
           const refundedAmountUsd =
             Number(deposit.amount) > 0
               ? (Number(deposit.refundedAmount ?? 0) / Number(deposit.amount)) *
@@ -753,9 +1280,34 @@ export class CoursesService {
             Math.round((amountToAllocate - allocated) * 100) / 100;
         }
       }
+      return { enrollment, created: true, finalPrice };
     });
 
-    return { message: 'Enrolled successfully', courseId };
+    if (purchase.created) {
+      const notificationRepository =
+        this.dataSource.getRepository(Notification);
+      await notificationRepository.save([
+        notificationRepository.create({
+          userId: studentId,
+          type: 'course_enrolled',
+          title: 'Course purchase confirmed',
+          body: `Your payment was confirmed and ${course.title} is now available in your library.`,
+        }),
+        notificationRepository.create({
+          userId: course.tutorId,
+          type: 'course_sold',
+          title: 'New course enrollment',
+          body: `A student purchased ${course.title}. Your recorded share is $${Number(purchase.enrollment.tutorShare ?? 0).toFixed(2)}.`,
+        }),
+      ]);
+    }
+
+    return {
+      message: 'Enrolled successfully',
+      courseId,
+      enrollmentId: purchase.enrollment.id,
+      duplicate: !purchase.created,
+    };
   }
 
   async getEnrollments(studentId: string) {

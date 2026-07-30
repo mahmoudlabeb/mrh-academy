@@ -17,6 +17,18 @@ type PayPalOrder = {
   }>;
 };
 
+type PayPalPayoutBatch = {
+  batch_header?: {
+    payout_batch_id?: string;
+    batch_status?: string;
+  };
+  items?: Array<{
+    payout_item_id?: string;
+    transaction_status?: string;
+    payout_item?: { sender_item_id?: string };
+  }>;
+};
+
 @Injectable()
 export class PayPalService {
   constructor(private readonly configService: ConfigService) {}
@@ -26,6 +38,14 @@ export class PayPalService {
       this.configService.get<string>('PAYPAL_CLIENT_ID')?.trim() &&
       this.configService.get<string>('PAYPAL_CLIENT_SECRET')?.trim(),
     );
+  }
+
+  isWebhookConfigured(): boolean {
+    return this.isConfigured() && Boolean(this.webhookId);
+  }
+
+  private get webhookId(): string {
+    return this.configService.get<string>('PAYPAL_WEBHOOK_ID')?.trim() ?? '';
   }
 
   private get baseUrl(): string {
@@ -106,6 +126,22 @@ export class PayPalService {
     return { orderId: order.id, approvalUrl };
   }
 
+  async getApprovalUrl(payment: Payment): Promise<string | null> {
+    if (!payment.paypalOrderId) return null;
+    const token = await this.accessToken();
+    const response = await fetch(
+      `${this.baseUrl}/v2/checkout/orders/${encodeURIComponent(payment.paypalOrderId)}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const order = (await response.json()) as PayPalOrder;
+    if (!response.ok) return null;
+    return (
+      order.links?.find(
+        (link) => link.rel === 'payer-action' || link.rel === 'approve',
+      )?.href ?? null
+    );
+  }
+
   async captureOrder(payment: Payment): Promise<string> {
     if (!payment.paypalOrderId) {
       throw new BadGatewayException('PayPal order is missing');
@@ -134,5 +170,106 @@ export class PayPalService {
       throw new BadGatewayException('PayPal payment could not be verified');
     }
     return capture.id;
+  }
+
+  async verifyWebhookSignature(
+    headers: Record<string, string | string[] | undefined>,
+    event: unknown,
+  ): Promise<boolean> {
+    if (!this.webhookId) {
+      throw new BadGatewayException(
+        'PayPal webhook verification is not configured',
+      );
+    }
+    const header = (name: string) => {
+      const value = headers[name] ?? headers[name.toLowerCase()];
+      return Array.isArray(value) ? value[0] : value;
+    };
+    const token = await this.accessToken();
+    const response = await fetch(
+      `${this.baseUrl}/v1/notifications/verify-webhook-signature`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          auth_algo: header('paypal-auth-algo'),
+          cert_url: header('paypal-cert-url'),
+          transmission_id: header('paypal-transmission-id'),
+          transmission_sig: header('paypal-transmission-sig'),
+          transmission_time: header('paypal-transmission-time'),
+          webhook_id: this.webhookId,
+          webhook_event: event,
+        }),
+      },
+    );
+    const result = (await response.json()) as {
+      verification_status?: string;
+    };
+    return response.ok && result.verification_status === 'SUCCESS';
+  }
+
+  async createPayout(
+    payout: { id: string; amount: number },
+    receiverEmail: string,
+  ): Promise<{
+    batchId: string;
+    itemId: string | null;
+    status: string;
+  }> {
+    const token = await this.accessToken();
+    const response = await fetch(`${this.baseUrl}/v1/payments/payouts`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'PayPal-Request-Id': `mrh-payout-${payout.id}`,
+      },
+      body: JSON.stringify({
+        sender_batch_header: {
+          sender_batch_id: payout.id,
+          email_subject: 'You have received an MRH Academy payout',
+        },
+        items: [
+          {
+            recipient_type: 'EMAIL',
+            receiver: receiverEmail,
+            amount: {
+              value: Number(payout.amount).toFixed(2),
+              currency: 'USD',
+            },
+            note: 'MRH Academy tutor payout',
+            sender_item_id: payout.id,
+          },
+        ],
+      }),
+    });
+    const created = (await response.json()) as PayPalPayoutBatch;
+    const batchId = created.batch_header?.payout_batch_id;
+    if (!response.ok || !batchId) {
+      throw new BadGatewayException('PayPal payout could not be initiated');
+    }
+
+    const detailsResponse = await fetch(
+      `${this.baseUrl}/v1/payments/payouts/${encodeURIComponent(batchId)}?fields=items`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const details = detailsResponse.ok
+      ? ((await detailsResponse.json()) as PayPalPayoutBatch)
+      : created;
+    const item = details.items?.find(
+      (candidate) => candidate.payout_item?.sender_item_id === payout.id,
+    );
+    return {
+      batchId,
+      itemId: item?.payout_item_id ?? null,
+      status:
+        item?.transaction_status ??
+        details.batch_header?.batch_status ??
+        created.batch_header?.batch_status ??
+        'PENDING',
+    };
   }
 }
