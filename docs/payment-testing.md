@@ -98,10 +98,31 @@ pnpm --filter @mrh/web exec playwright test \
 | Removed workflow | Student-payment approval/rejection endpoints return 404 and no approval action or label is rendered                         |
 | Browser UX       | Arabic RTL records, filters, responsive table, loading/empty/error/retry states, and keyboard-safe details drawer           |
 
+## Latest executed evidence
+
+| Gate                                  | Result                                      |
+| ------------------------------------- | ------------------------------------------- |
+| API unit tests                        | PASS — 41 suites, 244 tests                 |
+| Web unit tests                        | PASS — 4 suites, 33 tests                   |
+| API and web type checks               | PASS                                        |
+| API and web production builds         | PASS                                        |
+| Full web lint                         | PASS                                        |
+| Changed-file API lint                 | PASS                                        |
+| Desktop/mobile payment browser matrix | PASS — 8 tests                              |
+| Formatting and diff whitespace        | PASS                                        |
+| Secret scan                           | PASS                                        |
+| Database-backed API E2E               | BLOCKED — disposable PostgreSQL unavailable |
+
+The full API lint command was also executed. It reports nine pre-existing
+Prettier findings in four unchanged course-approval files; payment-ledger
+files pass the same lint configuration.
+
 ## Local verification limitation
 
-At the last verification pass, the repository's configured PostgreSQL endpoint
-at `localhost:55432` was not listening. Docker was installed but its daemon
+At the last verification pass, the repository was configured for the
+non-disposable `mrh_academy` database and its PostgreSQL endpoint at
+`localhost:55432` was not listening. The E2E bootstrap now fails closed unless
+the database name contains `test` or `e2e`. Docker was installed but its daemon
 could not be started without host privileges, and no standalone PostgreSQL
 server was available. The database-backed API E2E suite and migration execution
 must therefore be rerun after provisioning the disposable database above. This

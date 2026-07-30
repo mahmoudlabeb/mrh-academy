@@ -2,7 +2,7 @@
 
 ## Payment audit ledger and automatic fulfillment
 
-Status: in progress  
+Status: implemented; disposable-database acceptance pending
 Governing request: 2026-07-30 payment-ledger acceptance criteria  
 Routes: `/ar/ops/money/payments`, `/en/ops/money/payments`,
 `/{locale}/learn/wallet`, `/{locale}/learn/wallet/add`
@@ -63,16 +63,33 @@ action is permitted.
 
 ### Proof gates
 
-- [ ] API/provider/service unit regressions
+- [x] API/provider/service unit regressions
 - [ ] API E2E: PayPal and Stripe top-up, duplicates, failure, course, lesson,
-      refund, admin filtering/details, authorization, removed endpoints
-- [ ] Web unit/type tests
-- [ ] Playwright: records, filters, details drawer, no approval workflow,
+      refund, admin filtering/details, authorization, removed endpoints —
+      suite added; execution is blocked until a disposable PostgreSQL database
+      is available
+- [x] Web unit/type tests
+- [x] Playwright: records, filters, details drawer, no approval workflow,
       matching student/admin transaction
-- [ ] API/web lint and typecheck
-- [ ] API/web build
-- [ ] Browser matrix evidence
-- [ ] Secret scan for delivery/config changes
+- [x] Change-scoped API lint, full web lint, and both type checks
+- [x] API/web build
+- [x] Browser matrix evidence
+- [x] Secret scan for delivery/config changes
+
+### Latest evidence
+
+- API: 41 suites / 244 tests passed; typecheck and production build passed
+- Web: 4 suites / 33 tests passed; lint, typecheck, and production build passed
+- Browser: 8 provider/wallet/admin-ledger cases passed across desktop and mobile
+- Formatting: all changed files pass Prettier; `git diff --check` is clean
+- Security: repository secret scan passed
+- Full API lint was also run. Its only failures are nine existing Prettier
+  findings in four unchanged course-approval files outside this slice; every
+  changed API file passes ESLint.
+- API E2E fails closed before destructive setup because the configured
+  `mrh_academy` database is not named as a test/e2e database. The configured
+  local PostgreSQL endpoint is also offline and Docker cannot be started
+  without host privileges.
 
 ### Non-goals
 
