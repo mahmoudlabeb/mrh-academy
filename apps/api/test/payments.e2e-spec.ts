@@ -4,8 +4,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import {
   UserRole,
   LessonStatus,
-  PaymentStatus,
   PaymentMethod,
+  FinancialLedgerStatus,
+  FinancialTransactionType,
 } from '@mrh/types';
 import { hash } from 'argon2';
 import request from 'supertest';
@@ -27,16 +28,35 @@ import { PaymentMethodConfig } from '../src/payments/entities/payment-method-con
 import { EmailService } from '../src/integrations/email/email.service.js';
 import { EmailServiceMock } from './email.mock.js';
 import { PayPalService } from '../src/payments/paypal/paypal.service.js';
+import { StripeService } from '../src/payments/stripe/stripe.service.js';
+import { FinancialLedgerEntry } from '../src/payments/entities/financial-ledger-entry.entity.js';
 
 const payPalServiceMock = {
   isConfigured: jest.fn(() => true),
   isWebhookConfigured: jest.fn(() => true),
-  createOrder: jest.fn(async () => ({
-    orderId: 'PAYPAL-E2E-ORDER',
-    approvalUrl:
-      'https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-E2E-ORDER',
+  createOrder: jest.fn(async (payment: Payment) => ({
+    orderId: `PAYPAL-E2E-ORDER-${payment.id}`,
+    approvalUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${payment.id}`,
   })),
-  captureOrder: jest.fn(async () => 'PAYPAL-E2E-CAPTURE'),
+  getApprovalUrl: jest.fn(async (payment: Payment) =>
+    payment.paypalOrderId
+      ? `https://www.sandbox.paypal.com/checkoutnow?token=${payment.id}`
+      : null,
+  ),
+  captureOrder: jest.fn(async (payment: Payment) => `CAPTURE-${payment.id}`),
+  verifyWebhookSignature: jest.fn(async () => true),
+};
+
+let stripeEvent: Record<string, unknown>;
+const stripeServiceMock = {
+  isConfigured: jest.fn(() => true),
+  createCheckoutSession: jest.fn(
+    async (_userId: string, _amount: number, paymentId: string) => ({
+      id: `cs_${paymentId}`,
+      url: `https://checkout.stripe.test/${paymentId}`,
+    }),
+  ),
+  constructEvent: jest.fn(() => stripeEvent),
 };
 
 function futureDayIso(daysAhead = 1): string {
@@ -51,6 +71,7 @@ describe('Payments & Booking Flow (e2e)', () => {
   let userRepository: Repository<User>;
   let studentProfileRepository: Repository<StudentProfile>;
   let paymentRepository: Repository<Payment>;
+  let financialLedgerRepository: Repository<FinancialLedgerEntry>;
   let lessonRepository: Repository<Lesson>;
 
   let adminToken: string;
@@ -69,6 +90,8 @@ describe('Payments & Booking Flow (e2e)', () => {
       .useClass(EmailServiceMock)
       .overrideProvider(PayPalService)
       .useValue(payPalServiceMock)
+      .overrideProvider(StripeService)
+      .useValue(stripeServiceMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -82,11 +105,17 @@ describe('Payments & Booking Flow (e2e)', () => {
     userRepository = app.get(getRepositoryToken(User));
     studentProfileRepository = app.get(getRepositoryToken(StudentProfile));
     paymentRepository = app.get(getRepositoryToken(Payment));
+    financialLedgerRepository = app.get(
+      getRepositoryToken(FinancialLedgerEntry),
+    );
     lessonRepository = app.get(getRepositoryToken(Lesson));
     const paymentMethodConfigRepository = app.get(
       getRepositoryToken(PaymentMethodConfig),
     ) as Repository<PaymentMethodConfig>;
 
+    await financialLedgerRepository.query(
+      `TRUNCATE TABLE financial_ledger_entries CASCADE`,
+    );
     await paymentRepository.query(`TRUNCATE TABLE payments CASCADE`);
     await lessonRepository.query(`TRUNCATE TABLE lessons CASCADE`);
     await studentProfileRepository.query(
@@ -94,12 +123,20 @@ describe('Payments & Booking Flow (e2e)', () => {
     );
     await userRepository.query(`TRUNCATE TABLE users CASCADE`);
     await paymentMethodConfigRepository.upsert(
-      {
-        type: PaymentMethod.PAYPAL,
-        label: 'PayPal',
-        enabled: true,
-        sortOrder: 1,
-      },
+      [
+        {
+          type: PaymentMethod.PAYPAL,
+          label: 'PayPal',
+          enabled: true,
+          sortOrder: 1,
+        },
+        {
+          type: PaymentMethod.CARD,
+          label: 'Bank card',
+          enabled: true,
+          sortOrder: 2,
+        },
+      ],
       ['type'],
     );
 
@@ -229,28 +266,215 @@ describe('Payments & Booking Flow (e2e)', () => {
       where: { userId: studentUser.id },
     });
     expect(student?.balance).toBe(1500);
-  });
-
-  it('Admin can approve a manually submitted pending payment', async () => {
-    const pendingPayment = await paymentRepository.save(
-      paymentRepository.create({
-        userId: studentUser.id,
-        amount: 300,
-        method: PaymentMethod.BANK,
-        currency: 'USD',
-        status: PaymentStatus.PENDING,
+    expect(
+      await financialLedgerRepository.count({
+        where: {
+          paymentId: res.body.payment.id,
+          transactionType: FinancialTransactionType.WALLET_TOP_UP,
+          status: FinancialLedgerStatus.SUCCEEDED,
+        },
       }),
-    );
+    ).toBe(1);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/admin/payments/${pendingPayment.id}/approve`)
-      .set('Authorization', `Bearer ${adminToken}`)
+      .post(`/api/v1/payments/paypal/${res.body.payment.id}/capture`)
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(201);
+    expect(
+      (
+        await studentProfileRepository.findOne({
+          where: { userId: studentUser.id },
+        })
+      )?.balance,
+    ).toBe(1500);
+  });
+
+  it('credits a verified PayPal webhook once and records one admin row', async () => {
+    const submitted = await request(app.getHttpServer())
+      .post('/api/v1/payments/submit')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        amount: 25,
+        method: PaymentMethod.PAYPAL,
+        idempotencyKey: randomUUID(),
+      })
+      .expect(201);
+    const paymentId = submitted.body.payment.id;
+    const event = {
+      id: `WH-${paymentId}`,
+      event_type: 'PAYMENT.CAPTURE.COMPLETED',
+      resource: {
+        id: `CAPTURE-WH-${paymentId}`,
+        amount: { currency_code: 'USD', value: '25.00' },
+        supplementary_data: {
+          related_ids: { order_id: submitted.body.payment.paypalOrderId },
+        },
+      },
+    };
+
+    await request(app.getHttpServer())
+      .post('/api/v1/webhooks/paypal')
+      .send(event)
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/webhooks/paypal')
+      .send(event)
       .expect(201);
 
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBe(1800);
+    expect(student?.balance).toBe(1525);
+    expect(
+      await financialLedgerRepository.count({
+        where: { paymentId, status: FinancialLedgerStatus.SUCCEEDED },
+      }),
+    ).toBe(1);
+  });
+
+  it('credits a verified Stripe card webhook once and records one admin row', async () => {
+    const submitted = await request(app.getHttpServer())
+      .post('/api/v1/payments/submit')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        amount: 40,
+        method: PaymentMethod.CARD,
+        idempotencyKey: randomUUID(),
+        returnLocale: 'ar',
+      })
+      .expect(201);
+    const paymentId = submitted.body.payment.id;
+    stripeEvent = {
+      id: `evt_${paymentId}`,
+      type: 'checkout.session.completed',
+      data: {
+        object: {
+          id: `cs_${paymentId}`,
+          payment_status: 'paid',
+          amount_total: 4_000,
+          currency: 'usd',
+          payment_intent: `pi_${paymentId}`,
+          metadata: { userId: studentUser.id, paymentId },
+        },
+      },
+    };
+
+    await request(app.getHttpServer())
+      .post('/api/v1/webhooks/stripe')
+      .send({})
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/v1/webhooks/stripe')
+      .send({})
+      .expect(201);
+
+    expect(
+      (
+        await studentProfileRepository.findOne({
+          where: { userId: studentUser.id },
+        })
+      )?.balance,
+    ).toBe(1565);
+    expect(
+      await financialLedgerRepository.count({
+        where: { paymentId, status: FinancialLedgerStatus.SUCCEEDED },
+      }),
+    ).toBe(1);
+  });
+
+  it('records failed Stripe confirmation without crediting the wallet', async () => {
+    const submitted = await request(app.getHttpServer())
+      .post('/api/v1/payments/submit')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .send({
+        amount: 15,
+        method: PaymentMethod.CARD,
+        idempotencyKey: randomUUID(),
+      })
+      .expect(201);
+    const paymentId = submitted.body.payment.id;
+    stripeEvent = {
+      id: `evt_failed_${paymentId}`,
+      type: 'payment_intent.payment_failed',
+      data: {
+        object: {
+          id: `pi_failed_${paymentId}`,
+          metadata: { paymentId },
+          last_payment_error: { code: 'card_declined' },
+        },
+      },
+    };
+
+    await request(app.getHttpServer())
+      .post('/api/v1/webhooks/stripe')
+      .send({})
+      .expect(201);
+
+    expect(
+      (
+        await studentProfileRepository.findOne({
+          where: { userId: studentUser.id },
+        })
+      )?.balance,
+    ).toBe(1565);
+    expect(
+      await financialLedgerRepository.count({
+        where: { paymentId, status: FinancialLedgerStatus.FAILED },
+      }),
+    ).toBe(1);
+  });
+
+  it('removes obsolete manual approval and protects admin ledger access', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/admin/payments/${randomUUID()}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/payments')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/v1/admin/payments')
+      .set('Authorization', `Bearer ${tutorToken}`)
+      .expect(403);
+
+    const ledger = await request(app.getHttpServer())
+      .get('/api/v1/admin/payments?status=succeeded&method=stripe')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(ledger.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          transactionType: 'wallet_top_up',
+          status: 'succeeded',
+          provider: 'stripe',
+          user: expect.objectContaining({ id: studentUser.id }),
+        }),
+      ]),
+    );
+    const details = await request(app.getHttpServer())
+      .get(`/api/v1/admin/payments/${ledger.body.items[0].id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(details.body).toEqual(
+      expect.objectContaining({
+        id: ledger.body.items[0].id,
+        audit: expect.any(Object),
+      }),
+    );
+
+    const history = await request(app.getHttpServer())
+      .get('/api/v1/payments/history')
+      .set('Authorization', `Bearer ${studentToken}`)
+      .expect(200);
+    expect(history.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: ledger.body.items[0].id,
+          status: 'succeeded',
+        }),
+      ]),
+    );
   });
 
   it('Student multi-hour booking is immediately confirmed, visible, and classroom-authorized', async () => {
@@ -273,7 +497,7 @@ describe('Payments & Booking Flow (e2e)', () => {
     const student = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(student?.balance).toBeCloseTo(1700, 2);
+    expect(student?.balance).toBeCloseTo(1465, 2);
     expect(res.body.durationMinutes).toBe(120);
     expect(
       new Date(res.body.endTime).getTime() -
@@ -311,7 +535,16 @@ describe('Payments & Booking Flow (e2e)', () => {
     const studentAfterRetry = await studentProfileRepository.findOne({
       where: { userId: studentUser.id },
     });
-    expect(studentAfterRetry?.balance).toBeCloseTo(1700, 2);
+    expect(studentAfterRetry?.balance).toBeCloseTo(1465, 2);
+    expect(
+      await financialLedgerRepository.count({
+        where: {
+          lessonId: res.body.id,
+          transactionType: FinancialTransactionType.LESSON_BOOKING,
+          status: FinancialLedgerStatus.SUCCEEDED,
+        },
+      }),
+    ).toBe(1);
 
     const lessonId = res.body.id;
     const roomId = res.body.roomId;

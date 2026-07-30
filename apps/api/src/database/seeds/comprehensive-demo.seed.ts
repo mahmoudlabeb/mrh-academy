@@ -242,23 +242,22 @@ export async function seedComprehensiveDemoFixtures(
     `
       INSERT INTO "payments"
         ("id", "user_id", "amount", "method", "currency", "status",
-         "receipt_url", "idempotency_key", "admin_note",
+         "idempotency_key", "admin_note",
          "stripe_checkout_session_id", "stripe_payment_intent_id",
          "allocated_amount", "credited_amount_usd", "refunded_amount",
          "refunded_at", "rejection_reason")
       VALUES
-        ($1, $5, 49, 'card', 'USD', 'approved', NULL, 'demo-course-checkout',
-         'Approved demo course checkout', 'cs_demo_course_01', 'pi_demo_course_01',
+        ($1, $5, 49, 'card', 'USD', 'succeeded', 'demo-course-checkout',
+         'Provider-verified demo course checkout', 'cs_demo_course_01', 'pi_demo_course_01',
          49, 49, 0, NULL, NULL),
-        ($2, $5, 750, 'instapay', 'EGP', 'pending',
-         'https://assets.mrh-academy.example/demo/pending-receipt.png',
-         'demo-manual-pending', 'Awaiting fictional manual review', NULL, NULL,
-         0, NULL, 0, NULL, NULL),
-        ($3, $5, 500, 'vodafone', 'EGP', 'rejected',
-         'https://assets.mrh-academy.example/demo/rejected-receipt.png',
-         'demo-manual-rejected', 'Rejected fictional receipt', NULL, NULL,
-         0, NULL, 0, NULL, 'Receipt reference was unreadable'),
-        ($4, $5, 65, 'card', 'USD', 'approved', NULL, 'demo-refunded-payment',
+        ($2, $5, 75, 'card', 'USD', 'failed',
+         'demo-card-declined', 'Provider-declined demo card funding',
+         'cs_demo_declined_01', 'pi_demo_declined_01',
+         0, NULL, 0, NULL, 'Provider reported card_declined'),
+        ($3, $5, 50, 'paypal', 'USD', 'failed',
+         'demo-paypal-denied', 'Provider-denied demo PayPal funding', NULL, NULL,
+         0, NULL, 0, NULL, 'Provider denied the funding order'),
+        ($4, $5, 65, 'card', 'USD', 'refunded', 'demo-refunded-payment',
          'Fully refunded demo checkout', 'cs_demo_refund_01', 'pi_demo_refund_01',
          0, 65, 65, $6, NULL)
       ON CONFLICT ("id") DO UPDATE SET

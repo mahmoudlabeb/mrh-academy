@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
-import { PaymentMethod, PaymentStatus, PayoutStatus } from '@mrh/types';
+import {
+  FinancialTransactionType,
+  PaymentMethod,
+  PaymentStatus,
+  PayoutStatus,
+} from '@mrh/types';
 import { Payment } from './entities/payment.entity';
 import { Payout } from './entities/payout.entity';
 import { StudentProfile } from '../students/entities/student-profile.entity';
@@ -12,7 +17,6 @@ import { EmailService } from '../integrations/email/email.service';
 import { CommissionService } from './commission.service';
 import { PaymentsService } from './payments.service';
 import { StripeService } from './stripe/stripe.service';
-import { OBJECT_STORAGE } from '../integrations/storage/object-storage';
 import { Notification } from '../messages/entities/notification.entity';
 import { CourseFundingAllocation } from './entities/course-funding-allocation.entity';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity';
@@ -22,6 +26,7 @@ import { PayPalService } from './paypal/paypal.service';
 import { Lesson } from '../lessons/entities/lesson.entity';
 import { ProcessedWebhookEvent } from './entities/processed-webhook-event.entity';
 import { PlatformPayout } from './entities/platform-payout.entity';
+import { FinancialLedgerService } from './financial-ledger.service';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -71,28 +76,28 @@ describe('PaymentsService', () => {
   const lessonRepository = {
     find: jest.fn(async () => []),
   };
+  const defaultManager = () => ({
+    findOne: jest.fn(async (entity) => {
+      if (entity === StudentProfile) {
+        return { userId: 'user-1', balance: 0 };
+      }
+      return null;
+    }),
+    save: jest.fn(async (_entity, value) => value),
+    update: jest.fn(),
+    increment: jest.fn(),
+    decrement: jest.fn(),
+    create: jest.fn((_entity, value) => ({ id: 'payment-1', ...value })),
+  });
   const dataSource = {
     getRepository: jest.fn(() => ({ findOne: jest.fn(async () => null) })),
-    transaction: jest.fn(async (cb) =>
-      cb({
-        findOne: jest.fn(async () => ({
-          id: 'payment-1',
-          userId: 'user-1',
-          amount: 30,
-          method: PaymentMethod.PAYPAL,
-          status: PaymentStatus.PENDING,
-        })),
-        save: jest.fn(async (entity) => entity),
-        increment: jest.fn(),
-        decrement: jest.fn(),
-        create: jest.fn(),
-      }),
-    ),
+    transaction: jest.fn(async (cb) => cb(defaultManager())),
   };
   const configService = { get: jest.fn(() => undefined) };
   const stripeService = {
     isConfigured: jest.fn(() => true),
     createCheckoutSession: jest.fn(async () => ({
+      id: 'cs_wallet',
       url: 'https://checkout.stripe.test/session',
     })),
     createCourseCheckoutSession: jest.fn(async () => ({
@@ -124,10 +129,13 @@ describe('PaymentsService', () => {
     getCreditPrice: jest.fn(async () => 15),
     getEgpRate: jest.fn(async () => 50),
   };
-  const objectStorage = {
-    upload: jest.fn(),
-    destroy: jest.fn(),
-    signedUrl: jest.fn(),
+  const financialLedgerService = {
+    record: jest.fn(async (_manager, value) => value),
+    update: jest.fn(async (_manager, _eventKey, value) => value),
+    recordOrUpdate: jest.fn(async (_manager, value) => value),
+    getStudentHistory: jest.fn(async () => []),
+    list: jest.fn(async () => ({ items: [], total: 0, page: 1, limit: 50 })),
+    getDetails: jest.fn(),
   };
   const notificationRepository = {
     create: jest.fn((value) => value),
@@ -136,6 +144,9 @@ describe('PaymentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    dataSource.transaction.mockImplementation(async (cb) =>
+      cb(defaultManager()),
+    );
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PaymentsService,
@@ -166,7 +177,10 @@ describe('PaymentsService', () => {
         },
         { provide: getRepositoryToken(Course), useValue: courseRepository },
         { provide: getRepositoryToken(Lesson), useValue: lessonRepository },
-        { provide: OBJECT_STORAGE, useValue: objectStorage },
+        {
+          provide: FinancialLedgerService,
+          useValue: financialLedgerService,
+        },
       ],
     }).compile();
 
@@ -178,16 +192,13 @@ describe('PaymentsService', () => {
   });
 
   it('paginates student payment history', async () => {
-    paymentRepository.find.mockResolvedValueOnce([]);
-
     await service.getPaymentHistory('student-1', 3, 20);
 
-    expect(paymentRepository.find).toHaveBeenCalledWith({
-      where: { userId: 'student-1' },
-      order: { createdAt: 'DESC' },
-      skip: 40,
-      take: 20,
-    });
+    expect(financialLedgerService.getStudentHistory).toHaveBeenCalledWith(
+      'student-1',
+      3,
+      20,
+    );
   });
 
   it('paginates tutor and admin payout lists', async () => {
@@ -208,6 +219,43 @@ describe('PaymentsService', () => {
       skip: 30,
       take: 10,
     });
+  });
+
+  it('records tutor balance movements when matured course earnings are released', async () => {
+    const manager = {
+      query: jest.fn(async () => [
+        {
+          enrollmentId: 'enrollment-1',
+          courseId: 'course-1',
+          tutorId: 'tutor-1',
+          tutorShare: '70.00',
+          releasedAt: '2026-07-30T12:00:00.000Z',
+        },
+      ]),
+      findOne: jest.fn(async () => ({ userId: 'tutor-1', balance: 30 })),
+      increment: jest.fn(),
+    };
+    dataSource.transaction.mockImplementationOnce(async (callback) =>
+      callback(manager),
+    );
+
+    await service.releaseMatureCourseEarnings('tutor-1');
+
+    expect(manager.increment).toHaveBeenCalledWith(
+      TutorProfile,
+      { userId: 'tutor-1' },
+      'balance',
+      70,
+    );
+    expect(financialLedgerService.record).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({
+        eventKey: 'tutor_earning:course:enrollment-1',
+        transactionType: FinancialTransactionType.TUTOR_EARNING_RELEASE,
+        balanceBefore: 30,
+        balanceAfter: 100,
+      }),
+    );
   });
 
   it('puts PayPal first when verified payout webhooks are configured', () => {
@@ -329,14 +377,16 @@ describe('PaymentsService', () => {
     const result = await service.submitPayment('user-1', {
       method: PaymentMethod.CARD,
       amount: 30,
+      idempotencyKey: 'd04fe87b-818b-4dd6-9f04-ef1ce981e0ca',
     });
 
-    expect(paymentRepository.create).toHaveBeenCalledWith(
+    expect(financialLedgerService.record).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         userId: 'user-1',
         amount: 30,
         method: PaymentMethod.CARD,
-        status: PaymentStatus.PENDING,
+        status: 'pending',
       }),
     );
     expect(studentProfileRepository.increment).not.toHaveBeenCalled();
@@ -345,6 +395,15 @@ describe('PaymentsService', () => {
       30,
       'payment-1',
       'USD',
+      'ar',
+    );
+    expect(financialLedgerService.update).toHaveBeenCalledWith(
+      expect.anything(),
+      'payment:payment-1',
+      expect.objectContaining({
+        providerReferenceId: 'cs_wallet',
+        providerStatus: 'OPEN',
+      }),
     );
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
@@ -364,10 +423,14 @@ describe('PaymentsService', () => {
         idempotencyKey: '8c0cf478-f1ed-47e9-8104-d7bfb9334c54',
       }),
     );
-    expect(paymentRepository.update).toHaveBeenCalledWith('payment-1', {
-      stripeCheckoutSessionId: 'cs_course',
-      providerStatus: 'OPEN',
-    });
+    expect(financialLedgerService.update).toHaveBeenCalledWith(
+      expect.anything(),
+      'payment:payment-1',
+      {
+        providerReferenceId: 'cs_course',
+        providerStatus: 'OPEN',
+      },
+    );
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/course');
   });
 
@@ -394,25 +457,28 @@ describe('PaymentsService', () => {
     const result = await service.submitPayment('user-1', {
       method: PaymentMethod.PAYPAL,
       amount: 30,
+      idempotencyKey: 'ebc6b55e-3977-4bf8-b6eb-f227361886fc',
     });
 
-    expect(paymentRepository.create).toHaveBeenCalledWith(
+    expect(financialLedgerService.record).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         method: PaymentMethod.PAYPAL,
-        status: PaymentStatus.PENDING,
+        status: 'pending',
       }),
     );
     expect(payPalService.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'payment-1', amount: 30 }),
+      'ar',
     );
-    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(dataSource.transaction).toHaveBeenCalledTimes(2);
     expect(result.payment.status).toBe(PaymentStatus.PENDING);
     expect(result.payment.paypalOrderId).toBe('PAYPAL-ORDER-1');
     expect(result.checkoutUrl).toContain('sandbox.paypal.com');
   });
 
   it('returns the same PayPal checkout for a repeated wallet idempotency key', async () => {
-    paymentRepository.findOne.mockResolvedValueOnce({
+    const existing = {
       id: 'payment-1',
       userId: 'user-1',
       amount: 30,
@@ -421,7 +487,15 @@ describe('PaymentsService', () => {
       status: PaymentStatus.PENDING,
       idempotencyKey: '9d6680af-72c4-4c2a-a7d4-b542e12ccae3',
       paypalOrderId: 'PAYPAL-ORDER-1',
-    });
+    } as Payment;
+    dataSource.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        ...defaultManager(),
+        findOne: jest.fn(async (entity) =>
+          entity === Payment ? existing : null,
+        ),
+      }),
+    );
 
     await expect(
       service.submitPayment('user-1', {
@@ -437,12 +511,11 @@ describe('PaymentsService', () => {
       }),
     );
 
-    expect(paymentRepository.save).not.toHaveBeenCalled();
     expect(payPalService.createOrder).not.toHaveBeenCalled();
   });
 
   it('resumes a pending card checkout without creating another payment row', async () => {
-    paymentRepository.findOne.mockResolvedValueOnce({
+    const existing = {
       id: 'payment-card-1',
       userId: 'user-1',
       amount: 30,
@@ -450,7 +523,15 @@ describe('PaymentsService', () => {
       method: PaymentMethod.CARD,
       status: PaymentStatus.PENDING,
       idempotencyKey: 'f39ee14f-b34d-4a70-b0df-da9d1e01da06',
-    });
+    } as Payment;
+    dataSource.transaction.mockImplementationOnce(async (callback) =>
+      callback({
+        ...defaultManager(),
+        findOne: jest.fn(async (entity) =>
+          entity === Payment ? existing : null,
+        ),
+      }),
+    );
 
     const result = await service.submitPayment('user-1', {
       method: PaymentMethod.CARD,
@@ -459,12 +540,12 @@ describe('PaymentsService', () => {
       idempotencyKey: 'f39ee14f-b34d-4a70-b0df-da9d1e01da06',
     });
 
-    expect(paymentRepository.create).not.toHaveBeenCalled();
     expect(stripeService.createCheckoutSession).toHaveBeenCalledWith(
       'user-1',
       30,
       'payment-card-1',
       'USD',
+      'ar',
     );
     expect(result.checkoutUrl).toBe('https://checkout.stripe.test/session');
   });
@@ -495,7 +576,7 @@ describe('PaymentsService', () => {
       Payment,
       expect.objectContaining({
         paypalCaptureId: 'PAYPAL-CAPTURE-1',
-        status: PaymentStatus.APPROVED,
+        status: PaymentStatus.SUCCEEDED,
       }),
     );
     expect(increment).toHaveBeenCalledWith(
@@ -524,6 +605,7 @@ describe('PaymentsService', () => {
         if (entity === ProcessedWebhookEvent)
           return processed ? { eventId: 'WH-CAPTURE-1' } : null;
         if (entity === Payment) return payment;
+        if (entity === StudentProfile) return { userId: 'user-1', balance: 0 };
         return null;
       }),
       create: jest.fn((_entity, value) => value),
@@ -563,7 +645,7 @@ describe('PaymentsService', () => {
       'balance',
       30,
     );
-    expect(payment.status).toBe(PaymentStatus.APPROVED);
+    expect(payment.status).toBe(PaymentStatus.SUCCEEDED);
     expect(payment.paypalCaptureId).toBe('CAPTURE-1');
   });
 
@@ -670,24 +752,28 @@ describe('PaymentsService', () => {
     expect(notificationRepository.save).toHaveBeenCalledTimes(1);
   });
 
-  it('credits an approved USD payment to the student wallet one-for-one', async () => {
+  it('credits a provider-confirmed USD card payment to the wallet one-for-one', async () => {
     const increment = jest.fn();
     dataSource.transaction.mockImplementationOnce(async (cb) =>
       cb({
-        findOne: jest.fn(async () => ({
-          id: 'payment-1',
-          userId: 'user-1',
-          amount: 30,
-          currency: 'USD',
-          method: PaymentMethod.CARD,
-          status: PaymentStatus.PENDING,
-        })),
-        save: jest.fn(async (entity) => entity),
+        findOne: jest.fn(async (entity) =>
+          entity === Payment
+            ? {
+                id: 'payment-1',
+                userId: 'user-1',
+                amount: 30,
+                currency: 'USD',
+                method: PaymentMethod.CARD,
+                status: PaymentStatus.PENDING,
+              }
+            : { userId: 'user-1', balance: 10 },
+        ),
+        save: jest.fn(async (_entity, value) => value),
         increment,
       }),
     );
 
-    await service.approvePayment('payment-1', 'admin-1');
+    await service.confirmProviderPayment('payment-1');
 
     expect(increment).toHaveBeenCalledWith(
       StudentProfile,
@@ -695,9 +781,18 @@ describe('PaymentsService', () => {
       'balance',
       30,
     );
+    expect(financialLedgerService.recordOrUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        eventKey: 'payment:payment-1',
+        status: 'succeeded',
+        balanceBefore: 10,
+        balanceAfter: 40,
+      }),
+    );
   });
 
-  it('treats repeated verification of an approved payment as an idempotent no-op', async () => {
+  it('treats repeated provider verification as an idempotent no-op', async () => {
     const increment = jest.fn();
     dataSource.transaction.mockImplementationOnce(async (cb) =>
       cb({
@@ -707,39 +802,43 @@ describe('PaymentsService', () => {
           amount: 30,
           currency: 'USD',
           method: PaymentMethod.CARD,
-          status: PaymentStatus.APPROVED,
+          status: PaymentStatus.SUCCEEDED,
         })),
         save: jest.fn(),
         increment,
       }),
     );
 
-    const result = await service.approvePayment('payment-1', 'stripe-webhook');
+    const result = await service.confirmProviderPayment('payment-1');
 
-    expect(result.status).toBe(PaymentStatus.APPROVED);
+    expect(result.status).toBe(PaymentStatus.SUCCEEDED);
     expect(increment).not.toHaveBeenCalled();
     expect(notificationRepository.save).not.toHaveBeenCalled();
     expect(emailService.sendEmail).not.toHaveBeenCalled();
   });
 
-  it('converts an approved EGP payment to USD before crediting the wallet', async () => {
+  it('converts a provider-confirmed EGP card payment before wallet credit', async () => {
     const increment = jest.fn();
     dataSource.transaction.mockImplementationOnce(async (cb) =>
       cb({
-        findOne: jest.fn(async () => ({
-          id: 'payment-1',
-          userId: 'user-1',
-          amount: 1_500,
-          currency: 'EGP',
-          method: PaymentMethod.BANK,
-          status: PaymentStatus.PENDING,
-        })),
-        save: jest.fn(async (entity) => entity),
+        findOne: jest.fn(async (entity) =>
+          entity === Payment
+            ? {
+                id: 'payment-1',
+                userId: 'user-1',
+                amount: 1_500,
+                currency: 'EGP',
+                method: PaymentMethod.CARD,
+                status: PaymentStatus.PENDING,
+              }
+            : { userId: 'user-1', balance: 0 },
+        ),
+        save: jest.fn(async (_entity, value) => value),
         increment,
       }),
     );
 
-    await service.approvePayment('payment-1', 'admin-1');
+    await service.confirmProviderPayment('payment-1');
 
     expect(increment).toHaveBeenCalledWith(
       StudentProfile,
@@ -780,10 +879,12 @@ describe('PaymentsService', () => {
               id: 'payment-1',
               userId: 'user-1',
               amount: 100,
-              status: PaymentStatus.APPROVED,
+              status: PaymentStatus.SUCCEEDED,
               refundedAmount: 0,
             };
           if (entity === CourseEnrollment) return enrollment;
+          if (entity === StudentProfile)
+            return { userId: 'user-1', balance: 100 };
           return null;
         }),
         find: jest.fn(async (entity) =>
@@ -918,6 +1019,7 @@ describe('PaymentsService', () => {
       method: PaymentMethod.CARD,
       amount: 1_500,
       currency: 'EGP',
+      idempotencyKey: 'a086be4d-f7d3-4ee0-8a92-6f42c43d67d9',
     });
 
     expect(stripeService.createCheckoutSession).toHaveBeenCalledWith(
@@ -925,10 +1027,11 @@ describe('PaymentsService', () => {
       1_500,
       'payment-1',
       'EGP',
+      'ar',
     );
   });
 
-  it('keeps a recoverable pending record when Stripe checkout initiation fails', async () => {
+  it('records a failed provider attempt when Stripe checkout initiation fails', async () => {
     stripeService.createCheckoutSession.mockRejectedValueOnce(
       new Error('sandbox provider unavailable'),
     );
@@ -938,81 +1041,34 @@ describe('PaymentsService', () => {
         method: PaymentMethod.CARD,
         amount: 30,
         currency: 'USD',
+        idempotencyKey: '867c5d8a-3a84-47ef-a85f-13d8fd2734a9',
       }),
     ).rejects.toThrow('Card payment is currently unavailable');
 
     expect(paymentRepository.delete).not.toHaveBeenCalled();
-    expect(paymentRepository.save).toHaveBeenLastCalledWith(
+    expect(financialLedgerService.update).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'payment:payment-1',
       expect.objectContaining({
-        id: 'payment-1',
-        status: PaymentStatus.PENDING,
+        status: 'failed',
         providerStatus: 'INITIATION_FAILED',
       }),
     );
     expect(studentProfileRepository.increment).not.toHaveBeenCalled();
   });
 
-  it('validates and stores a manual-payment receipt without crediting the wallet', async () => {
-    paymentMethodConfigRepository.findOne.mockResolvedValueOnce({
-      type: PaymentMethod.BANK,
-      enabled: true,
-      details: 'Fictional sandbox bank destination',
-    });
-    objectStorage.upload.mockResolvedValueOnce({
-      secureUrl: 'https://storage.example/test-receipt.png',
-    });
-    const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
-
-    const result = await service.submitPayment(
-      'user-1',
-      {
+  it('rejects obsolete manual student funding methods', async () => {
+    await expect(
+      service.submitPayment('user-1', {
         method: PaymentMethod.BANK,
         amount: 50,
         currency: 'USD',
-      },
-      {
-        buffer: png,
-        mimetype: 'image/png',
-      } as Express.Multer.File,
-    );
-
-    expect(objectStorage.upload).toHaveBeenCalledWith(png, {
-      folder: 'mrh-academy/payments',
-      resourceType: 'auto',
-    });
-    expect(result.payment).toEqual(
-      expect.objectContaining({
-        status: PaymentStatus.PENDING,
-        receiptUrl: 'https://storage.example/test-receipt.png',
+        idempotencyKey: 'f39143b6-c83c-4724-ad1e-76d9bb709bf9',
       }),
+    ).rejects.toThrow(
+      'Student wallet funding requires Stripe card or PayPal verification',
     );
-    expect(studentProfileRepository.increment).not.toHaveBeenCalled();
-  });
-
-  it('rejects a receipt whose bytes do not match its declared content type', async () => {
-    paymentMethodConfigRepository.findOne.mockResolvedValueOnce({
-      type: PaymentMethod.BANK,
-      enabled: true,
-      details: 'Fictional sandbox bank destination',
-    });
-
-    await expect(
-      service.submitPayment(
-        'user-1',
-        {
-          method: PaymentMethod.BANK,
-          amount: 50,
-          currency: 'USD',
-        },
-        {
-          buffer: Buffer.from('not a png'),
-          mimetype: 'image/png',
-        } as Express.Multer.File,
-      ),
-    ).rejects.toThrow('Receipt content does not match its type');
-
-    expect(objectStorage.upload).not.toHaveBeenCalled();
-    expect(paymentRepository.save).not.toHaveBeenCalled();
+    expect(financialLedgerService.record).not.toHaveBeenCalled();
   });
 
   it('refunds the immutable USD wallet value of an EGP payment', async () => {
@@ -1027,7 +1083,7 @@ describe('PaymentsService', () => {
           currency: 'EGP',
           creditedAmountUsd: 30,
           refundedAmount: 0,
-          status: PaymentStatus.APPROVED,
+          status: PaymentStatus.SUCCEEDED,
         })),
         find: jest.fn(async () => []),
         decrement,

@@ -26,6 +26,7 @@ import { RedisService } from '../redis/redis.service.js';
 import { BookLessonDto } from './dto/book-lesson.dto.js';
 import { CompleteLessonDto } from './dto/complete-lesson.dto.js';
 import { ClassroomAccessService } from '../classroom/classroom-access.service.js';
+import { FinancialLedgerService } from '../payments/financial-ledger.service.js';
 
 function futureScheduledTimeIso(daysAhead = 1, hourUtc = 10): string {
   const date = new Date();
@@ -118,6 +119,11 @@ describe('LessonsService', () => {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
   };
+  const financialLedgerService = {
+    record: jest.fn(async (_manager, value) => value),
+    recordOrUpdate: jest.fn(async (_manager, value) => value),
+    update: jest.fn(async (_manager, _eventKey, value) => value),
+  };
 
   const createTransactionManager = () => {
     const manager = {
@@ -126,6 +132,7 @@ describe('LessonsService', () => {
           return {
             userId: 'tutor-1',
             hourlyRate: 50,
+            balance: 0,
             status: CourseStatus.APPROVED,
           };
         }
@@ -203,6 +210,10 @@ describe('LessonsService', () => {
         { provide: CalendarService, useValue: calendarService },
         { provide: EmailService, useValue: emailService },
         { provide: RedisService, useValue: redisService },
+        {
+          provide: FinancialLedgerService,
+          useValue: financialLedgerService,
+        },
       ],
     }).compile();
 
@@ -663,6 +674,14 @@ describe('LessonsService', () => {
         Classroom,
         { lessonId },
         { isActive: false },
+      );
+      expect(financialLedgerService.record).toHaveBeenCalledWith(
+        transactionManager,
+        expect.objectContaining({
+          eventKey: `tutor_earning:lesson:${lessonId}`,
+          balanceBefore: 0,
+          balanceAfter: 70,
+        }),
       );
     });
 

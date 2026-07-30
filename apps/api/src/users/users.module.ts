@@ -8,11 +8,13 @@ import { UsersController } from './users.controller.js';
 import { UsersService } from './users.service.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { StorageModule } from '../integrations/storage/storage.module.js';
+import { PaymentsModule } from '../payments/payments.module.js';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, StudentProfile, Lesson, TutorProfile]),
     StorageModule,
+    PaymentsModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, EmailService],

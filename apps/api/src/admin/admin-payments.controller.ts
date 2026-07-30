@@ -12,7 +12,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { UserRole } from '@mrh/types';
+import {
+  FinancialLedgerStatus,
+  FinancialTransactionType,
+  UserRole,
+} from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -25,6 +29,7 @@ import { Payout } from '../payments/entities/payout.entity.js';
 import { PayoutStatus } from '@mrh/types';
 import { CourseEnrollment } from '../courses/entities/course-enrollment.entity.js';
 import { RequestPlatformPayoutDto } from '../payments/dto/request-platform-payout.dto.js';
+import { FinancialLedgerService } from '../payments/financial-ledger.service.js';
 
 /**
  * Stripe Connect Automated Payout System
@@ -47,10 +52,9 @@ export class AdminPaymentsController {
     private readonly dataSource: DataSource,
     @InjectRepository(TutorProfile)
     private readonly tutorProfileRepository: Repository<TutorProfile>,
-    @InjectRepository(Payout)
-    private readonly payoutRepository: Repository<Payout>,
     @InjectRepository(CourseEnrollment)
     private readonly enrollmentRepository: Repository<CourseEnrollment>,
+    private readonly financialLedgerService: FinancialLedgerService,
   ) {}
 
   /**
@@ -136,23 +140,36 @@ export class AdminPaymentsController {
   async getAllPayments(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('type') type?: string,
+    @Query('method') method?: string,
+    @Query('search') search?: string,
   ) {
-    const payments = await this.paymentsService.getAllPayments(
-      Math.max(1, Number(page) || 1),
-      Math.min(100, Math.max(1, Number(limit) || 50)),
-    );
-    return payments.map((p) => ({
-      id: p.id,
-      userName: p.user ? `${p.user.firstName} ${p.user.lastName}` : 'Unknown',
-      amount: p.amount,
-      currency: p.currency,
-      paymentMethod: p.method,
-      status: p.status,
-      receiptUrl: p.receiptUrl,
-      adminNote: p.adminNote,
-      rejectionReason: p.rejectionReason,
-      createdAt: p.createdAt,
-    }));
+    const allowedStatuses = new Set([
+      'all',
+      'succeeded',
+      'pending',
+      'failed',
+      'refunded',
+      'disputed',
+    ]);
+    const safeStatus = allowedStatuses.has(status ?? '')
+      ? (status as
+          'all' | 'succeeded' | 'pending' | 'failed' | 'refunded' | 'disputed')
+      : 'all';
+    const safeType = Object.values(FinancialTransactionType).includes(
+      type as FinancialTransactionType,
+    )
+      ? (type as FinancialTransactionType)
+      : undefined;
+    return this.paymentsService.getAdminPaymentLedger({
+      page: Math.max(1, Math.floor(Number(page) || 1)),
+      limit: Math.min(100, Math.max(1, Math.floor(Number(limit) || 50))),
+      status: safeStatus,
+      type: safeType,
+      method,
+      search,
+    });
   }
 
   @Get('platform-payouts')
@@ -166,29 +183,17 @@ export class AdminPaymentsController {
     );
   }
 
+  @Get(':id')
+  getPaymentDetails(@Param('id') id: string) {
+    return this.paymentsService.getAdminPaymentLedgerDetails(id);
+  }
+
   @Post('platform-payouts')
   requestPlatformPayout(
     @CurrentUser() admin: { id: string },
     @Body() dto: RequestPlatformPayoutDto,
   ) {
     return this.paymentsService.requestPlatformPayout(admin.id, dto);
-  }
-
-  @Post(':id/approve')
-  async approvePayment(
-    @Param('id') id: string,
-    @CurrentUser() admin: { id: string },
-  ) {
-    return this.paymentsService.approvePayment(id, admin.id);
-  }
-
-  @Post(':id/reject')
-  async rejectPayment(
-    @Param('id') id: string,
-    @CurrentUser() admin: { id: string },
-    @Body() body?: { reason?: string },
-  ) {
-    return this.paymentsService.rejectPayment(id, admin.id, body?.reason);
   }
 
   @Post('payout/:tutorId')
@@ -228,6 +233,20 @@ export class AdminPaymentsController {
         status: PayoutStatus.PENDING,
       });
       await manager.save(payoutRecord);
+      await this.financialLedgerService.record(manager, {
+        eventKey: `tutor_payout:${payoutRecord.id}`,
+        transactionType: FinancialTransactionType.TUTOR_PAYOUT,
+        status: FinancialLedgerStatus.PENDING,
+        provider: 'stripe',
+        method: 'stripe_connect',
+        amount: payoutAmount,
+        currency: 'USD',
+        tutorId,
+        payoutId: payoutRecord.id,
+        balanceBefore: Number(profile.balance),
+        balanceAfter: 0,
+        metadata: { source: 'stripe_connect_admin_payout' },
+      });
     });
 
     if (!payoutRecord) {
@@ -245,9 +264,20 @@ export class AdminPaymentsController {
         idempotencyKey,
       );
 
-      await this.payoutRepository.update(createdPayout.id, {
-        status: PayoutStatus.SUCCESS,
-        stripePayoutId: stripeResponse.id, // Assuming stripeService returns the payout object
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(Payout, createdPayout.id, {
+          status: PayoutStatus.SUCCESS,
+          stripePayoutId: stripeResponse.id,
+        });
+        await this.financialLedgerService.update(
+          manager,
+          `tutor_payout:${createdPayout.id}`,
+          {
+            status: FinancialLedgerStatus.SUCCEEDED,
+            providerReferenceId: stripeResponse.id,
+            providerStatus: 'succeeded',
+          },
+        );
       });
     } catch (err: unknown) {
       const errorMessage =
@@ -268,6 +298,27 @@ export class AdminPaymentsController {
             errorMessage,
           },
         );
+        await this.financialLedgerService.update(
+          manager,
+          `tutor_payout:${createdPayout.id}`,
+          {
+            status: FinancialLedgerStatus.FAILED,
+            providerStatus: 'failed',
+          },
+        );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `payout_reversal:tutor:${createdPayout.id}:stripe_failure`,
+          transactionType: FinancialTransactionType.PAYOUT_REVERSAL,
+          status: FinancialLedgerStatus.REVERSED,
+          provider: 'stripe',
+          method: 'stripe_connect',
+          amount: payoutAmount,
+          currency: 'USD',
+          tutorId,
+          payoutId: createdPayout.id,
+          providerStatus: 'failed',
+          metadata: { reason: 'provider_transfer_failed' },
+        });
       });
       throw err;
     }

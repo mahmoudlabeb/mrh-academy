@@ -107,6 +107,7 @@ group("PayPal payments", api, [
   "PAYPAL_CLIENT_ID",
   "PAYPAL_CLIENT_SECRET",
   "PAYPAL_BASE_URL",
+  "PAYPAL_WEBHOOK_ID",
 ]);
 group("SMTP email", api, [
   "SMTP_HOST",
@@ -117,10 +118,7 @@ group("SMTP email", api, [
 ]);
 
 console.log(
-  "\nManual admin actions: enter and enable Vodafone, Instapay, Binance, and bank transfer destinations in Admin > Payments.",
-);
-console.log(
-  "External acceptance actions: provider dashboard callbacks/webhooks, test payment/refund, real inbox, Bunny domain restriction, and two-device classroom test.",
+  "\nExternal acceptance actions: configure Stripe and PayPal webhook endpoints, run sandbox payment/refund/dispute checks, verify the real inbox, configure the Bunny domain restriction, and run the two-device classroom test.",
 );
 
 if (failures.length) {

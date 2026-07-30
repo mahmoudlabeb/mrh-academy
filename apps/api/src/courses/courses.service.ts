@@ -13,6 +13,8 @@ import { createHmac, randomUUID } from 'node:crypto';
 import {
   CourseLifecycleStatus,
   CourseStatus,
+  FinancialLedgerStatus,
+  FinancialTransactionType,
   PaymentStatus,
   UserRole,
 } from '@mrh/types';
@@ -38,6 +40,7 @@ import {
   validateVideoUpload,
 } from '../integrations/video/video-upload.validation.js';
 import { Notification } from '../messages/entities/notification.entity.js';
+import { FinancialLedgerService } from '../payments/financial-ledger.service.js';
 
 @Injectable()
 export class CoursesService {
@@ -63,6 +66,7 @@ export class CoursesService {
     private readonly config: ConfigService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
     private readonly bunnyService: BunnyService,
+    private readonly financialLedgerService: FinancialLedgerService,
     @Optional()
     @InjectRepository(Notification)
     private readonly notificationRepository?: Repository<Notification>,
@@ -308,13 +312,8 @@ export class CoursesService {
     },
   ) {
     const course = await this.getOwnedCourse(tutorId, courseId);
-    if (
-      course.status !== CourseLifecycleStatus.DRAFT ||
-      !course.isDraft
-    ) {
-      throw new BadRequestException(
-        'Only draft courses can be edited',
-      );
+    if (course.status !== CourseLifecycleStatus.DRAFT || !course.isDraft) {
+      throw new BadRequestException('Only draft courses can be edited');
     }
     Object.assign(course, {
       ...dto,
@@ -336,10 +335,7 @@ export class CoursesService {
 
   async submitForReview(tutorId: string, courseId: string) {
     const course = await this.getOwnedCourse(tutorId, courseId);
-    if (
-      course.status !== CourseLifecycleStatus.DRAFT ||
-      !course.isDraft
-    ) {
+    if (course.status !== CourseLifecycleStatus.DRAFT || !course.isDraft) {
       throw new BadRequestException('Only draft courses can be submitted');
     }
     const readiness = await this.buildReadiness(course);
@@ -1298,7 +1294,7 @@ export class CoursesService {
           where: {
             userId: studentId,
             status: In([
-              PaymentStatus.APPROVED,
+              PaymentStatus.SUCCEEDED,
               PaymentStatus.PARTIALLY_REFUNDED,
             ]),
           },
@@ -1340,6 +1336,31 @@ export class CoursesService {
           amountToAllocate =
             Math.round((amountToAllocate - allocated) * 100) / 100;
         }
+      }
+      if (finalPrice > 0) {
+        await this.financialLedgerService.record(manager, {
+          eventKey: `course_purchase:${enrollment.id}`,
+          transactionType: FinancialTransactionType.COURSE_PURCHASE,
+          status: FinancialLedgerStatus.SUCCEEDED,
+          provider: 'internal',
+          method: 'wallet',
+          amount: finalPrice,
+          currency: 'USD',
+          userId: studentId,
+          tutorId: course.tutorId,
+          courseId,
+          enrollmentId: enrollment.id,
+          adminCommission: platformFee,
+          tutorShare,
+          balanceBefore: Number(studentProfile.balance),
+          balanceAfter:
+            Math.round((Number(studentProfile.balance) - finalPrice) * 100) /
+            100,
+          metadata: {
+            soldBy,
+            promoApplied: Boolean(dto?.promoCode),
+          },
+        });
       }
       return { enrollment, created: true, finalPrice };
     });

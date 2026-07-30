@@ -48,10 +48,10 @@ async function mockStudentWallet(page: Page) {
       body: JSON.stringify([
         { type: "card", label: "Card", enabled: true, details: null },
         {
-          type: "bank",
-          label: "Sandbox bank",
+          type: "paypal",
+          label: "PayPal",
           enabled: true,
-          details: "Fictional transfer destination",
+          details: null,
         },
       ]),
     }),
@@ -76,9 +76,9 @@ test("sandbox payment: EGP card checkout preserves provider currency", async ({
   page,
 }) => {
   await mockStudentWallet(page);
-  let submittedBody = "";
+  let submittedBody: Record<string, unknown> = {};
   await page.route(`${api}/payments/submit`, async (route) => {
-    submittedBody = route.request().postData() ?? "";
+    submittedBody = route.request().postDataJSON();
     await route.fulfill({
       status: 201,
       contentType: "application/json",
@@ -99,66 +99,40 @@ test("sandbox payment: EGP card checkout preserves provider currency", async ({
   await page.goto("/en/learn/wallet/add");
   await page.getByLabel("Custom amount").fill("1500");
   await page.getByLabel("Currency").selectOption("EGP");
-  await expect(page.getByText("After verification").locator("..")).toContainText(
-    "$55.00",
-  );
+  await expect(
+    page.getByText("After verification").locator(".."),
+  ).toContainText("$55.00");
   await page
     .getByRole("button", { name: /Confirm deposit of EGP\s*1,500\.00/ })
     .click();
 
-  await expect(page).toHaveURL(
-    "https://checkout.stripe.test/sandbox-session",
+  await expect(page).toHaveURL("https://checkout.stripe.test/sandbox-session");
+  expect(submittedBody).toEqual(
+    expect.objectContaining({
+      amount: 1500,
+      currency: "EGP",
+      method: "card",
+      returnLocale: "en",
+      idempotencyKey: expect.any(String),
+    }),
   );
-  expect(submittedBody).toContain('name="amount"');
-  expect(submittedBody).toContain("1500");
-  expect(submittedBody).toContain('name="currency"');
-  expect(submittedBody).toContain("EGP");
 });
 
-test("sandbox payment: manual receipt remains pending until admin review", async ({
+test("sandbox payment: student funding exposes no manual approval workflow", async ({
   page,
 }) => {
   await mockStudentWallet(page);
-  let submittedBody = "";
-  await page.route(`${api}/payments/submit`, async (route) => {
-    submittedBody = route.request().postData() ?? "";
-    await route.fulfill({
-      status: 201,
-      contentType: "application/json",
-      body: JSON.stringify({
-        payment: {
-          id: "payment-manual-1",
-          amount: 50,
-          currency: "USD",
-          method: "bank",
-          status: "pending",
-        },
-      }),
-    });
-  });
 
   await page.goto("/en/learn/wallet/add");
-  await page.getByRole("button", { name: "Bank transfer" }).click();
-  await page.getByLabel("Custom amount").fill("50");
-  await page
-    .getByLabel("Transfer receipt")
-    .setInputFiles({
-      name: "sandbox-receipt.png",
-      mimeType: "image/png",
-      buffer: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]),
-    });
-  await page
-    .getByRole("button", { name: "Confirm deposit of $50.00" })
-    .click();
 
+  await expect(page.getByRole("button", { name: "Bank transfer" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByLabel("Transfer receipt")).toHaveCount(0);
+  await expect(page.getByText(/administrator review/i)).toHaveCount(0);
+  await expect(page.getByText(/waiting for approval/i)).toHaveCount(0);
   await expect(
-    page.getByText("Payment request received by the server"),
+    page.getByRole("button", { name: "Card via Stripe" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Your balance will update after administrator review."),
-  ).toBeVisible();
-  expect(submittedBody).toContain('name="method"');
-  expect(submittedBody).toContain("bank");
-  expect(submittedBody).toContain('name="screenshot"');
-  expect(submittedBody).toContain("sandbox-receipt.png");
+  await expect(page.getByRole("button", { name: "PayPal" })).toBeVisible();
 });

@@ -1,5 +1,6 @@
 import {
   IsEmail,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
@@ -34,4 +35,9 @@ export class CreateCourseCheckoutDto {
   @IsString()
   @MaxLength(128)
   referralCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ar', 'en'])
+  returnLocale?: 'ar' | 'en';
 }

@@ -27,6 +27,7 @@ describe('CoursesService course creation approval', () => {
     config as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   beforeEach(() => {
@@ -102,6 +103,7 @@ describe('CoursesService secure overview videos', () => {
     { get: jest.fn().mockReturnValue('secret') } as never,
     {} as never,
     bunnyService as never,
+    {} as never,
   );
   const mp4 = Buffer.concat([
     Buffer.from([0, 0, 0, 24]),
@@ -329,6 +331,7 @@ describe('CoursesService professional authoring workflow', () => {
     { get: jest.fn().mockReturnValue('studio-secret') } as never,
     storage as never,
     bunnyService as never,
+    {} as never,
     notificationRepository as never,
   );
   const completeCourse = {

@@ -30,13 +30,10 @@ export class AdminPaymentMethodsController {
     private readonly configService: ConfigService,
   ) {}
 
-  private assertCanEnable(type: string, details?: string | null) {
-    if (
-      ['instapay', 'vodafone', 'binance', 'bank'].includes(type) &&
-      !details?.trim()
-    ) {
+  private assertCanEnable(type: string) {
+    if (!['card', 'paypal'].includes(type)) {
       throw new BadRequestException(
-        'Configure the transfer destination/instructions before enabling this method',
+        'Student funding supports only provider-verified card and PayPal methods',
       );
     }
     if (
@@ -76,7 +73,7 @@ export class AdminPaymentMethodsController {
       enabled?: boolean;
     },
   ) {
-    if (body.enabled) this.assertCanEnable(body.type, body.details);
+    this.assertCanEnable(body.type);
     const config = this.paymentMethodConfigRepository.create({
       type: body.type,
       label: body.label,
@@ -106,7 +103,7 @@ export class AdminPaymentMethodsController {
     if (body.details !== undefined) config.details = body.details;
     if (body.sortOrder !== undefined) config.sortOrder = body.sortOrder;
     if (body.enabled) {
-      this.assertCanEnable(config.type, config.details);
+      this.assertCanEnable(config.type);
     }
     return this.paymentMethodConfigRepository.save(config);
   }

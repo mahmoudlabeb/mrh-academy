@@ -38,9 +38,6 @@ export class Payment {
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   status: PaymentStatus;
 
-  @Column({ nullable: true })
-  receiptUrl: string;
-
   @Column({ nullable: true, unique: true })
   idempotencyKey: string;
 

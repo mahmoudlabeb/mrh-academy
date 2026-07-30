@@ -9,11 +9,18 @@ describe('PayoutReconciliationService', () => {
     getRepository: jest.fn(() => payoutRepository),
     transaction: jest.fn(),
   };
+  const financialLedgerService = {
+    update: jest.fn(),
+    record: jest.fn(),
+  };
   let service: PayoutReconciliationService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new PayoutReconciliationService(dataSource as never);
+    service = new PayoutReconciliationService(
+      dataSource as never,
+      financialLedgerService as never,
+    );
   });
 
   it('queries only stuck Stripe Connect payouts, leaving manual requests pending', async () => {
@@ -100,6 +107,19 @@ describe('PayoutReconciliationService', () => {
         status: PayoutStatus.FAILED,
         errorMessage: 'Reconciled: Stripe transfer was never initiated',
       },
+    );
+    expect(financialLedgerService.update).toHaveBeenCalledWith(
+      manager,
+      'tutor_payout:payout-1',
+      expect.objectContaining({ status: 'failed' }),
+    );
+    expect(financialLedgerService.record).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({
+        eventKey: 'payout_reversal:tutor:payout-1:reconciliation',
+        balanceBefore: 25,
+        balanceAfter: 125,
+      }),
     );
   });
 });

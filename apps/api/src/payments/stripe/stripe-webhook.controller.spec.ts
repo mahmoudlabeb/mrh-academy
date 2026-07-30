@@ -5,9 +5,11 @@ import { StripeWebhookController } from './stripe-webhook.controller';
 describe('StripeWebhookController', () => {
   const stripeService = { constructEvent: jest.fn() };
   const paymentsService = {
-    approvePayment: jest.fn(),
+    confirmProviderPayment: jest.fn(),
+    markProviderPaymentFailed: jest.fn(),
     completeCourseCheckout: jest.fn(),
     refundStripePayment: jest.fn(),
+    recordStripeDispute: jest.fn(),
   };
   const tutorProfileRepository = {
     findOne: jest.fn(),
@@ -67,7 +69,7 @@ describe('StripeWebhookController', () => {
       BadRequestException,
     );
     expect(processedWebhookEventRepository.findOne).not.toHaveBeenCalled();
-    expect(paymentsService.approvePayment).not.toHaveBeenCalled();
+    expect(paymentsService.confirmProviderPayment).not.toHaveBeenCalled();
   });
 
   it('acknowledges duplicate events without crediting the wallet twice', async () => {
@@ -80,7 +82,7 @@ describe('StripeWebhookController', () => {
       received: true,
       skipped: 'duplicate event',
     });
-    expect(paymentsService.approvePayment).not.toHaveBeenCalled();
+    expect(paymentsService.confirmProviderPayment).not.toHaveBeenCalled();
   });
 
   it('credits a paid top-up only when amount, currency, and owner match', async () => {
@@ -101,9 +103,8 @@ describe('StripeWebhookController', () => {
       stripeCheckoutSessionId: 'cs_test_1',
       stripePaymentIntentId: 'pi_test_1',
     });
-    expect(paymentsService.approvePayment).toHaveBeenCalledWith(
+    expect(paymentsService.confirmProviderPayment).toHaveBeenCalledWith(
       'payment-1',
-      'stripe-webhook',
     );
     expect(processedWebhookEventRepository.insert).toHaveBeenCalledWith({
       eventId: 'evt_checkout_1',
@@ -127,7 +128,12 @@ describe('StripeWebhookController', () => {
       received: true,
       skipped: 'invalid event data',
     });
-    expect(paymentsService.approvePayment).not.toHaveBeenCalled();
+    expect(paymentsService.confirmProviderPayment).not.toHaveBeenCalled();
+    expect(paymentsService.markProviderPaymentFailed).toHaveBeenCalledWith({
+      paymentId: 'payment-1',
+      providerStatus: 'CURRENCY_MISMATCH',
+      providerReferenceId: 'cs_test_1',
+    });
     expect(processedWebhookEventRepository.insert).toHaveBeenCalled();
   });
 
@@ -151,6 +157,58 @@ describe('StripeWebhookController', () => {
       'payment-1',
       25,
       'ch_test_1',
+      'evt_refund_1',
     );
+  });
+
+  it('records a verified failed payment without crediting the wallet', async () => {
+    stripeService.constructEvent.mockReturnValue({
+      id: 'evt_failed_1',
+      type: 'payment_intent.payment_failed',
+      data: {
+        object: {
+          id: 'pi_failed_1',
+          metadata: { paymentId: 'payment-1' },
+          last_payment_error: { code: 'card_declined' },
+        },
+      },
+    });
+
+    await controller.handleWebhook({} as never);
+
+    expect(paymentsService.markProviderPaymentFailed).toHaveBeenCalledWith({
+      paymentId: 'payment-1',
+      providerStatus: 'card_declined',
+      providerReferenceId: 'pi_failed_1',
+    });
+    expect(paymentsService.confirmProviderPayment).not.toHaveBeenCalled();
+  });
+
+  it('records a verified Stripe dispute for the matching payment', async () => {
+    stripeService.constructEvent.mockReturnValue({
+      id: 'evt_dispute_1',
+      type: 'charge.dispute.created',
+      data: {
+        object: {
+          id: 'dp_test_1',
+          payment_intent: 'pi_test_1',
+          charge: 'ch_test_1',
+          amount: 2_500,
+          status: 'needs_response',
+        },
+      },
+    });
+    paymentRepository.findOne.mockResolvedValue({ id: 'payment-1' });
+
+    await controller.handleWebhook({} as never);
+
+    expect(paymentsService.recordStripeDispute).toHaveBeenCalledWith({
+      paymentId: 'payment-1',
+      providerEventId: 'evt_dispute_1',
+      providerReferenceId: 'dp_test_1',
+      providerStatus: 'needs_response',
+      resolution: 'open',
+      amount: 25,
+    });
   });
 });

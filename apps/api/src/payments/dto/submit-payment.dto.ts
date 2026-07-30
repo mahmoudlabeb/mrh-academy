@@ -26,10 +26,11 @@ export class SubmitPaymentDto {
   @IsIn(['USD', 'EGP'])
   currency?: 'USD' | 'EGP';
 
+  @IsUUID()
+  idempotencyKey: string;
+
   @IsOptional()
   @IsString()
-  adminNote?: string;
-
-  @IsUUID()
-  idempotencyKey?: string;
+  @IsIn(['ar', 'en'])
+  returnLocale?: 'ar' | 'en';
 }

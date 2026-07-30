@@ -8,9 +8,20 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Inject } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
-import { LessonStatus, UserRole } from '@mrh/types';
+import {
+  FinancialLedgerStatus,
+  FinancialTransactionType,
+  LessonPaymentStatus,
+  LessonStatus,
+  UserRole,
+} from '@mrh/types';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { StudentProfile } from '../students/entities/student-profile.entity.js';
+import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
+import { Classroom } from '../classroom/entities/classroom.entity.js';
+import { Payment } from '../payments/entities/payment.entity.js';
+import { LessonFundingAllocation } from '../payments/entities/lesson-funding-allocation.entity.js';
+import { FinancialLedgerService } from '../payments/financial-ledger.service.js';
 
 import { User } from './entities/user.entity.js';
 import { RedisService } from '../redis/redis.service.js';
@@ -51,6 +62,7 @@ export class UsersService {
     private readonly redisService: RedisService,
     private readonly emailService: EmailService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+    private readonly financialLedgerService: FinancialLedgerService,
   ) {}
 
   async getMe(userId: string) {
@@ -324,6 +336,35 @@ export class UsersService {
       });
 
       for (const lesson of lessons) {
+        const studentProfile = await manager.findOne(StudentProfile, {
+          where: { userId: lesson.studentId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!studentProfile) continue;
+        const fundingAllocations = await manager.find(LessonFundingAllocation, {
+          where: { lessonId: lesson.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        for (const allocation of fundingAllocations) {
+          await manager.decrement(
+            Payment,
+            { id: allocation.paymentId },
+            'allocatedAmount',
+            Number(allocation.amount),
+          );
+        }
+        await manager.delete(LessonFundingAllocation, {
+          lessonId: lesson.id,
+        });
+
+        if (lesson.tutorShareReleasedAt && Number(lesson.tutorShare ?? 0) > 0) {
+          await manager.decrement(
+            TutorProfile,
+            { userId: lesson.tutorId },
+            'balance',
+            Number(lesson.tutorShare),
+          );
+        }
         await manager.increment(
           StudentProfile,
           { userId: lesson.studentId },
@@ -331,7 +372,38 @@ export class UsersService {
           lesson.price,
         );
         lesson.status = LessonStatus.CANCELLED;
+        lesson.paymentStatus = LessonPaymentStatus.REFUNDED;
         await manager.save(Lesson, lesson);
+        await manager.update(
+          Classroom,
+          { lessonId: lesson.id },
+          { isActive: false },
+        );
+        await this.financialLedgerService.update(
+          manager,
+          `lesson_booking:${lesson.id}`,
+          { status: FinancialLedgerStatus.REFUNDED },
+        );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `lesson_refund:${lesson.id}`,
+          transactionType: FinancialTransactionType.REFUND,
+          status: FinancialLedgerStatus.REFUNDED,
+          provider: 'internal',
+          method: 'wallet',
+          amount: Number(lesson.price),
+          currency: 'USD',
+          userId: lesson.studentId,
+          tutorId: lesson.tutorId,
+          lessonId: lesson.id,
+          adminCommission: -Number(lesson.platformFee ?? 0),
+          tutorShare: -Number(lesson.tutorShare ?? 0),
+          balanceBefore: Number(studentProfile.balance),
+          balanceAfter:
+            Math.round(
+              (Number(studentProfile.balance) + Number(lesson.price)) * 100,
+            ) / 100,
+          metadata: { reason: 'account_deletion' },
+        });
       }
 
       user.deletedAt = new Date();

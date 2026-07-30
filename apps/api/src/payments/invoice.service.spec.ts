@@ -13,8 +13,8 @@ describe('InvoiceService', () => {
       tutorName: 'Sandbox Tutor',
       amount: 1_500,
       currency: 'EGP',
-      method: 'bank',
-      status: 'approved',
+      method: 'card',
+      status: 'succeeded',
       createdAt: new Date('2026-07-01T00:00:00.000Z'),
     });
 

@@ -304,7 +304,7 @@ async function seedDemoData() {
               amount: 100,
               method: PaymentMethod.CARD,
               currency: 'USD',
-              status: PaymentStatus.APPROVED,
+              status: PaymentStatus.SUCCEEDED,
               adminNote: 'Demo wallet funding',
             }),
           );

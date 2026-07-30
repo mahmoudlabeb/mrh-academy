@@ -3,8 +3,13 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, LessThan } from 'typeorm';
 import { Payout } from './entities/payout.entity.js';
-import { PayoutStatus } from '@mrh/types';
+import {
+  FinancialLedgerStatus,
+  FinancialTransactionType,
+  PayoutStatus,
+} from '@mrh/types';
 import { TutorProfile } from '../tutors/entities/tutor-profile.entity.js';
+import { FinancialLedgerService } from './financial-ledger.service.js';
 
 @Injectable()
 export class PayoutReconciliationService {
@@ -13,6 +18,7 @@ export class PayoutReconciliationService {
   constructor(
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly financialLedgerService: FinancialLedgerService,
   ) {}
 
   @Cron(CronExpression.EVERY_5_MINUTES)
@@ -54,6 +60,15 @@ export class PayoutReconciliationService {
               status: PayoutStatus.SUCCESS,
             },
           );
+          await this.financialLedgerService.update(
+            manager,
+            `tutor_payout:${lockedPayout.id}`,
+            {
+              status: FinancialLedgerStatus.SUCCEEDED,
+              providerReferenceId: lockedPayout.stripePayoutId,
+              providerStatus: 'reconciled_succeeded',
+            },
+          );
           this.logger.log(
             `Reconciled payout ${payout.id} → SUCCESS (had stripePayoutId)`,
           );
@@ -62,6 +77,7 @@ export class PayoutReconciliationService {
             where: { userId: lockedPayout.tutorId },
             lock: { mode: 'pessimistic_write' },
           });
+          const balanceBefore = profile ? Number(profile.balance) : null;
           if (profile) {
             profile.balance =
               Number(profile.balance) + Number(lockedPayout.amount);
@@ -75,6 +91,34 @@ export class PayoutReconciliationService {
               errorMessage: 'Reconciled: Stripe transfer was never initiated',
             },
           );
+          await this.financialLedgerService.update(
+            manager,
+            `tutor_payout:${lockedPayout.id}`,
+            {
+              status: FinancialLedgerStatus.FAILED,
+              providerStatus: 'reconciled_not_initiated',
+            },
+          );
+          await this.financialLedgerService.record(manager, {
+            eventKey: `payout_reversal:tutor:${lockedPayout.id}:reconciliation`,
+            transactionType: FinancialTransactionType.PAYOUT_REVERSAL,
+            status: FinancialLedgerStatus.REVERSED,
+            provider: 'stripe',
+            method: 'stripe_connect',
+            amount: Number(lockedPayout.amount),
+            currency: 'USD',
+            tutorId: lockedPayout.tutorId,
+            payoutId: lockedPayout.id,
+            providerStatus: 'reconciled_not_initiated',
+            balanceBefore,
+            balanceAfter:
+              balanceBefore !== null
+                ? Math.round(
+                    (balanceBefore + Number(lockedPayout.amount)) * 100,
+                  ) / 100
+                : null,
+            metadata: { reason: 'provider_transfer_not_initiated' },
+          });
           this.logger.log(
             `Reconciled payout ${payout.id} → FAILED (balance reverted)`,
           );

@@ -21,6 +21,7 @@ const EXPECTED_TABLES = [
   'payments',
   'payment_method_configs',
   'processed_webhook_events',
+  'financial_ledger_entries',
   'messages',
   'notifications',
   'courses',

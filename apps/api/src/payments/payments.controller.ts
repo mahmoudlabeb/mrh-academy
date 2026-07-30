@@ -8,16 +8,12 @@ import {
   Post,
   Query,
   Res,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { UserRole } from '@mrh/types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { UploadRateGuard } from '../common/guards/upload-rate.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { SubmitPaymentDto } from './dto/submit-payment.dto.js';
@@ -45,35 +41,13 @@ export class PaymentsController {
   }
 
   @Post('submit')
-  @UseGuards(JwtAuthGuard, RolesGuard, UploadRateGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT)
-  @UseInterceptors(
-    FileInterceptor('screenshot', {
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_request, file, callback) => {
-        const allowed = [
-          'image/jpeg',
-          'image/png',
-          'image/webp',
-          'application/pdf',
-        ];
-        if (!allowed.includes(file.mimetype)) {
-          callback(
-            new BadRequestException('Receipt must be JPEG, PNG, WebP, or PDF'),
-            false,
-          );
-          return;
-        }
-        callback(null, true);
-      },
-    }),
-  )
   async submitPayment(
     @CurrentUser() user: { id: string },
     @Body() dto: SubmitPaymentDto,
-    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.paymentsService.submitPayment(user.id, dto, file);
+    return this.paymentsService.submitPayment(user.id, dto);
   }
 
   @Get('history')

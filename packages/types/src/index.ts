@@ -29,13 +29,35 @@ export enum ClassroomAccessState {
 
 export enum PaymentStatus {
   PENDING = "pending",
-  APPROVED = "approved",
-  REJECTED = "rejected",
+  SUCCEEDED = "succeeded",
   FAILED = "failed",
   CANCELLED = "cancelled",
   PARTIALLY_REFUNDED = "partially_refunded",
   REFUNDED = "refunded",
   DISPUTED = "disputed",
+}
+
+export enum FinancialLedgerStatus {
+  PENDING = "pending",
+  SUCCEEDED = "succeeded",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+  PARTIALLY_REFUNDED = "partially_refunded",
+  REFUNDED = "refunded",
+  DISPUTED = "disputed",
+  REVERSED = "reversed",
+}
+
+export enum FinancialTransactionType {
+  WALLET_TOP_UP = "wallet_top_up",
+  COURSE_PURCHASE = "course_purchase",
+  LESSON_BOOKING = "lesson_booking",
+  REFUND = "refund",
+  DISPUTE = "dispute",
+  TUTOR_EARNING_RELEASE = "tutor_earning_release",
+  TUTOR_PAYOUT = "tutor_payout",
+  PLATFORM_PAYOUT = "platform_payout",
+  PAYOUT_REVERSAL = "payout_reversal",
 }
 
 export enum PaymentMethod {
@@ -196,7 +218,6 @@ export const PaymentSchema = z.object({
   method: z.nativeEnum(PaymentMethod),
   currency: z.string().default("USD"),
   status: z.nativeEnum(PaymentStatus).default(PaymentStatus.PENDING),
-  receiptUrl: z.string().nullable(),
   adminNote: z.string().nullable(),
   rejectionReason: z.string().nullable(),
   createdAt: z.coerce.date(),

@@ -80,7 +80,7 @@ async function routeJson(route: Route, body: unknown, status = 200) {
 
 async function installPaidFlowMocks(page: Page, role: Role) {
   let balance = role === "student" ? 0 : 0;
-  let paymentApproved = false;
+  let paymentSucceeded = false;
   let booked = false;
   let enrolled = false;
 
@@ -149,15 +149,20 @@ async function installPaidFlowMocks(page: Page, role: Role) {
     if (pathname === "/api/v1/payments/history") {
       return routeJson(
         route,
-        paymentApproved
+        paymentSucceeded
           ? [
               {
                 id: "payment-1",
+                paymentId: "payment-1",
                 amount: 300,
                 currency: "USD",
+                transactionType: "wallet_top_up",
+                provider: "paypal",
                 method: "paypal",
-                status: "approved",
-                createdAt: "2030-01-01T00:00:00.000Z",
+                status: "succeeded",
+                occurredAt: "2030-01-01T00:00:00.000Z",
+                adminCommission: 0,
+                tutorShare: 0,
               },
             ]
           : [],
@@ -175,11 +180,11 @@ async function installPaidFlowMocks(page: Page, role: Role) {
       pathname === "/api/v1/payments/paypal/payment-1/capture" &&
       method === "POST"
     ) {
-      if (!paymentApproved) {
-        paymentApproved = true;
+      if (!paymentSucceeded) {
+        paymentSucceeded = true;
         balance += 300;
       }
-      return routeJson(route, { id: "payment-1", status: "approved" });
+      return routeJson(route, { id: "payment-1", status: "succeeded" });
     }
     if (pathname === "/api/v1/tutors/tutor-1") {
       return routeJson(route, {
@@ -338,7 +343,12 @@ test("paid learning happy path covers wallet, booking, tutor visibility, classro
     .getByRole("button", { name: "Confirm deposit of $300.00" })
     .click();
   await expect(student.page).toHaveURL(/paypalPaymentId=payment-1/);
-  await expect(student.page).toHaveURL(/paypal=success/, { timeout: 30_000 });
+  await expect(
+    student.page.getByText(
+      "PayPal verified the payment and your wallet was credited.",
+    ),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(student.page).toHaveURL("/en/learn/wallet");
   await student.page.reload();
   await expect(student.page.getByText("$300.00").first()).toBeVisible();
 

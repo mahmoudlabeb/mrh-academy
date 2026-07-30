@@ -60,7 +60,7 @@ describe('PayPalService', () => {
         ),
       );
 
-    await expect(createService().createOrder(payment)).resolves.toEqual({
+    await expect(createService().createOrder(payment, 'en')).resolves.toEqual({
       orderId: 'order-1',
       approvalUrl: 'https://paypal.example.test/approve/order-1',
     });
@@ -84,6 +84,16 @@ describe('PayPalService', () => {
             custom_id: 'payment-1',
           }),
         ],
+        payment_source: {
+          paypal: {
+            experience_context: expect.objectContaining({
+              return_url:
+                'https://academy.example.test/en/learn/wallet?paypalPaymentId=payment-1',
+              cancel_url:
+                'https://academy.example.test/en/learn/wallet?paypalCancelled=1',
+            }),
+          },
+        },
       }),
     );
   });

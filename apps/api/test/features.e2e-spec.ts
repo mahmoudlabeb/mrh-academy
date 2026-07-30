@@ -29,6 +29,7 @@ import {
 import { EmailService } from '../src/integrations/email/email.service.js';
 import { EmailServiceMock } from './email.mock.js';
 import { TutorProfile } from '../src/tutors/entities/tutor-profile.entity.js';
+import { FinancialLedgerEntry } from '../src/payments/entities/financial-ledger-entry.entity.js';
 
 type AuthResponse = {
   accessToken: string;
@@ -192,6 +193,7 @@ describe('Courses (e2e)', () => {
   let courseEnrollmentRepository: Repository<CourseEnrollment>;
   let courseLessonRepository: Repository<CourseLesson>;
   let tutorProfileRepository: Repository<TutorProfile>;
+  let financialLedgerRepository: Repository<FinancialLedgerEntry>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -222,6 +224,9 @@ describe('Courses (e2e)', () => {
     courseEnrollmentRepository = app.get(getRepositoryToken(CourseEnrollment));
     courseLessonRepository = app.get(getRepositoryToken(CourseLesson));
     tutorProfileRepository = app.get(getRepositoryToken(TutorProfile));
+    financialLedgerRepository = app.get(
+      getRepositoryToken(FinancialLedgerEntry),
+    );
   });
 
   afterAll(async () => {
@@ -348,6 +353,20 @@ describe('Courses (e2e)', () => {
       courseId,
     });
     expect(enrollment.soldBy).toBe('academy');
+    const ledgerEntry = await financialLedgerRepository.findOneByOrFail({
+      enrollmentId: enrollment.id,
+    });
+    expect(ledgerEntry).toEqual(
+      expect.objectContaining({
+        transactionType: 'course_purchase',
+        status: 'succeeded',
+        userId: student.user.id,
+        tutorId: tutorUser.id,
+        courseId,
+        adminCommission: enrollment.platformFee,
+        tutorShare: enrollment.tutorShare,
+      }),
+    );
 
     const lesson = await courseLessonRepository.save(
       courseLessonRepository.create({

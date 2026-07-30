@@ -66,7 +66,14 @@ export function BlueprintWorkspaceShell({
   const base = `/${lang}/${workspace}`;
   const settingsHref =
     workspace === "ops" ? `/${lang}/account/profile` : `${base}/settings`;
-  const items = navigation[workspace];
+  const items = navigation[workspace].filter(
+    (item) =>
+      workspace !== "ops" ||
+      item.path !== "/money/payments" ||
+      user?.role === "admin" ||
+      (user?.role === "subadmin" &&
+        user.assignedPermissions?.includes("manage_payments")),
+  );
   const navigationRef = useRef<HTMLElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const profileButtonRef = useRef<HTMLButtonElement>(null);

@@ -8,8 +8,12 @@ export default function OpsPaymentsRoute() {
   const { lang } = useLanguage();
   return (
     <WorkspaceSection
-      eyebrow={lang === "ar" ? "سجل مالي محكوم" : "Controlled financial record"}
-      title={lang === "ar" ? "المدفوعات" : "Payments"}
+      eyebrow={
+        lang === "ar"
+          ? "تدقيق مالي موثّق من مزوّد الدفع"
+          : "Provider-verified financial audit"
+      }
+      title={lang === "ar" ? "سجل المدفوعات" : "Payment ledger"}
     >
       <PaymentsTab />
     </WorkspaceSection>

@@ -8,6 +8,8 @@ export default defineConfig({
     "workspace-navigation.mock.spec.ts",
     "classroom-flow.mock.spec.ts",
     "paid-learning-flow.mock.spec.ts",
+    "payment-smoke.spec.ts",
+    "admin-payment-ledger.mock.spec.ts",
     "course-studio.mock.spec.ts",
     "product-approval.mock.spec.ts",
     "tutor-payouts.mock.spec.ts",
@@ -33,7 +35,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm exec next dev --hostname 127.0.0.1 --port 3210",
+    command: "node_modules/.bin/next dev --hostname 127.0.0.1 --port 3210",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

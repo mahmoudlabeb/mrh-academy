@@ -14,11 +14,21 @@ import { formatCurrency } from "@/lib/format";
 type Balance = { balance: number; creditPrice: number; egpRate: number | null };
 type Payment = {
   id: string;
+  paymentId?: string | null;
+  transactionType:
+    | "wallet_top_up"
+    | "course_purchase"
+    | "lesson_booking"
+    | "refund"
+    | "dispute";
   amount: number;
   currency: string;
   method: string;
+  provider: string;
   status: string;
-  createdAt: string;
+  occurredAt: string;
+  course?: { id: string; title: string } | null;
+  lesson?: { id: string; scheduledTime: string } | null;
 };
 type PaymentMethodConfig = {
   type: string;
@@ -80,9 +90,11 @@ function paymentMethodLabel(method: string, lang: "ar" | "en"): string {
 
 function paymentStatusLabel(status: string, lang: "ar" | "en"): string {
   const labels: Record<string, { ar: string; en: string }> = {
-    pending: { ar: "قيد المراجعة", en: "Pending" },
-    approved: { ar: "مقبولة", en: "Approved" },
-    rejected: { ar: "مرفوضة", en: "Rejected" },
+    pending: {
+      ar: "بانتظار تأكيد مزوّد الدفع",
+      en: "Pending provider confirmation",
+    },
+    succeeded: { ar: "ناجحة", en: "Succeeded" },
     failed: { ar: "فشلت", en: "Failed" },
     completed: { ar: "مكتملة", en: "Completed" },
     cancelled: { ar: "ملغاة", en: "Cancelled" },
@@ -92,6 +104,27 @@ function paymentStatusLabel(status: string, lang: "ar" | "en"): string {
     disputed: { ar: "متنازع عليها", en: "Disputed" },
   };
   return labels[status]?.[lang] ?? status;
+}
+
+function walletTransactionLabel(payment: Payment, lang: "ar" | "en"): string {
+  switch (payment.transactionType) {
+    case "wallet_top_up":
+      return lang === "ar" ? "إضافة رصيد" : "Wallet top-up";
+    case "course_purchase":
+      return payment.course?.title
+        ? lang === "ar"
+          ? `شراء دورة: ${payment.course.title}`
+          : `Course purchase: ${payment.course.title}`
+        : lang === "ar"
+          ? "شراء دورة"
+          : "Course purchase";
+    case "lesson_booking":
+      return lang === "ar" ? "حجز درس مباشر" : "Live lesson booking";
+    case "refund":
+      return lang === "ar" ? "استرداد مالي" : "Refund";
+    case "dispute":
+      return lang === "ar" ? "نزاع دفع" : "Payment dispute";
+  }
 }
 
 function DataNotice({
@@ -126,31 +159,32 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
   const { lang, t, formatDate } = useCopy();
   const searchParams = useSearchParams();
   const captureStarted = useRef<string | null>(null);
-  const [paypalVerified, setPaypalVerified] = useState(
-    searchParams.get("paypal") === "success",
-  );
+  const [paypalVerified, setPaypalVerified] = useState(false);
+  const stripeReturn = searchParams.get("stripe");
   const balanceQuery = useQuery({
     queryKey: ["blueprint-wallet-balance"],
     queryFn: async () =>
       (await apiClient.get<Balance>("/students/balance")).data,
+    refetchInterval: stripeReturn === "pending" ? 2_000 : false,
   });
   const paymentsQuery = useQuery({
     queryKey: ["blueprint-payment-history"],
     queryFn: async () =>
       (await apiClient.get<Payment[]>("/payments/history")).data,
+    refetchInterval: stripeReturn === "pending" ? 2_000 : false,
   });
   const balance = Number(balanceQuery.data?.balance ?? 0);
   const paypalPaymentId = searchParams.get("paypalPaymentId");
   const paypalCapture = useMutation({
     mutationFn: async (paymentId: string) =>
       (await apiClient.post(`/payments/paypal/${paymentId}/capture`)).data,
-    onSuccess: () => {
-      void Promise.all([balanceQuery.refetch(), paymentsQuery.refetch()]);
+    onSuccess: async () => {
+      await Promise.all([balanceQuery.refetch(), paymentsQuery.refetch()]);
       setPaypalVerified(true);
       window.history.replaceState(
         window.history.state,
         "",
-        `/${lang}/learn/wallet?paypal=success`,
+        `/${lang}/learn/wallet`,
       );
     },
   });
@@ -165,6 +199,17 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
     captureStarted.current = paypalPaymentId;
     paypalCapture.mutate(paypalPaymentId);
   }, [paypalCapture, paypalPaymentId]);
+  const paypalConfirmed =
+    paypalVerified ||
+    Boolean(
+      paypalPaymentId &&
+      paymentsQuery.data?.some(
+        (payment) =>
+          (payment.paymentId === paypalPaymentId ||
+            payment.id === paypalPaymentId) &&
+          payment.status === "succeeded",
+      ),
+    );
   return (
     <main className="blueprint-workspace-page">
       <header className="blueprint-workspace-head">
@@ -175,8 +220,8 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
           <h1>{t("محفظة MRH والمدفوعات", "MRH Wallet & Payments")}</h1>
           <p>
             {t(
-              "أدر الأموال وطرق الدفع والإيصالات.",
-              "Manage funds, payment methods, and transaction receipts.",
+              "أدر الرصيد وطرق الدفع وسجل الحركات الموثّقة.",
+              "Manage your balance, payment methods, and verified history.",
             )}
           </p>
         </div>
@@ -186,7 +231,7 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
       </header>
       {(paypalCapture.isPending ||
         paypalCapture.isError ||
-        paypalVerified ||
+        paypalConfirmed ||
         searchParams.get("paypalCancelled") === "1") && (
         <section
           className={
@@ -197,25 +242,48 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
           role={paypalCapture.isError ? "alert" : "status"}
           aria-live="polite"
         >
-          {paypalCapture.isPending
+          {paypalConfirmed
             ? t(
-                "جارٍ التحقق من دفعة PayPal مع الخادم…",
-                "Verifying the PayPal payment with the server…",
+                "تم التحقق من دفعة PayPal وإضافة الرصيد.",
+                "PayPal verified the payment and your wallet was credited.",
               )
-            : paypalCapture.isError
+            : paypalCapture.isPending
               ? t(
-                  "تعذر التحقق من دفعة PayPal. لم تتم إضافة أي رصيد.",
-                  "PayPal verification failed. No wallet credit was added.",
+                  "جارٍ التحقق من دفعة PayPal مع الخادم…",
+                  "Verifying the PayPal payment with the server…",
                 )
-              : searchParams.get("paypalCancelled") === "1"
+              : paypalCapture.isError
                 ? t(
-                    "تم إلغاء عملية PayPal ولم يتغير رصيدك.",
-                    "PayPal checkout was cancelled and your balance was unchanged.",
+                    "تعذر التحقق من دفعة PayPal. لم تتم إضافة أي رصيد.",
+                    "PayPal verification failed. No wallet credit was added.",
                   )
-                : t(
-                    "تم التحقق من دفعة PayPal وإضافة الرصيد.",
-                    "PayPal verified the payment and your wallet was credited.",
-                  )}
+                : searchParams.get("paypalCancelled") === "1"
+                  ? t(
+                      "تم إلغاء عملية PayPal ولم يتغير رصيدك.",
+                      "PayPal checkout was cancelled and your balance was unchanged.",
+                    )
+                  : null}
+        </section>
+      )}
+      {stripeReturn && (
+        <section
+          className={
+            stripeReturn === "cancelled"
+              ? "blueprint-error"
+              : "blueprint-inline-notice"
+          }
+          role="status"
+          aria-live="polite"
+        >
+          {stripeReturn === "cancelled"
+            ? t(
+                "أُلغيت عملية البطاقة ولم يتغير رصيدك.",
+                "Card checkout was cancelled and your balance was unchanged.",
+              )
+            : t(
+                "بانتظار إشعار Stripe الموثّق. سيتحدث الرصيد والسجل تلقائياً بعد التأكيد.",
+                "Waiting for Stripe’s verified notification. Balance and history update automatically after confirmation.",
+              )}
         </section>
       )}
       <section className="blueprint-balance-card">
@@ -249,7 +317,7 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
         </p>
       </section>
       <section className="blueprint-table-section">
-        <h2>{t("سجل المدفوعات والإيصالات", "Payment History & Receipts")}</h2>
+        <h2>{t("سجل الحركات المالية", "Financial transaction history")}</h2>
         <DataNotice
           loading={paymentsQuery.isLoading}
           error={paymentsQuery.isError}
@@ -269,15 +337,16 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
             {paymentsQuery.data?.map((payment) => (
               <div className="blueprint-data-row" role="row" key={payment.id}>
                 <strong title={payment.id}>
-                  {t(
-                    `إضافة رصيد عبر ${paymentMethodLabel(payment.method, lang)} (${payment.currency})`,
-                    `Wallet funding via ${paymentMethodLabel(payment.method, lang)} (${payment.currency})`,
-                  )}
+                  {walletTransactionLabel(payment, lang)}
                 </strong>
                 <span>{paymentMethodLabel(payment.method, lang)}</span>
-                <span>{formatDate(payment.createdAt)}</span>
+                <span>{formatDate(payment.occurredAt)}</span>
                 <strong>
-                  {payment.amount >= 0 ? "+" : "−"}
+                  {["course_purchase", "lesson_booking"].includes(
+                    payment.transactionType,
+                  )
+                    ? "−"
+                    : "+"}
                   {formatCurrency(
                     lang,
                     Math.abs(Number(payment.amount)),
@@ -306,26 +375,8 @@ export function WalletScreen({ addFunds = false }: { addFunds?: boolean }) {
 }
 
 const PAYMENT_OPTIONS = [
-  { key: PaymentMethod.CARD, ar: "بطاقة", en: "Card", receipt: false },
-  { key: PaymentMethod.PAYPAL, ar: "PayPal", en: "PayPal", receipt: false },
-  {
-    key: PaymentMethod.VODAFONE,
-    ar: "فودافون كاش",
-    en: "Vodafone Cash",
-    receipt: true,
-  },
-  {
-    key: PaymentMethod.INSTAPAY,
-    ar: "إنستاباي",
-    en: "Instapay",
-    receipt: true,
-  },
-  {
-    key: PaymentMethod.BANK,
-    ar: "تحويل بنكي",
-    en: "Bank transfer",
-    receipt: true,
-  },
+  { key: PaymentMethod.CARD, ar: "بطاقة عبر Stripe", en: "Card via Stripe" },
+  { key: PaymentMethod.PAYPAL, ar: "PayPal", en: "PayPal" },
 ] as const;
 
 function AddFundsPanel({
@@ -341,8 +392,6 @@ function AddFundsPanel({
   const [amount, setAmount] = useState("50");
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [currency, setCurrency] = useState<"USD" | "EGP">("USD");
-  const [receipt, setReceipt] = useState<File | null>(null);
-  const [note, setNote] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const idempotencyKeyRef = useRef(crypto.randomUUID());
   const methodsQuery = useQuery({
@@ -375,7 +424,6 @@ function AddFundsPanel({
         : (firstEnabled?.key ?? null),
     );
   }, [methodsQuery.data, methodsQuery.isSuccess]);
-  const selected = PAYMENT_OPTIONS.find((option) => option.key === method);
   const amountNumber = Number(amount);
   const validEgpRate =
     egpRate !== null && Number.isFinite(egpRate) && egpRate > 0
@@ -389,22 +437,15 @@ function AddFundsPanel({
       : amountNumber;
   const submit = useMutation({
     mutationFn: async () => {
-      const data = new FormData();
-      data.append("amount", String(amountNumber));
       if (!method) throw new Error("No enabled payment method selected");
-      data.append("method", method);
-      data.append("currency", currency);
-      data.append("idempotencyKey", idempotencyKeyRef.current);
-      if (note.trim()) data.append("adminNote", note.trim());
-      if (receipt) data.append("screenshot", receipt);
       return (
-        await apiClient.post<{ checkoutUrl?: string }>(
-          "/payments/submit",
-          data,
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-          },
-        )
+        await apiClient.post<{ checkoutUrl?: string }>("/payments/submit", {
+          amount: amountNumber,
+          method,
+          currency,
+          idempotencyKey: idempotencyKeyRef.current,
+          returnLocale: lang,
+        })
       ).data;
     },
     onSuccess: async (data) => {
@@ -429,8 +470,7 @@ function AddFundsPanel({
     methodsQuery.isSuccess &&
     selectedMethodIsEnabled &&
     amountNumber >= 5 &&
-    (currency === "USD" || validEgpRate !== null) &&
-    (!selected?.receipt || Boolean(receipt));
+    (currency === "USD" || validEgpRate !== null);
   return (
     <RoutedPanel
       title={t("إضافة رصيد إلى محفظة MRH", "Add funds to MRH Wallet")}
@@ -471,15 +511,10 @@ function AddFundsPanel({
             )}
           </h3>
           <p>
-            {selected?.receipt
-              ? t(
-                  "سيظهر الرصيد بعد مراجعة الإدارة.",
-                  "Your balance will update after administrator review.",
-                )
-              : t(
-                  "سيظهر الرصيد بعد تحقق مزود الدفع والخادم.",
-                  "Your balance will update after provider and server verification.",
-                )}
+            {t(
+              "سيظهر الرصيد بعد تحقق مزود الدفع والخادم.",
+              "Your balance will update after provider and server verification.",
+            )}
           </p>
           <button
             className="btn-primary"
@@ -569,10 +604,7 @@ function AddFundsPanel({
                     type="button"
                     key={option.key}
                     aria-pressed={method === option.key}
-                    onClick={() => {
-                      setMethod(option.key);
-                      setReceipt(null);
-                    }}
+                    onClick={() => setMethod(option.key)}
                   >
                     {lang === "ar" ? option.ar : option.en}
                   </button>
@@ -587,27 +619,6 @@ function AddFundsPanel({
               </p>
             )}
           </fieldset>
-          {selected?.receipt && (
-            <>
-              <label>
-                {t("إثبات التحويل", "Transfer receipt")}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,application/pdf"
-                  onChange={(event) =>
-                    setReceipt(event.target.files?.[0] ?? null)
-                  }
-                />
-              </label>
-              <label>
-                {t("ملاحظة اختيارية", "Optional note")}
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                />
-              </label>
-            </>
-          )}
           <div className="blueprint-money-preview">
             <p>
               <span>{t("الرصيد الحالي", "Current balance")}</span>

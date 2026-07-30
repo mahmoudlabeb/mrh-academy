@@ -6,18 +6,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { Inject } from '@nestjs/common';
-import {
-  DataSource,
-  EntityManager,
-  In,
-  LessThan,
-  QueryFailedError,
-  Repository,
-  type DeepPartial,
-} from 'typeorm';
+import { DataSource, EntityManager, In, LessThan, Repository } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
+  FinancialLedgerStatus,
+  FinancialTransactionType,
   LessonPaymentStatus,
   LessonStatus,
   PaymentMethod,
@@ -53,16 +46,9 @@ import { PlatformPayout } from './entities/platform-payout.entity.js';
 import type { PayPalWebhookEvent } from './paypal/paypal-webhook.controller.js';
 import { Classroom } from '../classroom/entities/classroom.entity.js';
 import {
-  OBJECT_STORAGE,
-  type ObjectStorage,
-} from '../integrations/storage/object-storage.js';
-
-const RECEIPT_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-]);
+  FinancialLedgerService,
+  type FinancialLedgerFilter,
+} from './financial-ledger.service.js';
 
 const MANUAL_PAYOUT_OPTIONS = [
   { method: 'bank_transfer', detailType: 'account_details' },
@@ -100,8 +86,43 @@ export class PaymentsService {
     private readonly courseRepository: Repository<Course>,
     @InjectRepository(Lesson)
     private readonly lessonRepository: Repository<Lesson>,
-    @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
+    private readonly financialLedgerService: FinancialLedgerService,
   ) {}
+
+  private providerForPayment(method: PaymentMethod): string {
+    if (method === PaymentMethod.CARD) return 'stripe';
+    if (method === PaymentMethod.PAYPAL) return 'paypal';
+    return 'legacy_manual';
+  }
+
+  private providerReference(payment: Payment): string | null {
+    return (
+      payment.paypalCaptureId ??
+      payment.paypalOrderId ??
+      payment.stripePaymentIntentId ??
+      payment.stripeCheckoutSessionId ??
+      null
+    );
+  }
+
+  private ledgerStatus(status: PaymentStatus): FinancialLedgerStatus {
+    switch (status) {
+      case PaymentStatus.SUCCEEDED:
+        return FinancialLedgerStatus.SUCCEEDED;
+      case PaymentStatus.FAILED:
+        return FinancialLedgerStatus.FAILED;
+      case PaymentStatus.CANCELLED:
+        return FinancialLedgerStatus.CANCELLED;
+      case PaymentStatus.PARTIALLY_REFUNDED:
+        return FinancialLedgerStatus.PARTIALLY_REFUNDED;
+      case PaymentStatus.REFUNDED:
+        return FinancialLedgerStatus.REFUNDED;
+      case PaymentStatus.DISPUTED:
+        return FinancialLedgerStatus.DISPUTED;
+      case PaymentStatus.PENDING:
+        return FinancialLedgerStatus.PENDING;
+    }
+  }
 
   async createCourseCheckout(userId: string, dto: CreateCourseCheckoutDto) {
     if (!this.stripeService.isConfigured()) {
@@ -139,57 +160,71 @@ export class PaymentsService {
     if (enrolled)
       throw new BadRequestException('Already enrolled in this course');
 
-    const existingPayment = await this.paymentRepository.findOne({
-      where: { idempotencyKey: dto.idempotencyKey },
-    });
-    if (
-      existingPayment &&
-      (existingPayment.userId !== user.id ||
-        Number(existingPayment.amount) !== Number(course.price) ||
-        existingPayment.adminNote !== `Direct course checkout: ${course.id}`)
-    ) {
-      throw new BadRequestException(
-        'Checkout key is already in use for another purchase',
-      );
-    }
-    if (existingPayment && existingPayment.status !== PaymentStatus.PENDING) {
-      throw new BadRequestException('Course checkout is already processed');
-    }
-
-    let payment = existingPayment;
-    if (!payment) {
-      try {
-        payment = await this.paymentRepository.save(
-          this.paymentRepository.create({
-            userId: user.id,
-            amount: Number(course.price),
-            method: PaymentMethod.CARD,
-            currency: 'USD',
-            status: PaymentStatus.PENDING,
-            adminNote: `Direct course checkout: ${course.id}`,
-            idempotencyKey: dto.idempotencyKey,
-          }),
+    const assertMatchingCheckout = (payment: Payment) => {
+      if (
+        payment.userId !== user.id ||
+        Number(payment.amount) !== Number(course.price) ||
+        payment.adminNote !== `Direct course checkout: ${course.id}`
+      ) {
+        throw new BadRequestException(
+          'Checkout key is already in use for another purchase',
         );
-      } catch (error) {
-        const code =
-          (error as { code?: string; driverError?: { code?: string } }).code ??
-          (error as { driverError?: { code?: string } }).driverError?.code;
-        if (code === '23505') {
-          payment = await this.paymentRepository.findOne({
-            where: { idempotencyKey: dto.idempotencyKey },
-          });
-        }
-        if (!payment) throw error;
       }
-    }
-    if (
-      payment.userId !== user.id ||
-      Number(payment.amount) !== Number(course.price) ||
-      payment.adminNote !== `Direct course checkout: ${course.id}`
-    ) {
-      throw new BadRequestException(
-        'Checkout key is already in use for another purchase',
-      );
+      if (payment.status !== PaymentStatus.PENDING) {
+        throw new BadRequestException('Course checkout is already processed');
+      }
+    };
+
+    let payment: Payment;
+    try {
+      payment = await this.dataSource.transaction(async (manager) => {
+        let current = await manager.findOne(Payment, {
+          where: { idempotencyKey: dto.idempotencyKey },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (current) {
+          assertMatchingCheckout(current);
+        } else {
+          current = await manager.save(
+            Payment,
+            manager.create(Payment, {
+              userId: user.id,
+              amount: Number(course.price),
+              method: PaymentMethod.CARD,
+              currency: 'USD',
+              status: PaymentStatus.PENDING,
+              adminNote: `Direct course checkout: ${course.id}`,
+              idempotencyKey: dto.idempotencyKey,
+            }),
+          );
+        }
+        await this.financialLedgerService.record(manager, {
+          eventKey: `payment:${current.id}`,
+          transactionType: FinancialTransactionType.COURSE_PURCHASE,
+          status: FinancialLedgerStatus.PENDING,
+          provider: 'stripe',
+          method: PaymentMethod.CARD,
+          amount: Number(current.amount),
+          currency: current.currency,
+          userId: user.id,
+          paymentId: current.id,
+          courseId: course.id,
+          providerStatus: current.providerStatus,
+          metadata: { source: 'direct_course_checkout' },
+        });
+        return current;
+      });
+    } catch (error) {
+      const code =
+        (error as { code?: string; driverError?: { code?: string } }).code ??
+        (error as { driverError?: { code?: string } }).driverError?.code;
+      if (code !== '23505') throw error;
+      const duplicate = await this.paymentRepository.findOne({
+        where: { idempotencyKey: dto.idempotencyKey },
+      });
+      if (!duplicate) throw error;
+      assertMatchingCheckout(duplicate);
+      payment = duplicate;
     }
 
     try {
@@ -202,15 +237,37 @@ export class PaymentsService {
         email: user.email,
         referralCode: dto.referralCode,
         idempotencyKey: dto.idempotencyKey,
+        returnLocale: dto.returnLocale ?? 'ar',
       });
-      await this.paymentRepository.update(payment.id, {
-        stripeCheckoutSessionId: session.id,
-        providerStatus: 'OPEN',
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(Payment, payment.id, {
+          stripeCheckoutSessionId: session.id,
+          providerStatus: 'OPEN',
+        });
+        await this.financialLedgerService.update(
+          manager,
+          `payment:${payment.id}`,
+          {
+            providerReferenceId: session.id,
+            providerStatus: 'OPEN',
+          },
+        );
       });
       return { checkoutUrl: session.url };
     } catch (error) {
-      await this.paymentRepository.update(payment.id, {
-        providerStatus: 'INITIATION_FAILED',
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(Payment, payment.id, {
+          status: PaymentStatus.FAILED,
+          providerStatus: 'INITIATION_FAILED',
+        });
+        await this.financialLedgerService.update(
+          manager,
+          `payment:${payment.id}`,
+          {
+            status: FinancialLedgerStatus.FAILED,
+            providerStatus: 'INITIATION_FAILED',
+          },
+        );
       });
       this.logger.error('Direct course checkout creation failed', error);
       throw new BadRequestException('Card checkout is currently unavailable');
@@ -243,7 +300,7 @@ export class PaymentsService {
       if (!payment) throw new NotFoundException('Payment not found');
       if (
         payment.status !== PaymentStatus.PENDING &&
-        payment.status !== PaymentStatus.APPROVED
+        payment.status !== PaymentStatus.SUCCEEDED
       ) {
         throw new BadRequestException('Payment cannot be completed');
       }
@@ -299,13 +356,32 @@ export class PaymentsService {
         }),
       );
       await manager.update(Payment, payment.id, {
-        status: PaymentStatus.APPROVED,
-        adminNote: 'Approved by stripe-course-checkout',
+        status: PaymentStatus.SUCCEEDED,
+        adminNote: 'Verified by Stripe course checkout',
         stripeCheckoutSessionId: input.stripeSessionId,
         stripePaymentIntentId: input.stripePaymentIntentId ?? null,
         allocatedAmount: Number(course.price),
         creditedAmountUsd: Number(course.price),
       });
+      await this.financialLedgerService.update(
+        manager,
+        `payment:${payment.id}`,
+        {
+          status: FinancialLedgerStatus.SUCCEEDED,
+          providerReferenceId:
+            input.stripePaymentIntentId ?? input.stripeSessionId,
+          providerStatus: 'PAID',
+          tutorId: course.tutorId,
+          courseId: course.id,
+          enrollmentId: enrollment.id,
+          adminCommission: platformFee,
+          tutorShare,
+          metadata: {
+            source: 'stripe_course_checkout',
+            soldBy,
+          },
+        },
+      );
       await manager.update(User, payment.userId, { isVerified: true });
       return { enrollment, created: true, payment };
     });
@@ -346,24 +422,6 @@ export class PaymentsService {
     return result.enrollment;
   }
 
-  private validateReceiptFile(file: Express.Multer.File) {
-    if (!RECEIPT_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException('Receipt must be JPEG, PNG, WebP, or PDF');
-    }
-    const signature = file.buffer.subarray(0, 8);
-    const valid =
-      (file.mimetype === 'application/pdf' &&
-        signature.subarray(0, 4).toString() === '%PDF') ||
-      (file.mimetype === 'image/jpeg' &&
-        signature.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) ||
-      (file.mimetype === 'image/png' &&
-        signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) ||
-      (file.mimetype === 'image/webp' &&
-        signature.subarray(0, 4).toString() === 'RIFF');
-    if (!valid)
-      throw new BadRequestException('Receipt content does not match its type');
-  }
-
   private assertMatchingPaymentRetry(
     payment: Payment,
     userId: string,
@@ -393,10 +451,32 @@ export class PaymentsService {
     if (payment.method === PaymentMethod.PAYPAL) {
       let checkoutUrl = await this.payPalService.getApprovalUrl(payment);
       if (!checkoutUrl) {
-        const order = await this.payPalService.createOrder(payment);
+        const order = await this.payPalService.createOrder(
+          payment,
+          dto.returnLocale ?? 'ar',
+        );
+        await this.dataSource.transaction(async (manager) => {
+          await manager.update(Payment, payment.id, {
+            paypalOrderId: order.orderId,
+            providerStatus: 'CREATED',
+          });
+          await this.financialLedgerService.recordOrUpdate(manager, {
+            eventKey: `payment:${payment.id}`,
+            transactionType: FinancialTransactionType.WALLET_TOP_UP,
+            status: FinancialLedgerStatus.PENDING,
+            provider: 'paypal',
+            method: PaymentMethod.PAYPAL,
+            amount: Number(payment.amount),
+            currency: payment.currency,
+            userId: payment.userId,
+            paymentId: payment.id,
+            providerReferenceId: order.orderId,
+            providerStatus: 'CREATED',
+            metadata: { source: 'wallet_top_up' },
+          });
+        });
         payment.paypalOrderId = order.orderId;
         payment.providerStatus = 'CREATED';
-        await this.paymentRepository.save(payment);
         checkoutUrl = order.approvalUrl;
       }
       return { payment, checkoutUrl };
@@ -407,32 +487,47 @@ export class PaymentsService {
         Number(payment.amount),
         payment.id,
         payment.currency === 'EGP' ? 'EGP' : 'USD',
+        dto.returnLocale ?? 'ar',
       );
       payment.stripeCheckoutSessionId = session.id;
       payment.providerStatus = 'OPEN';
-      await this.paymentRepository.save(payment);
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(Payment, payment.id, {
+          stripeCheckoutSessionId: session.id,
+          providerStatus: 'OPEN',
+        });
+        await this.financialLedgerService.recordOrUpdate(manager, {
+          eventKey: `payment:${payment.id}`,
+          transactionType: FinancialTransactionType.WALLET_TOP_UP,
+          status: FinancialLedgerStatus.PENDING,
+          provider: 'stripe',
+          method: PaymentMethod.CARD,
+          amount: Number(payment.amount),
+          currency: payment.currency,
+          userId: payment.userId,
+          paymentId: payment.id,
+          providerReferenceId: session.id,
+          providerStatus: 'OPEN',
+          metadata: { source: 'wallet_top_up' },
+        });
+      });
       return { payment, checkoutUrl: session.url ?? undefined };
     }
-    return { payment, checkoutUrl: undefined };
+    throw new BadRequestException(
+      'Student wallet funding requires Stripe card or PayPal verification',
+    );
   }
 
-  async submitPayment(
-    userId: string,
-    dto: SubmitPaymentDto,
-    screenshotFile?: Express.Multer.File,
-  ) {
+  async submitPayment(userId: string, dto: SubmitPaymentDto) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (dto.idempotencyKey) {
-      const existing = await this.paymentRepository.findOne({
-        where: { idempotencyKey: dto.idempotencyKey },
-      });
-      if (existing) {
-        return this.existingPaymentResponse(existing, userId, dto);
-      }
+    if (![PaymentMethod.CARD, PaymentMethod.PAYPAL].includes(dto.method)) {
+      throw new BadRequestException(
+        'Student wallet funding requires Stripe card or PayPal verification',
+      );
     }
 
     const config = await this.paymentMethodConfigRepository.findOne({
@@ -444,8 +539,10 @@ export class PaymentsService {
       );
     }
 
-    const isCardPayment = dto.method === PaymentMethod.CARD;
-    if (isCardPayment && !this.stripeService.isConfigured()) {
+    if (
+      dto.method === PaymentMethod.CARD &&
+      !this.stripeService.isConfigured()
+    ) {
       throw new BadRequestException('Stripe payments are not configured');
     }
     if (
@@ -455,73 +552,97 @@ export class PaymentsService {
       throw new BadRequestException('PayPal payments are not configured');
     }
 
-    const receiptRequiredMethods: PaymentMethod[] = [
-      PaymentMethod.VODAFONE,
-      PaymentMethod.INSTAPAY,
-      PaymentMethod.BINANCE,
-      PaymentMethod.BANK,
-    ];
-    if (
-      receiptRequiredMethods.includes(dto.method) &&
-      !config.details?.trim()
-    ) {
-      throw new BadRequestException(
-        `Payment method "${dto.method}" has no transfer destination configured`,
-      );
-    }
-    if (receiptRequiredMethods.includes(dto.method) && !screenshotFile) {
-      throw new BadRequestException(
-        'A receipt screenshot is required for this payment method',
-      );
-    }
-
-    let receiptUrl: string | null = null;
-    if (screenshotFile) {
-      this.validateReceiptFile(screenshotFile);
-      receiptUrl = await this.uploadToCloudinary(screenshotFile.buffer);
-    }
-
-    const payment = this.paymentRepository.create({
-      userId,
-      amount: dto.amount,
-      method: dto.method,
-      currency: dto.currency ?? 'USD',
-      status: PaymentStatus.PENDING,
-      receiptUrl,
-      adminNote: dto.adminNote ?? null,
-      idempotencyKey: dto.idempotencyKey ?? null,
-    } as unknown as DeepPartial<Payment>);
-
     let savedPayment: Payment;
     try {
-      savedPayment = await this.paymentRepository.save(payment);
-    } catch (error) {
-      if (
-        error instanceof QueryFailedError &&
-        (error as QueryFailedError & { code?: string }).code === '23505'
-      ) {
-        const existing = dto.idempotencyKey
-          ? await this.paymentRepository.findOne({
-              where: { idempotencyKey: dto.idempotencyKey },
-            })
-          : null;
+      savedPayment = await this.dataSource.transaction(async (manager) => {
+        const existing = await manager.findOne(Payment, {
+          where: { idempotencyKey: dto.idempotencyKey },
+          lock: { mode: 'pessimistic_write' },
+        });
         if (existing) {
-          return this.existingPaymentResponse(existing, userId, dto);
+          this.assertMatchingPaymentRetry(existing, userId, dto);
+          return existing;
         }
+        const profile = await manager.findOne(StudentProfile, {
+          where: { userId },
+          lock: { mode: 'pessimistic_read' },
+        });
+        if (!profile) throw new NotFoundException('Student profile not found');
+        const created = await manager.save(
+          Payment,
+          manager.create(Payment, {
+            userId,
+            amount: dto.amount,
+            method: dto.method,
+            currency: dto.currency ?? 'USD',
+            status: PaymentStatus.PENDING,
+            idempotencyKey: dto.idempotencyKey,
+          }),
+        );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `payment:${created.id}`,
+          transactionType: FinancialTransactionType.WALLET_TOP_UP,
+          status: FinancialLedgerStatus.PENDING,
+          provider: this.providerForPayment(created.method),
+          method: created.method,
+          amount: Number(created.amount),
+          currency: created.currency,
+          userId,
+          paymentId: created.id,
+          balanceBefore: Number(profile.balance),
+          providerStatus: 'CREATED_LOCALLY',
+          metadata: { source: 'wallet_top_up' },
+        });
+        return created;
+      });
+    } catch (error) {
+      const code =
+        (error as { code?: string; driverError?: { code?: string } }).code ??
+        (error as { driverError?: { code?: string } }).driverError?.code;
+      if (code === '23505') {
+        const existing = await this.paymentRepository.findOne({
+          where: { idempotencyKey: dto.idempotencyKey },
+        });
+        if (existing)
+          return this.existingPaymentResponse(existing, userId, dto);
       }
       throw error;
+    }
+    if (savedPayment.status !== PaymentStatus.PENDING) {
+      return this.existingPaymentResponse(savedPayment, userId, dto);
+    }
+    if (
+      savedPayment.method === PaymentMethod.PAYPAL &&
+      savedPayment.paypalOrderId
+    ) {
+      return this.existingPaymentResponse(savedPayment, userId, dto);
     }
 
     if (dto.method === PaymentMethod.PAYPAL) {
       try {
-        const order = await this.payPalService.createOrder(savedPayment);
+        const order = await this.payPalService.createOrder(
+          savedPayment,
+          dto.returnLocale ?? 'ar',
+        );
+        await this.dataSource.transaction(async (manager) => {
+          await manager.update(Payment, savedPayment.id, {
+            paypalOrderId: order.orderId,
+            providerStatus: 'CREATED',
+          });
+          await this.financialLedgerService.update(
+            manager,
+            `payment:${savedPayment.id}`,
+            {
+              providerReferenceId: order.orderId,
+              providerStatus: 'CREATED',
+            },
+          );
+        });
         savedPayment.paypalOrderId = order.orderId;
         savedPayment.providerStatus = 'CREATED';
-        await this.paymentRepository.save(savedPayment);
         return { payment: savedPayment, checkoutUrl: order.approvalUrl };
       } catch (error) {
-        savedPayment.providerStatus = 'INITIATION_FAILED';
-        await this.paymentRepository.save(savedPayment);
+        await this.markPaymentInitiationFailed(savedPayment.id);
         this.logger.error('PayPal order creation failed', error);
         throw new BadRequestException(
           'PayPal payment is currently unavailable. Please use another payment method.',
@@ -537,14 +658,27 @@ export class PaymentsService {
           dto.amount,
           savedPayment.id,
           dto.currency ?? 'USD',
+          dto.returnLocale ?? 'ar',
         );
         checkoutUrl = session.url;
+        await this.dataSource.transaction(async (manager) => {
+          await manager.update(Payment, savedPayment.id, {
+            stripeCheckoutSessionId: session.id,
+            providerStatus: 'OPEN',
+          });
+          await this.financialLedgerService.update(
+            manager,
+            `payment:${savedPayment.id}`,
+            {
+              providerReferenceId: session.id,
+              providerStatus: 'OPEN',
+            },
+          );
+        });
         savedPayment.stripeCheckoutSessionId = session.id;
         savedPayment.providerStatus = 'OPEN';
-        await this.paymentRepository.save(savedPayment);
       } catch (stripeError) {
-        savedPayment.providerStatus = 'INITIATION_FAILED';
-        await this.paymentRepository.save(savedPayment);
+        await this.markPaymentInitiationFailed(savedPayment.id);
         this.logger.error(
           'Stripe checkout session creation failed',
           stripeError,
@@ -558,28 +692,50 @@ export class PaymentsService {
     return { payment: savedPayment, checkoutUrl };
   }
 
+  private async markPaymentInitiationFailed(paymentId: string) {
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(Payment, paymentId, {
+        status: PaymentStatus.FAILED,
+        providerStatus: 'INITIATION_FAILED',
+      });
+      await this.financialLedgerService.update(
+        manager,
+        `payment:${paymentId}`,
+        {
+          status: FinancialLedgerStatus.FAILED,
+          providerStatus: 'INITIATION_FAILED',
+        },
+      );
+    });
+  }
+
   async capturePayPalPayment(paymentId: string, userId: string) {
     const result = await this.dataSource.transaction(async (manager) => {
       // Keep the row locked through provider capture and wallet crediting. A
-      // second request then waits and returns the approved row instead of
+      // second request then waits and returns the succeeded row instead of
       // racing PayPal and surfacing an error after a successful charge.
       const payment = await manager.findOne(Payment, {
         where: { id: paymentId, userId, method: PaymentMethod.PAYPAL },
         lock: { mode: 'pessimistic_write' },
       });
       if (!payment) throw new NotFoundException('PayPal payment not found');
-      if (payment.status === PaymentStatus.APPROVED) {
+      if (payment.status === PaymentStatus.SUCCEEDED) {
         return { payment, balanceToAdd: null };
       }
       if (payment.status !== PaymentStatus.PENDING) {
         throw new BadRequestException('PayPal payment cannot be captured');
       }
+      const profile = await manager.findOne(StudentProfile, {
+        where: { userId: payment.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!profile) throw new NotFoundException('Student profile not found');
 
       const captureId = await this.payPalService.captureOrder(payment);
       payment.paypalCaptureId = captureId;
-      payment.status = PaymentStatus.APPROVED;
+      payment.status = PaymentStatus.SUCCEEDED;
       payment.providerStatus = 'COMPLETED';
-      payment.adminNote = `Approved by paypal:${captureId}`;
+      payment.adminNote = `Verified by PayPal capture:${captureId}`;
       payment.rejectionReason = null;
       await manager.save(Payment, payment);
 
@@ -596,10 +752,27 @@ export class PaymentsService {
         'balance',
         balanceToAdd,
       );
+      await this.financialLedgerService.recordOrUpdate(manager, {
+        eventKey: `payment:${payment.id}`,
+        transactionType: FinancialTransactionType.WALLET_TOP_UP,
+        status: FinancialLedgerStatus.SUCCEEDED,
+        provider: 'paypal',
+        method: PaymentMethod.PAYPAL,
+        amount: Number(payment.amount),
+        currency: payment.currency,
+        userId: payment.userId,
+        paymentId: payment.id,
+        providerReferenceId: captureId,
+        providerStatus: 'COMPLETED',
+        balanceBefore: Number(profile.balance),
+        balanceAfter:
+          Math.round((Number(profile.balance) + balanceToAdd) * 100) / 100,
+        metadata: { source: 'paypal_server_capture' },
+      });
       return { payment, balanceToAdd };
     });
     if (result.balanceToAdd !== null) {
-      await this.notifyPaymentApproved(result.payment, result.balanceToAdd);
+      await this.notifyPaymentSucceeded(result.payment, result.balanceToAdd);
     }
     return result.payment;
   }
@@ -644,12 +817,18 @@ export class PaymentsService {
           if (!payment) throw new NotFoundException('PayPal payment not found');
           this.assertPayPalResourceAmount(payment, resource);
           if (payment.status === PaymentStatus.PENDING) {
+            const profile = await manager.findOne(StudentProfile, {
+              where: { userId: payment.userId },
+              lock: { mode: 'pessimistic_write' },
+            });
+            if (!profile)
+              throw new NotFoundException('Student profile not found');
             const balanceToAdd = await this.walletValueInUsd(payment);
             payment.paypalCaptureId = captureId;
-            payment.status = PaymentStatus.APPROVED;
+            payment.status = PaymentStatus.SUCCEEDED;
             payment.providerStatus = 'COMPLETED';
             payment.creditedAmountUsd = balanceToAdd;
-            payment.adminNote = `Approved by paypal-webhook:${event.id}`;
+            payment.adminNote = `Verified by PayPal webhook:${event.id}`;
             await manager.save(Payment, payment);
             await manager.increment(
               StudentProfile,
@@ -657,10 +836,31 @@ export class PaymentsService {
               'balance',
               balanceToAdd,
             );
+            await this.financialLedgerService.recordOrUpdate(manager, {
+              eventKey: `payment:${payment.id}`,
+              transactionType: FinancialTransactionType.WALLET_TOP_UP,
+              status: FinancialLedgerStatus.SUCCEEDED,
+              provider: 'paypal',
+              method: PaymentMethod.PAYPAL,
+              amount: Number(payment.amount),
+              currency: payment.currency,
+              userId: payment.userId,
+              paymentId: payment.id,
+              providerReferenceId: captureId ?? orderId,
+              providerStatus: 'COMPLETED',
+              balanceBefore: Number(profile.balance),
+              balanceAfter:
+                Math.round((Number(profile.balance) + balanceToAdd) * 100) /
+                100,
+              metadata: {
+                source: 'paypal_webhook',
+                providerEventId: event.id!,
+              },
+            });
             return {
               duplicate: false,
               eventType,
-              approved: { payment, balanceToAdd },
+              succeeded: { payment, balanceToAdd },
             };
           }
           return { duplicate: false, eventType };
@@ -694,6 +894,22 @@ export class PaymentsService {
             payment.providerStatus = eventType;
             payment.rejectionReason = 'PayPal did not complete the payment';
             await manager.save(Payment, payment);
+            await this.financialLedgerService.update(
+              manager,
+              `payment:${payment.id}`,
+              {
+                status:
+                  payment.status === PaymentStatus.CANCELLED
+                    ? FinancialLedgerStatus.CANCELLED
+                    : FinancialLedgerStatus.FAILED,
+                providerReferenceId: orderId,
+                providerStatus: eventType,
+                metadata: {
+                  source: 'paypal_webhook',
+                  providerEventId: event.id!,
+                },
+              },
+            );
           }
           return { duplicate: false, eventType };
         }
@@ -756,12 +972,41 @@ export class PaymentsService {
             payment.status = restored
               ? Number(payment.refundedAmount ?? 0) > 0
                 ? PaymentStatus.PARTIALLY_REFUNDED
-                : PaymentStatus.APPROVED
+                : PaymentStatus.SUCCEEDED
               : PaymentStatus.DISPUTED;
             payment.disputedAt = restored ? null : new Date();
             payment.providerStatus = eventType;
             payment.adminNote = `PayPal dispute event ${event.id}`;
             await manager.save(Payment, payment);
+            await this.financialLedgerService.update(
+              manager,
+              `payment:${payment.id}`,
+              {
+                status: restored
+                  ? this.ledgerStatus(payment.status)
+                  : FinancialLedgerStatus.DISPUTED,
+                providerStatus: eventType,
+              },
+            );
+            await this.financialLedgerService.recordOrUpdate(manager, {
+              eventKey: `dispute:paypal:${event.id}`,
+              transactionType: FinancialTransactionType.DISPUTE,
+              status: restored
+                ? FinancialLedgerStatus.SUCCEEDED
+                : FinancialLedgerStatus.DISPUTED,
+              provider: 'paypal',
+              method: payment.method,
+              amount: Number(payment.amount),
+              currency: payment.currency,
+              userId: payment.userId,
+              paymentId: payment.id,
+              providerReferenceId: captureId,
+              providerStatus: eventType,
+              metadata: {
+                outcome: outcome ?? 'unresolved',
+                providerEventId: event.id!,
+              },
+            });
           }
           return { duplicate: false, eventType };
         }
@@ -820,6 +1065,40 @@ export class PaymentsService {
               platformPayout.processedAt = new Date();
             }
             await manager.save(PlatformPayout, platformPayout);
+            if (succeeded || failed) {
+              await this.financialLedgerService.update(
+                manager,
+                `platform_payout:${platformPayout.id}`,
+                {
+                  status: succeeded
+                    ? FinancialLedgerStatus.SUCCEEDED
+                    : platformPayout.status === PayoutStatus.REFUNDED
+                      ? FinancialLedgerStatus.REFUNDED
+                      : platformPayout.status === PayoutStatus.CANCELLED
+                        ? FinancialLedgerStatus.CANCELLED
+                        : FinancialLedgerStatus.FAILED,
+                  providerReferenceId: itemId ?? platformPayout.paypalBatchId,
+                  providerStatus: platformPayout.providerStatus,
+                },
+              );
+              if (failed) {
+                await this.financialLedgerService.record(manager, {
+                  eventKey: `payout_reversal:platform:${platformPayout.id}:${event.id}`,
+                  transactionType: FinancialTransactionType.PAYOUT_REVERSAL,
+                  status: FinancialLedgerStatus.REVERSED,
+                  provider: 'paypal',
+                  method: 'paypal',
+                  amount: Number(platformPayout.amount),
+                  currency: 'USD',
+                  userId: platformPayout.requestedBy,
+                  payoutId: platformPayout.id,
+                  providerReferenceId: itemId,
+                  providerStatus: platformPayout.providerStatus,
+                  adminCommission: Number(platformPayout.amount),
+                  metadata: { providerEventId: event.id! },
+                });
+              }
+            }
             return {
               duplicate: false,
               eventType,
@@ -863,6 +1142,39 @@ export class PaymentsService {
             }
           }
           await manager.save(Payout, payout);
+          if (succeeded || failed) {
+            await this.financialLedgerService.update(
+              manager,
+              `tutor_payout:${payout.id}`,
+              {
+                status: succeeded
+                  ? FinancialLedgerStatus.SUCCEEDED
+                  : payout.status === PayoutStatus.REFUNDED
+                    ? FinancialLedgerStatus.REFUNDED
+                    : payout.status === PayoutStatus.CANCELLED
+                      ? FinancialLedgerStatus.CANCELLED
+                      : FinancialLedgerStatus.FAILED,
+                providerReferenceId: itemId ?? payout.paypalBatchId,
+                providerStatus: payout.providerStatus,
+              },
+            );
+            if (failed) {
+              await this.financialLedgerService.record(manager, {
+                eventKey: `payout_reversal:tutor:${payout.id}:${event.id}`,
+                transactionType: FinancialTransactionType.PAYOUT_REVERSAL,
+                status: FinancialLedgerStatus.REVERSED,
+                provider: 'paypal',
+                method: 'paypal',
+                amount: Number(payout.amount),
+                currency: 'USD',
+                tutorId: payout.tutorId,
+                payoutId: payout.id,
+                providerReferenceId: itemId,
+                providerStatus: payout.providerStatus,
+                metadata: { providerEventId: event.id! },
+              });
+            }
+          }
           return {
             duplicate: false,
             eventType,
@@ -876,10 +1188,10 @@ export class PaymentsService {
         return { duplicate: false, eventType };
       });
 
-      if ('approved' in result && result.approved) {
-        await this.notifyPaymentApproved(
-          result.approved.payment,
-          result.approved.balanceToAdd,
+      if ('succeeded' in result && result.succeeded) {
+        await this.notifyPaymentSucceeded(
+          result.succeeded.payment,
+          result.succeeded.balanceToAdd,
         );
       }
       if ('refund' in result && result.refund) {
@@ -963,12 +1275,7 @@ export class PaymentsService {
   }
 
   async getPaymentHistory(userId: string, page = 1, limit = 50) {
-    return this.paymentRepository.find({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    return this.financialLedgerService.getStudentHistory(userId, page, limit);
   }
 
   async getPayment(id: string) {
@@ -980,16 +1287,22 @@ export class PaymentsService {
     return payment;
   }
 
-  async getAllPayments(page = 1, limit = 50) {
-    return this.paymentRepository.find({
-      relations: { user: true },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  getAdminPaymentLedger(input: {
+    page: number;
+    limit: number;
+    status?: FinancialLedgerFilter;
+    type?: FinancialTransactionType;
+    method?: string;
+    search?: string;
+  }) {
+    return this.financialLedgerService.list(input);
   }
 
-  async approvePayment(paymentId: string, adminId: string) {
+  getAdminPaymentLedgerDetails(id: string) {
+    return this.financialLedgerService.getDetails(id);
+  }
+
+  async confirmProviderPayment(paymentId: string) {
     return this.dataSource
       .transaction(async (manager) => {
         const payment = await manager.findOne(Payment, {
@@ -1000,28 +1313,32 @@ export class PaymentsService {
         if (!payment) {
           throw new NotFoundException('Payment not found');
         }
-
-        if (payment.status === PaymentStatus.APPROVED) {
+        if (
+          payment.method !== PaymentMethod.CARD ||
+          payment.adminNote?.startsWith('Direct course checkout:')
+        ) {
+          throw new BadRequestException(
+            'Only a verified Stripe wallet payment can be confirmed here',
+          );
+        }
+        if (payment.status === PaymentStatus.SUCCEEDED) {
           return { payment, balanceToAdd: 0 };
         }
         if (payment.status !== PaymentStatus.PENDING) {
           throw new BadRequestException('Payment is already processed');
         }
 
-        payment.status = PaymentStatus.APPROVED;
-        payment.adminNote = `Approved by ${adminId}`;
-        payment.rejectionReason = null;
-        await manager.save(Payment, payment);
+        const profile = await manager.findOne(StudentProfile, {
+          where: { userId: payment.userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!profile) throw new NotFoundException('Student profile not found');
 
-        // Wallet balances, lesson prices, and course prices are all denominated
-        // in USD. A deposit therefore credits its USD value one-for-one.
-        // Dividing this value by the default lesson price made a $30 deposit
-        // worth only 2 balance units while a $30 course still cost 30 units.
-        const amountInUsd =
-          payment.currency === 'EGP'
-            ? payment.amount / (await this.commissionService.getEgpRate())
-            : payment.amount;
-        const balanceToAdd = Math.round(amountInUsd * 100) / 100;
+        payment.status = PaymentStatus.SUCCEEDED;
+        payment.providerStatus = 'PAID';
+        payment.adminNote = 'Verified by Stripe webhook';
+        payment.rejectionReason = null;
+        const balanceToAdd = await this.walletValueInUsd(payment);
         payment.creditedAmountUsd = balanceToAdd;
         await manager.save(Payment, payment);
         await manager.increment(
@@ -1030,29 +1347,144 @@ export class PaymentsService {
           'balance',
           balanceToAdd,
         );
+        await this.financialLedgerService.recordOrUpdate(manager, {
+          eventKey: `payment:${payment.id}`,
+          transactionType: FinancialTransactionType.WALLET_TOP_UP,
+          status: FinancialLedgerStatus.SUCCEEDED,
+          provider: 'stripe',
+          method: PaymentMethod.CARD,
+          amount: Number(payment.amount),
+          currency: payment.currency,
+          userId: payment.userId,
+          paymentId: payment.id,
+          providerReferenceId: this.providerReference(payment),
+          providerStatus: 'PAID',
+          balanceBefore: Number(profile.balance),
+          balanceAfter:
+            Math.round((Number(profile.balance) + balanceToAdd) * 100) / 100,
+          metadata: { source: 'stripe_webhook' },
+        });
 
         return { payment, balanceToAdd };
       })
       .then(async ({ payment, balanceToAdd }) => {
         if (balanceToAdd > 0) {
-          await this.notifyPaymentApproved(payment, balanceToAdd);
+          await this.notifyPaymentSucceeded(payment, balanceToAdd);
         }
         return payment;
       });
   }
 
-  private async notifyPaymentApproved(payment: Payment, balanceToAdd: number) {
+  async markProviderPaymentFailed(input: {
+    paymentId: string;
+    providerStatus: string;
+    cancelled?: boolean;
+    providerReferenceId?: string | null;
+  }) {
+    return this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(Payment, {
+        where: { id: input.paymentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+      if (payment.status !== PaymentStatus.PENDING) return payment;
+      payment.status = input.cancelled
+        ? PaymentStatus.CANCELLED
+        : PaymentStatus.FAILED;
+      payment.providerStatus = input.providerStatus;
+      payment.rejectionReason = input.cancelled
+        ? 'Provider checkout was cancelled or expired'
+        : 'Provider did not complete the payment';
+      await manager.save(Payment, payment);
+      await this.financialLedgerService.update(
+        manager,
+        `payment:${payment.id}`,
+        {
+          status: input.cancelled
+            ? FinancialLedgerStatus.CANCELLED
+            : FinancialLedgerStatus.FAILED,
+          providerStatus: input.providerStatus,
+          providerReferenceId:
+            input.providerReferenceId ?? this.providerReference(payment),
+        },
+      );
+      return payment;
+    });
+  }
+
+  async recordStripeDispute(input: {
+    paymentId: string;
+    providerEventId: string;
+    providerReferenceId: string;
+    providerStatus: string;
+    resolution: 'open' | 'won' | 'lost';
+    amount: number;
+  }) {
+    return this.dataSource.transaction(async (manager) => {
+      const payment = await manager.findOne(Payment, {
+        where: { id: input.paymentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+
+      if (input.resolution === 'open') {
+        payment.status = PaymentStatus.DISPUTED;
+        payment.disputedAt = new Date();
+      } else if (input.resolution === 'won') {
+        payment.status =
+          Number(payment.refundedAmount ?? 0) > 0
+            ? PaymentStatus.PARTIALLY_REFUNDED
+            : PaymentStatus.SUCCEEDED;
+        payment.disputedAt = null;
+      }
+      payment.providerStatus = input.providerStatus;
+      payment.adminNote = `Stripe dispute event ${input.providerEventId}`;
+      await manager.save(Payment, payment);
+      await this.financialLedgerService.update(
+        manager,
+        `payment:${payment.id}`,
+        {
+          status: this.ledgerStatus(payment.status),
+          providerStatus: input.providerStatus,
+        },
+      );
+      return this.financialLedgerService.recordOrUpdate(manager, {
+        eventKey: `dispute:stripe:${input.providerEventId}`,
+        transactionType: FinancialTransactionType.DISPUTE,
+        status:
+          input.resolution === 'open'
+            ? FinancialLedgerStatus.DISPUTED
+            : input.resolution === 'lost'
+              ? FinancialLedgerStatus.REFUNDED
+              : FinancialLedgerStatus.SUCCEEDED,
+        provider: 'stripe',
+        method: payment.method,
+        amount: input.amount,
+        currency: payment.currency,
+        userId: payment.userId,
+        paymentId: payment.id,
+        providerReferenceId: input.providerReferenceId,
+        providerStatus: input.providerStatus,
+        metadata: {
+          resolution: input.resolution,
+          providerEventId: input.providerEventId,
+        },
+      });
+    });
+  }
+
+  private async notifyPaymentSucceeded(payment: Payment, balanceToAdd: number) {
     try {
       await this.notificationRepository.save(
         this.notificationRepository.create({
           userId: payment.userId,
-          type: 'payment_approved',
-          title: 'Payment approved | تمت الموافقة على الدفع',
+          type: 'payment_succeeded',
+          title: 'Payment verified | تم التحقق من الدفع',
           body: `$${balanceToAdd.toFixed(2)} was added to your balance. | تمت إضافة $${balanceToAdd.toFixed(2)} إلى رصيدك.`,
         }),
       );
     } catch (error) {
-      this.logger.error('Payment approval notification failed', error);
+      this.logger.error('Payment success notification failed', error);
     }
     const user = await this.userRepository.findOne({
       where: { id: payment.userId },
@@ -1061,51 +1493,24 @@ export class PaymentsService {
       this.emailService
         .sendEmail(
           user.email,
-          'Payment approved | تمت الموافقة على الدفع — MRH Academy',
-          `<div dir="rtl"><p>تمت الموافقة على دفعتك.</p>
+          'Payment verified | تم التحقق من الدفع — MRH Academy',
+          `<div dir="rtl"><p>تحقق مزوّد الدفع من دفعتك بنجاح.</p>
 <p>المبلغ: $${payment.amount.toFixed(2)}</p>
 <p>المبلغ المضاف إلى الرصيد: $${balanceToAdd.toFixed(2)}</p></div>
 <hr>
-<div dir="ltr"><p>Your payment has been approved.</p>
+<div dir="ltr"><p>Your payment was verified successfully by the provider.</p>
 <p>Amount: $${payment.amount.toFixed(2)}</p>
 <p>Balance added: $${balanceToAdd.toFixed(2)}</p></div>`,
         )
-        .catch((err) =>
-          this.logger.error('Payment approval email failed', err),
-        );
+        .catch((err) => this.logger.error('Payment success email failed', err));
     }
-  }
-
-  async rejectPayment(paymentId: string, adminId: string, reason?: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const payment = await manager.findOne(Payment, {
-        where: { id: paymentId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!payment) {
-        throw new NotFoundException('Payment not found');
-      }
-
-      if (payment.status !== PaymentStatus.PENDING) {
-        throw new BadRequestException('Payment is already processed');
-      }
-
-      payment.status = PaymentStatus.REJECTED;
-      payment.adminNote = reason
-        ? `Rejected: ${reason}`
-        : `Rejected by admin ${adminId}`;
-      payment.rejectionReason = reason ?? null;
-      await manager.save(Payment, payment);
-
-      return payment;
-    });
   }
 
   async refundStripePayment(
     paymentId: string,
     cumulativeRefundAmount: number,
     stripeChargeId?: string,
+    providerEventId?: string,
   ) {
     const result = await this.dataSource.transaction(async (manager) => {
       const payment = await manager.findOne(Payment, {
@@ -1118,7 +1523,7 @@ export class PaymentsService {
         payment,
         cumulativeRefundAmount,
         `Stripe refund${stripeChargeId ? ` (${stripeChargeId})` : ''}`,
-        stripeChargeId,
+        providerEventId ?? stripeChargeId,
       );
     });
     await this.notifyPaymentRefunded(result);
@@ -1134,7 +1539,7 @@ export class PaymentsService {
   ) {
     if (
       ![
-        PaymentStatus.APPROVED,
+        PaymentStatus.SUCCEEDED,
         PaymentStatus.PARTIALLY_REFUNDED,
         PaymentStatus.DISPUTED,
         PaymentStatus.REFUNDED,
@@ -1161,6 +1566,13 @@ export class PaymentsService {
       };
     }
 
+    const profileBefore = await manager.findOne(StudentProfile, {
+      where: { userId: payment.userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!profileBefore)
+      throw new NotFoundException('Student profile not found');
+
     const creditedAmountUsd =
       payment.creditedAmountUsd ??
       (payment.currency === 'EGP'
@@ -1183,6 +1595,8 @@ export class PaymentsService {
     let amountStillToRelease = walletRefundDelta;
     let revokedCourses = 0;
     let cancelledLessons = 0;
+    let reversedAdminCommission = 0;
+    let reversedTutorShare = 0;
     const affectedTutorIds = new Set<string>();
 
     const courseAllocations = await manager.find(CourseFundingAllocation, {
@@ -1209,6 +1623,8 @@ export class PaymentsService {
         Number(enrollment.platformFee ?? 0) +
         Number(enrollment.tutorShare ?? 0);
       affectedTutorIds.add(enrollment.course.tutorId);
+      reversedAdminCommission += Number(enrollment.platformFee ?? 0);
+      reversedTutorShare += Number(enrollment.tutorShare ?? 0);
       if (enrollment.tutorShare > 0 && enrollment.tutorShareReleasedAt) {
         await manager.decrement(
           TutorProfile,
@@ -1240,6 +1656,30 @@ export class PaymentsService {
           stripeChargeId: providerReference ?? null,
         }),
       );
+      await this.financialLedgerService.update(
+        manager,
+        `course_purchase:${enrollment.id}`,
+        { status: FinancialLedgerStatus.REFUNDED },
+      );
+      await this.financialLedgerService.record(manager, {
+        eventKey: `course_refund:${payment.id}:${enrollment.id}:${providerReference ?? refundTotal.toFixed(2)}`,
+        transactionType: FinancialTransactionType.REFUND,
+        status: FinancialLedgerStatus.REFUNDED,
+        provider: this.providerForPayment(payment.method),
+        method: payment.method,
+        amount: paidAmount,
+        currency: 'USD',
+        userId: enrollment.studentId,
+        tutorId: enrollment.course.tutorId,
+        paymentId: payment.id,
+        courseId: enrollment.courseId,
+        enrollmentId: enrollment.id,
+        providerReferenceId:
+          providerReference ?? this.providerReference(payment),
+        adminCommission: -Number(enrollment.platformFee ?? 0),
+        tutorShare: -Number(enrollment.tutorShare ?? 0),
+        metadata: { reason: 'provider_funding_reversal' },
+      });
       for (const linked of enrollmentAllocations) {
         await manager.decrement(
           Payment,
@@ -1276,6 +1716,8 @@ export class PaymentsService {
         continue;
       }
       affectedTutorIds.add(lesson.tutorId);
+      reversedAdminCommission += Number(lesson.platformFee ?? 0);
+      reversedTutorShare += Number(lesson.tutorShare ?? 0);
       const linkedAllocations = await manager.find(LessonFundingAllocation, {
         where: { lessonId: lesson.id },
         lock: { mode: 'pessimistic_write' },
@@ -1297,6 +1739,29 @@ export class PaymentsService {
       lesson.status = LessonStatus.CANCELLED;
       lesson.paymentStatus = LessonPaymentStatus.REFUNDED;
       await manager.save(Lesson, lesson);
+      await this.financialLedgerService.update(
+        manager,
+        `lesson_booking:${lesson.id}`,
+        { status: FinancialLedgerStatus.REFUNDED },
+      );
+      await this.financialLedgerService.record(manager, {
+        eventKey: `lesson_provider_refund:${payment.id}:${lesson.id}:${providerReference ?? refundTotal.toFixed(2)}`,
+        transactionType: FinancialTransactionType.REFUND,
+        status: FinancialLedgerStatus.REFUNDED,
+        provider: this.providerForPayment(payment.method),
+        method: payment.method,
+        amount: Number(lesson.price),
+        currency: 'USD',
+        userId: lesson.studentId,
+        tutorId: lesson.tutorId,
+        paymentId: payment.id,
+        lessonId: lesson.id,
+        providerReferenceId:
+          providerReference ?? this.providerReference(payment),
+        adminCommission: -Number(lesson.platformFee ?? 0),
+        tutorShare: -Number(lesson.tutorShare ?? 0),
+        metadata: { reason: 'provider_funding_reversal' },
+      });
       await manager.update(
         Classroom,
         { lessonId: lesson.id },
@@ -1343,6 +1808,36 @@ export class PaymentsService {
         adminNote: payment.adminNote,
       },
     );
+    await this.financialLedgerService.update(manager, `payment:${payment.id}`, {
+      status: this.ledgerStatus(payment.status),
+      providerStatus: payment.providerStatus,
+    });
+    const profileAfter = await manager.findOne(StudentProfile, {
+      where: { userId: payment.userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    await this.financialLedgerService.record(manager, {
+      eventKey: `refund:${this.providerForPayment(payment.method)}:${payment.id}:${providerReference ?? refundTotal.toFixed(2)}`,
+      transactionType: FinancialTransactionType.REFUND,
+      status: FinancialLedgerStatus.REFUNDED,
+      provider: this.providerForPayment(payment.method),
+      method: payment.method,
+      amount: refundDelta,
+      currency: payment.currency,
+      userId: payment.userId,
+      paymentId: payment.id,
+      providerReferenceId: providerReference ?? this.providerReference(payment),
+      providerStatus: payment.providerStatus,
+      adminCommission: -Math.round(reversedAdminCommission * 100) / 100,
+      tutorShare: -Math.round(reversedTutorShare * 100) / 100,
+      balanceBefore: Number(profileBefore.balance),
+      balanceAfter: profileAfter ? Number(profileAfter.balance) : null,
+      metadata: {
+        walletRefundUsd: walletRefundDelta,
+        revokedCourses,
+        cancelledLessons,
+      },
+    });
 
     return {
       payment,
@@ -1351,6 +1846,8 @@ export class PaymentsService {
       revokedCourses,
       cancelledLessons,
       affectedTutorIds: [...affectedTutorIds],
+      reversedAdminCommission,
+      reversedTutorShare,
     };
   }
 
@@ -1468,7 +1965,28 @@ export class PaymentsService {
           idempotencyKey: dto.idempotencyKey ?? null,
           status: PayoutStatus.PENDING,
         });
-        return manager.save(Payout, created);
+        const saved = await manager.save(Payout, created);
+        await this.financialLedgerService.record(manager, {
+          eventKey: `tutor_payout:${saved.id}`,
+          transactionType: FinancialTransactionType.TUTOR_PAYOUT,
+          status: FinancialLedgerStatus.PENDING,
+          provider:
+            dto.method === 'paypal'
+              ? 'paypal'
+              : dto.method === 'stripe_connect'
+                ? 'stripe'
+                : 'manual',
+          method: dto.method,
+          amount: Number(dto.amount),
+          currency: 'USD',
+          tutorId,
+          payoutId: saved.id,
+          balanceBefore: Number(tutorProfile.balance),
+          balanceAfter:
+            Math.round((Number(tutorProfile.balance) - dto.amount) * 100) / 100,
+          metadata: { source: 'tutor_payout_request' },
+        });
+        return saved;
       }));
 
     if (dto.method !== 'paypal') {
@@ -1488,7 +2006,16 @@ export class PaymentsService {
         locked.paypalItemId = provider.itemId;
         locked.providerStatus = provider.status;
         locked.status = PayoutStatus.PROCESSING;
-        return manager.save(Payout, locked);
+        const saved = await manager.save(Payout, locked);
+        await this.financialLedgerService.update(
+          manager,
+          `tutor_payout:${locked.id}`,
+          {
+            providerReferenceId: provider.itemId ?? provider.batchId,
+            providerStatus: provider.status,
+          },
+        );
+        return saved;
       });
       await this.notifyPayoutSubmitted(processing);
       return processing;
@@ -1512,7 +2039,29 @@ export class PaymentsService {
         locked.processedAt = new Date();
         locked.errorMessage =
           error instanceof Error ? error.message : 'PayPal payout failed';
-        return manager.save(Payout, locked);
+        const saved = await manager.save(Payout, locked);
+        await this.financialLedgerService.update(
+          manager,
+          `tutor_payout:${locked.id}`,
+          {
+            status: FinancialLedgerStatus.FAILED,
+            providerStatus: 'INITIATION_FAILED',
+          },
+        );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `payout_reversal:${locked.id}:initiation_failed`,
+          transactionType: FinancialTransactionType.PAYOUT_REVERSAL,
+          status: FinancialLedgerStatus.REVERSED,
+          provider: 'paypal',
+          method: 'paypal',
+          amount: Number(locked.amount),
+          currency: 'USD',
+          tutorId: locked.tutorId,
+          payoutId: locked.id,
+          providerStatus: 'INITIATION_FAILED',
+          metadata: { reason: 'provider_initiation_failed' },
+        });
+        return saved;
       });
       await this.notifyPayoutDecision(
         failed,
@@ -1588,7 +2137,7 @@ export class PaymentsService {
             `Insufficient platform commission balance. Available: $${available.toFixed(2)}`,
           );
         }
-        return manager.save(
+        const saved = await manager.save(
           PlatformPayout,
           manager.create(PlatformPayout, {
             requestedBy: adminId,
@@ -1598,6 +2147,23 @@ export class PaymentsService {
             status: PayoutStatus.PENDING,
           }),
         );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `platform_payout:${saved.id}`,
+          transactionType: FinancialTransactionType.PLATFORM_PAYOUT,
+          status: FinancialLedgerStatus.PENDING,
+          provider: 'paypal',
+          method: 'paypal',
+          amount: Number(saved.amount),
+          currency: 'USD',
+          userId: adminId,
+          payoutId: saved.id,
+          adminCommission: -Number(saved.amount),
+          balanceBefore: available,
+          balanceAfter:
+            Math.round((available - Number(saved.amount)) * 100) / 100,
+          metadata: { source: 'platform_commission_payout' },
+        });
+        return saved;
       }));
     if (payout.status !== PayoutStatus.PENDING) return payout;
 
@@ -1617,7 +2183,16 @@ export class PaymentsService {
         locked.paypalItemId = provider.itemId;
         locked.providerStatus = provider.status;
         locked.status = PayoutStatus.PROCESSING;
-        return manager.save(PlatformPayout, locked);
+        const saved = await manager.save(PlatformPayout, locked);
+        await this.financialLedgerService.update(
+          manager,
+          `platform_payout:${locked.id}`,
+          {
+            providerReferenceId: provider.itemId ?? provider.batchId,
+            providerStatus: provider.status,
+          },
+        );
+        return saved;
       });
       await this.notifyPlatformPayoutDecision(processing);
       return processing;
@@ -1634,6 +2209,14 @@ export class PaymentsService {
           locked.errorMessage =
             error instanceof Error ? error.message : 'PayPal payout failed';
           await manager.save(PlatformPayout, locked);
+          await this.financialLedgerService.update(
+            manager,
+            `platform_payout:${locked.id}`,
+            {
+              status: FinancialLedgerStatus.FAILED,
+              providerStatus: 'INITIATION_FAILED',
+            },
+          );
         }
         return locked;
       });
@@ -1780,34 +2363,84 @@ export class PaymentsService {
 
   @Cron(CronExpression.EVERY_HOUR)
   async releaseMatureCourseEarnings(tutorId?: string) {
-    await this.dataSource.transaction((manager) =>
-      manager.query(
+    await this.dataSource.transaction(async (manager) => {
+      const matured = (await manager.query(
         `
-          WITH matured AS (
-            UPDATE course_enrollments AS enrollment
-            SET tutor_share_released_at = NOW()
-            FROM courses AS course
-            WHERE course.id = enrollment.course_id
-              AND enrollment.tutor_share_released_at IS NULL
-              AND enrollment.tutor_share_available_at <= NOW()
-              AND enrollment.tutor_share > 0
-              AND ($1::uuid IS NULL OR course.tutor_id = $1::uuid)
-            RETURNING course.tutor_id AS tutor_id, enrollment.tutor_share
-          ),
-          totals AS (
-            SELECT tutor_id, SUM(tutor_share) AS amount
-            FROM matured
-            GROUP BY tutor_id
-          )
-          UPDATE tutor_profiles AS profile
-          SET balance = profile.balance + totals.amount,
-              updated_at = NOW()
-          FROM totals
-          WHERE profile.user_id = totals.tutor_id
+          UPDATE course_enrollments AS enrollment
+          SET tutor_share_released_at = NOW()
+          FROM courses AS course
+          WHERE course.id = enrollment.course_id
+            AND enrollment.tutor_share_released_at IS NULL
+            AND enrollment.tutor_share_available_at <= NOW()
+            AND enrollment.tutor_share > 0
+            AND ($1::uuid IS NULL OR course.tutor_id = $1::uuid)
+          RETURNING
+            enrollment.id AS "enrollmentId",
+            enrollment.course_id AS "courseId",
+            course.tutor_id AS "tutorId",
+            enrollment.tutor_share AS "tutorShare",
+            enrollment.tutor_share_released_at AS "releasedAt"
         `,
         [tutorId ?? null],
-      ),
-    );
+      )) as Array<{
+        enrollmentId: string;
+        courseId: string;
+        tutorId: string;
+        tutorShare: string | number;
+        releasedAt: Date | string;
+      }>;
+
+      const byTutor = new Map<string, typeof matured>();
+      for (const earning of matured) {
+        byTutor.set(earning.tutorId, [
+          ...(byTutor.get(earning.tutorId) ?? []),
+          earning,
+        ]);
+      }
+
+      for (const [earningTutorId, earnings] of byTutor) {
+        const profile = await manager.findOne(TutorProfile, {
+          where: { userId: earningTutorId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!profile) {
+          throw new NotFoundException('Tutor profile not found');
+        }
+        let runningBalance = Number(profile.balance);
+        const total = earnings.reduce(
+          (sum, earning) => sum + Number(earning.tutorShare),
+          0,
+        );
+        await manager.increment(
+          TutorProfile,
+          { userId: earningTutorId },
+          'balance',
+          total,
+        );
+        for (const earning of earnings) {
+          const amount = Number(earning.tutorShare);
+          const balanceBefore = runningBalance;
+          runningBalance = Math.round((runningBalance + amount) * 100) / 100;
+          await this.financialLedgerService.record(manager, {
+            eventKey: `tutor_earning:course:${earning.enrollmentId}`,
+            transactionType: FinancialTransactionType.TUTOR_EARNING_RELEASE,
+            status: FinancialLedgerStatus.SUCCEEDED,
+            provider: 'internal',
+            method: 'course_earnings',
+            amount,
+            currency: 'USD',
+            tutorId: earningTutorId,
+            courseId: earning.courseId,
+            enrollmentId: earning.enrollmentId,
+            tutorShare: amount,
+            balanceBefore,
+            balanceAfter: runningBalance,
+            occurredAt: new Date(earning.releasedAt),
+            metadata: { source: 'course_earning_hold_release' },
+          });
+        }
+      }
+    });
   }
 
   /**
@@ -1933,7 +2566,13 @@ export class PaymentsService {
       payout.status = PayoutStatus.SUCCESS;
       payout.adminNote = `Approved by admin ${adminId}`;
       payout.processedAt = new Date();
-      return { payout: await manager.save(Payout, payout), changed: true };
+      const saved = await manager.save(Payout, payout);
+      await this.financialLedgerService.update(
+        manager,
+        `tutor_payout:${payout.id}`,
+        { status: FinancialLedgerStatus.SUCCEEDED },
+      );
+      return { payout: saved, changed: true };
     });
     if (result.changed) await this.notifyPayoutDecision(result.payout, true);
     return result.payout;
@@ -1969,7 +2608,25 @@ export class PaymentsService {
       payout.status = PayoutStatus.FAILED;
       payout.adminNote = reason;
       payout.processedAt = new Date();
-      return { payout: await manager.save(Payout, payout), changed: true };
+      const saved = await manager.save(Payout, payout);
+      await this.financialLedgerService.update(
+        manager,
+        `tutor_payout:${payout.id}`,
+        { status: FinancialLedgerStatus.FAILED },
+      );
+      await this.financialLedgerService.record(manager, {
+        eventKey: `payout_reversal:tutor:${payout.id}:admin_rejection`,
+        transactionType: FinancialTransactionType.PAYOUT_REVERSAL,
+        status: FinancialLedgerStatus.REVERSED,
+        provider: 'manual',
+        method: payout.method ?? 'manual',
+        amount: Number(payout.amount),
+        currency: 'USD',
+        tutorId: payout.tutorId,
+        payoutId: payout.id,
+        metadata: { reason: 'admin_rejection' },
+      });
+      return { payout: saved, changed: true };
     });
     if (result.changed) {
       await this.notifyPayoutDecision(result.payout, false, reason);
@@ -2009,14 +2666,5 @@ export class PaymentsService {
         `<div dir="rtl"><p>${bodyAr}</p></div><hr><div dir="ltr"><p>${bodyEn}</p></div>`,
       );
     }
-  }
-
-  private uploadToCloudinary(buffer: Buffer): Promise<string> {
-    return this.storage
-      .upload(buffer, {
-        folder: 'mrh-academy/payments',
-        resourceType: 'auto',
-      })
-      .then((result) => result.secureUrl);
   }
 }

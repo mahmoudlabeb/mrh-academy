@@ -78,7 +78,10 @@ export class PayPalService {
     return body.access_token;
   }
 
-  async createOrder(payment: Payment): Promise<{
+  async createOrder(
+    payment: Payment,
+    returnLocale: 'ar' | 'en' = 'ar',
+  ): Promise<{
     orderId: string;
     approvalUrl: string;
   }> {
@@ -108,8 +111,8 @@ export class PayPalService {
         payment_source: {
           paypal: {
             experience_context: {
-              return_url: `${frontendUrl}/student/wallet?paypalPaymentId=${payment.id}`,
-              cancel_url: `${frontendUrl}/student/wallet?paypalCancelled=1`,
+              return_url: `${frontendUrl}/${returnLocale}/learn/wallet?paypalPaymentId=${payment.id}`,
+              cancel_url: `${frontendUrl}/${returnLocale}/learn/wallet?paypalCancelled=1`,
               user_action: 'PAY_NOW',
             },
           },

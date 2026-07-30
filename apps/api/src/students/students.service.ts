@@ -7,6 +7,7 @@ import { Payment } from '../payments/entities/payment.entity.js';
 import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { Setting } from '../admin/entities/setting.entity.js';
 import { CommissionService } from '../payments/commission.service.js';
+import { FinancialLedgerService } from '../payments/financial-ledger.service.js';
 
 @Injectable()
 export class StudentsService {
@@ -22,6 +23,7 @@ export class StudentsService {
     @InjectRepository(PaymentMethodConfig)
     private readonly paymentMethodConfigRepository: Repository<PaymentMethodConfig>,
     private readonly commissionService: CommissionService,
+    private readonly financialLedgerService: FinancialLedgerService,
   ) {}
 
   async getBalance(userId: string) {
@@ -40,17 +42,12 @@ export class StudentsService {
   }
 
   async getPaymentHistory(userId: string, page = 1, limit = 50) {
-    const payments = await this.paymentRepository.find({
-      where: { userId: userId },
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-    return payments;
+    return this.financialLedgerService.getStudentHistory(userId, page, limit);
   }
 
   async getPaymentMethods(_userId: string) {
     const configs = await this.paymentMethodConfigRepository.find({
+      where: [{ type: 'card' }, { type: 'paypal' }],
       order: { sortOrder: 'ASC' },
     });
     if (configs.length === 0) {
@@ -58,30 +55,6 @@ export class StudentsService {
       return [
         { type: 'card', label: 'Credit Card', enabled: false, details: null },
         { type: 'paypal', label: 'PayPal', enabled: false, details: null },
-        {
-          type: 'vodafone',
-          label: 'Vodafone Cash',
-          enabled: false,
-          details: null,
-        },
-        {
-          type: 'instapay',
-          label: 'Instapay',
-          enabled: false,
-          details: null,
-        },
-        {
-          type: 'binance',
-          label: 'Binance',
-          enabled: false,
-          details: null,
-        },
-        {
-          type: 'bank',
-          label: 'Bank Transfer',
-          enabled: false,
-          details: null,
-        },
       ];
     }
     return configs.map((c) => ({

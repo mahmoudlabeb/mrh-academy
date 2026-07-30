@@ -15,6 +15,7 @@ import { RedisService } from '../../redis/redis.service';
 import { CourseStatus, LessonStatus } from '@mrh/types';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ClassroomAccessService } from '../../classroom/classroom-access.service';
+import { FinancialLedgerService } from '../../payments/financial-ledger.service';
 
 describe('B1 Preservation — Non-Datetime Booking Logic', () => {
   let service: LessonsService;
@@ -108,6 +109,14 @@ describe('B1 Preservation — Non-Datetime Booking Logic', () => {
         },
         { provide: EmailService, useValue: emailService },
         { provide: RedisService, useValue: redisService },
+        {
+          provide: FinancialLedgerService,
+          useValue: {
+            record: jest.fn(async (_manager, value) => value),
+            recordOrUpdate: jest.fn(async (_manager, value) => value),
+            update: jest.fn(async (_manager, _eventKey, value) => value),
+          },
+        },
       ],
     }).compile();
 

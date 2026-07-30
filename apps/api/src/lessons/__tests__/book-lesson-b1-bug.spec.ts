@@ -14,6 +14,7 @@ import { EmailService } from '../../integrations/email/email.service';
 import { RedisService } from '../../redis/redis.service';
 import { CourseStatus, LessonStatus } from '@mrh/types';
 import { ClassroomAccessService } from '../../classroom/classroom-access.service';
+import { FinancialLedgerService } from '../../payments/financial-ledger.service';
 
 function futureDate(daysFromNow = 30): string {
   const d = new Date();
@@ -107,6 +108,14 @@ describe('B1 Bug Condition — Midnight Timestamp Truncation', () => {
             del: jest.fn().mockResolvedValue(1),
             set: jest.fn(),
             get: jest.fn(),
+          },
+        },
+        {
+          provide: FinancialLedgerService,
+          useValue: {
+            record: jest.fn(async (_manager, value) => value),
+            recordOrUpdate: jest.fn(async (_manager, value) => value),
+            update: jest.fn(async (_manager, _eventKey, value) => value),
           },
         },
       ],

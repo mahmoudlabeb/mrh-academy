@@ -113,7 +113,8 @@ Integration health endpoint: `GET /api/v1/health/integrations`
 - [ ] Login / logout
 - [ ] Browse tutors on student dashboard (Discover)
 - [ ] Book lesson at `/book-lesson` (requires tutor availability + balance)
-- [ ] Pay / subscribe (PayPal or manual payment approval by admin)
+- [ ] Add wallet funds through Stripe/card or PayPal and verify automatic crediting in wallet history
+- [ ] Verify the provider-confirmed transaction in Admin → Operations → Payments
 - [ ] Join classroom from My Lessons (`/classroom/{roomId}`)
 - [ ] Video, chat, whiteboard in classroom
 - [ ] Messages tab

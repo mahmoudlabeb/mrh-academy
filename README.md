@@ -7,7 +7,7 @@ MRH Academy is a comprehensive online learning platform with virtual classrooms,
 - **Multi-Role System:** Admin, SubAdmin, Tutor, and Student dashboards
 - **Virtual Classrooms:** Real-time chat, whiteboard, WebRTC video/voice, screen sharing
 - **Booking & Scheduling:** Tutor availability and lesson booking with commission tiers
-- **Payments:** 6 methods (Card/Stripe, PayPal auto-approve, manual methods with admin approval)
+- **Payments:** provider-verified Stripe/card and PayPal funding with automatic wallet crediting and a unified audit ledger
 - **Courses:** Bunny.net streaming, enrollment, referral tracking
 - **Security:** CSRF, rate limiting, session locking, JWT access/refresh separation
 

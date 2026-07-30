@@ -14,6 +14,8 @@ import {
   LessonPaymentStatus,
   LessonStatus,
   CourseStatus,
+  FinancialLedgerStatus,
+  FinancialTransactionType,
   PaymentStatus,
 } from '@mrh/types';
 import { Lesson } from './entities/lesson.entity.js';
@@ -33,6 +35,7 @@ import { Notification } from '../messages/entities/notification.entity.js';
 import { ClassroomAccessService } from '../classroom/classroom-access.service.js';
 import { Payment } from '../payments/entities/payment.entity.js';
 import { LessonFundingAllocation } from '../payments/entities/lesson-funding-allocation.entity.js';
+import { FinancialLedgerService } from '../payments/financial-ledger.service.js';
 
 @Injectable()
 export class LessonsService {
@@ -60,6 +63,7 @@ export class LessonsService {
     private readonly calendarService: CalendarService,
     private readonly dataSource: DataSource,
     private readonly classroomAccessService: ClassroomAccessService,
+    private readonly financialLedgerService: FinancialLedgerService,
   ) {}
 
   async findUserLessons(userId: string, role: UserRole, page = 1, limit = 20) {
@@ -263,7 +267,7 @@ export class LessonsService {
           where: {
             userId: studentId,
             status: In([
-              PaymentStatus.APPROVED,
+              PaymentStatus.SUCCEEDED,
               PaymentStatus.PARTIALLY_REFUNDED,
             ]),
           },
@@ -309,6 +313,27 @@ export class LessonsService {
           Classroom,
           manager.create(Classroom, { lessonId: saved.id, isActive: true }),
         );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `lesson_booking:${saved.id}`,
+          transactionType: FinancialTransactionType.LESSON_BOOKING,
+          status: FinancialLedgerStatus.SUCCEEDED,
+          provider: 'internal',
+          method: 'wallet',
+          amount: price,
+          currency: 'USD',
+          userId: studentId,
+          tutorId: dto.tutorId,
+          lessonId: saved.id,
+          adminCommission: lessonEarnings.platformFee,
+          tutorShare: lessonEarnings.tutorShare,
+          balanceBefore: Number(studentProfile.balance),
+          balanceAfter:
+            Math.round((Number(studentProfile.balance) - price) * 100) / 100,
+          metadata: {
+            durationMinutes: dto.durationMinutes,
+            scheduledTime: scheduledDate.toISOString(),
+          },
+        });
 
         return { lesson: saved, created: true };
       });
@@ -712,6 +737,13 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
           'Lesson is already completed or cancelled',
         );
       }
+      const lockedTutorProfile = await manager.findOne(TutorProfile, {
+        where: { userId: lockedLesson.tutorId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedTutorProfile) {
+        throw new NotFoundException('Tutor profile not found');
+      }
 
       const recordedPlatformFee =
         lockedLesson.platformFee === null ||
@@ -745,6 +777,24 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
           'balance',
           recordedTutorShare,
         );
+        await this.financialLedgerService.record(manager, {
+          eventKey: `tutor_earning:lesson:${lockedLesson.id}`,
+          transactionType: FinancialTransactionType.TUTOR_EARNING_RELEASE,
+          status: FinancialLedgerStatus.SUCCEEDED,
+          provider: 'internal',
+          method: 'lesson_earnings',
+          amount: recordedTutorShare,
+          currency: 'USD',
+          tutorId: lockedLesson.tutorId,
+          lessonId: lockedLesson.id,
+          tutorShare: recordedTutorShare,
+          balanceBefore: Number(lockedTutorProfile.balance),
+          balanceAfter:
+            Math.round(
+              (Number(lockedTutorProfile.balance) + recordedTutorShare) * 100,
+            ) / 100,
+          metadata: { source: 'lesson_completion' },
+        });
       }
 
       await manager.update(Classroom, { lessonId }, { isActive: false });
@@ -869,6 +919,12 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
       lockedLesson.paymentStatus = LessonPaymentStatus.REFUNDED;
       await manager.save(Lesson, lockedLesson);
 
+      const studentProfile = await manager.findOne(StudentProfile, {
+        where: { userId: lockedLesson.studentId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!studentProfile)
+        throw new NotFoundException('Student profile not found');
       await manager.increment(
         StudentProfile,
         { userId: lockedLesson.studentId },
@@ -912,6 +968,36 @@ ${googleMeetUrl ? `<p>Video Meeting: <a href="${googleMeetUrl}">Join here</a></p
       }
 
       await manager.update(Classroom, { lessonId }, { isActive: false });
+      await this.financialLedgerService.update(
+        manager,
+        `lesson_booking:${lockedLesson.id}`,
+        { status: FinancialLedgerStatus.REFUNDED },
+      );
+      await this.financialLedgerService.record(manager, {
+        eventKey: `lesson_refund:${lockedLesson.id}`,
+        transactionType: FinancialTransactionType.REFUND,
+        status: FinancialLedgerStatus.REFUNDED,
+        provider: 'internal',
+        method: 'wallet',
+        amount: Number(lockedLesson.price),
+        currency: 'USD',
+        userId: lockedLesson.studentId,
+        tutorId: lockedLesson.tutorId,
+        lessonId: lockedLesson.id,
+        adminCommission: -Number(lockedLesson.platformFee ?? 0),
+        tutorShare: -Number(lockedLesson.tutorShare ?? 0),
+        balanceBefore: Number(studentProfile.balance),
+        balanceAfter:
+          Math.round(
+            (Number(studentProfile.balance) + Number(lockedLesson.price)) * 100,
+          ) / 100,
+        metadata: {
+          reason:
+            lockedLesson.studentId === userId
+              ? 'student_cancellation'
+              : 'tutor_cancellation',
+        },
+      });
       return {
         changed: true,
         refundAmount: Number(lockedLesson.price),

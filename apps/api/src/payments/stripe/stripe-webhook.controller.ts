@@ -54,7 +54,10 @@ export class StripeWebhookController {
     }
 
     try {
-      if (event.type === 'checkout.session.completed') {
+      if (
+        event.type === 'checkout.session.completed' ||
+        event.type === 'checkout.session.async_payment_succeeded'
+      ) {
         const session = event.data.object;
 
         if (session.payment_status !== 'paid') {
@@ -90,6 +93,11 @@ export class StripeWebhookController {
           session.amount_total !== null &&
           session.amount_total !== expectedCents
         ) {
+          await this.paymentsService.markProviderPaymentFailed({
+            paymentId,
+            providerStatus: 'AMOUNT_MISMATCH',
+            providerReferenceId: session.id,
+          });
           await this.recordProcessed(event);
           throw new BadRequestException('Payment amount mismatch');
         }
@@ -97,6 +105,11 @@ export class StripeWebhookController {
           session.currency &&
           session.currency.toUpperCase() !== payment.currency.toUpperCase()
         ) {
+          await this.paymentsService.markProviderPaymentFailed({
+            paymentId,
+            providerStatus: 'CURRENCY_MISMATCH',
+            providerReferenceId: session.id,
+          });
           await this.recordProcessed(event);
           throw new BadRequestException('Payment currency mismatch');
         }
@@ -121,10 +134,37 @@ export class StripeWebhookController {
             stripeCheckoutSessionId: session.id,
             stripePaymentIntentId: paymentIntentId ?? null,
           });
-          await this.paymentsService.approvePayment(
+          await this.paymentsService.confirmProviderPayment(paymentId);
+        }
+      }
+
+      if (
+        event.type === 'checkout.session.expired' ||
+        event.type === 'checkout.session.async_payment_failed'
+      ) {
+        const session = event.data.object;
+        const paymentId = session.metadata?.paymentId;
+        if (paymentId) {
+          await this.paymentsService.markProviderPaymentFailed({
             paymentId,
-            'stripe-webhook',
-          );
+            providerStatus: event.type,
+            cancelled: event.type === 'checkout.session.expired',
+            providerReferenceId: session.id,
+          });
+        }
+      }
+
+      if (event.type === 'payment_intent.payment_failed') {
+        const intent = event.data.object;
+        const paymentId = intent.metadata?.paymentId;
+        if (paymentId) {
+          await this.paymentsService.markProviderPaymentFailed({
+            paymentId,
+            providerStatus:
+              intent.last_payment_error?.code ??
+              'payment_intent.payment_failed',
+            providerReferenceId: intent.id,
+          });
         }
       }
 
@@ -149,7 +189,60 @@ export class StripeWebhookController {
           payment.id,
           charge.amount_refunded / 100,
           charge.id,
+          event.id,
         );
+      }
+
+      if (
+        event.type === 'charge.dispute.created' ||
+        event.type === 'charge.dispute.updated' ||
+        event.type === 'charge.dispute.closed'
+      ) {
+        const dispute = event.data.object;
+        const paymentIntentValue = (
+          dispute as typeof dispute & {
+            payment_intent?: string | { id: string } | null;
+          }
+        ).payment_intent;
+        const paymentIntentId =
+          typeof paymentIntentValue === 'string'
+            ? paymentIntentValue
+            : paymentIntentValue?.id;
+        if (!paymentIntentId) {
+          throw new BadRequestException('Dispute has no payment intent');
+        }
+        const payment = await this.paymentRepository.findOne({
+          where: { stripePaymentIntentId: paymentIntentId },
+        });
+        if (!payment) {
+          throw new BadRequestException('Disputed payment not found');
+        }
+        const chargeId =
+          typeof dispute.charge === 'string'
+            ? dispute.charge
+            : dispute.charge?.id;
+        const resolution =
+          dispute.status === 'won'
+            ? 'won'
+            : dispute.status === 'lost'
+              ? 'lost'
+              : 'open';
+        if (resolution === 'lost') {
+          await this.paymentsService.refundStripePayment(
+            payment.id,
+            dispute.amount / 100,
+            chargeId,
+            event.id,
+          );
+        }
+        await this.paymentsService.recordStripeDispute({
+          paymentId: payment.id,
+          providerEventId: event.id,
+          providerReferenceId: dispute.id,
+          providerStatus: dispute.status,
+          resolution,
+          amount: dispute.amount / 100,
+        });
       }
 
       if (event.type === 'account.updated') {

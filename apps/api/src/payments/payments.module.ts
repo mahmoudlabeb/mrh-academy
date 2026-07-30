@@ -18,7 +18,6 @@ import { StripeConnectController } from './stripe/stripe-connect.controller.js';
 import { EmailService } from '../integrations/email/email.service.js';
 import { CommissionService } from './commission.service.js';
 import { PayoutReconciliationService } from './payout-reconciliation.service.js';
-import { StorageModule } from '../integrations/storage/storage.module.js';
 import { Setting } from '../admin/entities/setting.entity.js';
 import { Notification } from '../messages/entities/notification.entity.js';
 import { CourseFundingAllocation } from './entities/course-funding-allocation.entity.js';
@@ -31,6 +30,8 @@ import { Lesson } from '../lessons/entities/lesson.entity.js';
 import { LessonFundingAllocation } from './entities/lesson-funding-allocation.entity.js';
 import { PayPalWebhookController } from './paypal/paypal-webhook.controller.js';
 import { PlatformPayout } from './entities/platform-payout.entity.js';
+import { FinancialLedgerEntry } from './entities/financial-ledger-entry.entity.js';
+import { FinancialLedgerService } from './financial-ledger.service.js';
 
 @Module({
   imports: [
@@ -52,8 +53,8 @@ import { PlatformPayout } from './entities/platform-payout.entity.js';
       Lesson,
       LessonFundingAllocation,
       PlatformPayout,
+      FinancialLedgerEntry,
     ]),
-    StorageModule,
   ],
   controllers: [
     PaymentsController,
@@ -71,7 +72,14 @@ import { PlatformPayout } from './entities/platform-payout.entity.js';
     EmailService,
     CommissionService,
     PayoutReconciliationService,
+    FinancialLedgerService,
   ],
-  exports: [PaymentsService, StripeService, InvoiceService, CommissionService],
+  exports: [
+    PaymentsService,
+    StripeService,
+    InvoiceService,
+    CommissionService,
+    FinancialLedgerService,
+  ],
 })
 export class PaymentsModule {}

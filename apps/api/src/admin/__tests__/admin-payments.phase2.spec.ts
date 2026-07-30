@@ -33,7 +33,10 @@ describe('AdminPaymentsController phase 2 regression', () => {
     const stripeService = {
       createPayout: jest.fn().mockRejectedValue('stripe unavailable'),
     };
-    const payoutRepo = { update: jest.fn() };
+    const financialLedgerService = {
+      record: jest.fn(),
+      update: jest.fn(),
+    };
     const controller = new AdminPaymentsController(
       {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[0],
       stripeService as unknown as ConstructorParameters<
@@ -43,10 +46,10 @@ describe('AdminPaymentsController phase 2 regression', () => {
         typeof AdminPaymentsController
       >[2],
       {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[3],
-      payoutRepo as unknown as ConstructorParameters<
+      {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[4],
+      financialLedgerService as unknown as ConstructorParameters<
         typeof AdminPaymentsController
-      >[4],
-      {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[5],
+      >[5],
     );
 
     await expect(controller.payoutTutor('tutor-1')).rejects.toBe(
@@ -100,7 +103,10 @@ describe('AdminPaymentsController phase 2 regression', () => {
     const stripeService = {
       createPayout: jest.fn().mockResolvedValue({ id: 'po_stripe_1' }),
     };
-    const payoutRepo = { update: jest.fn().mockResolvedValue({}) };
+    const financialLedgerService = {
+      record: jest.fn(),
+      update: jest.fn(),
+    };
     const controller = new AdminPaymentsController(
       {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[0],
       stripeService as unknown as ConstructorParameters<
@@ -110,10 +116,10 @@ describe('AdminPaymentsController phase 2 regression', () => {
         typeof AdminPaymentsController
       >[2],
       {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[3],
-      payoutRepo as unknown as ConstructorParameters<
+      {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[4],
+      financialLedgerService as unknown as ConstructorParameters<
         typeof AdminPaymentsController
-      >[4],
-      {} as unknown as ConstructorParameters<typeof AdminPaymentsController>[5],
+      >[5],
     );
 
     const result = await controller.payoutTutor('tutor-1');
@@ -122,10 +128,14 @@ describe('AdminPaymentsController phase 2 regression', () => {
       message: 'Payout sent successfully',
       amount: 100,
     });
-    expect(payoutRepo.update).toHaveBeenCalledWith('payout-1', {
-      status: PayoutStatus.SUCCESS,
-      stripePayoutId: 'po_stripe_1',
-    });
+    expect(firstManager.update).toHaveBeenCalledWith(
+      expect.any(Function),
+      'payout-1',
+      {
+        status: PayoutStatus.SUCCESS,
+        stripePayoutId: 'po_stripe_1',
+      },
+    );
   });
 
   it('groups course commissions into a separate wallet for each tutor course', async () => {
@@ -164,8 +174,8 @@ describe('AdminPaymentsController phase 2 regression', () => {
           .fn()
           .mockResolvedValue([{ userId: 'tutor-1', balance: 145 }]),
       } as never,
-      {} as never,
       enrollmentRepo as never,
+      { record: jest.fn(), update: jest.fn() } as never,
     );
 
     await expect(controller.getTutorEarnings()).resolves.toEqual([

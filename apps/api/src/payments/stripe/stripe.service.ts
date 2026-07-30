@@ -45,6 +45,7 @@ export class StripeService implements OnModuleInit {
     amount: number,
     paymentId: string,
     currency: 'USD' | 'EGP',
+    returnLocale: 'ar' | 'en' = 'ar',
   ) {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
@@ -71,13 +72,20 @@ export class StripeService implements OnModuleInit {
           },
         ],
         mode: 'payment',
-        success_url: `${frontendUrl}/student?payment_success=true&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${frontendUrl}/student?payment_cancelled=true`,
+        success_url: `${frontendUrl}/${returnLocale}/learn/wallet?stripe=pending`,
+        cancel_url: `${frontendUrl}/${returnLocale}/learn/wallet?stripe=cancelled`,
         client_reference_id: paymentId,
         metadata: {
           userId,
           paymentId,
           currency,
+        },
+        payment_intent_data: {
+          metadata: {
+            userId,
+            paymentId,
+            currency,
+          },
         },
       },
       { idempotencyKey: `mrh-wallet-${paymentId}` },
@@ -95,6 +103,7 @@ export class StripeService implements OnModuleInit {
     email: string;
     referralCode?: string;
     idempotencyKey: string;
+    returnLocale: 'ar' | 'en';
   }) {
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
@@ -117,8 +126,8 @@ export class StripeService implements OnModuleInit {
           },
         ],
         mode: 'payment',
-        success_url: `${frontendUrl}/courses/${input.courseId}?payment_success=true`,
-        cancel_url: `${frontendUrl}/courses/${input.courseId}?payment_cancelled=true`,
+        success_url: `${frontendUrl}/${input.returnLocale}/courses/${input.courseId}?payment=pending`,
+        cancel_url: `${frontendUrl}/${input.returnLocale}/courses/${input.courseId}?payment=cancelled`,
         client_reference_id: input.paymentId,
         metadata: {
           checkoutType: 'course',

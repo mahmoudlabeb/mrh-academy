@@ -13,7 +13,10 @@ export class PaymentMethodsController {
   @Get()
   async getActiveMethods() {
     const configs = await this.configRepository.find({
-      where: { enabled: true },
+      where: [
+        { enabled: true, type: 'card' },
+        { enabled: true, type: 'paypal' },
+      ],
       order: { sortOrder: 'ASC' },
     });
     return configs.map((c) => ({
