@@ -17,7 +17,7 @@ import { apiClient } from "@/lib/api-client";
 type BookingStatus = "confirmed" | "completed" | "cancelled" | string;
 type PaymentStatus = "paid" | "refunded" | string;
 
-export type TutorBooking = {
+type TutorBooking = {
   id: string;
   scheduledTime: string;
   endTime?: string | null;

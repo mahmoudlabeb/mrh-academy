@@ -676,8 +676,8 @@ TypeORM uses migration timestamps to determine execution order. Duplicate timest
 **File:** `apps/web/.env.local`
 **What happens:**
 ```
-NEXT_PUBLIC_TURN_USERNAME=a8fa9c1b4742005098d45d75
-NEXT_PUBLIC_TURN_CREDENTIAL=G4Mg2NznXhw+o9sO
+NEXT_PUBLIC_TURN_USERNAME=[REDACTED]
+NEXT_PUBLIC_TURN_CREDENTIAL=[REDACTED]
 ```
 These are real credentials for a Metered.ca TURN server. The `.env.local` file is committed to the repository (visible in the workspace file tree). The `.gitignore` should prevent this, but it is present in the workspace. Anyone with repository access can use these credentials to relay WebRTC traffic at the project's expense.
 **Impact:** Credential exposure. Attackers can use the TURN relay for arbitrary traffic, generating costs or exhausting quota.

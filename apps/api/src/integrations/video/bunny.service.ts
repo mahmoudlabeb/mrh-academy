@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'node:crypto';
 
-export type BunnyVideoStatus =
+type BunnyVideoStatus =
   'created' | 'uploaded' | 'processing' | 'ready' | 'failed';
 
 type BunnyVideoResponse = {

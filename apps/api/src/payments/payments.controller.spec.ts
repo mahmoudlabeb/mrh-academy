@@ -92,11 +92,9 @@ describe('PaymentsController', () => {
     });
 
     await expect(
-      controller.downloadInvoice(
-        'payment-1',
-        { id: 'student-1' },
-        { end: jest.fn() } as never,
-      ),
+      controller.downloadInvoice('payment-1', { id: 'student-1' }, {
+        end: jest.fn(),
+      } as never),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(invoiceService.generateInvoicePdf).not.toHaveBeenCalled();
   });

@@ -27,12 +27,7 @@ describe('StripeService payment requests', () => {
   it('uses the selected EGP currency and stable payment metadata', async () => {
     const { service, create } = createService();
 
-    await service.createCheckoutSession(
-      'student-1',
-      1_500,
-      'payment-1',
-      'EGP',
-    );
+    await service.createCheckoutSession('student-1', 1_500, 'payment-1', 'EGP');
 
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({

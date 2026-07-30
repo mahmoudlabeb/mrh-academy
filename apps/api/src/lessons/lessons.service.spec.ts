@@ -266,7 +266,7 @@ describe('LessonsService', () => {
     it('returns the original confirmed lesson for a repeated booking key without charging again', async () => {
       const keyedDto: BookLessonDto = {
         ...dto,
-        idempotencyKey: '73f46f0a-6a2a-4cb0-90f0-b404f27d09c5',
+        idempotencyKey: 'test-booking-key',
       };
       const existingLesson = {
         id: 'lesson-1',
@@ -290,7 +290,7 @@ describe('LessonsService', () => {
     it('rejects a repeated booking key when the booking details changed', async () => {
       const keyedDto: BookLessonDto = {
         ...dto,
-        idempotencyKey: '73f46f0a-6a2a-4cb0-90f0-b404f27d09c5',
+        idempotencyKey: 'test-booking-key',
       };
       lessonRepository.findOne.mockResolvedValue({
         id: 'lesson-1',

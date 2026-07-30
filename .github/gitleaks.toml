@@ -3,6 +3,9 @@ title = "MRH Academy gitleaks config"
 # Extend default rules. All default rules remain active.
 # Add custom patterns specific to this project.
 
+[extend]
+useDefault = true
+
 [[rules]]
 id = "mrh-database-url"
 description = "Hardcoded PostgreSQL connection string (MRH custom)"

@@ -624,8 +624,7 @@ export class PaymentsService {
       const creditedAmountUsd =
         payment.creditedAmountUsd ??
         (payment.currency === 'EGP'
-          ? Number(payment.amount) /
-            (await this.commissionService.getEgpRate())
+          ? Number(payment.amount) / (await this.commissionService.getEgpRate())
           : Number(payment.amount));
       const refundedWalletTotal =
         Number(payment.amount) > 0
@@ -644,9 +643,8 @@ export class PaymentsService {
             ) / 100
           : 0;
       const walletRefundDelta =
-        Math.round(
-          (refundedWalletTotal - previousRefundedWalletTotal) * 100,
-        ) / 100;
+        Math.round((refundedWalletTotal - previousRefundedWalletTotal) * 100) /
+        100;
 
       const allocations = await manager.find(CourseFundingAllocation, {
         where: { paymentId },

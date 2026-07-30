@@ -889,8 +889,8 @@ The `NEXT_PUBLIC_API_URL` variable in middleware is a FOURTH env var that isn't 
 **Real bug:** `.env.local` reveals the actual configuration uses ngrok URLs for `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_WS_URL`. This means in the current dev/staging setup, WebSocket connections go to ngrok. If ngrok tunnel is down, all real-time features fail silently.
 
 **Security concern:** `.env.local` contains:
-- A real TURN server username: `a8fa9c1b4742005098d45d75`
-- A real TURN credential: `G4Mg2NznXhw+o9sO`
+- A real TURN server username: `[REDACTED]`
+- A real TURN credential: `[REDACTED]`
 
 These are likely Metered.ca credentials. Even though this is a local file (not committed to git), the fact that they appear here means they were actively used in development/testing. Credentials should be rotated if this file was ever shared.
 
@@ -902,8 +902,8 @@ These are likely Metered.ca credentials. Even though this is a local file (not c
 
 Contains live TURN server credentials:
 ```
-NEXT_PUBLIC_TURN_USERNAME=a8fa9c1b4742005098d45d75
-NEXT_PUBLIC_TURN_CREDENTIAL=G4Mg2NznXhw+o9sO
+NEXT_PUBLIC_TURN_USERNAME=[REDACTED]
+NEXT_PUBLIC_TURN_CREDENTIAL=[REDACTED]
 ```
 
 These are client-visible (`NEXT_PUBLIC_`) credentials for WebRTC TURN relay. While TURN credentials being public is inherent to how WebRTC works (the client needs them), any long-lived static credentials in a development file represent a risk if:
